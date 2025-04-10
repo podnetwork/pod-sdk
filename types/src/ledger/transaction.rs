@@ -2,6 +2,7 @@ use alloy_consensus::{transaction::RlpEcdsaTx, SignableTransaction, TxLegacy};
 use alloy_primitives::Address;
 use alloy_sol_types::SolValue;
 
+use crate::cryptography::signer::UncheckedSigned;
 use crate::cryptography::{
     hash::{Hash, Hashable},
     merkle_tree::{MerkleBuilder, Merkleizable},
@@ -31,5 +32,11 @@ impl Hashable for Transaction {
 impl Hashable for Signed<Transaction> {
     fn hash_custom(&self) -> Hash {
         self.signed.clone().tx_hash(&self.signature)
+    }
+}
+
+impl<T: Hashable + Clone> Hashable for UncheckedSigned<T> {
+    fn hash_custom(&self) -> Hash {
+        self.signed.clone().hash_custom()
     }
 }
