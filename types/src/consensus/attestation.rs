@@ -1,5 +1,7 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+use crate::cryptography::signer::UncheckedSigned;
+use crate::ledger::receipt::UncheckedReceipt;
 use crate::{
     cryptography::{
         ecdsa::{AddressECDSA, SignatureECDSA},
@@ -11,6 +13,10 @@ use crate::{
 
 pub type TransactionAttestation = Attestation<Signed<Transaction>>;
 pub type ReceiptAttestation = Attestation<Receipt>;
+
+pub type UncheckedReceiptAttestation = Attestation<UncheckedReceipt>;
+
+pub type UncheckedTransactionAttestation = Attestation<UncheckedSigned<Transaction>>;
 
 // An Attestation<T> is T signed by a replica using ECDSA
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
