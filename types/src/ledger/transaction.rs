@@ -24,19 +24,19 @@ impl Merkleizable for Transaction {
 
 impl Hashable for Transaction {
     fn hash_custom(&self) -> Hash {
-        self.clone().signature_hash()
+        self.signature_hash()
     }
 }
 
 // the actual hash used for identifying a transaction
 impl Hashable for Signed<Transaction> {
     fn hash_custom(&self) -> Hash {
-        self.signed.clone().tx_hash(&self.signature)
+        self.signed.tx_hash(&self.signature)
     }
 }
 
 impl<T: Hashable + Clone> Hashable for UncheckedSigned<T> {
     fn hash_custom(&self) -> Hash {
-        self.signed.clone().hash_custom()
+        self.signed.hash_custom()
     }
 }
