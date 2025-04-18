@@ -4,7 +4,9 @@ use anyhow::{anyhow, Context, Result};
 
 use bincode;
 use rand::{distributions::Alphanumeric, Rng};
-use rocksdb::{DBAccess, IteratorMode, TransactionDB, TransactionOptions, WriteOptions};
+use rocksdb::{
+    DBAccess, DBPinnableSlice, IteratorMode, TransactionDB, TransactionOptions, WriteOptions,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use std::path::PathBuf;
@@ -160,15 +162,22 @@ pub trait RocksDB: DBAccess
 where
     Self: Sized,
 {
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>>;
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>>;
+    fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool>;
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()>;
     fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<()>;
     fn iterator<'a>(&'a self, mode: IteratorMode) -> rocksdb::DBIteratorWithThreadMode<'a, Self>;
 }
 
 impl RocksDB for TransactionDB {
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
-        Ok(TransactionDB::get(self, key)?)
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>> {
+        // using get_pinned avoids copying out the value
+        Ok(TransactionDB::get_pinned(self, key)?)
+    }
+
+    fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
+        // using get_pinned avoids copying out the value
+        Ok(TransactionDB::get_pinned(self, key).map(|v| v.is_some())?)
     }
 
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()> {
@@ -194,8 +203,16 @@ impl RocksDB for TransactionDB {
 }
 
 impl RocksDB for rocksdb::Transaction<'_, TransactionDB> {
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
-        Ok(rocksdb::Transaction::get_for_update(self, key, true)?)
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>> {
+        // using get_pinned avoids copying out the value
+        Ok(rocksdb::Transaction::get_pinned_for_update(
+            self, key, true,
+        )?)
+    }
+
+    fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
+        // using get_pinned avoids copying out the value
+        Ok(rocksdb::Transaction::get_pinned_for_update(self, key, true).map(|v| v.is_some())?)
     }
 
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()> {
@@ -225,6 +242,7 @@ type RawKeyValue = (Box<[u8]>, Box<[u8]>);
 // Also, this can allow us to swap the underlying storage engine if needed.
 pub trait KVStorage {
     fn get<D: DeserializeOwned>(&self, key: &str) -> Result<D>;
+    fn has<K: Into<String>>(&self, key: K) -> Result<bool>;
 
     /*
     fn stream<'a, D: Deserialize<'a>>(
@@ -239,17 +257,17 @@ pub trait KVStorage {
     /// It recommended to use it when actual values (decoded th their original types) aren't
     /// needed, or it is desired to skip some items (e.g pick the last element or skip elements
     /// matching a key) to avoid deserializing items that will be dumped anyway.
-    fn iterate_raw<Key: ToString>(
+    fn iterate_raw<K: Into<String>>(
         &self,
-        from_key: Key,
-        to_key: Key,
+        from_key: K,
+        to_key: K,
     ) -> impl Iterator<Item = Result<RawKeyValue>>;
 
     /// Iterate over (key, value) pairs from `from_key` to `to_key` inclusive
-    fn iterate<Key: ToString, D: DeserializeOwned>(
+    fn iterate<K: Into<String>, D: DeserializeOwned>(
         &self,
-        from_key: Key,
-        to_key: Key,
+        from_key: K,
+        to_key: K,
     ) -> impl Iterator<Item = Result<(String, D)>> {
         self.iterate_raw(from_key, to_key).map(|entry| {
             let (k, v) = entry?;
@@ -261,10 +279,10 @@ pub trait KVStorage {
     }
 
     /// Iterate over keys from `from_key` to `to_key` inclusive
-    fn iterate_keys<Key: ToString>(
+    fn iterate_keys<K: Into<String>>(
         &self,
-        from_key: Key,
-        to_key: Key,
+        from_key: K,
+        to_key: K,
     ) -> impl Iterator<Item = Result<String>> {
         self.iterate_raw(from_key, to_key).map(|entry| {
             let (k, _) = entry?;
@@ -273,10 +291,10 @@ pub trait KVStorage {
     }
 
     /// Iterate over  values from `from_key` to `to_key` inclusive
-    fn iterate_values<Key: ToString, D: DeserializeOwned>(
+    fn iterate_values<K: Into<String>, D: DeserializeOwned>(
         &self,
-        from_key: Key,
-        to_key: Key,
+        from_key: K,
+        to_key: K,
     ) -> impl Iterator<Item = Result<D>> {
         self.iterate_raw(from_key, to_key).map(|entry| {
             let (_, v) = entry?;
@@ -284,10 +302,10 @@ pub trait KVStorage {
         })
     }
 
-    fn list<Key: ToString, D: for<'de> DeserializeOwned>(
+    fn list<K: Into<String>, D: for<'de> DeserializeOwned>(
         &self,
-        from_key: Key,
-        to_key: Key,
+        from_key: K,
+        to_key: K,
         limit: Option<usize>,
     ) -> Result<Vec<(String, D)>> {
         self.iterate(from_key, to_key)
@@ -295,10 +313,10 @@ pub trait KVStorage {
             .collect()
     }
 
-    fn list_values<Key: ToString, D: for<'de> DeserializeOwned>(
+    fn list_values<K: Into<String>, D: for<'de> DeserializeOwned>(
         &self,
-        from_key: Key,
-        to_key: Key,
+        from_key: K,
+        to_key: K,
         limit: Option<usize>,
     ) -> Result<Vec<D>> {
         self.iterate_values(from_key, to_key)
@@ -308,7 +326,7 @@ pub trait KVStorage {
 
     fn delete<K: AsRef<[u8]>>(&self, key: &K) -> Result<()>;
 
-    fn delete_range(&self, from_key: &str, to_key: &str) -> Result<()> {
+    fn delete_range<K: Into<String>>(&self, from_key: K, to_key: K) -> Result<()> {
         for res in self.iterate_raw(from_key, to_key) {
             let (k, _) = res.context("failed to iterate to next item")?;
             self.delete(&k)?;
@@ -316,16 +334,17 @@ pub trait KVStorage {
         Ok(())
     }
 
-    fn paginate_values<D: for<'de> DeserializeOwned>(
+    fn paginate_values<K: Into<String>, D: for<'de> DeserializeOwned>(
         &self,
-        start_key: &str,
-        end_key: &str,
+        start_key: K,
+        end_key: K,
         limit: usize,
     ) -> Result<PaginatedResult<D>> {
-        let entries = self.list(start_key, end_key, Some(limit + 1))?;
+        let end_key: String = end_key.into();
+        let entries = self.list(start_key.into(), end_key.clone(), Some(limit + 1))?;
 
         let cursor = if entries.len() > limit {
-            Some((entries[limit].0.clone(), end_key.to_string()))
+            Some((entries[limit].0.clone(), end_key))
         } else {
             None
         };
@@ -440,6 +459,10 @@ impl<T: RocksDB> KVStorage for T {
         }
     }
 
+    fn has<K: Into<String>>(&self, key: K) -> Result<bool> {
+        self.has(key.into())
+    }
+
     /*
     fn stream<'a, D: for<'de> Deserialize<'de> + 'static>(
         &'a self,
@@ -466,12 +489,12 @@ impl<T: RocksDB> KVStorage for T {
     }
     */
 
-    fn iterate_raw<Key: ToString>(
+    fn iterate_raw<K: Into<String>>(
         &self,
-        from_key: Key,
-        to_key: Key,
+        from_key: K,
+        to_key: K,
     ) -> impl Iterator<Item = Result<(Box<[u8]>, Box<[u8]>)>> {
-        DBRawIterator::new(from_key.to_string(), to_key.to_string(), self)
+        DBRawIterator::new(from_key.into(), to_key.into(), self)
     }
 
     fn put<V: Serialize>(&self, key: &str, value: &V) -> Result<()> {
@@ -708,5 +731,13 @@ mod tests {
             ],
             kv.list("from_0", "from_5", None).unwrap(),
         );
+    }
+
+    #[test]
+    fn has_keys() {
+        let kv = TransactionDB::temporary().unwrap();
+        assert!(!kv.has("key").unwrap());
+        kv.put("key", "value").unwrap();
+        assert!(kv.has("key").unwrap());
     }
 }
