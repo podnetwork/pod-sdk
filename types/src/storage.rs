@@ -4,7 +4,9 @@ use anyhow::{anyhow, Context, Result};
 
 use bincode;
 use rand::{distributions::Alphanumeric, Rng};
-use rocksdb::{DBAccess, IteratorMode, TransactionDB, TransactionOptions, WriteOptions};
+use rocksdb::{
+    DBAccess, DBPinnableSlice, IteratorMode, TransactionDB, TransactionOptions, WriteOptions,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use std::path::PathBuf;
@@ -160,7 +162,7 @@ pub trait RocksDB: DBAccess
 where
     Self: Sized,
 {
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>>;
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>>;
     fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool>;
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()>;
     fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<()>;
@@ -168,8 +170,10 @@ where
 }
 
 impl RocksDB for TransactionDB {
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
-        Ok(TransactionDB::get(self, key)?)
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>> {
+        // using get_pinned avoids copying out the value
+        Ok(TransactionDB::get_pinned(self, key)?)
+    }
 
     fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
         // using get_pinned avoids copying out the value
@@ -199,8 +203,12 @@ impl RocksDB for TransactionDB {
 }
 
 impl RocksDB for rocksdb::Transaction<'_, TransactionDB> {
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
-        Ok(rocksdb::Transaction::get_for_update(self, key, true)?)
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>> {
+        // using get_pinned avoids copying out the value
+        Ok(rocksdb::Transaction::get_pinned_for_update(
+            self, key, true,
+        )?)
+    }
 
     fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
         // using get_pinned avoids copying out the value
