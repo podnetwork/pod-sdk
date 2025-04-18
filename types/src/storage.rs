@@ -161,6 +161,7 @@ where
     Self: Sized,
 {
     fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>>;
+    fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool>;
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()>;
     fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<()>;
     fn iterator<'a>(&'a self, mode: IteratorMode) -> rocksdb::DBIteratorWithThreadMode<'a, Self>;
@@ -169,6 +170,10 @@ where
 impl RocksDB for TransactionDB {
     fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
         Ok(TransactionDB::get(self, key)?)
+
+    fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
+        // using get_pinned avoids copying out the value
+        Ok(TransactionDB::get_pinned(self, key).map(|v| v.is_some())?)
     }
 
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()> {
@@ -196,6 +201,10 @@ impl RocksDB for TransactionDB {
 impl RocksDB for rocksdb::Transaction<'_, TransactionDB> {
     fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
         Ok(rocksdb::Transaction::get_for_update(self, key, true)?)
+
+    fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
+        // using get_pinned avoids copying out the value
+        Ok(rocksdb::Transaction::get_pinned_for_update(self, key, true).map(|v| v.is_some())?)
     }
 
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()> {
@@ -225,6 +234,7 @@ type RawKeyValue = (Box<[u8]>, Box<[u8]>);
 // Also, this can allow us to swap the underlying storage engine if needed.
 pub trait KVStorage {
     fn get<D: DeserializeOwned>(&self, key: &str) -> Result<D>;
+    fn has<K: Into<String>>(&self, key: K) -> Result<bool>;
 
     /*
     fn stream<'a, D: Deserialize<'a>>(
@@ -438,6 +448,10 @@ impl<T: RocksDB> KVStorage for T {
         } else {
             Err(anyhow!("Key not found"))
         }
+    }
+
+    fn has<K: Into<String>>(&self, key: K) -> Result<bool> {
+        self.has(key.into())
     }
 
     /*
@@ -708,5 +722,13 @@ mod tests {
             ],
             kv.list("from_0", "from_5", None).unwrap(),
         );
+    }
+
+    #[test]
+    fn has_keys() {
+        let kv = TransactionDB::temporary().unwrap();
+        assert!(!kv.has("key").unwrap());
+        kv.put("key", "value").unwrap();
+        assert!(kv.has("key").unwrap());
     }
 }
