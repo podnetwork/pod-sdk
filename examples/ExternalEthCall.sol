@@ -42,7 +42,7 @@ contract ExternalEthCall {
         bytes memory inputData = abi.encode(args.chainId, args.ethCallArgs);
 
         address precompileAddress = address(
-            uint160(uint256(keccak256("POD_REMOTE_ETH_CALL")))
+            uint160(uint256(keccak256("POD_EXTERNAL_ETH_CALL")))
         );
 
         (bool success, bytes memory output) = precompileAddress.staticcall{
@@ -63,7 +63,7 @@ contract ExternalEthCall {
         bytes memory inputData = abi.encode(args.chainId, args.ethCallArgs);
 
         address precompileAddress = address(
-            uint160(uint256(keccak256("POD_REMOTE_ETH_CALL")))
+            uint160(uint256(keccak256("POD_EXTERNAL_ETH_CALL")))
         );
 
         (bool success, bytes memory output) = precompileAddress.staticcall{
