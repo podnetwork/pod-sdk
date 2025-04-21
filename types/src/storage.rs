@@ -482,8 +482,8 @@ impl<T: RocksDB> KVStorage for T {
             count += 1;
         }
         Ok(count)
-    }  
-      
+    }
+
     fn has<K: Into<String>>(&self, key: K) -> Result<bool> {
         self.has(key.into())
     }
