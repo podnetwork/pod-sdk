@@ -1,14 +1,15 @@
 use alloy_primitives::{keccak256, Address, Uint, B256};
 use alloy_sol_types::SolValue;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 
 use bincode;
 use rand::{distributions::Alphanumeric, Rng};
-use rocksdb::{DBAccess, IteratorMode, TransactionDB, TransactionOptions, WriteOptions};
+use rocksdb::{
+    DBAccess, DBPinnableSlice, IteratorMode, TransactionDB, TransactionOptions, WriteOptions,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use std::path::PathBuf;
-// use futures::{Stream, StreamExt};
 
 use crate::ecdsa::AddressECDSA;
 use crate::{Attestation, Hashable, HeadlessAttestation, Timestamp};
@@ -161,15 +162,22 @@ pub trait RocksDB: DBAccess
 where
     Self: Sized,
 {
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>>;
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>>;
+    fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool>;
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()>;
     fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<()>;
     fn iterator<'a>(&'a self, mode: IteratorMode) -> rocksdb::DBIteratorWithThreadMode<'a, Self>;
 }
 
 impl RocksDB for TransactionDB {
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
-        Ok(TransactionDB::get(self, key)?)
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>> {
+        // using get_pinned avoids copying out the value
+        Ok(TransactionDB::get_pinned(self, key)?)
+    }
+
+    fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
+        // using get_pinned avoids copying out the value
+        Ok(TransactionDB::get_pinned(self, key).map(|v| v.is_some())?)
     }
 
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()> {
@@ -195,8 +203,16 @@ impl RocksDB for TransactionDB {
 }
 
 impl RocksDB for rocksdb::Transaction<'_, TransactionDB> {
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
-        Ok(rocksdb::Transaction::get_for_update(self, key, true)?)
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>> {
+        // using get_pinned avoids copying out the value
+        Ok(rocksdb::Transaction::get_pinned_for_update(
+            self, key, true,
+        )?)
+    }
+
+    fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
+        // using get_pinned avoids copying out the value
+        Ok(rocksdb::Transaction::get_pinned_for_update(self, key, true).map(|v| v.is_some())?)
     }
 
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()> {
@@ -219,11 +235,14 @@ pub struct PaginatedResult<T> {
     pub cursor: Option<(String, String)>,
 }
 
+type RawKeyValue = (Box<[u8]>, Box<[u8]>);
+
 // KVStorage allows us to define a higher-level api than the rocksdb one
 // without defining the trait twice.
 // Also, this can allow us to swap the underlying storage engine if needed.
 pub trait KVStorage {
     fn get<D: DeserializeOwned>(&self, key: &str) -> Result<D>;
+    fn has<K: Into<String>>(&self, key: K) -> Result<bool>;
 
     /*
     fn stream<'a, D: Deserialize<'a>>(
@@ -233,49 +252,99 @@ pub trait KVStorage {
     ) -> Box<dyn Stream<Item = Result<(String, D)>>>;
     */
 
-    fn list<D: for<'de> DeserializeOwned>(
+    /// Iterate over raw bytes of (key, value) pairs
+    ///
+    /// It recommended to use it when actual values (decoded th their original types) aren't
+    /// needed, or it is desired to skip some items (e.g pick the last element or skip elements
+    /// matching a key) to avoid deserializing items that will be dumped anyway.
+    fn iterate_raw<K: Into<String>>(
         &self,
-        from_key: &str,
-        to_key: &str,
-        limit: Option<usize>,
-    ) -> Result<Vec<(String, D)>>;
+        from_key: K,
+        to_key: K,
+    ) -> impl Iterator<Item = Result<RawKeyValue>>;
 
-    fn list_values<D: for<'de> DeserializeOwned>(
+    /// Iterate over (key, value) pairs from `from_key` to `to_key` inclusive
+    fn iterate<K: Into<String>, D: DeserializeOwned>(
         &self,
-        from_key: &str,
-        to_key: &str,
-        limit: Option<usize>,
-    ) -> Result<Vec<D>> {
-        Ok(self
-            .list::<D>(from_key, to_key, limit)
-            .map_err(|e| anyhow!("Error listing values: {}", e.to_string()))?
-            .into_iter()
-            .map(|(_k, v)| v)
-            .collect())
+        from_key: K,
+        to_key: K,
+    ) -> impl Iterator<Item = Result<(String, D)>> {
+        self.iterate_raw(from_key, to_key).map(|entry| {
+            let (k, v) = entry?;
+            Ok((
+                String::from_utf8(k.into_vec()).context("invalid utf8 key")?,
+                bincode::deserialize(&v).context("failed to deserialize during iteration")?,
+            ))
+        })
     }
 
-    fn delete(&self, key: &str) -> Result<()>;
+    /// Iterate over keys from `from_key` to `to_key` inclusive
+    fn iterate_keys<K: Into<String>>(
+        &self,
+        from_key: K,
+        to_key: K,
+    ) -> impl Iterator<Item = Result<String>> {
+        self.iterate_raw(from_key, to_key).map(|entry| {
+            let (k, _) = entry?;
+            String::from_utf8(k.into_vec()).context("invalid utf8 key")
+        })
+    }
 
-    fn delete_range(&self, from_key: &str, to_key: &str) -> Result<()> {
-        // TODO: improve, we shouldn't need to deserialize to json Value
-        let iter = self.list::<serde_json::Value>(from_key, to_key, None)?;
-        for item in iter {
-            self.delete(&item.0)
-                .map_err(|_| anyhow!("Invalid utf8 key"))?;
+    /// Iterate over  values from `from_key` to `to_key` inclusive
+    fn iterate_values<K: Into<String>, D: DeserializeOwned>(
+        &self,
+        from_key: K,
+        to_key: K,
+    ) -> impl Iterator<Item = Result<D>> {
+        self.iterate_raw(from_key, to_key).map(|entry| {
+            let (_, v) = entry?;
+            bincode::deserialize(&v).context("failed to deserialize during iteration")
+        })
+    }
+
+    fn list<K: Into<String>, D: for<'de> DeserializeOwned>(
+        &self,
+        from_key: K,
+        to_key: K,
+        limit: Option<usize>,
+    ) -> Result<Vec<(String, D)>> {
+        self.iterate(from_key, to_key)
+            .take(limit.unwrap_or(usize::MAX))
+            .collect()
+    }
+
+    fn list_values<K: Into<String>, D: for<'de> DeserializeOwned>(
+        &self,
+        from_key: K,
+        to_key: K,
+        limit: Option<usize>,
+    ) -> Result<Vec<D>> {
+        self.iterate_values(from_key, to_key)
+            .take(limit.unwrap_or(usize::MAX))
+            .collect()
+    }
+
+    fn delete<K: AsRef<[u8]>>(&self, key: &K) -> Result<()>;
+
+    fn delete_range<K: Into<String>>(&self, from_key: K, to_key: K) -> Result<()> {
+        for res in self.iterate_raw(from_key, to_key) {
+            let (k, _) = res.context("failed to iterate to next item")?;
+            self.delete(&k)?;
         }
         Ok(())
     }
 
-    fn paginate_values<D: for<'de> DeserializeOwned>(
+    fn paginate_values<K: Into<String>, D: for<'de> DeserializeOwned>(
         &self,
-        start_key: &str,
-        end_key: &str,
+        start_key: K,
+        end_key: K,
         limit: usize,
     ) -> Result<PaginatedResult<D>> {
-        let entries = self.list::<D>(start_key, end_key, Some(limit + 1))?;
+        let end_key: String = end_key.into();
+        let entries = self.list(start_key.into(), end_key.clone(), Some(limit + 1))?;
 
         let cursor = if entries.len() > limit {
-            Some((entries[limit].0.clone(), end_key.to_string()))
+            Some((entries[limit].0.clone(), end_key))
         } else {
             None
         };
@@ -287,6 +356,61 @@ pub trait KVStorage {
     }
 
     fn put<T: Serialize>(&self, key: &str, value: &T) -> Result<()>;
+}
+
+/// Iterator that iterates over raw byte (key, value) pairs in the DB.
+struct DBRawIterator<'db, DB: DBAccess> {
+    direction: rocksdb::Direction,
+    _from: String,
+    to: String,
+    iterator: rocksdb::DBIteratorWithThreadMode<'db, DB>,
+}
+
+impl<'db, DB: RocksDB> DBRawIterator<'db, DB> {
+    fn new(from: String, to: String, db: &'db DB) -> Self {
+        let direction = if from <= to {
+            rocksdb::Direction::Forward
+        } else {
+            rocksdb::Direction::Reverse
+        };
+
+        Self {
+            iterator: db.iterator(IteratorMode::From(from.as_bytes(), direction)),
+            direction,
+            _from: from,
+            to,
+        }
+    }
+}
+
+impl<DB> Iterator for DBRawIterator<'_, DB>
+where
+    DB: DBAccess,
+{
+    type Item = Result<(Box<[u8]>, Box<[u8]>)>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let res = self.iterator.next()?;
+        let (k, v) = match res {
+            Ok((k, v)) => (k, v),
+            Err(e) => return Some(Err(anyhow!("failed to get next iterated item: {e:?}"))),
+        };
+
+        match self.direction {
+            rocksdb::Direction::Forward => {
+                if k.as_ref() > self.to.as_bytes() {
+                    return None;
+                }
+            }
+            rocksdb::Direction::Reverse => {
+                if k.as_ref() < self.to.as_bytes() {
+                    return None;
+                }
+            }
+        }
+
+        Some(Ok((k, v)))
+    }
 }
 
 pub trait KVTransactionalStorage: KVStorage {
@@ -335,6 +459,10 @@ impl<T: RocksDB> KVStorage for T {
         }
     }
 
+    fn has<K: Into<String>>(&self, key: K) -> Result<bool> {
+        self.has(key.into())
+    }
+
     /*
     fn stream<'a, D: for<'de> Deserialize<'de> + 'static>(
         &'a self,
@@ -361,56 +489,21 @@ impl<T: RocksDB> KVStorage for T {
     }
     */
 
-    fn list<D: for<'de> DeserializeOwned>(
+    fn iterate_raw<K: Into<String>>(
         &self,
-        from_key: &str,
-        to_key: &str,
-        limit: Option<usize>,
-    ) -> Result<Vec<(String, D)>> {
-        let mut result = Vec::new();
-        let direction = if from_key <= to_key {
-            rocksdb::Direction::Forward
-        } else {
-            rocksdb::Direction::Reverse
-        };
-        let iter = self.iterator(IteratorMode::From(from_key.as_bytes(), direction));
-        for item in iter {
-            if result.len() == limit.unwrap_or(usize::MAX) {
-                break;
-            }
-            let (k, value) = item?;
-            if matches!(direction, rocksdb::Direction::Forward) && k.as_ref() > to_key.as_bytes()
-                || matches!(direction, rocksdb::Direction::Reverse)
-                    && k.as_ref() < to_key.as_bytes()
-            {
-                break;
-            }
-
-            // NOTE: temporary fix for bincode deserialization failure
-            // TODO: remove this
-            match bincode::deserialize(&value) {
-                Ok(v) => result.push((
-                    String::from_utf8(k.to_vec()).map_err(|_| anyhow!("Invalid utf8 key"))?,
-                    v,
-                )),
-                Err(e) => {
-                    println!("bincode deserialization failed: {}", e);
-                    self.delete(&k)?;
-                }
-            };
-        }
-        Ok(result)
+        from_key: K,
+        to_key: K,
+    ) -> impl Iterator<Item = Result<(Box<[u8]>, Box<[u8]>)>> {
+        DBRawIterator::new(from_key.into(), to_key.into(), self)
     }
 
     fn put<V: Serialize>(&self, key: &str, value: &V) -> Result<()> {
         let serialized = bincode::serialize(value)?;
-        self.put(key, &serialized)?;
-        Ok(())
+        self.put(key, &serialized)
     }
 
-    fn delete(&self, key: &str) -> Result<()> {
-        self.delete(key)?;
-        Ok(())
+    fn delete<K: AsRef<[u8]>>(&self, key: &K) -> Result<()> {
+        self.delete(key)
     }
 }
 
@@ -486,3 +579,165 @@ impl<T: KVStorage> Queue for KVQueue<T> {
     }
 }
 */
+
+#[cfg(test)]
+mod tests {
+    use rocksdb::TransactionDB;
+
+    use super::{KVStorage, TemporaryStorage};
+
+    #[test]
+    fn iterating_over_kvstorage_values() {
+        let kv = TransactionDB::temporary().unwrap();
+
+        // case 1: empty
+        assert!(kv.iterate::<_, ()>("from", "to").next().is_none());
+
+        for v in 0..5usize {
+            KVStorage::put(&kv, &format!("from_{v}"), &v).unwrap();
+        }
+        // case 2: iterate forward
+        let mut retrieved = 0;
+        for (idx, item) in kv
+            .iterate_values::<_, usize>("from_0", "from_2")
+            .enumerate()
+        {
+            assert_eq!(idx, item.unwrap());
+            retrieved += 1;
+        }
+        assert_eq!(3, retrieved);
+
+        // case 3: iterate backward
+        let mut retrieved = 0;
+        for (idx, item) in kv
+            .iterate_values::<_, usize>("from_4", "from_3")
+            .enumerate()
+        {
+            assert_eq!((4 - idx), item.unwrap());
+            retrieved += 1;
+        }
+        assert_eq!(2, retrieved);
+
+        // case 4: iterate 1 element
+        let mut iter = kv.iterate_values::<_, usize>("from_3", "from_3");
+        assert_eq!(3, iter.next().unwrap().unwrap());
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn iterating_over_kvstorage_items() {
+        let kv = TransactionDB::temporary().unwrap();
+
+        // case 1: empty
+        assert!(kv.iterate::<_, ()>("from", "to").next().is_none());
+
+        for v in 0..5usize {
+            KVStorage::put(&kv, &format!("from_{v}"), &v).unwrap();
+        }
+        // case 2: iterate forward
+        let mut retrieved = 0;
+        for (idx, item) in kv.iterate::<_, usize>("from_0", "from_2").enumerate() {
+            assert_eq!((format!("from_{idx}"), idx), item.unwrap());
+            retrieved += 1;
+        }
+        assert_eq!(3, retrieved);
+
+        // case 3: iterate backward
+        let mut retrieved = 0;
+        for (idx, item) in kv.iterate::<_, usize>("from_4", "from_3").enumerate() {
+            let expected = 4 - idx;
+            assert_eq!((format!("from_{expected}"), expected), item.unwrap());
+            retrieved += 1;
+        }
+        assert_eq!(2, retrieved);
+
+        // case 4: iterate 1 element
+        let mut iter = kv.iterate::<_, usize>("from_3", "from_3");
+        assert_eq!(("from_3".to_string(), 3), iter.next().unwrap().unwrap());
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn listing_items() {
+        let kv = TransactionDB::temporary().unwrap();
+
+        // case 1: empty
+        assert!(kv.list::<_, ()>("from", "to", None).unwrap().is_empty());
+
+        for v in 0..5usize {
+            KVStorage::put(&kv, &format!("from_{v}"), &v).unwrap();
+        }
+
+        // case 2: list forward
+        assert_eq!(
+            vec![
+                ("from_0".into(), 0),
+                ("from_1".into(), 1),
+                ("from_2".into(), 2)
+            ],
+            kv.list("from_0", "from_2", None).unwrap(),
+        );
+
+        // With limit
+        assert_eq!(
+            vec![("from_0".into(), 0), ("from_1".into(), 1),],
+            kv.list("from_0", "from_2", Some(2)).unwrap(),
+        );
+
+        // case 3: list backward
+        assert_eq!(
+            vec![
+                ("from_2".into(), 2),
+                ("from_1".into(), 1),
+                ("from_0".into(), 0)
+            ],
+            kv.list("from_2", "from_0", None).unwrap(),
+        );
+        // With limit
+        assert_eq!(
+            vec![("from_2".into(), 2), ("from_1".into(), 1),],
+            kv.list("from_2", "from_0", Some(2)).unwrap(),
+        );
+
+        // case 4: skips non-matching elements
+        KVStorage::put(&kv, "fr", &()).unwrap();
+        KVStorage::put(&kv, "foo", &()).unwrap();
+        KVStorage::put(&kv, "afrom_0", &()).unwrap();
+        assert_eq!(
+            vec![("from_0".into(), 0), ("from_1".into(), 1),],
+            kv.list("from_0", "from_2", Some(2)).unwrap(),
+        );
+    }
+
+    #[test]
+    fn deleting_range() {
+        let kv = TransactionDB::temporary().unwrap();
+
+        // case 1: empty
+        kv.delete_range("from", "to").unwrap();
+
+        for v in 0..5usize {
+            KVStorage::put(&kv, &format!("from_{v}"), &v).unwrap();
+        }
+
+        // case 2: delete mid-range
+        kv.delete_range("from_2", "from_3").unwrap();
+
+        assert_eq!(
+            vec![
+                ("from_0".into(), 0),
+                ("from_1".into(), 1),
+                ("from_4".into(), 4)
+            ],
+            kv.list("from_0", "from_5", None).unwrap(),
+        );
+    }
+
+    #[test]
+    fn has_keys() {
+        let kv = TransactionDB::temporary().unwrap();
+        assert!(!kv.has("key").unwrap());
+        kv.put("key", "value").unwrap();
+        assert!(kv.has("key").unwrap());
+    }
+}
