@@ -11,8 +11,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use std::path::PathBuf;
 
-use crate::ecdsa::AddressECDSA;
-use crate::{Attestation, Hashable, HeadlessAttestation, Timestamp};
+use crate::{ecdsa::AddressECDSA, Attestation, Hashable, HeadlessAttestation, Timestamp};
 
 use alloy_primitives::B256 as Hash;
 

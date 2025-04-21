@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::cryptography::ecdsa::SignatureECDSA;
-use crate::cryptography::hash::Hashable;
+use crate::cryptography::{ecdsa::SignatureECDSA, hash::Hashable};
 
 // Certificate represents a proof on an agreement by the committee
 #[derive(Clone, Serialize, Deserialize, Debug)]

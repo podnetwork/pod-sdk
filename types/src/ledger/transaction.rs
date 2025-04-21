@@ -2,11 +2,10 @@ use alloy_consensus::{transaction::RlpEcdsaTx, SignableTransaction, TxLegacy};
 use alloy_primitives::Address;
 use alloy_sol_types::SolValue;
 
-use crate::cryptography::signer::UncheckedSigned;
 use crate::cryptography::{
     hash::{Hash, Hashable},
     merkle_tree::{MerkleBuilder, Merkleizable},
-    signer::Signed,
+    signer::{Signed, UncheckedSigned},
 };
 
 pub type Transaction = TxLegacy;

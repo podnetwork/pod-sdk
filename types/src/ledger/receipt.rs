@@ -7,11 +7,10 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 use super::{log, Transaction};
-use crate::cryptography::signer::UncheckedSigned;
 use crate::cryptography::{
     hash::{Hash, Hashable},
     merkle_tree::{index_prefix, MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable},
-    signer::Signed,
+    signer::{Signed, UncheckedSigned},
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -240,8 +239,9 @@ mod test {
     use alloy_primitives::{Log, LogData, TxKind, U256};
     use alloy_signer_local::PrivateKeySigner;
 
-    use crate::cryptography::merkle_tree::StandardMerkleTree;
-    use crate::{Hashable, Merkleizable, Transaction};
+    use crate::{
+        cryptography::merkle_tree::StandardMerkleTree, Hashable, Merkleizable, Transaction,
+    };
 
     use super::Receipt;
 

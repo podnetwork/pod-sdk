@@ -6,10 +6,11 @@ use alloy_pubsub::Subscription;
 use alloy_rpc_types_eth::Filter;
 use alloy_transport::{Transport, TransportResult};
 use futures::StreamExt;
-use pod_types::consensus::Committee;
-use pod_types::ledger::log::VerifiableLog;
-use pod_types::pagination::ApiPaginatedResult;
-use pod_types::pagination::CursorPaginationRequest;
+use pod_types::{
+    consensus::Committee,
+    ledger::log::VerifiableLog,
+    pagination::{ApiPaginatedResult, CursorPaginationRequest},
+};
 
 use alloy_primitives::{Address, Log, B256 as Hash};
 

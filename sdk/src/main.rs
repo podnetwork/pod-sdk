@@ -1,8 +1,10 @@
 //! Example showing how to send a legacy transaction.
 
-use std::env;
-use std::str::FromStr;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    env,
+    str::FromStr,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{address, Address, TxKind, U256};

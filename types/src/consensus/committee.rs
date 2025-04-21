@@ -1,6 +1,8 @@
 use super::{Attestation, Certificate};
-use crate::cryptography::{ecdsa::AddressECDSA, hash::Hashable};
-use crate::ecdsa::SignatureECDSA;
+use crate::{
+    cryptography::{ecdsa::AddressECDSA, hash::Hashable},
+    ecdsa::SignatureECDSA,
+};
 use alloy_primitives::B256;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};

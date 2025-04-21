@@ -1,6 +1,5 @@
 use alloy_consensus::{TxType, TypedTransaction};
-use alloy_eips::eip2930::AccessList;
-use alloy_eips::eip7702::SignedAuthorization;
+use alloy_eips::{eip2930::AccessList, eip7702::SignedAuthorization};
 use alloy_network::{
     BuildResult, Network, NetworkWallet, ReceiptResponse, TransactionBuilder,
     TransactionBuilderError,
@@ -16,8 +15,10 @@ use pod_types::ledger::Transaction;
 
 use alloy_consensus::TxEnvelope;
 use alloy_rpc_types::TransactionReceipt;
-use pod_types::ecdsa::{AddressECDSA, SignatureECDSA};
-use pod_types::{Committee, Hashable, Merkleizable, Receipt, Signed, Timestamp};
+use pod_types::{
+    ecdsa::{AddressECDSA, SignatureECDSA},
+    Committee, Hashable, Merkleizable, Receipt, Signed, Timestamp,
+};
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
