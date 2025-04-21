@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 // Deploy the contract with the following command in the pod-sdk directory:
-// forge create contracts/src/remoteEthCall.sol:RemoteEthCall --legacy --private-key $FAUCET_PRIVATE_KEY --gas-limit 1000000 --evm-version berlin --broadcast
-contract RemoteEthCall {
+// forge create examples/ExternalEthCall.sol:ExternalEthCall --legacy --private-key $FAUCET_PRIVATE_KEY --gas-limit 1000000 --evm-version berlin --broadcast
+contract ExternalEthCall {
     struct Transaction {
         address from;
         address to;
@@ -18,13 +18,10 @@ contract RemoteEthCall {
         bytes blockNumber;
     }
 
-    struct RemoteEthCallArgs {
+    struct ExternalEthCallArgs {
         uint256 chainId;
         EthCallArgs ethCallArgs;
     }
-
-    address public constant EXTERNAL_RPC_CALL =
-        0x0000000000000000000000000000000000000FfF;
 
     struct ExampleResponseFromPrecompile {
         bool isStakingPaused;
@@ -37,14 +34,18 @@ contract RemoteEthCall {
     }
 
     // Calling this:
-    // cast call <DEPLOYED_CONTRACT_ADDRESS> "remoteEthCallBalanceOf((uint256,((address,address,uint256,uint256,uint256,bytes),bytes)))" "(1,((0x0000000000000000000000000000000000000000,0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,0x0,0x0,0x0,0x70a08231000000000000000000000000F0211d1Bd0c8D208C6A5895FAC32D5534fdf317A),0x6c6174657374))"
+    // cast call <DEPLOYED_CONTRACT_ADDRESS> "externalEthCallBalanceOf((uint256,((address,address,uint256,uint256,uint256,bytes),bytes)))" "(1,((0x0000000000000000000000000000000000000000,0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,0x0,0x0,0x0,0x70a08231000000000000000000000000F0211d1Bd0c8D208C6A5895FAC32D5534fdf317A),0x6c6174657374))"
     // -> returns uint256
-    function remoteEthCallBalanceOf(
-        RemoteEthCallArgs memory args
+    function externalEthCallBalanceOf(
+        ExternalEthCallArgs memory args
     ) public view returns (uint256) {
         bytes memory inputData = abi.encode(args.chainId, args.ethCallArgs);
 
-        (bool success, bytes memory output) = EXTERNAL_RPC_CALL.staticcall{
+        address precompileAddress = address(
+            uint160(uint256(keccak256("POD_REMOTE_ETH_CALL")))
+        );
+
+        (bool success, bytes memory output) = precompileAddress.staticcall{
             gas: gasleft()
         }(inputData);
         require(success, "Precompile call failed");
@@ -54,14 +55,18 @@ contract RemoteEthCall {
         return balance;
     }
 
-    // cast call <DEPLOYED_CONTRACT_ADDRESS> "remoteEthCallGetStruct((uint256,((address,address,uint256,uint256,uint256,bytes),bytes)))" "(1,((0x0000000000000000000000000000000000000000,0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84,0x0,0x0,0x0,0x665b4b0b),0x6c6174657374))"
+    // cast call <DEPLOYED_CONTRACT_ADDRESS> "externalEthCallGetStruct((uint256,((address,address,uint256,uint256,uint256,bytes),bytes)))" "(1,((0x0000000000000000000000000000000000000000,0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84,0x0,0x0,0x0,0x665b4b0b),0x6c6174657374))"
     // -> returns (bool,bool,uint256,uint256,uint256,uint256,uint256)
-    function remoteEthCallGetStruct(
-        RemoteEthCallArgs memory args
+    function externalEthCallGetStruct(
+        ExternalEthCallArgs memory args
     ) public view returns (uint256) {
         bytes memory inputData = abi.encode(args.chainId, args.ethCallArgs);
 
-        (bool success, bytes memory output) = EXTERNAL_RPC_CALL.staticcall{
+        address precompileAddress = address(
+            uint160(uint256(keccak256("POD_REMOTE_ETH_CALL")))
+        );
+
+        (bool success, bytes memory output) = precompileAddress.staticcall{
             gas: gasleft()
         }(inputData);
         require(success, "Precompile call failed");
