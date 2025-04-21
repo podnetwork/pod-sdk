@@ -95,14 +95,10 @@ impl VerifiableLog {
 
     pub fn generate_proof(&self) -> Option<MerkleProof> {
         self.inner.log_index.and_then(|i| {
-            match self
-                .pod_metadata
+            self.pod_metadata
                 .receipt
                 .generate_proof_for_log_hash(i.try_into().unwrap())
-            {
-                Ok(proof) => Some(proof),
-                Err(_) => None,
-            }
+                .ok()
         })
     }
 
