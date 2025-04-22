@@ -1,5 +1,3 @@
-use std::{collections::HashMap, sync::OnceLock};
-
 use crate::{consensus::attestation::TimestampedHeadlessAttestation, Receipt, Signed, Transaction};
 use serde::{Deserialize, Serialize};
 
