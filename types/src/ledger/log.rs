@@ -6,14 +6,17 @@ use alloy_sol_types::SolValue;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::consensus::attestation::HeadlessAttestation;
-use crate::cryptography::merkle_tree::{
-    index_prefix, MerkleBuilder, MerkleProof, StandardMerkleTree,
+use crate::{
+    consensus::attestation::HeadlessAttestation,
+    cryptography::{
+        hash::Hashable,
+        merkle_tree::{index_prefix, MerkleBuilder, MerkleProof, StandardMerkleTree},
+        Hash, MerkleMultiProof, Merkleizable,
+    },
+    metadata::{MetadataWrappedItem, PodLogMetadata},
+    storage::Indexed,
+    Certificate, Committee, Timestamp,
 };
-use crate::cryptography::{hash::Hashable, Hash, MerkleMultiProof, Merkleizable};
-use crate::metadata::{MetadataWrappedItem, PodLogMetadata};
-use crate::storage::Indexed;
-use crate::{Certificate, Committee, Timestamp};
 
 use super::Receipt;
 
