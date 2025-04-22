@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     consensus::attestation::HeadlessAttestation,
     cryptography::{
-        hash::Hashable, merkle_tree::{MerkleBuilder,index_prefix, MerkleProof,StandardMerkleTree}, Hash, MerkleMultiProof, Merkleizable,
+        hash::Hashable,
+        merkle_tree::{index_prefix, MerkleBuilder, MerkleProof, StandardMerkleTree},
+        Hash, MerkleMultiProof, Merkleizable,
     },
     metadata::{MetadataWrappedItem, PodLogMetadata},
     storage::Indexed,
