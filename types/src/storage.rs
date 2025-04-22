@@ -251,6 +251,8 @@ pub trait KVStorage {
     ) -> Box<dyn Stream<Item = Result<(String, D)>>>;
     */
 
+    fn count(&self, from_key: &str, to_key: &str) -> Result<usize>;
+
     /// Iterate over raw bytes of (key, value) pairs
     ///
     /// It recommended to use it when actual values (decoded th their original types) aren't
@@ -456,6 +458,29 @@ impl<T: RocksDB> KVStorage for T {
         } else {
             Err(anyhow!("Key not found"))
         }
+    }
+
+    fn count(&self, from_key: &str, to_key: &str) -> Result<usize> {
+        let direction = if from_key <= to_key {
+            rocksdb::Direction::Forward
+        } else {
+            rocksdb::Direction::Reverse
+        };
+        let iter = self.iterator(IteratorMode::From(from_key.as_bytes(), direction));
+
+        let mut count = 0;
+
+        for item in iter {
+            let (k, _value) = item?;
+            if matches!(direction, rocksdb::Direction::Forward) && k.as_ref() > to_key.as_bytes()
+                || matches!(direction, rocksdb::Direction::Reverse)
+                    && k.as_ref() < to_key.as_bytes()
+            {
+                break;
+            }
+            count += 1;
+        }
+        Ok(count)
     }
 
     fn has<K: Into<String>>(&self, key: K) -> Result<bool> {
