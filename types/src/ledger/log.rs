@@ -7,7 +7,9 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::consensus::attestation::HeadlessAttestation;
-use crate::cryptography::merkle_tree::MerkleBuilder;
+use crate::cryptography::merkle_tree::{
+    index_prefix, MerkleBuilder, MerkleProof, StandardMerkleTree,
+};
 use crate::cryptography::{hash::Hashable, Hash, MerkleMultiProof, Merkleizable};
 use crate::metadata::{MetadataWrappedItem, PodLogMetadata};
 use crate::storage::Indexed;
@@ -90,6 +92,25 @@ impl VerifiableLog {
         let num_attestations = self.pod_metadata.attestations.len();
         self.pod_metadata.attestations[num_attestations / 2].timestamp
     }
+
+    pub fn generate_proof(&self) -> Option<MerkleProof> {
+        self.inner.log_index.and_then(|i| {
+            self.pod_metadata
+                .receipt
+                .generate_proof_for_log_hash(i.try_into().unwrap())
+                .ok()
+        })
+    }
+
+    pub fn verify_proof(&self, receipt_root: Hash, log: Log, proof: MerkleProof) -> Result<bool> {
+        let log_hash =
+            StandardMerkleTree::hash_leaf(index_prefix("log_hashes", 0), log.hash_custom());
+        Ok(StandardMerkleTree::verify_proof(
+            receipt_root,
+            log_hash,
+            proof,
+        ))
+    }
 }
 
 impl Deref for VerifiableLog {
@@ -97,5 +118,109 @@ impl Deref for VerifiableLog {
 
     fn deref(&self) -> &alloy_rpc_types::Log {
         &self.inner
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use alloy_primitives::{Log, LogData, TxKind, U256};
+    use alloy_signer_local::PrivateKeySigner;
+
+    use crate::{Hashable, Merkleizable, Transaction};
+
+    #[tokio::test]
+    async fn test_verifiable_log_hash_proof() {
+        let log = Log {
+            address: "0x217f5658c6ecc27d439922263ad9bb8e992e0373"
+                .parse()
+                .unwrap(),
+            data: LogData::new_unchecked(
+                vec![
+                    "71a5674c44b823bc0df08201dfeb2e8bdf698cd684fd2bbaa79adcf2c99fc186"
+                        .parse()
+                        .unwrap(),
+                    "0000000000000000000000000000000000000000000000000000000067dc55a9"
+                        .parse()
+                        .unwrap(),
+                    "00000000000000000000000013791790bef192d14712d627f13a55c4abee52a4"
+                        .parse()
+                        .unwrap(),
+                    "00000000000000000000000000000000000000000000000000000000cfb8ab4d"
+                        .parse()
+                        .unwrap(),
+                ],
+                "0000000000000000000000000000000000000000000000000de0b6b3a7640000"
+                    .parse()
+                    .unwrap(),
+            ),
+        };
+
+        let transaction = Transaction {
+            chain_id: Some(1293),
+            to: TxKind::Call(
+                "0x217f5658c6ecc27d439922263ad9bb8e992e0373"
+                    .parse()
+                    .unwrap(),
+            ),
+            nonce: 0,
+            gas_limit: 22048,
+            gas_price: 1000000000,
+            value: U256::ZERO,
+            input: vec![
+                133, 44, 166, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 103, 220, 85, 169, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 207, 184, 171, 77, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 224, 182, 179, 167, 100, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 2, 18, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ]
+            .into(),
+        };
+        let signer = PrivateKeySigner::random();
+
+        let logs = vec![log.clone()];
+        let logs_tree = logs.to_merkle_tree();
+        let logs_root = logs_tree.root();
+
+        let rpc_log = RPCLog {
+            inner: log.clone(),
+            block_hash: Some(Hash::default()),
+            block_number: Some(0),
+            block_timestamp: Some(1742493092),
+            transaction_hash: Some(transaction.hash_custom()),
+            transaction_index: Some(0),
+            log_index: Some(0),
+            removed: false,
+        };
+
+        let verifiable_log = VerifiableLog {
+            inner: rpc_log,
+            pod_metadata: PodLogMetadata {
+                attestations: vec![],
+                receipt: Receipt {
+                    status: true,
+                    actual_gas_used: 21784,
+                    logs: logs.clone(),
+                    logs_root,
+                    tx: crate::Signer::sign_tx(&signer, &transaction).await.unwrap(),
+                    contract_address: None,
+                },
+            },
+        };
+
+        let proof = verifiable_log.generate_proof().unwrap();
+        let receipt_root = verifiable_log
+            .pod_metadata
+            .receipt
+            .to_merkle_tree()
+            .hash_custom();
+
+        assert!(verifiable_log
+            .verify_proof(receipt_root, log, proof)
+            .unwrap());
+        assert_eq!(verifiable_log.inner.log_index, Some(0));
     }
 }
