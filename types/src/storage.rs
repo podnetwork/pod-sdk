@@ -1,13 +1,13 @@
-use alloy_primitives::{Address, B256, Uint, keccak256};
+use alloy_primitives::{keccak256, Address, Uint, B256};
 use alloy_sol_types::SolValue;
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 
 use bincode;
-use rand::{Rng, distributions::Alphanumeric};
+use rand::{distributions::Alphanumeric, Rng};
 use rocksdb::{
     DBAccess, DBPinnableSlice, IteratorMode, TransactionDB, TransactionOptions, WriteOptions,
 };
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use std::path::PathBuf;
 
