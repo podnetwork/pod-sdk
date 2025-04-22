@@ -1,13 +1,13 @@
-use alloy_primitives::{keccak256, Address, Uint, B256};
+use alloy_primitives::{Address, B256, Uint, keccak256};
 use alloy_sol_types::SolValue;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 
 use bincode;
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{Rng, distributions::Alphanumeric};
 use rocksdb::{
     DBAccess, DBPinnableSlice, IteratorMode, TransactionDB, TransactionOptions, WriteOptions,
 };
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use std::path::PathBuf;
 
@@ -462,23 +462,10 @@ impl<T: RocksDB> KVStorage for T {
     }
 
     fn count(&self, from_key: &str, to_key: &str) -> Result<usize> {
-        let direction = if from_key <= to_key {
-            rocksdb::Direction::Forward
-        } else {
-            rocksdb::Direction::Reverse
-        };
-        let iter = self.iterator(IteratorMode::From(from_key.as_bytes(), direction));
-
         let mut count = 0;
 
-        for item in iter {
-            let (k, _value) = item?;
-            if matches!(direction, rocksdb::Direction::Forward) && k.as_ref() > to_key.as_bytes()
-                || matches!(direction, rocksdb::Direction::Reverse)
-                    && k.as_ref() < to_key.as_bytes()
-            {
-                break;
-            }
+        for res in self.iterate_raw(from_key, to_key) {
+            let _ = res?;
             count += 1;
         }
         Ok(count)
