@@ -20,7 +20,7 @@ w3 = Web3(Web3.HTTPProvider(PROVIDER_URL))
 # Contract details
 CONTRACT_ADDRESS = w3.to_checksum_address(os.environ.get(
     'CONTRACT_ADDRESS',
-    '0x852be42A4fc0dC62F383Eb4d21dd8613BcA28398',
+    '0x86D2fE490E19a7f8538C34D926165781FbBdf9D9',
 ))
 
 CONTRACT_ABI = [
@@ -194,6 +194,9 @@ def get_plc_audit_log(did):
 
 
 def get_last_operation(did):
+    # contract expects bytes32
+    # DID format is "did:plc:<sha256(cbor(create operation))[:24]>" with length exactly 32B
+    did = bytes(did, "utf-8")
     result = get_contract().functions.getLastOperation(did).call({
         "from":  SENDER_ADDRESS,
     })

@@ -5,7 +5,7 @@ source .env
 
 
 forge create examples/bsky-plc/plc-registry.sol:PLCRegistry \
-  --evm-version istanbul \
+  --evm-version berlin \
   --rpc-url $RPC_URL \
   --private-key $DEPLOYER_PRIVATE_KEY \
   --gas-price 1gwei \

@@ -1,8 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+struct VerifyArgs {
+    bytes encoded;
+    string prev;
+    bytes32[] keys;
+}
+
+
+struct VerifyResult {
+    bool valid;
+    bytes32 signer;
+    string cid;
+    bytes32[] keys;
+}
+
+// Precompile interface
 interface IDIDVerifier {
-    function verify(bytes memory encoded, string memory prev, bytes32[] memory keys) external pure returns (bool valid, bytes32 signer, string memory cid, bytes32[] memory updated_keys);
+    function verify(VerifyArgs memory args) external pure returns (VerifyResult memory);
 }
 
 contract PLCRegistry {
@@ -25,7 +40,6 @@ contract PLCRegistry {
 
     function verifyGetKeysLast(
         bytes calldata encodedOp,
-        bytes32 did,
         string memory prev,
         bytes32[] memory keys // empty list implies new did op.
     )
@@ -37,9 +51,14 @@ contract PLCRegistry {
             bytes32 // must be one of the keys
         )
     {
-        (bool valid, bytes32 signer, string memory cid, bytes32[] memory updatedKeys) = IDIDVerifier(verifier).verify(encodedOp, prev, keys);
-        require(valid, "The operation isn't valid");
-        return (cid, updatedKeys, signer);
+        bytes memory inputData = abi.encode(encodedOp, prev, keys);
+        (bool success, bytes memory output) = verifier.staticcall{gas: gasleft()}(inputData);
+        require(success, "Precompile call failed");
+
+        VerifyResult memory response = abi.decode(output,(VerifyResult));
+
+        require(response.valid, "The operation isn't valid");
+        return (response.cid, response.keys, response.signer);
     }
 
     function indexOf(bytes32[] memory arr, bytes32 value) internal pure returns (uint256) {
@@ -63,7 +82,7 @@ contract PLCRegistry {
             require(operations[prev].did == did, "Last operation did mismatch!");
             keys = operations[prev].keys;
         }
-        (string memory cid, bytes32[] memory updatedKeys, bytes32 signer) = verifyGetKeysLast(encodedOp, did, prev, keys);
+        (string memory cid, bytes32[] memory updatedKeys, bytes32 signer) = verifyGetKeysLast(encodedOp,  prev, keys);
 
         string memory latestOpCID = latestOps[did];
         // Check if its a fork
@@ -87,7 +106,7 @@ contract PLCRegistry {
         emit LatestOp(did, encodedOp);
     }
 
-    function getLastOperation(bytes32 did) external returns (bytes memory encodedOp) {
+    function getLastOperation(bytes32 did) external view returns (bytes memory encodedOp) {
         require(did != bytes32(0), "DID cannot be empty!");
 
         string memory cid = latestOps[did];
