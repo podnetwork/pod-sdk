@@ -20,69 +20,29 @@ w3 = Web3(Web3.HTTPProvider(PROVIDER_URL))
 # Contract details
 CONTRACT_ADDRESS = w3.to_checksum_address(os.environ.get(
     'CONTRACT_ADDRESS',
-    '0x4CF3F1637bfEf1534e56352B6ebAae243aF464c3',
+    '0x852be42A4fc0dC62F383Eb4d21dd8613BcA28398',
 ))
 
 CONTRACT_ABI = [
     {
-        "anonymous": False,
-        "inputs": [
-            {
-                "indexed": True,
-                "internalType": "string",
-                "name": "did",
-                "type": "string"
-            },
-            {
-                "indexed": False,
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-            }
-        ],
-        "name": "DIDCreated",
-        "type": "event"
-    },
-    {
-        "anonymous": False,
-        "inputs": [
-            {
-                "indexed": True,
-                "internalType": "string",
-                "name": "did",
-                "type": "string"
-            }
-        ],
-        "name": "DIDUpdated",
-        "type": "event"
-    },
-    {
-        "inputs": [{"internalType": "string", "name": "did", "type": "string"}],
+        "inputs": [{"internalType": "bytes32", "name": "did", "type": "bytes32"}],
         "name": "getLastOperation",
         "outputs": [
-            {"internalType": "string", "name": "operation", "type": "string"},
+            {"internalType": "bytes", "name": "operation", "type": "bytes"},
         ],
         "stateMutability": "view",
         "type": "function"
     },
     {
         "inputs": [
-            {"internalType": "string", "name": "did", "type": "string"},
-            {"internalType": "string", "name": "operation", "type": "string"},
+            {"internalType": "bytes", "name": "encodedOp", "type": "bytes"},
+            {"internalType": "bytes32", "name": "did", "type": "bytes32"},
+            {"internalType": "string", "name": "prev", "type": "string"},
         ],
-        "name": "createDID",
+        "name": "add",
         "stateMutability": "nonpayable",
         "type": "function"
     },
-    {
-        "inputs": [
-            {"internalType": "string", "name": "did", "type": "string"},
-            {"internalType": "string", "name": "operation", "type": "string"},
-        ],
-        "name": "updateDID",
-        "stateMutability": "nonpayable",
-        "type": "function"
-    }
 ]
 
 
@@ -173,26 +133,20 @@ def create_update_did(did, data):
     with create_mutex:
         sender_nonce = w3.eth.get_transaction_count(SENDER_ADDRESS)
 
-        if data.get("prev", None) is None:
-            tx = get_contract().functions.createDID(
-                did,
-                json.dumps(data),
-            ).build_transaction({
-                "from":  SENDER_ADDRESS,
-                "nonce": sender_nonce,
-                "gas":   30_000_000,
-                "gasPrice": w3.eth.gas_price,
-            })
-        else:
-            tx = get_contract().functions.updateDID(
-                did,
-                json.dumps(data),
-            ).build_transaction({
-                "from":  SENDER_ADDRESS,
-                "nonce": sender_nonce,
-                "gas":   30_000_000,
-                "gasPrice": w3.eth.gas_price,
-            })
+        prev = data.get("prev", None)
+        if prev is None:
+            prev = ""
+
+        tx = get_contract().functions.add(
+            bytes(json.dumps(data), "utf-8"),
+            bytes(did, "utf-8"),
+            prev,
+        ).build_transaction({
+            "from":  SENDER_ADDRESS,
+            "nonce": sender_nonce,
+            "gas":   30_000_000,
+            "gasPrice": w3.eth.gas_price,
+        })
 
         return send_transaction(tx)
 

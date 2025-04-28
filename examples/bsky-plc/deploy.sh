@@ -4,7 +4,7 @@
 source .env
 
 
-forge create DIDLastOperationRegistry.sol:DIDRegistry \
+forge create examples/bsky-plc/plc-registry.sol:PLCRegistry \
   --evm-version istanbul \
   --rpc-url $RPC_URL \
   --private-key $DEPLOYER_PRIVATE_KEY \
