@@ -1,0 +1,138 @@
+<script>
+    async function play() {
+        return fetch('https://rpc.dev.pod.network/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                method: 'eth_estimateGas',
+                params: [{
+                    from: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+                    to: '0xbe0eb53f46cd790cd13851d5eff43d12404d33e8'
+                }],
+                id: 1
+            })
+        });
+    }
+</script>
+
+! content id="eth_estimateGas"
+
+## eth_estimateGas
+
+Estimates gas needed for a transaction.
+
+### Parameters
+
+| Parameter  | Type   | Description                                            |
+| ---------- | ------ | ------------------------------------------------------ |
+| `object`   | object | Transaction call object with the following fields:     |
+| `from`     | string | (optional) 20-byte address of sender                   |
+| `to`       | string | 20-byte address of recipient                           |
+| `gas`      | string | (optional) Gas provided for transaction execution      |
+| `gasPrice` | string | (optional) Gas price in wei                            |
+| `value`    | string | (optional) Value in wei                                |
+| `data`     | string | (optional) Contract code or encoded function call data |
+
+> Note: Only Legacy transactions are supported
+
+### Response
+
+| Key                | Type    | Description                                    |
+| ------------------ | ------- | ---------------------------------------------- |
+| `statusCode`       | integer | HTTP status code                               |
+| `response.jsonrpc` | string  | same value as request                          |
+| `response.id`      | integer | unique value as request                        |
+| `response.result`  | string  | estimated gas in hexadecimal format |
+
+! content end
+
+! content
+
+! sticky
+
+! codeblock title="POST rpc.dev.pod.network" runCode={play}
+
+```bash alias="curl"
+curl -X POST https://rpc.dev.pod.network \
+    -H "Content-Type: application/json" \
+    -d '{
+        "jsonrpc": "2.0",
+        "method": "eth_estimateGas",
+        "params": [{
+            "from": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+            "to": "0xbe0eb53f46cd790cd13851d5eff43d12404d33e8"
+        }],
+        "id": 1
+    }'
+```
+
+```js alias="javascript"
+await fetch('https://rpc.dev.pod.network/', {
+	method: 'POST',
+	headers: {
+		'Content-Type': 'application/json'
+	},
+	body: JSON.stringify({
+		jsonrpc: '2.0',
+		method: 'eth_estimateGas',
+		params: [
+			{
+				from: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+				to: '0xbe0eb53f46cd790cd13851d5eff43d12404d33e8'
+			}
+		],
+		id: 1
+	})
+});
+```
+
+```rust alias="rust"
+use reqwest::Client;
+use serde_json::{json, Value};
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = Client::new();
+    let response = client
+        .post("https://rpc.dev.pod.network/")
+        .header("Content-Type", "application/json")
+        .json(&json!({
+            "jsonrpc": "2.0",
+            "method": "eth_estimateGas",
+            "params": [{
+                "from": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+                "to": "0xbe0eb53f46cd790cd13851d5eff43d12404d33e8"
+            }],
+            "id": 1
+        }))
+        .send()
+        .await?;
+
+    let result: Value = response.json().await?;
+    println!("{}", result);
+
+    Ok(())
+}
+```
+
+! codeblock end
+
+Example Response:
+
+! codeblock
+
+```json
+{
+    "jsonrpc": "2.0",
+    "result": "0x493e0",
+    "id": 1
+}
+```
+
+! codeblock end
+
+! sticky end
+
+! content end

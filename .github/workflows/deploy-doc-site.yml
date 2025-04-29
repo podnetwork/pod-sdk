@@ -1,0 +1,24 @@
+# Deploy Doc Site
+name: Deploy Doc Site
+run-name: ${{ github.actor }} call deploy pod doc site 🚀
+on:
+  push:
+    branches:
+      - doc/v1
+      - main
+    paths:
+      - docs/**
+
+jobs:
+  make-api-request:
+    runs-on: ubuntu-latest
+    steps:
+      # call Vercel API to deploy
+      - name: Make API Request
+        id: make-api-request
+        # deploy to branch `dev`
+        run: 'curl -X POST https://api.vercel.com/v1/integrations/deploy/prj_OmjAl7G5s7kt3X5o9zbUanmswKaj/r8n5uYju4w -H "Content-Type: application/json" -H "Content-Length: 0"'
+
+      - name: Echo response
+        id: echo-response
+        run: echo ${{ steps.make-api-request.outputs.response }}

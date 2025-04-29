@@ -1,0 +1,34 @@
+menu:
+  - heading: getting-started
+  - href: /
+    label: Welcome to pod
+  - href: /getting-started
+    label: Getting Started
+
+  - heading: how-to-guides
+  - href: /how-to-guides/payments
+    label: Payments
+  - href: /how-to-guides/auctions
+    label: Auctions
+  - href: /how-to-guides/feed-layer
+    label: Feed Layer
+
+  - heading: architecture
+  - href: /architecture/architecture-basics
+    label: Architecture Basics
+  - href: /architecture/execution-model
+    label: Execution Model
+  - href: /architecture/fast-path
+    label: Fast Path
+  - href: /architecture/network
+    label: Network
+  - href: /architecture/transaction-lifecycle
+    label: Transaction Lifecycle
+
+  - heading: reference
+  - href: /reference/rpc-api
+    label: RPC API
+  - href: /reference/rust-sdk
+    label: Rust SDK
+  - href: /reference/solidity-sdk
+    label: Solidity SDK
