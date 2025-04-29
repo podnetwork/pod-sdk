@@ -25,5 +25,5 @@ pub use crate::{
 };
 
 // pub use network::{
-//     AttestationMessage, ClientConnection, ClientNetwork, ReplicaNetwork, RequestPayload,
+//     AttestationMessage, ClientConnection, ClientNetwork, ValidatorNetwork, RequestPayload,
 // };

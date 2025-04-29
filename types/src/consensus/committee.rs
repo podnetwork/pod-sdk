@@ -10,24 +10,24 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Committee {
-    pub replicas: Vec<AddressECDSA>,
-    replica_set: HashMap<AddressECDSA, bool>,
+    pub validators: Vec<AddressECDSA>,
+    validator_set: HashMap<AddressECDSA, bool>,
     pub quorum_size: usize,
 }
 
 impl Committee {
-    pub fn new(mut replicas: Vec<AddressECDSA>, quorum_size: usize) -> Self {
-        replicas.sort();
-        let replica_set = replicas.iter().map(|r| (*r, true)).collect();
+    pub fn new(mut validators: Vec<AddressECDSA>, quorum_size: usize) -> Self {
+        validators.sort();
+        let validator_set = validators.iter().map(|r| (*r, true)).collect();
         Committee {
-            replicas,
-            replica_set,
+            validators,
+            validator_set,
             quorum_size,
         }
     }
 
     pub fn size(&self) -> usize {
-        self.replicas.len()
+        self.validators.len()
     }
 
     pub fn fault_tolerance(&self) -> usize {
@@ -39,12 +39,12 @@ impl Committee {
     }
 
     pub fn is_in_committee(&self, address: &AddressECDSA) -> bool {
-        self.replica_set.contains_key(address)
+        self.validator_set.contains_key(address)
     }
 
     pub fn verify_attestation<T: Hashable>(&self, attestation: &Attestation<T>) -> Result<bool> {
         if !self.is_in_committee(&attestation.public_key) {
-            return Err(anyhow!("Replica not in committee"));
+            return Err(anyhow!("Validator not in committee"));
         }
 
         attestation.public_key.verify(

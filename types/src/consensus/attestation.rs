@@ -18,7 +18,7 @@ pub type UncheckedReceiptAttestation = Attestation<UncheckedReceipt>;
 
 pub type UncheckedTransactionAttestation = Attestation<UncheckedSigned<Transaction>>;
 
-// An Attestation<T> is T signed by a replica using ECDSA
+// An Attestation<T> is T signed by a validator using ECDSA
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "T: Hashable + Serialize + DeserializeOwned + Eq")]
 pub struct Attestation<T> {
