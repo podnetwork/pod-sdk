@@ -15,7 +15,7 @@ This repository contains the Software Development Kit for the pod Network. It pr
 The POD ecosystem is divided into several repositories:
 
 - **POD SDK** (this repository): Client-side tools for interacting with the POD network
-- **POD Types**: The main implementation of the POD replica and validator types
+- **POD Types**: The main implementation of the POD validator types
 - **POD Contracts**: Smart contracts powering the POD ecosystem
 
 ## Key Types
@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
     // Verify receipts with the current committee
     let committee = provider.get_committee().await?;
     let receipts = provider.get_confirmed_receipts(start_time, None).await?;
-    
+
     for receipt in receipts.items {
         if receipt.verify(&committee).unwrap() {
             println!("Receipt verified: {:?}", receipt);
@@ -69,10 +69,10 @@ async fn main() -> Result<()> {
     let filter = Filter::new()
         .address(contract_address)
         .event_signature(event_signature);
-        
+
     let sub = provider.subscribe_verifiable_logs(&filter).await?;
     let mut stream = sub.into_stream();
-    
+
     while let Some(log) = stream.next().await {
         if log.verify(&committee).unwrap() {
             println!("Verified event: {:?}", log);
@@ -104,25 +104,25 @@ use pod_contracts::auction::Auction;
 async fn interact_with_auction(provider: &PodProvider, auction_address: Address) -> Result<()> {
     // Create a contract instance
     let auction = Auction::new(auction_address, provider.clone());
-    
+
     // Call view functions
     let highest_bid = auction.highest_bid().call().await?;
     println!("Highest bid: {}", highest_bid);
-    
+
     // Submit transactions
     let tx = auction.bid().value(amount).send().await?;
     println!("Bid submitted with hash: {:?}", tx.tx_hash());
-    
+
     // Wait for receipt
     let receipt = tx.get_receipt().await?;
     println!("Transaction confirmed: {:?}", receipt);
-    
+
     // Listen for events
     let events = auction.events().bid_submitted().query().await?;
     for event in events {
         println!("Bid submitted by: {:?}, amount: {}", event.bidder, event.amount);
     }
-    
+
     Ok(())
 }
 ```
