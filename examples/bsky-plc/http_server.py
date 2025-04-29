@@ -9,40 +9,53 @@ from flask import Flask, request, jsonify
 from web3 import Web3
 from threading import Lock
 
+import dag_cbor 
+from multiformats import CID, multicodec, multihash
+
 app = Flask(__name__)
 create_mutex = Lock()
 
 # Connect to Ethereum/Pod L1 node
-PROVIDER_URL = os.environ.get('PROVIDER_URL', 'http://localhost:8545')
+PROVIDER_URL = 'https://rpc.dev.pod.network' 
 w3 = Web3(Web3.HTTPProvider(PROVIDER_URL))
 
 
 # Contract details
-CONTRACT_ADDRESS = w3.to_checksum_address(os.environ.get(
-    'CONTRACT_ADDRESS',
-    '0x86D2fE490E19a7f8538C34D926165781FbBdf9D9',
-))
-
+CONTRACT_ADDRESS = '0x5cAe4686E2E4445c866678f594C20f946f10D461'
 CONTRACT_ABI = [
     {
         "inputs": [{"internalType": "bytes32", "name": "did", "type": "bytes32"}],
         "name": "getLastOperation",
-        "outputs": [
-            {"internalType": "bytes", "name": "operation", "type": "bytes"},
-        ],
+        "outputs": [{"internalType": "bytes", "name": "operation", "type": "bytes"}],
         "stateMutability": "view",
         "type": "function"
     },
     {
         "inputs": [
-            {"internalType": "bytes", "name": "encodedOp", "type": "bytes"},
-            {"internalType": "bytes32", "name": "did", "type": "bytes32"},
-            {"internalType": "string", "name": "prev", "type": "string"},
+            {
+                "components": [
+                    {"internalType": "bytes32", "name": "did", "type": "bytes32"},
+                    {"internalType": "bytes", "name": "cid", "type": "bytes"},
+                    {"internalType": "bytes", "name": "prev", "type": "bytes"},
+                    {"internalType": "bytes[]", "name": "keys", "type": "bytes[]"},
+                    {"internalType": "bytes", "name": "signer", "type": "bytes"},
+                    {"internalType": "bytes", "name": "encodedOp", "type": "bytes"}
+                ],
+                "internalType": "struct Op",
+                "name": "op",
+                "type": "tuple"
+            },
+            {
+                "internalType": "bytes",
+                "name": "sig",
+                "type": "bytes"
+            }
         ],
         "name": "add",
+        "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
-    },
+    }
 ]
 
 
@@ -119,12 +132,19 @@ def create_plc(did):
     # FIXME: input validation
 
     tx_receipt = create_update_did(did, data)
+    print(f"Tx confirmed: https://explorer.v1.pod.network/tx/{tx_receipt.transactionHash.hex()}")
 
     return jsonify({
         "status": "success",
         "did": did,
         "transactionHash": tx_receipt.transactionHash.hex()
     }), 200
+
+def get_cid(data):
+    cbor_bytes = dag_cbor.encode(data)
+    digest = multihash.digest(cbor_bytes, "sha2-256")
+    cid = CID("base32", 1, multicodec.get("dag-cbor"), digest)
+    return str(cid)
 
 
 def create_update_did(did, data):
@@ -133,18 +153,30 @@ def create_update_did(did, data):
     with create_mutex:
         sender_nonce = w3.eth.get_transaction_count(SENDER_ADDRESS)
 
-        prev = data.get("prev", None)
-        if prev is None:
-            prev = ""
+        prev = data.get('prev', None)
+        prev = prev if prev else '' 
+
+        fromHex = lambda x: bytes(x, 'utf-8') 
+        cid = get_cid(data)
+        signer = data['rotationKeys'][0]
+        encoded_op = bytes(json.dumps(data), "utf-8")
+        op_struct = (
+            bytes(did, 'utf-8'),
+            bytes(cid, 'utf-8'),
+            bytes(prev, 'utf-8'),
+            [bytes(key, 'utf-8') for key in data['rotationKeys']],
+            bytes(signer, 'utf-8'),
+            encoded_op,
+        )
+        sig = fromHex(data['sig'])
 
         tx = get_contract().functions.add(
-            bytes(json.dumps(data), "utf-8"),
-            bytes(did, "utf-8"),
-            prev,
+            op_struct,
+            sig,
         ).build_transaction({
             "from":  SENDER_ADDRESS,
             "nonce": sender_nonce,
-            "gas":   30_000_000,
+            "gas":   2_000_000,
             "gasPrice": w3.eth.gas_price,
         })
 

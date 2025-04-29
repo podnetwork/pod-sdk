@@ -1,116 +1,83 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-struct VerifyArgs {
-    bytes encoded;
-    string prev;
-    bytes32[] keys;
-}
-
-
-struct VerifyResult {
-    bool valid;
-    bytes32 signer;
-    string cid;
-    bytes32[] keys;
-}
-
-// Precompile interface
-interface IDIDVerifier {
-    function verify(VerifyArgs memory args) external pure returns (VerifyResult memory);
-}
-
 contract PLCRegistry {
     address private verifier = 0x0000000000000000000000000000000000007000;
 
     struct Op {
         bytes32 did;
-        string prev;
-        bytes32[] keys;
-        bytes32 signer;
+        bytes cid;
+        bytes prev;
+        bytes[] keys;
+        bytes signer;
         bytes encodedOp;
     }
 
     // CID to operation
-    mapping(string => Op) private operations;
+    mapping(bytes => Op) private operations;
     // DID to its latest operation CID
-    mapping(bytes32 => string) public latestOps;
+    mapping(bytes32 => bytes) public latestOps;
 
-    event LatestOp(bytes32 did, bytes encodedOp);
+    event LatestOp(bytes32 did, Op op);
 
-    function verifyGetKeysLast(
-        bytes calldata encodedOp,
-        string memory prev,
-        bytes32[] memory keys // empty list implies new did op.
-    )
-        internal
-        view
-        returns (
-            string memory ,
-            bytes32[] memory ,
-            bytes32 // must be one of the keys
-        )
-    {
-        bytes memory inputData = abi.encode(encodedOp, prev, keys);
-        (bool success, bytes memory output) = verifier.staticcall{gas: gasleft()}(inputData);
-        require(success, "Precompile call failed");
-
-        VerifyResult memory response = abi.decode(output,(VerifyResult));
-
-        require(response.valid, "The operation isn't valid");
-        return (response.cid, response.keys, response.signer);
-    }
-
-    function indexOf(bytes32[] memory arr, bytes32 value) internal pure returns (uint256) {
+    function indexOf(bytes[] memory arr, bytes memory value) internal pure returns (uint256) {
         for (uint256 i = 0; i < arr.length; i++) {
-            if (arr[i] == value) {
+            if (isEqual(arr[i], value)) {
                 return i;
             }
         }
         revert("Value not found in array");
     }
 
-    function isEqual(string memory a, string memory b) internal pure returns (bool) {
-        return keccak256(bytes(a)) == keccak256(bytes(b));
+    function isEqual(bytes memory a, bytes memory b) internal pure returns (bool) {
+        return keccak256(a) == keccak256(b);
     }
 
-    function add(bytes calldata encodedOp, bytes32 did, string calldata prev) external {
-        require(did != bytes32(0), "DID cannot be empty!");
-
-        bytes32[] memory keys = new bytes32[](0);
-        if (bytes(prev).length != 0) {
-            require(operations[prev].did == did, "Last operation did mismatch!");
-            keys = operations[prev].keys;
+    function elementExist(bytes[] memory arr, bytes memory value) internal pure returns (bool) {
+        for (uint256 i = 0; i < arr.length; i++) {
+            if (isEqual(arr[i], value)) {
+                return true;
+            }
         }
-        (string memory cid, bytes32[] memory updatedKeys, bytes32 signer) = verifyGetKeysLast(encodedOp,  prev, keys);
+        return false;
+    }
 
-        string memory latestOpCID = latestOps[did];
+    function validateOp(Op calldata op, bytes calldata sig) internal {
+        // TODO: validate the operation and check the sig
+    }
+
+    function add(Op calldata op, bytes calldata sig) external {
+        validateOp(op, sig);
+
+        if (bytes(op.prev).length != 0) {
+            require(operations[op.prev].did == op.did, "Last operation did mismatch!");
+            require(elementExist(operations[op.prev].keys, op.signer), "Signer not allowed!");
+        }
+
+        bytes memory latestOpCID = latestOps[op.did];
         // Check if its a fork
-        if (!isEqual(latestOpCID, prev)) {
-            string memory uncleOp = latestOpCID; // the first operation that is not part of the fork
-            while (!isEqual(operations[uncleOp].prev, prev)) {
+        if (!isEqual(latestOpCID, op.prev)) {
+            bytes memory uncleOp = latestOpCID; // the first operation that is not part of the fork
+            while (!isEqual(operations[uncleOp].prev, op.prev)) {
                 uncleOp = operations[uncleOp].prev;
                 require(bytes(uncleOp).length != 0, "No ancestor found!");
             }
             // TODO: check if the time of the uncleOp is not more than 72 hours old.
-            bytes32[] memory allowedKeys = operations[prev].keys;
+            bytes[] memory allowedKeys = operations[op.prev].keys;
             uint256 uncleSignerIndex = indexOf(allowedKeys, operations[uncleOp].signer);
-            uint256 newSignerIndex = indexOf(allowedKeys, signer);
+            uint256 newSignerIndex = indexOf(allowedKeys, op.signer);
             require(newSignerIndex < uncleSignerIndex, "Signer not allowed to fork!");
         }
 
         // Update the store
-        operations[cid] = Op({did: did, prev: prev, keys: updatedKeys, encodedOp: encodedOp, signer: signer});
-        latestOps[did] = cid;
+        operations[op.cid] = op;
+        latestOps[op.did] = op.cid;
 
-        emit LatestOp(did, encodedOp);
+        emit LatestOp(op.did, op);
     }
 
     function getLastOperation(bytes32 did) external view returns (bytes memory encodedOp) {
-        require(did != bytes32(0), "DID cannot be empty!");
-
-        string memory cid = latestOps[did];
-
+        bytes memory cid = latestOps[did];
         Op memory latestOp = operations[cid];
         return latestOp.encodedOp;
     }
