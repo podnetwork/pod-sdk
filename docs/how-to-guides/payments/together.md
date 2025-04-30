@@ -20,8 +20,9 @@ use std::str::FromStr;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // 1) Load environment variables
-    let (rpc_url, private_key_hex) = load_env()?;
+    // 1) Set RPC URL and private key
+    let rpc_url = "https://rpc.dev.pod.network";
+    let private_key_hex = "your-private-key";
 
     // 2) Build the Pod provider (from the Rust SDK approach)
     let pod_provider = build_pod_provider(&rpc_url, &private_key_hex).await?;
@@ -33,7 +34,7 @@ async fn main() -> Result<()> {
     //    We'll assume you already know it:
     let from_address = Address::from_str("0xSender...")?;
     let recipient    = Address::from_str("0xabcDEF...")?;
-    
+
     // 4) Send a payment transaction
     let value_wei = U256::from(1_000_000u64); // 1,000,000 Wei for example
     let (tx_hash, start_time) = send_payment_tx(

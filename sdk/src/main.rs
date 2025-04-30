@@ -153,3 +153,11 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
+fn load_env() -> Result<(String, String)> {
+    let rpc_url = env::var("RPC_URL").expect("Missing RPC_URL environment variable");
+    let private_key_hex =
+        env::var("PRIVATE_KEY").expect("Missing PRIVATE_KEY environment variable");
+
+    Ok((rpc_url, private_key_hex))
+}
