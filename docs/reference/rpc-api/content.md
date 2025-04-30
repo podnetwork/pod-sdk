@@ -8,6 +8,7 @@ toc:
   overview: Overview
   base-url: Base URL
   common-fields: Common Response Fields
+  coming-from-ethereum: Coming from Ethereum
   error-handling: Error Handling
   eth_blockNumber: eth_blockNumber
   eth_chainId: eth_chainId
@@ -32,6 +33,8 @@ toc:
 ! import ./general.md
 
 ! import ./common-fields.md
+
+! import ./coming-from-ethereum.md
 
 ! import ./error-handle.md
 
