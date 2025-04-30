@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import json
 import os
 import sys
@@ -15,7 +14,6 @@ from multiformats import CID, multicodec, multihash
 app = Flask(__name__)
 create_mutex = Lock()
 
-# Connect to Ethereum/Pod L1 node
 PROVIDER_URL = 'https://rpc.dev.pod.network' 
 w3 = Web3(Web3.HTTPProvider(PROVIDER_URL))
 
@@ -243,13 +241,13 @@ if __name__ == "__main__":
     if PRIVATE_KEY == None:
         print("Please set PRIVATE_KEY env to a key of funded account. It will be used to pay for transactions.")
         sys.exit(1)
+    port = int(os.environ.get('PORT', 2582))
 
     SENDER_ADDRESS = w3.eth.account.from_key(PRIVATE_KEY).address
 
-    port = int(os.environ.get('PORT', 2582))
     print(f"Starting DID server on port {port}")
-    print(f"Connected to blockchain at {PROVIDER_URL}")
-    print(f"Using contract at {CONTRACT_ADDRESS}")
-
+    print(f"Connected to pod at {PROVIDER_URL}")
+    print(f"Using plc-registry contract at {CONTRACT_ADDRESS}")
     print(f"Sending transactions from {SENDER_ADDRESS}")
+
     app.run(host='0.0.0.0', port=port, debug=True)

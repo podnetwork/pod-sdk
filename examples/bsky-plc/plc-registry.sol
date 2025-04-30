@@ -2,8 +2,6 @@
 pragma solidity ^0.8.25;
 
 contract PLCRegistry {
-    address private verifier = 0x0000000000000000000000000000000000007000;
-
     struct Op {
         bytes32 did;
         bytes cid;

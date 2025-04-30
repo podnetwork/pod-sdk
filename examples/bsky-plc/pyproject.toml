@@ -1,7 +1,7 @@
 [project]
 name = "bsky-plc"
 version = "0.1.0"
-description = ""
+description = "plc-did registry for bluesky using pod network"
 authors = [{ name = "Bartosz Różański", email = "bartosz@pod.network" }]
 readme = "README.md"
 requires-python = ">=3.13,<4"
@@ -15,6 +15,8 @@ dependencies = [
     "dag-cbor (>=0.3.3,<0.4.0)",
 ]
 
+[tool.poetry]
+package-mode = false
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
