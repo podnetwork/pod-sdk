@@ -1,6 +1,6 @@
-use alloy_sol_types::sol;
+pragma solidity ^0.8.26;
 
-sol! {
+interface Pi2 {
     struct EVMCall {
         address from;
         address to;
@@ -63,30 +63,7 @@ sol! {
         Account[] accounts;
     }
 
-    function verify(Claim memory claim, VerificationData memory verData) public pure;
+    function verify(Claim memory claim, VerificationData memory verData) external pure;
 
     event ClaimAppended(Claim claim, VerificationData indexed verData);
-}
-
-#[cfg(test)]
-mod tests {
-    // use alloy_sol_types::SolCall;
-
-    // use crate::contracts::pi2::*;
-
-    /*
-
-    #[test]
-    fn test_calldata_decode() {
-        let calldata_hex = std::fs::read_to_string("testdata/pi2_valid_proof_1").unwrap();
-        let calldata = hex::decode(calldata_hex).unwrap();
-
-        let decoded = verifyCall::abi_decode(&calldata, true).unwrap();
-        log::debug!(
-            "decoded {:?} {:?}\n\n\n",
-            decoded.claim.result,
-            decoded.verData.accounts[0].code
-        );
-    }
-    */
 }
