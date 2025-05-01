@@ -1,5 +1,8 @@
 [workspace]
 members = ["contracts/bindings", "types", "sdk"]
 resolver = "2"
+ignore = [
+    "contracts/bindings/src/*.rs",  # ignore generated files
+]
 
 
