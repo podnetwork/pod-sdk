@@ -2,22 +2,22 @@ pragma solidity ^0.8.25;
 
 interface ICounter {
   function increment(bytes32 key, uint256 value) external; 
-  function requireGte(bytes32 key, uint256 value) external;
+  function requireGte(bytes32 key, uint256 value) external view;
 }
 
 interface IOwned {
   function set(bytes32 key, bytes32 value) external; 
-  function get(bytes32 key) external returns (bytes32 value);
+  function get(bytes32 key) external view returns (bytes32 value);
 }
 
 interface ISet {
   function insert(bytes32 key, bytes32 e) external; 
-  function requireExist(bytes32 key, bytes32 e) external;
+  function requireExist(bytes32 key, bytes32 e) external view;
 }
 
 interface IConstant {
   function create(bytes32 key, bytes32 value) external; 
-  function requireGet(bytes32 key) external returns (bytes32 value);
+  function requireGet(bytes32 key) external view returns (bytes32 value);
 }
 
 library FastTypes {
@@ -31,7 +31,7 @@ library FastTypes {
     ICounter(counterPrecompile).increment(c.key, value);
   }
 
-  function requireGte(Counter memory c, uint256 value) public {
+  function requireGte(Counter memory c, uint256 value) public view {
     ICounter(counterPrecompile).requireGte(c.key, value);
   }
 
@@ -51,7 +51,7 @@ library FastTypes {
     IOwned(ownedPrecompile).set(o.key, value);
   }
 
-  function get(Owned memory o) public isOwner(o) returns (bytes32) {
+  function get(Owned memory o) public isOwner(o) view returns (bytes32) {
     return IOwned(ownedPrecompile).get(o.key);
   }
 
@@ -65,7 +65,7 @@ library FastTypes {
     ISet(setPrecompile).insert(s.key, value);
   }
 
-  function requireExist(Set memory s, bytes32 value) public {
+  function requireExist(Set memory s, bytes32 value) view public {
     ISet(setPrecompile).requireExist(s.key, value);
   }
 
@@ -79,7 +79,7 @@ library FastTypes {
     IConstant(constantPrecompile).create(c.key, value);
   }
 
-  function requireGet(Constant memory c) public returns (bytes32) {
+  function requireGet(Constant memory c) public view returns (bytes32) {
     return IConstant(constantPrecompile).requireGet(c.key);
   }
 }
