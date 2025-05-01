@@ -7,7 +7,7 @@ $ forge build
 ### Generate bindings 
 
 ```shell
-$ forge bind --crate-name pod-contracts --bindings-path ./bindings --alloy-version v0.9.2 --overwrite 
+$ forge bind --crate-name pod-contracts --bindings-path ./bindings --alloy-version v0.9.2 --overwrite --force 
 ```
 
 ### Format

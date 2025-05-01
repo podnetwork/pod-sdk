@@ -1,0 +1,3 @@
+ignore = [
+    "contracts/bindings/src/*.rs",  # ignore generated files
+]
