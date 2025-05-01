@@ -13,7 +13,7 @@
 <!-- prettier-ignore -->
 ```bash
 # Set up environment variables
-export POD_RPC="https://rpc.pod.network"
+export POD_RPC="https://rpc.dev.pod.network"
 export AUCTION_CONTRACT="<deployed-auction-contract-address>"
 export PRIVATE_KEY="<your-private-key>"
 ```
