@@ -4,5 +4,14 @@
 //! Do not manually edit these files.
 //! These files may be overwritten by the codegen system at any time.
 pub mod r#auction;
+pub mod r#deadline;
+pub mod r#ideadline;
+pub mod r#fasttypes;
+pub mod r#iconstant;
+pub mod r#icounter;
+pub mod r#iowned;
+pub mod r#iset;
 pub mod r#pi2;
+pub mod r#profileregistry;
 pub mod r#rankedfeed;
+pub mod r#voting;
