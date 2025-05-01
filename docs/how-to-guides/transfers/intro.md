@@ -1,6 +1,6 @@
 ! content
 
-# Payments
+# Transfers
 
 One of the key applications that can take advantage of Pod’s lightning-fast nature is processing payment transactions.
 

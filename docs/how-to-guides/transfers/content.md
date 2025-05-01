@@ -1,8 +1,8 @@
 ---
-title: Payments
+title: Transfers
 layout: simple
 
-url: /how-to-guides/payments
+url: /how-to-guides/transfers
 
 toc:
   initialize-credentials: Initialize Credentials

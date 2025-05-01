@@ -6,8 +6,8 @@ menu:
     label: Getting Started
 
   - heading: how-to-guides
-  - href: /how-to-guides/payments
-    label: Payments
+  - href: /how-to-guides/transfers
+    label: Transfers
   - href: /how-to-guides/auctions
     label: Auctions
   - href: /how-to-guides/feed-layer

@@ -74,7 +74,7 @@ After completing the setup, you can verify everything is working correctly by:
 For more detailed information about specific topics, consult these documentation sections:
 
 - [RPC API Documentation](/reference/rpc-api): For detailed information about available JSON-RPC methods.
-- [How-To Guides](/how-to-guides/payments): For step-by-step instructions on common operations.
+- [How-To Guides](/how-to-guides/transfers): For step-by-step instructions on common operations.
 - [Architecture](/architecture/network): To learn more about pod.
 
 ! anchor getting-help

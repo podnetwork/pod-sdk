@@ -82,7 +82,7 @@ The system consists of several key components:
 
 pod is particularly well-suited for:
 
-- [Payments](/how-to-guides/payments): Account-to-account transfers with optimal latency
+- [Transfers](/how-to-guides/transfers): Account-to-account transfers with optimal latency
 - [Fast Auctions](/how-to-guides/auctions): Efficient auction execution with accountability, e.g. fast batch auctions, orderbooks, marketplaces.
 - [Feeds](/how-to-guides/feed-layer): High-performance content feeds e.g. for decentralised socials
 
