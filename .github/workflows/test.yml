@@ -64,7 +64,7 @@ jobs:
 
       - name: Run Forge build
         run: |
-          forge build --sizes
+          forge build --sizes --force
         working-directory: contracts
         id: build
 
