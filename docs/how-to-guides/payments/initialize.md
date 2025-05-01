@@ -15,16 +15,15 @@ First, we need to import all the necessary pod SDK libraries and Alloy types
 <!-- prettier-ignore -->
 ```rust
 use eyre::Result;
-use std::{env, str::FromStr};
+use alloy_primitives::{Address, U256};
+use std::str::FromStr;
 
-/// Loads RPC_URL and PRIVATE_KEY from environment variables
-fn load_env() -> Result<(String, String)> {
-    let rpc_url = env::var("RPC_URL")
-        .unwrap_or_else(|_| "http://127.0.0.1:8545".to_string());
-    let private_key_hex = env::var("PRIVATE_KEY")
-        .expect("Missing PRIVATE_KEY environment variable");
-    
-    Ok((rpc_url, private_key_hex))
+#[tokio::main]
+async fn main() -> Result<()> {
+    let rpc_url = "https://rpc.dev.pod.network";
+    let private_key_hex = "your-private-key";
+
+    // ...
 }
 ```
 
@@ -70,13 +69,13 @@ pub async fn build_pod_provider(
 ) -> Result<impl Provider> {
     // 1) Decode the private key into raw bytes
     let private_key_bytes = hex::decode(private_key_hex)?;
-    
+
     // 2) Create a SigningKey
     let signing_key = SigningKey::from_slice(&private_key_bytes)?;
-    
+
     // 3) Wrap it into a `pod_sdk::PrivateKeySigner`
     let signer = PrivateKeySigner::from_signing_key(signing_key);
-    
+
     // 4) Construct an EthereumWallet using that signer
     let wallet = EthereumWallet::new(signer);
 

@@ -5,7 +5,6 @@ layout: simple
 url: /how-to-guides/payments
 
 toc:
-  setup-env: Setup Your Environment
   initialize-credentials: Initialize Credentials
   initialize-provider: Initialize Provider
   send-transaction: Send Transaction
@@ -14,10 +13,6 @@ toc:
 ---
 
 ! import ./intro.md
-
----
-
-! import ./setup-env.md
 
 ---
 
@@ -34,4 +29,3 @@ toc:
 ---
 
 ! import ./together.md
-
