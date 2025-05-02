@@ -3,8 +3,8 @@ pragma solidity ^0.8.25;
 import {Ownable} from "./base/Ownable.sol";
 
 contract CDNToWalrusRegistry is Ownable {
-  mapping(bytes32 => bytes32) public cdnIdToWalrusId;
-  mapping(bytes32 => bytes32) public walrusIdToCdnId;
+  mapping(bytes32 => bytes32) private cdnIdToWalrusId;
+  mapping(bytes32 => bytes32) private walrusIdToCdnId;
 
   event CDNWalrusRecordCreated(bytes32 indexed cdnId, bytes32 indexed walrusId);
   

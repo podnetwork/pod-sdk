@@ -31,8 +31,8 @@ contract CDNToWalrusRegistryTest is Test {
         registry.setRecord(CDN_ID, WALRUS_ID);
         vm.stopPrank();
         
-        assertEq(registry.cdnIdToWalrusId(CDN_ID), WALRUS_ID, "CDN ID should map to Walrus ID");
-        assertEq(registry.walrusIdToCdnId(WALRUS_ID), CDN_ID, "Walrus ID should map to CDN ID");
+        assertEq(registry.getWalrusIdByCdnId(CDN_ID), WALRUS_ID, "CDN ID should map to Walrus ID");
+        assertEq(registry.getCdnIdByWalrusId(WALRUS_ID), CDN_ID, "Walrus ID should map to CDN ID");
     }
     
     function testSetRecordEmitsEvent() public {
@@ -78,7 +78,7 @@ contract CDNToWalrusRegistryTest is Test {
         registry.setRecord(CDN_ID, WALRUS_ID);
         vm.stopPrank();
         
-        assertEq(registry.cdnIdToWalrusId(CDN_ID), WALRUS_ID, "New owner should be able to add records");
+        assertEq(registry.getWalrusIdByCdnId(CDN_ID), WALRUS_ID, "New owner should be able to add records");
     }
     
     function testTransferOwnershipFailsForNonOwner() public {
@@ -103,11 +103,11 @@ contract CDNToWalrusRegistryTest is Test {
         
         vm.stopPrank();
         
-        assertEq(registry.cdnIdToWalrusId(cdnId1), walrusId1, "First record should be correct");
-        assertEq(registry.walrusIdToCdnId(walrusId1), cdnId1, "First record inverse should be correct");
+        assertEq(registry.getWalrusIdByCdnId(cdnId1), walrusId1, "First record should be correct");
+        assertEq(registry.getCdnIdByWalrusId(walrusId1), cdnId1, "First record inverse should be correct");
         
-        assertEq(registry.cdnIdToWalrusId(cdnId2), walrusId2, "Second record should be correct");
-        assertEq(registry.walrusIdToCdnId(walrusId2), cdnId2, "Second record inverse should be correct");
+        assertEq(registry.getWalrusIdByCdnId(cdnId2), walrusId2, "Second record should be correct");
+        assertEq(registry.getCdnIdByWalrusId(walrusId2), cdnId2, "Second record inverse should be correct");
     }
     
     function testOverwriteRecord() public {
@@ -119,11 +119,11 @@ contract CDNToWalrusRegistryTest is Test {
         
         // Add initial mapping
         registry.setRecord(cdnId, walrusId1);
-        assertEq(registry.cdnIdToWalrusId(cdnId), walrusId1, "Initial record should be set");
+        assertEq(registry.getWalrusIdByCdnId(cdnId), walrusId1, "Initial record should be set");
         
         // Overwrite with new mapping
         registry.setRecord(cdnId, walrusId2);
-        assertEq(registry.cdnIdToWalrusId(cdnId), walrusId2, "Record should be overwritten");
+        assertEq(registry.getWalrusIdByCdnId(cdnId), walrusId2, "Record should be overwritten");
         
         vm.stopPrank();
     }
