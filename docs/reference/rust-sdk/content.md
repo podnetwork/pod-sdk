@@ -6,6 +6,7 @@ url: /reference/rust-sdk
 
 toc:
   overview: Overview
+  coming-from-alloy: Coming from alloy
   installation: Installation
   building-provider: Building the Provider
   basic-usage: Basic Usage
@@ -13,7 +14,6 @@ toc:
   sending-transactions: Sending Transactions
   retrieving-transactions: Retrieving Transactions
   retrieving-transaction-receipts: Retrieving Transaction Receipts
-  alloy-sdk: Pod SDK and Alloy SDK
   error-handling: Error Handling
   best-practices: Best Practices
   security-considerations: Security Considerations
@@ -21,6 +21,8 @@ toc:
 ---
 
 ! import ./general.md
+
+! import ./coming-from-alloy.md
 
 ! import ./getting-start.md
 
@@ -33,8 +35,6 @@ toc:
 ! import ./api-method-retrieving-transactions.md
 
 ! import ./api-method-retrieving-transaction-receipts.md
-
-! import ./api-method-pod-SDK-Alloy-SDK.md
 
 ! import ./error-handling.md
 
