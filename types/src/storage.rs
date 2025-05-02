@@ -1,15 +1,16 @@
-use alloy_primitives::{keccak256, Address, Uint, B256};
+use alloy_primitives::{keccak256, Address, Uint, B256, U256};
 use alloy_sol_types::SolValue;
 use anyhow::{anyhow, Context, Result};
 
 use bincode;
 use rand::{distributions::Alphanumeric, Rng};
 use rocksdb::{
-    DBAccess, DBPinnableSlice, IteratorMode, TransactionDB, TransactionOptions, WriteOptions,
+    DBAccess, DBPinnableSlice, IteratorMode, MergeOperands, TransactionDB, TransactionOptions,
+    WriteOptions,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use std::path::PathBuf;
+use std::{ops::Add, path::PathBuf};
 
 use crate::{ecdsa::AddressECDSA, Attestation, Hashable, HeadlessAttestation, Timestamp};
 
@@ -156,6 +157,91 @@ macro_rules! define_key_macro {
     };
 }
 
+pub trait KeyMerger: Send + Clone + Sync + 'static {
+    fn merge(
+        key: &[u8],
+        current_value: Option<&[u8]>,
+        merge_operands: &MergeOperands,
+    ) -> Option<Vec<u8>>;
+}
+
+// This operations does a lot of allocations which makes it expensive to use right now
+pub fn merge_append(
+    current_value: Option<&[u8]>,
+    merge_operands: &MergeOperands,
+) -> Result<Vec<u8>> {
+    let mut result_as_string: String = String::new();
+    if let Some(v) = current_value {
+        let v: String = bincode::deserialize(v)?;
+        result_as_string.reserve(v.len() + merge_operands.len());
+        result_as_string.push_str(v.as_str());
+    } else {
+        result_as_string.reserve(merge_operands.len());
+    }
+
+    for op in merge_operands {
+        let op: String = bincode::deserialize(op)?;
+        result_as_string.push_str(op.as_str());
+    }
+
+    Ok(bincode::serialize(&result_as_string)?)
+}
+
+pub fn merge_increment<
+    T: Sized + Default + for<'a> Deserialize<'a> + Serialize + Add<Output = T>,
+>(
+    current_value: Option<&[u8]>,
+    increments: &MergeOperands,
+) -> Result<Vec<u8>> {
+    let mut current_value: T = match current_value {
+        None => T::default(),
+        Some(bytes) => bincode::deserialize::<T>(bytes)?,
+    };
+
+    for op_bytes in increments {
+        let increment = bincode::deserialize::<T>(op_bytes)?;
+        current_value = current_value + increment;
+    }
+
+    Ok(bincode::serialize(&current_value)?)
+}
+
+#[derive(Clone)]
+pub struct NoMerger {}
+impl KeyMerger for NoMerger {
+    fn merge(
+        _key: &[u8],
+        _current_value: Option<&[u8]>,
+        _merge_operands: &MergeOperands,
+    ) -> Option<Vec<u8>> {
+        None
+    }
+}
+
+#[derive(Clone)]
+pub struct MultiMerger {}
+impl MultiMerger {
+    const fn get_merge_key_prefix() -> &'static str {
+        "M:INCR"
+    }
+}
+
+impl KeyMerger for MultiMerger {
+    fn merge(
+        key: &[u8],
+        current_value: Option<&[u8]>,
+        merge_operands: &MergeOperands,
+    ) -> Option<Vec<u8>> {
+        if key.starts_with(Self::get_merge_key_prefix().as_bytes()) {
+            return Some(
+                merge_increment::<U256>(current_value, merge_operands).unwrap_or_default(),
+            );
+        }
+
+        Some(merge_append(current_value, merge_operands).unwrap_or_default())
+    }
+}
+
 // RocksDB trait allows us to use the same code for both a rocksdb database and a transaction
 pub trait RocksDB: DBAccess
 where
@@ -164,6 +250,7 @@ where
     fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>>;
     fn has<K: AsRef<[u8]>>(&self, key: K) -> Result<bool>;
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()>;
+    fn merge<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()>;
     fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<()>;
     fn iterator<'a>(&'a self, mode: IteratorMode) -> rocksdb::DBIteratorWithThreadMode<'a, Self>;
 }
@@ -184,6 +271,12 @@ impl RocksDB for TransactionDB {
         write_options.set_sync(true);
         TransactionDB::put_opt(self, key, value, &write_options)?;
         Ok(())
+    }
+
+    fn merge<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()> {
+        let mut write_options = rocksdb::WriteOptions::default();
+        write_options.set_sync(true);
+        Ok(TransactionDB::merge(self, key, value)?)
     }
 
     fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<()> {
@@ -217,6 +310,10 @@ impl RocksDB for rocksdb::Transaction<'_, TransactionDB> {
     fn put<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()> {
         rocksdb::Transaction::put(self, key, value)?;
         Ok(())
+    }
+
+    fn merge<K: AsRef<[u8]>>(&self, key: K, value: &[u8]) -> Result<()> {
+        Ok(rocksdb::Transaction::merge(&self, key, value)?)
     }
 
     fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<()> {
@@ -365,6 +462,7 @@ pub trait KVStorage {
     }
 
     fn put<T: Serialize>(&self, key: &str, value: &T) -> Result<()>;
+    fn merge<T: Serialize>(&self, key: &str, value: &T) -> Result<()>;
 }
 
 /// Iterator that iterates over raw byte (key, value) pairs in the DB.
@@ -430,14 +528,23 @@ pub trait KVTransactionalStorage: KVStorage {
 }
 
 pub trait TemporaryStorage: Sized {
-    fn temporary() -> Result<Self>;
+    fn temporary<M: KeyMerger>() -> Result<Self>;
+    fn temporary_no_merger() -> Result<Self> {
+        Self::temporary::<NoMerger>()
+    }
 }
 
 impl TemporaryStorage for TransactionDB {
-    fn temporary() -> Result<Self> {
+    fn temporary<M: KeyMerger>() -> Result<Self> {
         let mut opts = rocksdb::Options::default();
         // opts.set_env(&rocksdb::Env::mem_env().unwrap());
         opts.create_if_missing(true);
+
+        opts.set_merge_operator_associative(
+            "merge_multiplexer",
+            move |key, current_value, merge_operands| M::merge(key, current_value, merge_operands),
+        );
+
         let txopts = rocksdb::TransactionDBOptions::default();
 
         let random_string: String = rand::thread_rng()
@@ -511,8 +618,110 @@ impl<T: RocksDB> KVStorage for T {
         self.put(key, &serialized)
     }
 
+    fn merge<V: Serialize>(&self, key: &str, value: &V) -> Result<()> {
+        let serialized = bincode::serialize(value)?;
+        self.merge(key, &serialized)
+    }
+
     fn delete<K: AsRef<[u8]>>(&self, key: &K) -> Result<()> {
         self.delete(key)
+    }
+
+    fn count(&self, from_key: &str, to_key: &str) -> Result<usize> {
+        let mut count = 0;
+
+        for res in self.iterate_raw(from_key, to_key) {
+            let _ = res?;
+            count += 1;
+        }
+        Ok(count)
+    }
+
+    fn iterate<K: Into<String>, D: DeserializeOwned>(
+        &self,
+        from_key: K,
+        to_key: K,
+    ) -> impl Iterator<Item = Result<(String, D)>> {
+        self.iterate_raw(from_key, to_key).map(|entry| {
+            let (k, v) = entry?;
+            Ok((
+                String::from_utf8(k.into_vec()).context("invalid utf8 key")?,
+                bincode::deserialize(&v).context("failed to deserialize during iteration")?,
+            ))
+        })
+    }
+
+    fn iterate_keys<K: Into<String>>(
+        &self,
+        from_key: K,
+        to_key: K,
+    ) -> impl Iterator<Item = Result<String>> {
+        self.iterate_raw(from_key, to_key).map(|entry| {
+            let (k, _) = entry?;
+            String::from_utf8(k.into_vec()).context("invalid utf8 key")
+        })
+    }
+
+    fn iterate_values<K: Into<String>, D: DeserializeOwned>(
+        &self,
+        from_key: K,
+        to_key: K,
+    ) -> impl Iterator<Item = Result<D>> {
+        self.iterate_raw(from_key, to_key).map(|entry| {
+            let (_, v) = entry?;
+            bincode::deserialize(&v).context("failed to deserialize during iteration")
+        })
+    }
+
+    fn list<K: Into<String>, D: for<'de> DeserializeOwned>(
+        &self,
+        from_key: K,
+        to_key: K,
+        limit: Option<usize>,
+    ) -> Result<Vec<(String, D)>> {
+        self.iterate(from_key, to_key)
+            .take(limit.unwrap_or(usize::MAX))
+            .collect()
+    }
+
+    fn list_values<K: Into<String>, D: for<'de> DeserializeOwned>(
+        &self,
+        from_key: K,
+        to_key: K,
+        limit: Option<usize>,
+    ) -> Result<Vec<D>> {
+        self.iterate_values(from_key, to_key)
+            .take(limit.unwrap_or(usize::MAX))
+            .collect()
+    }
+
+    fn delete_range<K: Into<String>>(&self, from_key: K, to_key: K) -> Result<()> {
+        for res in self.iterate_raw(from_key, to_key) {
+            let (k, _) = res.context("failed to iterate to next item")?;
+            self.delete(&k)?;
+        }
+        Ok(())
+    }
+
+    fn paginate_values<K: Into<String>, D: for<'de> DeserializeOwned>(
+        &self,
+        start_key: K,
+        end_key: K,
+        limit: usize,
+    ) -> Result<PaginatedResult<D>> {
+        let end_key: String = end_key.into();
+        let entries = self.list(start_key.into(), end_key.clone(), Some(limit + 1))?;
+
+        let cursor = if entries.len() > limit {
+            Some((entries[limit].0.clone(), end_key))
+        } else {
+            None
+        };
+
+        Ok(PaginatedResult {
+            items: entries.into_iter().map(|(_, v)| v).take(limit).collect(),
+            cursor,
+        })
     }
 }
 
@@ -591,13 +800,18 @@ impl<T: KVStorage> Queue for KVQueue<T> {
 
 #[cfg(test)]
 mod tests {
+    use std::{sync::Arc, thread};
+
+    use alloy_primitives::U256;
     use rocksdb::TransactionDB;
+
+    use crate::storage::MultiMerger;
 
     use super::{KVStorage, TemporaryStorage};
 
     #[test]
     fn iterating_over_kvstorage_values() {
-        let kv = TransactionDB::temporary().unwrap();
+        let kv = TransactionDB::temporary_no_merger().unwrap();
 
         // case 1: empty
         assert!(kv.iterate::<_, ()>("from", "to").next().is_none());
@@ -635,7 +849,7 @@ mod tests {
 
     #[test]
     fn iterating_over_kvstorage_items() {
-        let kv = TransactionDB::temporary().unwrap();
+        let kv = TransactionDB::temporary_no_merger().unwrap();
 
         // case 1: empty
         assert!(kv.iterate::<_, ()>("from", "to").next().is_none());
@@ -668,7 +882,7 @@ mod tests {
 
     #[test]
     fn listing_items() {
-        let kv = TransactionDB::temporary().unwrap();
+        let kv = TransactionDB::temporary_no_merger().unwrap();
 
         // case 1: empty
         assert!(kv.list::<_, ()>("from", "to", None).unwrap().is_empty());
@@ -720,7 +934,7 @@ mod tests {
 
     #[test]
     fn deleting_range() {
-        let kv = TransactionDB::temporary().unwrap();
+        let kv = TransactionDB::temporary_no_merger().unwrap();
 
         // case 1: empty
         kv.delete_range("from", "to").unwrap();
@@ -744,9 +958,109 @@ mod tests {
 
     #[test]
     fn has_keys() {
-        let kv = TransactionDB::temporary().unwrap();
+        let kv = TransactionDB::temporary_no_merger().unwrap();
         assert!(!kv.has("key").unwrap());
         kv.put("key", "value").unwrap();
         assert!(kv.has("key").unwrap());
+    }
+
+    #[test]
+    fn merge_append() -> anyhow::Result<()> {
+        let kv = TransactionDB::temporary::<MultiMerger>()?;
+
+        KVStorage::merge(&kv, "key", &"v0")?;
+        let v = KVStorage::get::<String>(&kv, "key")?;
+        assert_eq!(v.as_str(), "v0");
+
+        KVStorage::merge(&kv, "key", &"v1")?;
+        let v = KVStorage::get::<String>(&kv, "key")?;
+        assert_eq!(v.as_str(), "v0v1");
+
+        KVStorage::merge(&kv, "key", &"v2")?;
+        let v = KVStorage::get::<String>(&kv, "key")?;
+        assert_eq!(v.as_str(), "v0v1v2");
+
+        Ok(())
+    }
+
+    #[test]
+    fn merge_append_values_async() -> anyhow::Result<()> {
+        const THREADS_TO_TEST: usize = 8;
+        const MERGES_PER_THREAD: usize = 1024;
+        let kv = Arc::new(TransactionDB::temporary::<MultiMerger>()?);
+        let mut threads = Vec::with_capacity(THREADS_TO_TEST);
+        for tid in 0..THREADS_TO_TEST {
+            let kv = kv.clone();
+            threads.push(thread::spawn(move || {
+                for i in 0..MERGES_PER_THREAD {
+                    KVStorage::merge(
+                        kv.as_ref(),
+                        "key",
+                        &format!("v{:?}", i + tid * MERGES_PER_THREAD),
+                    )
+                    .unwrap();
+                }
+            }));
+        }
+
+        for t in threads {
+            t.join().unwrap();
+        }
+
+        let merged: String = KVStorage::get(kv.as_ref(), "key")?;
+        for i in 0..THREADS_TO_TEST * MERGES_PER_THREAD {
+            let i_as_str = i.to_string();
+            assert!(merged.contains(&i_as_str));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn merge_increment() -> anyhow::Result<()> {
+        let kv = TransactionDB::temporary::<MultiMerger>()?;
+        let mut key = MultiMerger::get_merge_key_prefix().to_owned();
+        key.push_str("key");
+        let key = key.as_str();
+
+        KVStorage::merge(&kv, key, &(U256::from(1)))?;
+        KVStorage::merge(&kv, key, &(U256::from(0)))?;
+        KVStorage::merge(&kv, key, &(U256::from(2)))?;
+        KVStorage::merge(&kv, key, &(U256::from(3)))?;
+
+        let v: U256 = KVStorage::get(&kv, key)?;
+        assert_eq!(v, U256::from(6));
+
+        Ok(())
+    }
+
+    #[test]
+    fn merge_increment_values_async() -> anyhow::Result<()> {
+        const THREADS_TO_TEST: usize = 8;
+        const MERGES_PER_THREAD: usize = 2048;
+        let kv = Arc::new(TransactionDB::temporary::<MultiMerger>()?);
+        let mut threads = Vec::with_capacity(THREADS_TO_TEST);
+        for _ in 0..THREADS_TO_TEST {
+            let kv = kv.clone();
+            threads.push(thread::spawn(move || {
+                for _ in 0..MERGES_PER_THREAD {
+                    let mut key = MultiMerger::get_merge_key_prefix().to_owned();
+                    key.push_str("key");
+
+                    KVStorage::merge(kv.as_ref(), &key, &U256::from(1)).unwrap();
+                }
+            }));
+        }
+
+        for t in threads {
+            t.join().unwrap();
+        }
+
+        let mut key = MultiMerger::get_merge_key_prefix().to_owned();
+        key.push_str("key");
+
+        let v: U256 = KVStorage::get(kv.as_ref(), &key)?;
+        assert_eq!(v, U256::from(THREADS_TO_TEST * MERGES_PER_THREAD));
+        Ok(())
     }
 }
