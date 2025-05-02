@@ -5,7 +5,8 @@ use anyhow::{anyhow, Context, Result};
 use bincode;
 use rand::{distributions::Alphanumeric, Rng};
 use rocksdb::{
-    DBAccess, DBPinnableSlice, IteratorMode, TransactionDB, TransactionOptions, WriteOptions,
+    DBAccess, DBPinnableSlice, IteratorMode, MergeOperands, TransactionDB, TransactionOptions,
+    WriteOptions,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -154,6 +155,27 @@ macro_rules! define_key_macro {
                                                             }};
                                                         }
     };
+}
+
+fn rocksdb_merge_append_fn(
+    _new_key: &[u8],
+    existing_val: Option<&[u8]>,
+    operands: &MergeOperands,
+) -> Option<Vec<u8>> {
+    let mut result: Vec<u8> = Vec::with_capacity(operands.len());
+    if let Some(v) = existing_val {
+        for e in v {
+            result.push(*e)
+        }
+    };
+
+    for op in operands {
+        for e in op {
+            result.push(*e)
+        }
+    }
+
+    Some(result)
 }
 
 // RocksDB trait allows us to use the same code for both a rocksdb database and a transaction
@@ -365,6 +387,7 @@ pub trait KVStorage {
     }
 
     fn put<T: Serialize>(&self, key: &str, value: &T) -> Result<()>;
+    fn merge<T: Serialize>(&self, key: &str, value: &T) -> Result<()>;
 }
 
 /// Iterator that iterates over raw byte (key, value) pairs in the DB.
@@ -438,6 +461,7 @@ impl TemporaryStorage for TransactionDB {
         let mut opts = rocksdb::Options::default();
         // opts.set_env(&rocksdb::Env::mem_env().unwrap());
         opts.create_if_missing(true);
+        opts.set_merge_operator_associative("merge_append", rocksdb_merge_append_fn);
         let txopts = rocksdb::TransactionDBOptions::default();
 
         let random_string: String = rand::thread_rng()
@@ -509,6 +533,11 @@ impl<T: RocksDB> KVStorage for T {
     fn put<V: Serialize>(&self, key: &str, value: &V) -> Result<()> {
         let serialized = bincode::serialize(value)?;
         self.put(key, &serialized)
+    }
+
+    fn merge<V: Serialize>(&self, key: &str, value: &V) -> Result<()> {
+        let serialized = bincode::serialize(value)?;
+        self.merge(key, &serialized)
     }
 
     fn delete<K: AsRef<[u8]>>(&self, key: &K) -> Result<()> {
@@ -591,6 +620,8 @@ impl<T: KVStorage> Queue for KVQueue<T> {
 
 #[cfg(test)]
 mod tests {
+    use std::{sync::Arc, thread};
+
     use rocksdb::TransactionDB;
 
     use super::{KVStorage, TemporaryStorage};
@@ -748,5 +779,46 @@ mod tests {
         assert!(!kv.has("key").unwrap());
         kv.put("key", "value").unwrap();
         assert!(kv.has("key").unwrap());
+    }
+
+    #[test]
+    fn merge_values() -> anyhow::Result<()> {
+        let kv = TransactionDB::temporary()?;
+        kv.merge("key", "v0")?;
+        kv.merge("key", "v1")?;
+        kv.merge("key", "v2")?;
+        let v = String::from_utf8(kv.get("key")?.unwrap())?;
+        assert_eq!(v.as_str(), "v0v1v2");
+
+        Ok(())
+    }
+
+    #[test]
+    fn merge_values_async() -> anyhow::Result<()> {
+        const THREADS_TO_TEST: usize = 12;
+        const MERGES_PER_THREAD: usize = 2048;
+        let kv = Arc::new(TransactionDB::temporary()?);
+        let mut threads = Vec::with_capacity(THREADS_TO_TEST);
+        for tid in 0..THREADS_TO_TEST {
+            let kv = kv.clone();
+            threads.push(thread::spawn(move || {
+                for i in 0..MERGES_PER_THREAD {
+                    kv.merge("key", format!("v{:?}", i + tid * MERGES_PER_THREAD))
+                        .unwrap();
+                }
+            }));
+        }
+
+        for t in threads {
+            t.join().unwrap();
+        }
+
+        let merged = String::from_utf8(kv.get("key")?.unwrap())?;
+        for i in 0..THREADS_TO_TEST * MERGES_PER_THREAD {
+            let i_as_str = i.to_string();
+            assert!(merged.contains(&i_as_str));
+        }
+
+        Ok(())
     }
 }
