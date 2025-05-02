@@ -8,72 +8,38 @@ functionality such as `wait_past_perfect_time`, which integrate pod-specific fea
 using alloy directly may lead to unexpected behavior when waiting for transaction confirmations or
 fetching blocks.
 
+The main different between using pod-sdk and alloy is that pod has its own ProviderBuilder, called
+`PodProviderBuilder`. The rest of the API remains the same, as it's illustrated in the example.
+
 ! content end
 
 ! content
 
 ! sticky
 
-! codeblock title="Send transaction with alloy (example from alloy docs)"
-
-```rust
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    // Initialize a signer with a private key
-    let signer: PrivateKeySigner =
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80".parse()?;
-
-    // Instantiate a provider with the signer
-    let provider = ProviderBuilder::new()
-        .wallet(signer)
-        .connect("https://reth-ethereum.ithaca.xyz/rpc")
-        .await?;
-
-    // Prepare a transaction request to send 100 ETH to Alice
-    let alice = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
-    let value = Unit::ETHER.wei().saturating_mul(U256::from(100));
-    let tx = TransactionRequest::default()
-        .with_to(alice)
-        .with_value(value);
-
-    // Send the transaction and wait for the broadcast
-    let pending_tx = provider.send_transaction(tx).await?;
-    println!("Pending transaction... {}", pending_tx.tx_hash());
-
-    // Wait for the transaction to be included and get the receipt
-    let receipt = pending_tx.get_receipt().await?;
-    println!(
-        "Transaction included in block {}",
-        receipt.block_number.expect("Failed to get block number")
-    );
-
-    Ok(())
-}
-```
-
-! codeblock end
-
 ! codeblock title="Send transaction with pod-sdk"
 
 ```rust
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize a wallet
+    // Initialize a wallet - alloy compatible
     let private_key_bytes = <[u8; 32]>::from_hex("abc...")?;
     let field_bytes = FieldBytes::from_slice(&private_key_bytes);
     let signing_key = SigningKey::from_bytes(field_bytes)?;
     let signer = PrivateKeySigner::from(signing_key);
     let wallet = EthereumWallet::new(signer);
 
-    // Instantiate a provider
     let ws_url = Url::parse("ws://rpc.dev.pod.network:8545")?;
     let ws = WsConnect::new(ws_url);
+    // Instantiate a provider
+    // Use pod-specific Provider instead of use alloy::providers::ProviderBuilder
     let pod_provider = provider::PodProviderBuilder::new()
         .wallet(wallet)
         .on_ws(ws)
         .await?;
 
     // Send transaction
+    // Use alloy structs
     let tx = TxLegacy {
         chain_id: Some(1293),
         nonce: 0,
@@ -83,9 +49,10 @@ async fn main() -> Result<()> {
         value: U256::from(1000000000000000000u64),
         input: Bytes::default(),
     };
+    // Use send_transaction - alloy compatible
     let pending_tx = pod_provider.send_transaction(tx.into()).await?;
 
-    // Get receipt
+    // Get receipt - alloy compatible
     let receipt = pending_tx.get_receipt().await?;
     println!("receipt: {:?}", receipt);
 
