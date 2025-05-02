@@ -20,12 +20,4 @@ Pod implements many of Ethereum's RPC methods but these methods below differ due
 
 ! content end
 
-! content
-
-! sticky
-
-&nbsp;
-
-! sticky end
-
-! content end
+! content empty
