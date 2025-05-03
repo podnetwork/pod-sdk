@@ -1,1 +1,1 @@
-ignore = ["contracts/bindings"]
+ignore = ["examples/bindings"]

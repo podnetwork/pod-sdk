@@ -1,5 +1,5 @@
 [workspace]
-members = ["contracts/bindings", "types", "rust-sdk"]
+members = ["examples/bindings", "types", "rust-sdk"]
 resolver = "2"
 
 

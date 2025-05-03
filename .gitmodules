@@ -1,5 +1,5 @@
-[submodule "contracts/lib/forge-std"]
-	path = contracts/lib/forge-std
+[submodule "examples/lib/forge-std"]
+	path = examples/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
 [submodule "solidity-sdk/lib/forge-std"]
 	path = solidity-sdk/lib/forge-std
