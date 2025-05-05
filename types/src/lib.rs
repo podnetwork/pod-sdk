@@ -3,7 +3,6 @@ pub mod cryptography;
 pub mod ledger;
 pub mod metadata;
 // pub mod network;
-pub mod storage;
 // pub mod system;
 pub mod time;
 
