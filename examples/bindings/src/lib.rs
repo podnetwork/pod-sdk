@@ -13,5 +13,5 @@ pub mod r#iowned;
 pub mod r#iset;
 pub mod r#pi2;
 pub mod r#profileregistry;
-pub mod r#voting;
 pub mod r#rankedfeed;
+pub mod r#voting;
