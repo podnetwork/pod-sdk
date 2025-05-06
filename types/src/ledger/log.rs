@@ -7,14 +7,13 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    consensus::attestation::HeadlessAttestation,
+    consensus::attestation::{HeadlessAttestation, Indexed},
     cryptography::{
         hash::Hashable,
         merkle_tree::{index_prefix, MerkleBuilder, MerkleProof, StandardMerkleTree},
         Hash, MerkleMultiProof, Merkleizable,
     },
     metadata::{MetadataWrappedItem, PodLogMetadata},
-    storage::Indexed,
     Certificate, Committee, Timestamp,
 };
 
