@@ -17,7 +17,7 @@
 
 ! content id="pod_getCommittee"
 
-## pod_getCommittee
+## Get Committee
 
 Lists the validator public keys that are part of the committee.
 
@@ -36,9 +36,9 @@ None
 
 | Key              | Type    | Description                     |
 | ---------------- | ------- | ------------------------------- |
-| `{}`             | object  |                                 |
-| `{}.quorum_size` | integer | Number of required attestations |
-| `{}.replicas`    | array   | Array of validator public keys  |
+|               | object  |                                 |
+| `quorum_size` | integer | Number of required attestations |
+| `replicas`    | array   | Array of validator public keys  |
 
 ! content end
 
@@ -47,6 +47,18 @@ None
 ! sticky
 
 ! codeblock title="POST rpc.dev.pod.network" runCode={play}
+
+```rust alias="rust"
+use reqwest::Client;
+use serde_json::{json, Value};
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let committee = pod_provider.get_committee().await?;
+    println!("{}", committee);
+
+    Ok(())
+}
+```
 
 ```bash alias="curl"
 curl -X POST https://rpc.dev.pod.network \
@@ -72,31 +84,6 @@ await fetch('https://rpc.dev.pod.network/', {
 		id: 1
 	})
 });
-```
-
-```rust alias="rust"
-use reqwest::Client;
-use serde_json::{json, Value};
-
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::new();
-    let response = client
-        .post("https://rpc.dev.pod.network/")
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "jsonrpc": "2.0",
-            "method": "pod_getCommittee",
-            "params": {},
-            "id": 1
-        }))
-        .send()
-        .await?;
-
-    let result: Value = response.json().await?;
-    println!("{}", result);
-
-    Ok(())
-}
 ```
 
 ! codeblock end

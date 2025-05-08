@@ -20,7 +20,7 @@
 
 ! content id="pod_metrics"
 
-## pod_metrics
+## Get Metrics
 
 Returns the current metrics displayed in the pod explorer.
 
@@ -39,11 +39,11 @@ None
 
 | Key                   | Type    | Description                                               |
 | --------------------- | ------- | --------------------------------------------------------- |
-| `{}`                  | object  | Pagination Response Object                                |
-| `{}.gas_price`        | integer | Current gas price in wei                                  |
-| `{}.validator_uptime` | number  | Validator uptime percentage                               |
-| `{}.latency`          | number  | Average latency in milliseconds                           |
-| `{}.throughput`       | number  | Average throughput in transactions per second             |
+|                   | object  | Pagination Response Object                                |
+| `gas_price`        | integer | Current gas price in wei                                  |
+| `validator_uptime` | number  | Validator uptime percentage                               |
+| `latency`          | number  | Average latency in milliseconds                           |
+| `throughput`       | number  | Average throughput in transactions per second             |
 
 ! content end
 

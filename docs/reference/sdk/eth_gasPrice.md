@@ -17,7 +17,7 @@
 
 ! content id="eth_gasPrice"
 
-## eth_gasPrice
+## Get Gas Price
 
 Returns the current gas price.
 
@@ -41,6 +41,18 @@ None
 ! sticky
 
 ! codeblock title="POST rpc.dev.pod.network" runCode={play}
+
+```rust alias="rust"
+use reqwest::Client;
+use serde_json::{json, Value};
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let gas_price = pod_provider.get_gas_price().await?;
+    println!("{}", gas_price);
+
+    Ok(())
+}
+```
 
 ```bash alias="curl"
 curl -X POST https://rpc.dev.pod.network \
@@ -66,31 +78,6 @@ await fetch('https://rpc.dev.pod.network/', {
 		id: 1
 	})
 });
-```
-
-```rust alias="rust"
-use reqwest::Client;
-use serde_json::{json, Value};
-
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::new();
-    let response = client
-        .post("https://rpc.dev.pod.network/")
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "jsonrpc": "2.0",
-            "method": "eth_gasPrice",
-            "params": [],
-            "id": 1
-        }))
-        .send()
-        .await?;
-
-    let result: Value = response.json().await?;
-    println!("{}", result);
-
-    Ok(())
-}
 ```
 
 ! codeblock end

@@ -15,7 +15,7 @@ Before participating in auctions, ensure you have:
 ### Required tools
 
 - A funded wallet on pod devnet
-- Rust Pod SDK installed. How to build the pod provider can be seen in the [Rust SDK](https://docs.pod.network/reference/rust-sdk) section
+- Pod SDK installed. How to build the pod provider can be seen in the [SDK](https://docs.pod.network/reference/sdk) section
 
 ! content end
 

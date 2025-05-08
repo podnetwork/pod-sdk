@@ -32,7 +32,7 @@
 
 ! content id="eth_networkId"
 
-## eth_networkId (alias: net_version)
+## Get Network Id
 
 Returns the current network ID.
 
@@ -56,6 +56,18 @@ None
 ! sticky
 
 ! codeblock title="POST rpc.dev.pod.network" runCode={play}
+
+```rust alias="rust"
+use reqwest::Client;
+use serde_json::{json, Value};
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let network_id = pod_provider.network_id().await?;
+    println!("{:?}", network_id);
+
+    Ok(())
+}
+```
 
 ```bash alias="curl"
 # Using eth_networkId
@@ -84,34 +96,29 @@ await fetch('https://rpc.dev.pod.network/', {
 });
 ```
 
+! codeblock end
+
+! codeblock title="POST rpc.dev.pod.network" runCode={play2}
+
 ```rust alias="rust"
 use reqwest::Client;
 use serde_json::{json, Value};
 
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::new();
-    let response = client
-        .post("https://rpc.dev.pod.network/")
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "jsonrpc": "2.0",
-            "method": "eth_networkId",
-            "params": [],
-            "id": 1
-        }))
-        .send()
-        .await?;
+    let rpc_url = "ws://rpc.dev.pod.network:8545";
+    let ws_url = Url::parse(&rpc_url)?;
+    let ws = WsConnect::new(ws_url);
+    let pod_provider = PodProviderBuilder::new()
+            .with_recommended_fillers()
+            .on_ws(ws)
+            .await?;
 
-    let result: Value = response.json().await?;
-    println!("{}", result);
+    let net_version = pod_provider.get_net_version().await?;
+    println!("{:?}", net_version);
 
     Ok(())
 }
 ```
-
-! codeblock end
-
-! codeblock title="POST rpc.dev.pod.network" runCode={play2}
 
 ```bash alias="curl"
 # Using net_version alias
@@ -138,31 +145,6 @@ await fetch('https://rpc.dev.pod.network/', {
 		id: 1
 	})
 });
-```
-
-```rust alias="rust"
-use reqwest::Client;
-use serde_json::{json, Value};
-
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::new();
-    let response = client
-        .post("https://rpc.dev.pod.network/")
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "jsonrpc": "2.0",
-            "method": "eth_networkId",
-            "params": [],
-            "id": 1
-        }))
-        .send()
-        .await?;
-
-    let result: Value = response.json().await?;
-    println!("{}", result);
-
-    Ok(())
-}
 ```
 
 ! codeblock end

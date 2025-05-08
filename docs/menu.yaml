@@ -26,9 +26,7 @@ menu:
     label: Transaction Lifecycle
 
   - heading: reference
-  - href: /reference/rpc-api
-    label: RPC API
-  - href: /reference/rust-sdk
-    label: Rust SDK
+  - href: /reference/sdk
+    label: Reference SDK
   - href: /reference/solidity-sdk
     label: Solidity SDK

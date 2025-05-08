@@ -1,4 +1,4 @@
-! content id="error-handling"
+! content id="error-handling-rpc"
 
 ## Error Handling
 

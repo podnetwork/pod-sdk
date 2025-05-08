@@ -1,4 +1,4 @@
-! content
+! content id="general-rpc-api"
 
 # RPC API
 

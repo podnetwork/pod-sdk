@@ -88,9 +88,8 @@ pod is particularly well-suited for:
 
 ### Developer Resources
 
-- [RPC API Documentation](/reference/rpc-api)
 - [Solidity SDK Reference](/reference/solidity-sdk)
-- [Rust SDK Reference](/reference/rust-sdk)
+- [SDK Reference](/reference/sdk)
 - Set up a [local devnet](/getting-started) for deeper exploration
 
 > Pod is still at an early stage. With our first release we are inviting developers to try out pod for their use cases. Expect instability and lots of changes.

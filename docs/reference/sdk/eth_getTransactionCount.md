@@ -17,7 +17,7 @@
 
 ! content id="eth_getTransactionCount"
 
-## eth_getTransactionCount
+## Get Transaction Count
 
 Returns the number of transactions sent from an address.
 
@@ -47,6 +47,23 @@ Returns the number of transactions sent from an address.
 
 ! codeblock title="POST rpc.dev.pod.network" runCode={play}
 
+```rust alias="rust"
+use reqwest::Client;
+use serde_json::{json, Value};
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let address = Address::from_word(b256!("0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045"));
+    let txs = pod_provider
+        .get_transaction_count(
+            address,
+        )
+        .await?;
+    println!("{}", txs);
+
+    Ok(())
+}
+```
+
 ```bash alias="curl"
 curl -X POST https://rpc.dev.pod.network \
     -H "Content-Type: application/json" \
@@ -75,34 +92,6 @@ await fetch('https://rpc.dev.pod.network/', {
 		id: 1
 	})
 });
-```
-
-```rust alias="rust"
-use reqwest::Client;
-use serde_json::{json, Value};
-
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::new();
-    let response = client
-        .post("https://rpc.dev.pod.network/")
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "jsonrpc": "2.0",
-            "method": "eth_getTransactionCount",
-            "params": [
-                "0x13791790Bef192d14712D627f13A55c4ABEe52a4",
-                "latest"
-            ],
-            "id": 1
-        }))
-        .send()
-        .await?;
-
-    let result: Value = response.json().await?;
-    println!("{}", result);
-
-    Ok(())
-}
 ```
 
 ! codeblock end

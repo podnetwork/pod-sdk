@@ -20,7 +20,7 @@
 
 ! content id="eth_estimateGas"
 
-## eth_estimateGas
+## Get Gas Estimation
 
 Estimates gas needed for a transaction.
 
@@ -55,6 +55,25 @@ Estimates gas needed for a transaction.
 
 ! codeblock title="POST rpc.dev.pod.network" runCode={play}
 
+```rust alias="rust"
+use reqwest::Client;
+use serde_json::{json, Value};
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let recipient_address = Address::from_word(b256!("0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045"));
+    let transfer_amount = U256::from(1_000_000); // 1 million wei
+
+    let tx = PodTransactionRequest::default()
+            .with_to(recipient_address)
+            .with_value(transfer_amount);
+
+    let gas_estimation = pod_provider.estimate_gas(&tx).await?;
+    println!("{}", gas_estimation);
+
+    Ok(())
+}
+```
+
 ```bash alias="curl"
 curl -X POST https://rpc.dev.pod.network \
     -H "Content-Type: application/json" \
@@ -87,34 +106,6 @@ await fetch('https://rpc.dev.pod.network/', {
 		id: 1
 	})
 });
-```
-
-```rust alias="rust"
-use reqwest::Client;
-use serde_json::{json, Value};
-
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::new();
-    let response = client
-        .post("https://rpc.dev.pod.network/")
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "jsonrpc": "2.0",
-            "method": "eth_estimateGas",
-            "params": [{
-                "from": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-                "to": "0xbe0eb53f46cd790cd13851d5eff43d12404d33e8"
-            }],
-            "id": 1
-        }))
-        .send()
-        .await?;
-
-    let result: Value = response.json().await?;
-    println!("{}", result);
-
-    Ok(())
-}
 ```
 
 ! codeblock end

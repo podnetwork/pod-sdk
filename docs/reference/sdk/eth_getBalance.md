@@ -20,7 +20,7 @@
 
 ! content id="eth_getBalance"
 
-## eth_getBalance
+## Get Balance
 
 Returns the balance of a given address.
 
@@ -49,6 +49,20 @@ Returns the balance of a given address.
 ! sticky
 
 ! codeblock title="POST rpc.dev.pod.network" runCode={play}
+
+```rust alias="rust"
+use reqwest::Client;
+use serde_json::{json, Value};
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let address = Address::from_word(b256!("0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045"));
+
+    let balance = pod_provider.get_balance(address).await?;
+    println!("{}", balance);
+
+    Ok(())
+}
+```
 
 ```bash alias="curl"
 curl -X POST https://rpc.dev.pod.network \

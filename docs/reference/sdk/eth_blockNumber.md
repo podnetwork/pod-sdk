@@ -17,7 +17,7 @@
 
 ! content id="eth_blockNumber"
 
-## eth_blockNumber
+## Get Block Number
 
 Returns the latest past perfection pod timestamp in microseconds.
 
@@ -41,6 +41,18 @@ None
 ! sticky
 
 ! codeblock title="POST rpc.dev.pod.network" runCode={play}
+
+```rust alias="rust"
+use reqwest::Client;
+use serde_json::{json, Value};
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let block_number = pod_provider.get_block_number().await?;
+    println!("{}", block_number);
+
+    Ok(())
+}
+```
 
 ```bash alias="curl"
 curl -L \
@@ -68,31 +80,6 @@ await fetch('https://rpc.dev.pod.network/', {
 		id: 1
 	})
 });
-```
-
-```rust alias="rust"
-use reqwest::Client;
-use serde_json::{json, Value};
-
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::new();
-    let response = client
-        .post("https://rpc.dev.pod.network/")
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "jsonrpc": "2.0",
-            "method": "eth_blockNumber",
-            "params": [],
-            "id": 1
-        }))
-        .send()
-        .await?;
-
-    let result: Value = response.json().await?;
-    println!("{}", result);
-
-    Ok(())
-}
 ```
 
 ! codeblock end

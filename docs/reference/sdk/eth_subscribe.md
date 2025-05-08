@@ -1,6 +1,6 @@
 ! content id="eth_subscribe"
 
-## eth_subscribe
+## Subscribe
 
 Creates a subscription for specific events. This endpoint streams the new events, for historical data use the other endpoints (pod_listAccountReceipts, pod_listConfirmedReceipts, pod_pastPerfectTime, eth_getLogs). Each subscription type has different parameter requirements.
 

@@ -1,6 +1,6 @@
 ! content id="overview"
 
-# Rust SDK
+# Reference SDK
 
 Rust library for interacting with pod.
 

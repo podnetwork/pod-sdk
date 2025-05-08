@@ -19,7 +19,7 @@
 
 ! content id="eth_sendRawTransaction"
 
-## eth_sendRawTransaction
+## Send Raw Transaction
 
 Submits a pre-signed transaction for broadcast to the POD network.
 
@@ -46,6 +46,22 @@ Submits a pre-signed transaction for broadcast to the POD network.
 ! sticky
 
 ! codeblock title="POST rpc.dev.pod.network" runCode={play}
+
+```rust alias="rust"
+use reqwest::Client;
+use serde_json::{json, Value};
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let tx_data_hex = "0xf8658001830493e0945fbdb2315678afecb367f032d93f642f64180aa3830f424080820a3da00f49d94d0d83d905d6372b3548d7e922d58c69e611a296d2ca3c9f762b9b5051a073e5602f6889390a284f421cc5184d05ec82923e64e86ff37e437f0600930d26";
+    let tx = pod_provider
+        .send_raw_transaction(tx_data_hex.as_ref())
+        .await?;
+
+    println!("{:?}", tx);
+
+    Ok(())
+}
+```
 
 ```bash alias="curl"
 curl -X POST https://rpc.dev.pod.network \
@@ -77,32 +93,6 @@ await fetch('https://rpc.dev.pod.network/', {
 });
 ```
 
-```rust alias="rust"
-use reqwest::Client;
-use serde_json::{json, Value};
-
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::new();
-    let response = client
-        .post("https://rpc.dev.pod.network/")
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "jsonrpc": "2.0",
-            "method": "eth_sendRawTransaction",
-            "params": [
-                "0xf8658001830493e0945fbdb2315678afecb367f032d93f642f64180aa3830f424080820a3da00f49d94d0d83d905d6372b3548d7e922d58c69e611a296d2ca3c9f762b9b5051a073e5602f6889390a284f421cc5184d05ec82923e64e86ff37e437f0600930d26"
-            ],
-            "id": 1
-        }))
-        .send()
-        .await?;
-
-    let result: Value = response.json().await?;
-    println!("{}", result);
-
-    Ok(())
-}
-```
 
 ! codeblock end
 

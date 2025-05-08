@@ -19,7 +19,7 @@
 
 ! content id="eth_getTransactionReceipt"
 
-## eth_getTransactionReceipt
+## Get Transaction Receipt
 
 Returns the receipt of a transaction by transaction hash.
 
@@ -40,8 +40,8 @@ Returns the receipt of a transaction by transaction hash.
 
 | Key               | Type   | Description                                       |
 | ----------------- | ------ | ------------------------------------------------- |
-| `{}`              | object | Standard Ethereum receipt fields                  |
-| `{}.pod_metadata` | object | Contains pod-specific data including attestations |
+|               | object | Standard Ethereum receipt fields                  |
+| `pod_metadata` | object | Contains pod-specific data including attestations |
 
 ! content end
 
@@ -50,6 +50,27 @@ Returns the receipt of a transaction by transaction hash.
 ! sticky
 
 ! codeblock title="POST rpc.dev.pod.network" runCode={play}
+
+```rust alias="rust"
+use reqwest::Client;
+use serde_json::{json, Value};
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let tx_receipt = pod_provider
+        .get_transaction_receipt(
+            b256!("0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"),
+        )
+        .await?;
+    println!("{:?}", tx_receipt);
+
+    let committee = pod_provider.get_committee().await?;
+
+    let verification = tx_receipt.verify(&committee)?;
+    println!("{:?}", verification);
+
+    Ok(())
+}
+```
 
 ```bash alias="curl"
 curl -X POST https://rpc.dev.pod.network \
@@ -79,33 +100,6 @@ await fetch('https://rpc.dev.pod.network/', {
 		id: 1
 	})
 });
-```
-
-```rust alias="rust"
-use reqwest::Client;
-use serde_json::{json, Value};
-
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::new();
-    let response = client
-        .post("https://rpc.dev.pod.network/")
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "jsonrpc": "2.0",
-            "method": "eth_getTransactionReceipt",
-            "params": [
-                "0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"
-            ],
-            "id": 1
-        }))
-        .send()
-        .await?;
-
-    let result: Value = response.json().await?;
-    println!("{}", result);
-
-    Ok(())
-}
 ```
 
 ! codeblock end

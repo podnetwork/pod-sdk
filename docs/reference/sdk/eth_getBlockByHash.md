@@ -17,7 +17,7 @@
 
 ! content id="eth_getBlockByHash"
 
-## eth_getBlockByHash
+## Get Block by Hash
 
 Returns information about a block by its hash. Returns an empty block structure for compatibility.
 
@@ -41,18 +41,18 @@ Returns information about a block by its hash. Returns an empty block structure 
 | ------------------------- | ------ | -------------------------------------------------------------------- |
 | `result`                  | object | block information                                                    |
 | `result.number`           | string | 0                                                                    |
-| `result.mixHash`          | string | `0x0000000000000000000000000000000000000000000000000000000000000000` |
+| `result.mixHash`          | string | `0x0` followed by 64 zeros                                           |
 | `result.hash`             | string | Requested block hash                                                 |
-| `result.parentHash`       | string | `0x0000000000000000000000000000000000000000000000000000000000000000` |
+| `result.parentHash`       | string | `0x0` followed by 64 zeros                                           |
 | `result.nonce`            | string | `0x0000000000000000`                                                 |
-| `result.sha3Uncles`       | string | `0x0000000000000000000000000000000000000000000000000000000000000000` |
+| `result.sha3Uncles`       | string | `0x0` followed by 64 zeros                                           |
 | `result.logsBloom`        | string | `0x0` followed by 256 zeros                                          |
-| `result.transactionsRoot` | string | `0x0000000000000000000000000000000000000000000000000000000000000000` |
-| `result.stateRoot`        | string | `0x0000000000000000000000000000000000000000000000000000000000000000` |
-| `result.receiptsRoot`     | string | `0x0000000000000000000000000000000000000000000000000000000000000000` |
-| `result.miner`            | string | `0x0000000000000000000000000000000000000000`                         |
+| `result.transactionsRoot` | string | `0x0` followed by 64 zeros                                           |
+| `result.stateRoot`        | string | `0x0` followed by 64 zeros                                           |
+| `result.receiptsRoot`     | string | `0x0` followed by 64 zeros                                           |
+| `result.miner`            | string | `0x0` followed by 40 zeros                                           |
 | `result.difficulty`       | string | `0x0000000000000000`                                                 |
-| `result.extraData`        | string | `0x0000000000000000000000000000000000000000`                         |
+| `result.extraData`        | string | `0x0` followed by 40 zeros                                           |
 | `result.size`             | string | `0x0`                                                                |
 | `result.gasLimit`         | string | `0x0`                                                                |
 | `result.gasUsed`          | string | `0x0`                                                                |
@@ -67,6 +67,23 @@ Returns information about a block by its hash. Returns an empty block structure 
 ! sticky
 
 ! codeblock title="POST rpc.dev.pod.network" runCode={play}
+
+```rust alias="rust"
+use reqwest::Client;
+use serde_json::{json, Value};
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let block = pod_provider
+            .get_block_by_hash(
+                b256!("0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045"),
+                BlockTransactionsKind::Full,
+            )
+            .await?;
+    println!("{}", block);
+
+    Ok(())
+}
+```
 
 ```bash alias="curl"
 curl -X POST https://rpc.dev.pod.network \
@@ -95,34 +112,6 @@ await fetch('https://rpc.dev.pod.network/', {
 		id: 1
 	})
 });
-```
-
-```rust alias="rust"
-use reqwest::Client;
-use serde_json::{json, Value};
-
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::new();
-    let response = client
-        .post("https://rpc.dev.pod.network/")
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "jsonrpc": "2.0",
-            "method": "eth_getBlockByHash",
-            "params": [
-                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                false
-            ],
-            "id": 1
-        }))
-        .send()
-        .await?;
-
-    let result: Value = response.json().await?;
-    println!("{}", result);
-
-    Ok(())
-}
 ```
 
 ! codeblock end
