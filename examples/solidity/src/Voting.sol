@@ -1,7 +1,7 @@
 pragma solidity ^0.8.25;
 
-import {FastTypes} from "./lib/FastTypes.sol";
-import {Deadline} from "./lib/Deadline.sol";
+import {FastTypes} from "pod-sdk/pod/FastTypes.sol";
+import {Deadline} from "pod-sdk/pod/Deadline.sol";
 
 contract Voting {
     using FastTypes for FastTypes.Set;

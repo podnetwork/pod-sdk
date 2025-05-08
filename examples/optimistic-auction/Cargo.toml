@@ -1,0 +1,10 @@
+[package]
+name = "optimistic-auction"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "optimistic_auction"
+path = "client/main.rs"
+
+[dependencies]

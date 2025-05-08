@@ -1,28 +1,27 @@
-# POD SDK
+# pod SDK
 
-This repository contains the Software Development Kit for the pod Network. It provides a simplified interface for interacting with the POD network.
+This repository contains the Software Development Kit for the pod Network. 
+It provides a simplified interface for interacting with the pod network.
 
 ## Features
 
-- Simple connection to POD nodes using WebSocket or HTTP
+- Simple connection to pod nodes using WebSocket or HTTP
 - Transaction creation and submission
 - Receipt verification
 - Event subscription and verification
-- Committee-based consensus verification
+- Lightclient support for verifying transactions and events  
 
 ## Repository Structure
-
-The POD ecosystem is divided into several repositories:
-
-- **POD SDK** (this repository): Client-side tools for interacting with the POD network
-- **POD Types**: The main implementation of the POD validator types
-- **POD Contracts**: Smart contracts powering the POD ecosystem
+- **rust-sdk/**: Custom alloy provider to support pod-specific features.
+- **solidity-sdk/**: Solidity contracts to build a verifying pod client. 
+- **examples**: Example contracts and scripts to demonstrate the SDK usage. 
+- **types**: Common types.
 
 ## Key Types
 
 The SDK provides several key types:
 
-- `PodProvider`: The main entry point for interacting with the POD network
+- `PodProvider`: The main entry point for interacting with the pod network
 - `PodProviderBuilder`: A builder pattern for creating configured providers
 - `Hash`: A cryptographic hash representing transaction IDs or other hashed data
 - `Receipt`: A proof of transaction inclusion in the blockchain
@@ -41,7 +40,7 @@ async fn main() -> Result<()> {
     let wallet = EthereumWallet::new(PrivateKeySigner::random());
     let ws_url = "ws://127.0.0.1:8546".parse()?;
 
-    // Connect to a POD node
+    // Connect to a pod node
     let provider = PodProviderBuilder::new()
         .wallet(wallet)
         .on_ws(ws_url)
@@ -95,7 +94,7 @@ pod-sdk = "0.1.0"
 
 ## Using with Contracts
 
-The SDK works seamlessly with POD contract bindings from the POD Contracts repository:
+The SDK works seamlessly with pod contract bindings from the pod Contracts repository:
 
 ```rust
 use pod_sdk::PodProvider;
