@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {PodECDSA} from "./libraries/PodECDSA.sol";
-import {MerkleTree} from "./libraries/MerkleTree.sol";
-import {IPodRegistry} from "./PodRegistry.sol";
+import {PodECDSA} from "pod-sdk/verifier/PodECDSA.sol";
+import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
+import {IPodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
 import {AbsBonding} from "./AbsBonding.sol";
 
 contract PodAuctionConsumer is AbsBonding {

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {ECDSA} from "../src/libraries/ECDSA.sol";
+import {ECDSA} from "../src/verifier/ECDSA.sol";
 
 contract ECDSATest is Test {
     function assertEq(ECDSA.Signature memory a, ECDSA.Signature memory b) internal pure {

@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {Script} from "forge-std/Script.sol";
 import "forge-std/console.sol";
 
-import {PodRegistry} from "../src/PodRegistry.sol";
+import {PodRegistry} from "../src/verifier/PodRegistry.sol";
 
 contract PodRegistryDeployer is Script {
     function run() public {

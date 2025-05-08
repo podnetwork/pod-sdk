@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {ECDSA} from "./ECDSA.sol";
 import {MerkleTree} from "./MerkleTree.sol";
-import {IPodRegistry} from "../PodRegistry.sol";
+import {IPodRegistry} from "./PodRegistry.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 library PodECDSA {

@@ -2385,6 +2385,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "optimistic-auction"
+version = "0.1.0"
+
+[[package]]
 name = "parity-scale-codec"
 version = "3.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2525,7 +2529,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "953ec861398dccce10c670dfeaf3ec4911ca479e9c02154b3a215178c5f566f2"
 
 [[package]]
-name = "pod-examples"
+name = "pod-examples-solidity"
 version = "0.1.0"
 dependencies = [
  "alloy",
@@ -2554,7 +2558,7 @@ dependencies = [
  "eyre",
  "futures",
  "hex",
- "pod-examples",
+ "pod-examples-solidity",
  "pod-types",
  "serde",
  "thiserror 2.0.11",
@@ -2887,6 +2891,10 @@ name = "ruint-macro"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
+
+[[package]]
+name = "rust"
+version = "0.1.0"
 
 [[package]]
 name = "rustc-demangle"

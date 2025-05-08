@@ -28,7 +28,7 @@ use crate::provider::PodProviderExt;
 
 use alloy_sol_types::SolEvent;
 
-use pod_examples::auction::Auction;
+use pod_examples_solidity::auction::Auction;
 
 // Add internal clock trait and implementation
 trait Clock {

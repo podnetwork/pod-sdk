@@ -2,12 +2,13 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {PodAuctionConsumer} from "../src/PodAuctionConsumer.sol";
-import {PodRegistry} from "../src/PodRegistry.sol";
-import {PodECDSA} from "../src/libraries/PodECDSA.sol";
-import {MerkleTree} from "../src/libraries/MerkleTree.sol";
-import {ECDSA} from "../src/libraries/ECDSA.sol";
 import {console} from "forge-std/console.sol";
+
+import {PodECDSA, ECDSA} from "pod-sdk/verifier/PodECDSA.sol";
+import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
+import {PodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
+
+import {PodAuctionConsumer} from "../contracts/PodAuctionConsumer.sol";
 
 contract PodAuctionConsumerTest is Test {
     PodAuctionConsumer consumer;
