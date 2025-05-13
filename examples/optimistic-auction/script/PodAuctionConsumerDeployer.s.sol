@@ -21,10 +21,7 @@ contract PodAuctionConsumerDeployer is Script {
         console.logAddress(address(podRegistry));
 
         uint256 bondAmount = 1 ether;
-        PodAuctionConsumer auctionConsumer = new PodAuctionConsumer(
-            address(podRegistry),
-            bondAmount
-        );
+        PodAuctionConsumer auctionConsumer = new PodAuctionConsumer(address(podRegistry), bondAmount);
 
         vm.stopBroadcast();
 
