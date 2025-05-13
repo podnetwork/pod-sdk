@@ -3,8 +3,9 @@ name = "optimistic-auction"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
+[[bin]]
 name = "optimistic_auction"
 path = "client/main.rs"
 
 [dependencies]
+pod-examples-solidity = { path = "../solidity/bindings" }

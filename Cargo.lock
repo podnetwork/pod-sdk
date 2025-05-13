@@ -2387,6 +2387,9 @@ dependencies = [
 [[package]]
 name = "optimistic-auction"
 version = "0.1.0"
+dependencies = [
+ "pod-examples-solidity",
+]
 
 [[package]]
 name = "parity-scale-codec"
