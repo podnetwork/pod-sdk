@@ -2569,6 +2569,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "pod-solidity-sdk"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+]
+
+[[package]]
 name = "pod-types"
 version = "0.1.0"
 dependencies = [
