@@ -3,7 +3,7 @@ name = "rust"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
+[[bin]]
 name = "pod_examples_rust"
 path = "src/main.rs"
 
