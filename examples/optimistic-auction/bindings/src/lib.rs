@@ -13,6 +13,7 @@ pub mod r#merkletree;
 pub mod r#ownable;
 pub mod r#panic;
 pub mod r#podauctionconsumer;
+pub mod r#podauctionconsumerdeployer;
 pub mod r#podecdsa;
 pub mod r#ipodregistry;
 pub mod r#podregistry;

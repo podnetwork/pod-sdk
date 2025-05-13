@@ -25,15 +25,13 @@ abstract contract AbsBonding is Ownable {
         require(!isBonded[msg.sender], "Already bonded");
         require(msg.value >= bondAmount, "Not enough bond");
 
-        payable(msg.sender).transfer(bondAmount);
-
         isBonded[msg.sender] = true;
         emit Bonded(msg.sender);
     }
 
     function unbond() external onlyBonded {
         isBonded[msg.sender] = false;
-        isBonded[msg.sender] = false;
+        payable(msg.sender).transfer(bondAmount);
 
         emit Unbonded(msg.sender);
     }
