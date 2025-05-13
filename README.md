@@ -92,40 +92,6 @@ Add the following to your `Cargo.toml`:
 pod-sdk = "0.1.0"
 ```
 
-## Using with Contracts
-
-The SDK works seamlessly with pod contract bindings from the pod Contracts repository:
-
-```rust
-use pod_sdk::PodProvider;
-use pod_contracts::auction::Auction;
-
-async fn interact_with_auction(provider: &PodProvider, auction_address: Address) -> Result<()> {
-    // Create a contract instance
-    let auction = Auction::new(auction_address, provider.clone());
-
-    // Call view functions
-    let highest_bid = auction.highest_bid().call().await?;
-    println!("Highest bid: {}", highest_bid);
-
-    // Submit transactions
-    let tx = auction.bid().value(amount).send().await?;
-    println!("Bid submitted with hash: {:?}", tx.tx_hash());
-
-    // Wait for receipt
-    let receipt = tx.get_receipt().await?;
-    println!("Transaction confirmed: {:?}", receipt);
-
-    // Listen for events
-    let events = auction.events().bid_submitted().query().await?;
-    for event in events {
-        println!("Bid submitted by: {:?}, amount: {}", event.bidder, event.amount);
-    }
-
-    Ok(())
-}
-```
-
 ## ⚠️ Warning
 
 **This is a pre-release version under active development. APIs are subject to change without notice and may contain bugs. Not recommended for production use.**
