@@ -1,10 +1,6 @@
 langs:
   - lang: js
     label: JavaScript
-    default: true
-  - lang: py
-    label: Python
   - lang: rust
     label: Rust
-  - lang: go
-    label: Go
+    default: true

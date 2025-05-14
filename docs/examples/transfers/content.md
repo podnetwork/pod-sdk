@@ -2,7 +2,7 @@
 title: Transfers
 layout: simple
 
-url: /how-to-guides/transfers
+url: /examples/transfers
 
 toc:
   initialize-credentials: Initialize Credentials

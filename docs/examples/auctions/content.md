@@ -2,7 +2,7 @@
 title: Auctions
 layout: simple
 
-url: /how-to-guides/auctions
+url: /examples/auctions
 
 toc:
   auction-mechanise: Auction Mechanise

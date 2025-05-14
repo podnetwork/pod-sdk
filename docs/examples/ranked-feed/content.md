@@ -1,8 +1,8 @@
 ---
-title: Feed Layer
+title: Ranked Feed 
 layout: simple
 
-url: /how-to-guides/feed-layer
+url: /examples/ranked-feed
 
 toc:
   smart-contract: Smart Contract

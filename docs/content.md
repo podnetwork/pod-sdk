@@ -23,7 +23,7 @@ pod allows transactions to have temporal flexibility while maintaining byzantine
 Architecture and design principles.
 ! grid end  
 
-! grid href="./how-to-guides/transfers" 
+! grid href="./examples" 
 ## Examples 
 Learn by projects and examples.
 ! grid end
@@ -42,9 +42,13 @@ Quick diff of RPC, Solidity, Foundry and Alloy.
 ! gridstack end
 
 ! anchor devnet-config
-## Devnet Configuration
+## Devnet 
+The pod devnet is a test network for developers to experiment 
+with the pod network. It is designed to be a sandbox for testing 
+and development purposes, allowing developers to build and test 
+their applications without the need for real assets or transactions.
 
-Network parameters for connecting to the devnet:  
+[Add network to your wallet (make this a button)] 
 
 ! table style1 
 | Name | pod |  
@@ -54,7 +58,5 @@ Network parameters for connecting to the devnet:
 | Explorer | https://explorer.dev.pod.network |
 | Faucet | https://faucet.dev.pod.network |
 ! table end   
-
-TODO: add to wallet button
 
 > We expect the devnet to have breaking changes or be reset (pruned completely) at any time. 
