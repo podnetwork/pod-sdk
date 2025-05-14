@@ -7,10 +7,15 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 use super::{log, Transaction};
+use crate::cryptography::hash::{DomainDigest, MessageDigest};
 use crate::cryptography::{
     hash::{Hash, Hashable},
     merkle_tree::{index_prefix, MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable},
     signer::{Signed, UncheckedSigned},
+};
+use crate::sig_hash::{
+    SigHashable, SIG_PREFIX_RECEIPT_ATTESTATION, SIG_PREFIX_TX_ATTESTATION,
+    SIG_VERSION_RECEIPT_ATTESTATION, SIG_VERSION_TX_ATTESTATION,
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -90,6 +95,19 @@ impl Merkleizable for Receipt {
 impl Hashable for Receipt {
     fn hash_custom(&self) -> Hash {
         self.to_merkle_tree().hash_custom()
+    }
+}
+
+impl SigHashable for Receipt {
+    fn hash_for_signature(&self) -> Hash {
+        let digest = MessageDigest {
+            domain: DomainDigest {
+                prefix: SIG_PREFIX_RECEIPT_ATTESTATION,
+                version: SIG_VERSION_RECEIPT_ATTESTATION,
+            },
+            message: self.hash_custom(),
+        };
+        digest.hash_custom()
     }
 }
 
@@ -231,6 +249,12 @@ impl Merkleizable for UncheckedReceipt {
 impl Hashable for UncheckedReceipt {
     fn hash_custom(&self) -> Hash {
         self.to_merkle_tree().hash_custom()
+    }
+}
+
+impl SigHashable for UncheckedReceipt {
+    fn hash_for_signature(&self) -> Hash {
+        Hash::default()
     }
 }
 

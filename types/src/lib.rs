@@ -16,6 +16,7 @@ pub use crate::{
     cryptography::{
         ecdsa,
         hash::std_hash,
+        sig_hash,
         signer::{Signed, Signer},
         Hashable, MerkleTree, Merkleizable,
     },

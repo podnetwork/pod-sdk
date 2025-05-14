@@ -2,11 +2,18 @@ use alloy_consensus::{transaction::RlpEcdsaTx, SignableTransaction, TxLegacy};
 use alloy_primitives::Address;
 use alloy_sol_types::SolValue;
 
+use crate::cryptography::hash::{DomainDigest, MessageDigest};
 use crate::cryptography::{
     hash::{Hash, Hashable},
     merkle_tree::{MerkleBuilder, Merkleizable},
     signer::{Signed, UncheckedSigned},
+    SigHashable,
 };
+use crate::sig_hash::{
+    SIG_PREFIX_RECEIPT_ATTESTATION, SIG_PREFIX_TX_ATTESTATION, SIG_VERSION_RECEIPT_ATTESTATION,
+    SIG_VERSION_TX_ATTESTATION,
+};
+use crate::Receipt;
 
 pub type Transaction = TxLegacy;
 
@@ -34,8 +41,27 @@ impl Hashable for Signed<Transaction> {
     }
 }
 
+impl SigHashable for Signed<Transaction> {
+    fn hash_for_signature(&self) -> Hash {
+        let digest = MessageDigest {
+            domain: DomainDigest {
+                prefix: SIG_PREFIX_TX_ATTESTATION,
+                version: SIG_VERSION_TX_ATTESTATION,
+            },
+            message: self.hash_custom(),
+        };
+        digest.hash_custom()
+    }
+}
+
 impl<T: Hashable + Clone> Hashable for UncheckedSigned<T> {
     fn hash_custom(&self) -> Hash {
         self.signed.hash_custom()
+    }
+}
+
+impl<T: Hashable + Clone> SigHashable for UncheckedSigned<T> {
+    fn hash_for_signature(&self) -> Hash {
+        Hash::default()
     }
 }
