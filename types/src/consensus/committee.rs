@@ -1,4 +1,6 @@
 use super::{Attestation, Certificate};
+use crate::cryptography::hash::{DomainDigest, MessageDigest};
+use crate::sig_hash::SigHashable;
 use crate::{
     cryptography::{ecdsa::AddressECDSA, hash::Hashable},
     ecdsa::SignatureECDSA,
@@ -42,15 +44,22 @@ impl Committee {
         self.validator_set.contains_key(address)
     }
 
-    pub fn verify_attestation<T: Hashable>(&self, attestation: &Attestation<T>) -> Result<bool> {
+    pub fn verify_attestation<T: Hashable>(
+        &self,
+        attestation: &Attestation<T>,
+        domain: DomainDigest,
+    ) -> Result<bool> {
         if !self.is_in_committee(&attestation.public_key) {
             return Err(anyhow!("Validator not in committee"));
         }
 
-        attestation.public_key.verify(
-            attestation.attested.hash_custom().as_slice(),
-            &attestation.signature,
-        )
+        let digest = MessageDigest {
+            domain,
+            message: attestation.attested.hash_custom(),
+        };
+        attestation
+            .public_key
+            .verify(digest.hash_custom().as_slice(), &attestation.signature)
     }
 
     // utility function that does aggregate verification over an arbitrary hash
@@ -94,9 +103,12 @@ impl Committee {
         Ok(true)
     }
 
-    pub fn verify_certificate<C: Hashable>(&self, certificate: &Certificate<C>) -> Result<bool> {
+    pub fn verify_certificate<C: Hashable + SigHashable>(
+        &self,
+        certificate: &Certificate<C>,
+    ) -> Result<bool> {
         self.verify_aggregate_attestation(
-            certificate.certified.hash_custom(),
+            certificate.certified.hash_for_signature(),
             &certificate.signatures,
         )
     }

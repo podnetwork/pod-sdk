@@ -4,6 +4,38 @@ pub use alloy_primitives::{keccak256 as hash, B256 as Hash};
 use bytes::Bytes;
 use std::hash::{DefaultHasher, Hash as StdHash, Hasher};
 
+pub struct DomainDigest {
+    pub prefix: &'static [u8],
+    pub version: u8,
+}
+
+impl DomainDigest {
+    pub fn new(prefix: &'static [u8], version: u8) -> DomainDigest {
+        Self { prefix, version }
+    }
+}
+pub struct MessageDigest {
+    pub domain: DomainDigest,
+    pub message: Hash,
+}
+
+impl Hashable for MessageDigest {
+    fn hash_custom(&self) -> Hash {
+        let mut v = Vec::with_capacity(self.domain.prefix.len() + 1 + 32);
+        v.extend_from_slice(self.domain.prefix);
+        v.push(self.domain.version);
+        v.extend_from_slice(self.message.as_slice());
+
+        hash(v.as_slice())
+    }
+}
+
+impl MessageDigest {
+    pub fn new(domain: DomainDigest, message: Hash) -> MessageDigest {
+        Self { domain, message }
+    }
+}
+
 pub trait Hashable {
     fn hash_custom(&self) -> Hash;
 }
