@@ -18,14 +18,18 @@ This guide will help you set up your environment to interact pod network. We'll 
 
 ! anchor network-configuration
 
-## Network Configuration
+## Devnetwork Configuration
 
-Network parameters for connecting to pod:
+Network parameters for connecting to pod:  
 
-- Network Name: pod
-- RPC URL: https://rpc.dev.pod.network
-- Chain ID: 1293
-- Block Explorer URL: https://explorer.dev.pod.network/
+! table style1 
+| Name | pod |  
+| --------- | ----- |
+| RPC | https://rpc.dev.pod.network |  
+| Chain ID | 1293 |
+| Explorer | https://explorer.dev.pod.network |
+| Faucet | https://faucet.dev.pod.network |
+! table end  
 
 For detailed information about available RPC methods and additional configuration options, please refer to our RPC API Documentation section.
 

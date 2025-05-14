@@ -6,90 +6,55 @@ url: /
 
 toc:
   welcome-to-pod: Welcome to pod
-  what-makes-pod-different: What Makes pod Different?
-  key-features: Key Features
+  devnet-config: Devnet Configuration
 ---
 
-! gridstack
+! anchor welcome-to-pod
+# Welcome to pod developer documentation
+pod is a novel programmable distributed ledger that prioritizes performance and 
+efficiency by implementing a unique approach to transaction processing and consensus. 
+Instead of enforcing strict transaction ordering like traditional blockchains, 
+pod allows transactions to have temporal flexibility while maintaining byzantine resilience.
 
-! grid
+! gridstack  
 
-## Welcome
+! grid href="https://pod.network/how-it-works"
+## Design Principles 
+Architecture and design principles.
+! grid end  
 
-Lorem ipsum dolor sit amet consectetur. Turpis libero morbi eget varius etiam.
-
+! grid href="./how-to-guides/transfers" 
+## Examples 
+Learn by projects and examples.
 ! grid end
 
-! grid
-
-## Welcome
-
-Lorem ipsum dolor sit amet consectetur. Turpis libero morbi eget varius etiam.
-
-
+! grid href="https://explorer.v1.pod.network"
+## Explorer
+Monitor network activity and accounts.  
 ! grid end
-
-! grid
-
-## Welcome
-
-Lorem ipsum dolor sit amet consectetur. Turpis libero morbi eget varius etiam.
-
-
-! grid end
-
 ! gridstack end
 
-! anchor welcome-to-pod
+! gridstack
+! grid href="https://explorer.v1.pod.network"
+## Coming from Ethereum?
+Quick diff of RPC, Solidity, Foundry and Alloy.
+! grid end
+! gridstack end
 
-# Welcome to pod
+! anchor devnet-config
+## Devnet Configuration
 
-pod is a novel programmable distributed ledger that prioritizes performance and efficiency by implementing a unique approach to transaction processing and consensus. Instead of enforcing strict transaction ordering like traditional blockchains, pod allows transactions to have temporal flexibility while maintaining byzantine resilience.
+Network parameters for connecting to the devnet:  
 
-! anchor what-makes-pod-different
+! table style1 
+| Name | pod |  
+| --------- | ----- |
+| RPC | https://rpc.dev.pod.network |  
+| Chain ID | 1293 |
+| Explorer | https://explorer.dev.pod.network |
+| Faucet | https://faucet.dev.pod.network |
+! table end   
 
-## What Makes pod Different?
+TODO: add to wallet button
 
-pod achieves exceptional performance through:
-
-- **Fast finality**: Transactions confirmed in 200ms.
-- **Short-term censorship resistance**: Leaderless, blockless design that doesn't allow a transaction to be censored even for a small duration.
-- **Light client support**: All receipts and logs include aggregate signature from pod's committee, allowing for trustless design and verification of pod transacitons on other chains.
-
-! anchor key-features
-
-## Key Features
-
-### Fast Path Execution
-
-pod leverages "fast path" for compatible operations that don't require strict ordering, such as payments and certain types of smart contracts. This allows for significantly faster transaction processing compared to traditional blockchain systems.
-
-> Learn more about pod's fast path execution in our technical deep dive on [Partial Order](/architecture/fast-path) and our [Execution Model](/architecture/execution-model) documentation pages.
-
-## Get Started
-
-New to pod? Read our [Getting Started](/getting-started) page to configure your wallet and obtain test tokens.
-
-### Network overview
-
-The system consists of several key components:
-
-- [Validators](/architecture/network#validators): Process transactions independently without direct communication between them
-- [Nodes](/architecture/network#nodes): Connect to validators, maintain state and provide RPC servers for clients.
-- [Clients](/architecture/network#clients): Applications interacting with pod network.
-
-### Common Use Cases
-
-pod is particularly well-suited for:
-
-- [Transfers](/how-to-guides/transfers): Account-to-account transfers with optimal latency
-- [Fast Auctions](/how-to-guides/auctions): Efficient auction execution with accountability, e.g. fast batch auctions, orderbooks, marketplaces.
-- [Feeds](/how-to-guides/feed-layer): High-performance content feeds e.g. for decentralised socials
-
-### Developer Resources
-
-- [Solidity SDK Reference](/reference/solidity-sdk)
-- [SDK Reference](/reference/sdk)
-- Set up a [local devnet](/getting-started) for deeper exploration
-
-> Pod is still at an early stage. With our first release we are inviting developers to try out pod for their use cases. Expect instability and lots of changes.
+> We expect the devnet to have breaking changes or be reset (pruned completely) at any time. 

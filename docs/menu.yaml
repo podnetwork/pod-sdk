@@ -4,6 +4,8 @@ menu:
     label: Welcome to pod
   - href: /getting-started
     label: Getting Started
+  - href: /faq
+    label: Frequently Asked Questions 
 
   - heading: how-to-guides
   - href: /how-to-guides/transfers
