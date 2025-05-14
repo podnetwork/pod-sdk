@@ -14,8 +14,7 @@ use crate::cryptography::{
     signer::{Signed, UncheckedSigned},
 };
 use crate::sig_hash::{
-    SigHashable, SIG_PREFIX_RECEIPT_ATTESTATION, SIG_PREFIX_TX_ATTESTATION,
-    SIG_VERSION_RECEIPT_ATTESTATION, SIG_VERSION_TX_ATTESTATION,
+    SigHashable, SIG_PREFIX_RECEIPT_ATTESTATION, SIG_VERSION_RECEIPT_ATTESTATION,
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug, Eq, PartialEq)]

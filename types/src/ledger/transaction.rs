@@ -9,11 +9,7 @@ use crate::cryptography::{
     signer::{Signed, UncheckedSigned},
     SigHashable,
 };
-use crate::sig_hash::{
-    SIG_PREFIX_RECEIPT_ATTESTATION, SIG_PREFIX_TX_ATTESTATION, SIG_VERSION_RECEIPT_ATTESTATION,
-    SIG_VERSION_TX_ATTESTATION,
-};
-use crate::Receipt;
+use crate::sig_hash::{SIG_PREFIX_TX_ATTESTATION, SIG_VERSION_TX_ATTESTATION};
 
 pub type Transaction = TxLegacy;
 
