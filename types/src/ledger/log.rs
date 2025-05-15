@@ -106,8 +106,9 @@ impl VerifiableLog {
     }
 
     pub fn get_leaf(&self) -> Hash {
+        let log_index = self.inner.log_index.unwrap_or(0) as usize;
         StandardMerkleTree::hash_leaf(
-            index_prefix("log_hashes", 0),
+            index_prefix("log_hashes", log_index),
             self.inner.inner.hash_custom(),
         )
     }
@@ -126,14 +127,9 @@ impl VerifiableLog {
         Ok(Bytes::from(aggregated))
     }
 
-    pub fn verify_proof(&self, receipt_root: Hash, log: Log, proof: MerkleProof) -> Result<bool> {
-        let log_hash =
-            StandardMerkleTree::hash_leaf(index_prefix("log_hashes", 0), log.hash_custom());
-        Ok(StandardMerkleTree::verify_proof(
-            receipt_root,
-            log_hash,
-            proof,
-        ))
+    pub fn verify_proof(&self, receipt_root: Hash, proof: MerkleProof) -> Result<bool> {
+        let leaf = self.get_leaf();
+        Ok(StandardMerkleTree::verify_proof(receipt_root, leaf, proof))
     }
 }
 
@@ -242,9 +238,7 @@ mod test {
             .to_merkle_tree()
             .hash_custom();
 
-        assert!(verifiable_log
-            .verify_proof(receipt_root, log, proof)
-            .unwrap());
+        assert!(verifiable_log.verify_proof(receipt_root, proof).unwrap());
         assert_eq!(verifiable_log.inner.log_index, Some(0));
     }
 }
