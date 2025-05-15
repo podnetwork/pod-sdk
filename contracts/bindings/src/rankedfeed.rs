@@ -10,6 +10,8 @@ interface RankedFeed {
 
     function createPost(bytes memory post_data) external;
     function votePost(bytes32 post_id) external;
+    function voted(address, bytes32) external view returns (bool);
+    function votes(bytes32) external view returns (uint256);
 }
 ```
 
@@ -41,6 +43,49 @@ interface RankedFeed {
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "voted",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "votes",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "event",
@@ -103,6 +148,26 @@ interface RankedFeed {
 pub mod RankedFeed {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
+    /// The creation / init bytecode of the contract.
+    ///
+    /// ```text
+    ///0x6080604052348015600f57600080fd5b506107f88061001f6000396000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c80632b38cd9614610051578063a1981bf114610081578063abb7a0df1461009d578063dfbaa2fb146100cd575b600080fd5b61006b6004803603810190610066919061048a565b6100e9565b60405161007891906104d0565b60405180910390f35b61009b6004803603810190610096919061048a565b610101565b005b6100b760048036038101906100b29190610549565b61026f565b6040516100c491906105a4565b60405180910390f35b6100e760048036038101906100e29190610624565b61029e565b005b60006020528060005260406000206000915090505481565b600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600082815260200190815260200160002060009054906101000a900460ff1615610196576040517f7c9a1cf900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60018060003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600083815260200190815260200160002060006101000a81548160ff0219169083151502179055506001600080838152602001908152602001600020600082825461022191906106a0565b925050819055503373ffffffffffffffffffffffffffffffffffffffff16817f98b6b180756c849b5bfbbd2bbd091f3fe64b0935ac195418c0b619b9b661c78d60405160405180910390a350565b60016020528160005260406000206020528060005260406000206000915091509054906101000a900460ff1681565b60003383836040516020016102b59392919061075b565b604051602081830303815290604052805190602001209050600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600082815260200190815260200160002060009054906101000a900460ff1615610362576040517f7c9a1cf900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600080838152602001908152602001600020600082825461038591906106a0565b9250508190555060018060003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600083815260200190815260200160002060006101000a81548160ff0219169083151502179055503373ffffffffffffffffffffffffffffffffffffffff16817fed6e6fdf99cd5e97145c7e59ade93923be1979557a77e639ed95a203c7a8e861858560405161043d9291906107d4565b60405180910390a3505050565b600080fd5b600080fd5b6000819050919050565b61046781610454565b811461047257600080fd5b50565b6000813590506104848161045e565b92915050565b6000602082840312156104a05761049f61044a565b5b60006104ae84828501610475565b91505092915050565b6000819050919050565b6104ca816104b7565b82525050565b60006020820190506104e560008301846104c1565b92915050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000610516826104eb565b9050919050565b6105268161050b565b811461053157600080fd5b50565b6000813590506105438161051d565b92915050565b600080604083850312156105605761055f61044a565b5b600061056e85828601610534565b925050602061057f85828601610475565b9150509250929050565b60008115159050919050565b61059e81610589565b82525050565b60006020820190506105b96000830184610595565b92915050565b600080fd5b600080fd5b600080fd5b60008083601f8401126105e4576105e36105bf565b5b8235905067ffffffffffffffff811115610601576106006105c4565b5b60208301915083600182028301111561061d5761061c6105c9565b5b9250929050565b6000806020838503121561063b5761063a61044a565b5b600083013567ffffffffffffffff8111156106595761065861044f565b5b610665858286016105ce565b92509250509250929050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60006106ab826104b7565b91506106b6836104b7565b92508282019050808211156106ce576106cd610671565b5b92915050565b60008160601b9050919050565b60006106ec826106d4565b9050919050565b60006106fe826106e1565b9050919050565b6107166107118261050b565b6106f3565b82525050565b600081905092915050565b82818337600083830152505050565b6000610742838561071c565b935061074f838584610727565b82840190509392505050565b60006107678286610705565b601482019150610778828486610736565b9150819050949350505050565b600082825260208201905092915050565b6000601f19601f8301169050919050565b60006107b38385610785565b93506107c0838584610727565b6107c983610796565b840190509392505050565b600060208201905081810360008301526107ef8184866107a7565b9050939250505056
+    /// ```
+    #[rustfmt::skip]
+    #[allow(clippy::all)]
+    pub static BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
+        b"`\x80`@R4\x80\x15`\x0FW`\0\x80\xFD[Pa\x07\xF8\x80a\0\x1F`\09`\0\xF3\xFE`\x80`@R4\x80\x15a\0\x10W`\0\x80\xFD[P`\x046\x10a\0LW`\x005`\xE0\x1C\x80c+8\xCD\x96\x14a\0QW\x80c\xA1\x98\x1B\xF1\x14a\0\x81W\x80c\xAB\xB7\xA0\xDF\x14a\0\x9DW\x80c\xDF\xBA\xA2\xFB\x14a\0\xCDW[`\0\x80\xFD[a\0k`\x04\x806\x03\x81\x01\x90a\0f\x91\x90a\x04\x8AV[a\0\xE9V[`@Qa\0x\x91\x90a\x04\xD0V[`@Q\x80\x91\x03\x90\xF3[a\0\x9B`\x04\x806\x03\x81\x01\x90a\0\x96\x91\x90a\x04\x8AV[a\x01\x01V[\0[a\0\xB7`\x04\x806\x03\x81\x01\x90a\0\xB2\x91\x90a\x05IV[a\x02oV[`@Qa\0\xC4\x91\x90a\x05\xA4V[`@Q\x80\x91\x03\x90\xF3[a\0\xE7`\x04\x806\x03\x81\x01\x90a\0\xE2\x91\x90a\x06$V[a\x02\x9EV[\0[`\0` R\x80`\0R`@`\0 `\0\x91P\x90PT\x81V[`\x01`\x003s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x81R` \x01\x90\x81R` \x01`\0 `\0\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x15a\x01\x96W`@Q\x7F|\x9A\x1C\xF9\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01`@Q\x80\x91\x03\x90\xFD[`\x01\x80`\x003s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0\x83\x81R` \x01\x90\x81R` \x01`\0 `\0a\x01\0\n\x81T\x81`\xFF\x02\x19\x16\x90\x83\x15\x15\x02\x17\x90UP`\x01`\0\x80\x83\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x82Ta\x02!\x91\x90a\x06\xA0V[\x92PP\x81\x90UP3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81\x7F\x98\xB6\xB1\x80ul\x84\x9B[\xFB\xBD+\xBD\t\x1F?\xE6K\t5\xAC\x19T\x18\xC0\xB6\x19\xB9\xB6a\xC7\x8D`@Q`@Q\x80\x91\x03\x90\xA3PV[`\x01` R\x81`\0R`@`\0 ` R\x80`\0R`@`\0 `\0\x91P\x91P\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x81V[`\x003\x83\x83`@Q` \x01a\x02\xB5\x93\x92\x91\x90a\x07[V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90P`\x01`\x003s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x81R` \x01\x90\x81R` \x01`\0 `\0\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x15a\x03bW`@Q\x7F|\x9A\x1C\xF9\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01`@Q\x80\x91\x03\x90\xFD[`\x01`\0\x80\x83\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x82Ta\x03\x85\x91\x90a\x06\xA0V[\x92PP\x81\x90UP`\x01\x80`\x003s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0\x83\x81R` \x01\x90\x81R` \x01`\0 `\0a\x01\0\n\x81T\x81`\xFF\x02\x19\x16\x90\x83\x15\x15\x02\x17\x90UP3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81\x7F\xEDno\xDF\x99\xCD^\x97\x14\\~Y\xAD\xE99#\xBE\x19yUzw\xE69\xED\x95\xA2\x03\xC7\xA8\xE8a\x85\x85`@Qa\x04=\x92\x91\x90a\x07\xD4V[`@Q\x80\x91\x03\x90\xA3PPPV[`\0\x80\xFD[`\0\x80\xFD[`\0\x81\x90P\x91\x90PV[a\x04g\x81a\x04TV[\x81\x14a\x04rW`\0\x80\xFD[PV[`\0\x815\x90Pa\x04\x84\x81a\x04^V[\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\x04\xA0Wa\x04\x9Fa\x04JV[[`\0a\x04\xAE\x84\x82\x85\x01a\x04uV[\x91PP\x92\x91PPV[`\0\x81\x90P\x91\x90PV[a\x04\xCA\x81a\x04\xB7V[\x82RPPV[`\0` \x82\x01\x90Pa\x04\xE5`\0\x83\x01\x84a\x04\xC1V[\x92\x91PPV[`\0s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[`\0a\x05\x16\x82a\x04\xEBV[\x90P\x91\x90PV[a\x05&\x81a\x05\x0BV[\x81\x14a\x051W`\0\x80\xFD[PV[`\0\x815\x90Pa\x05C\x81a\x05\x1DV[\x92\x91PPV[`\0\x80`@\x83\x85\x03\x12\x15a\x05`Wa\x05_a\x04JV[[`\0a\x05n\x85\x82\x86\x01a\x054V[\x92PP` a\x05\x7F\x85\x82\x86\x01a\x04uV[\x91PP\x92P\x92\x90PV[`\0\x81\x15\x15\x90P\x91\x90PV[a\x05\x9E\x81a\x05\x89V[\x82RPPV[`\0` \x82\x01\x90Pa\x05\xB9`\0\x83\x01\x84a\x05\x95V[\x92\x91PPV[`\0\x80\xFD[`\0\x80\xFD[`\0\x80\xFD[`\0\x80\x83`\x1F\x84\x01\x12a\x05\xE4Wa\x05\xE3a\x05\xBFV[[\x825\x90Pg\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x06\x01Wa\x06\0a\x05\xC4V[[` \x83\x01\x91P\x83`\x01\x82\x02\x83\x01\x11\x15a\x06\x1DWa\x06\x1Ca\x05\xC9V[[\x92P\x92\x90PV[`\0\x80` \x83\x85\x03\x12\x15a\x06;Wa\x06:a\x04JV[[`\0\x83\x015g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x06YWa\x06Xa\x04OV[[a\x06e\x85\x82\x86\x01a\x05\xCEV[\x92P\x92PP\x92P\x92\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0`\0R`\x11`\x04R`$`\0\xFD[`\0a\x06\xAB\x82a\x04\xB7V[\x91Pa\x06\xB6\x83a\x04\xB7V[\x92P\x82\x82\x01\x90P\x80\x82\x11\x15a\x06\xCEWa\x06\xCDa\x06qV[[\x92\x91PPV[`\0\x81``\x1B\x90P\x91\x90PV[`\0a\x06\xEC\x82a\x06\xD4V[\x90P\x91\x90PV[`\0a\x06\xFE\x82a\x06\xE1V[\x90P\x91\x90PV[a\x07\x16a\x07\x11\x82a\x05\x0BV[a\x06\xF3V[\x82RPPV[`\0\x81\x90P\x92\x91PPV[\x82\x81\x837`\0\x83\x83\x01RPPPV[`\0a\x07B\x83\x85a\x07\x1CV[\x93Pa\x07O\x83\x85\x84a\x07'V[\x82\x84\x01\x90P\x93\x92PPPV[`\0a\x07g\x82\x86a\x07\x05V[`\x14\x82\x01\x91Pa\x07x\x82\x84\x86a\x076V[\x91P\x81\x90P\x94\x93PPPPV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[`\0`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[`\0a\x07\xB3\x83\x85a\x07\x85V[\x93Pa\x07\xC0\x83\x85\x84a\x07'V[a\x07\xC9\x83a\x07\x96V[\x84\x01\x90P\x93\x92PPPV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x07\xEF\x81\x84\x86a\x07\xA7V[\x90P\x93\x92PPPV",
+    );
+    /// The runtime bytecode of the contract, as deployed on the network.
+    ///
+    /// ```text
+    ///0x608060405234801561001057600080fd5b506004361061004c5760003560e01c80632b38cd9614610051578063a1981bf114610081578063abb7a0df1461009d578063dfbaa2fb146100cd575b600080fd5b61006b6004803603810190610066919061048a565b6100e9565b60405161007891906104d0565b60405180910390f35b61009b6004803603810190610096919061048a565b610101565b005b6100b760048036038101906100b29190610549565b61026f565b6040516100c491906105a4565b60405180910390f35b6100e760048036038101906100e29190610624565b61029e565b005b60006020528060005260406000206000915090505481565b600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600082815260200190815260200160002060009054906101000a900460ff1615610196576040517f7c9a1cf900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60018060003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600083815260200190815260200160002060006101000a81548160ff0219169083151502179055506001600080838152602001908152602001600020600082825461022191906106a0565b925050819055503373ffffffffffffffffffffffffffffffffffffffff16817f98b6b180756c849b5bfbbd2bbd091f3fe64b0935ac195418c0b619b9b661c78d60405160405180910390a350565b60016020528160005260406000206020528060005260406000206000915091509054906101000a900460ff1681565b60003383836040516020016102b59392919061075b565b604051602081830303815290604052805190602001209050600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600082815260200190815260200160002060009054906101000a900460ff1615610362576040517f7c9a1cf900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600080838152602001908152602001600020600082825461038591906106a0565b9250508190555060018060003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600083815260200190815260200160002060006101000a81548160ff0219169083151502179055503373ffffffffffffffffffffffffffffffffffffffff16817fed6e6fdf99cd5e97145c7e59ade93923be1979557a77e639ed95a203c7a8e861858560405161043d9291906107d4565b60405180910390a3505050565b600080fd5b600080fd5b6000819050919050565b61046781610454565b811461047257600080fd5b50565b6000813590506104848161045e565b92915050565b6000602082840312156104a05761049f61044a565b5b60006104ae84828501610475565b91505092915050565b6000819050919050565b6104ca816104b7565b82525050565b60006020820190506104e560008301846104c1565b92915050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000610516826104eb565b9050919050565b6105268161050b565b811461053157600080fd5b50565b6000813590506105438161051d565b92915050565b600080604083850312156105605761055f61044a565b5b600061056e85828601610534565b925050602061057f85828601610475565b9150509250929050565b60008115159050919050565b61059e81610589565b82525050565b60006020820190506105b96000830184610595565b92915050565b600080fd5b600080fd5b600080fd5b60008083601f8401126105e4576105e36105bf565b5b8235905067ffffffffffffffff811115610601576106006105c4565b5b60208301915083600182028301111561061d5761061c6105c9565b5b9250929050565b6000806020838503121561063b5761063a61044a565b5b600083013567ffffffffffffffff8111156106595761065861044f565b5b610665858286016105ce565b92509250509250929050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60006106ab826104b7565b91506106b6836104b7565b92508282019050808211156106ce576106cd610671565b5b92915050565b60008160601b9050919050565b60006106ec826106d4565b9050919050565b60006106fe826106e1565b9050919050565b6107166107118261050b565b6106f3565b82525050565b600081905092915050565b82818337600083830152505050565b6000610742838561071c565b935061074f838584610727565b82840190509392505050565b60006107678286610705565b601482019150610778828486610736565b9150819050949350505050565b600082825260208201905092915050565b6000601f19601f8301169050919050565b60006107b38385610785565b93506107c0838584610727565b6107c983610796565b840190509392505050565b600060208201905081810360008301526107ef8184866107a7565b9050939250505056
+    /// ```
+    #[rustfmt::skip]
+    #[allow(clippy::all)]
+    pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
+        b"`\x80`@R4\x80\x15a\0\x10W`\0\x80\xFD[P`\x046\x10a\0LW`\x005`\xE0\x1C\x80c+8\xCD\x96\x14a\0QW\x80c\xA1\x98\x1B\xF1\x14a\0\x81W\x80c\xAB\xB7\xA0\xDF\x14a\0\x9DW\x80c\xDF\xBA\xA2\xFB\x14a\0\xCDW[`\0\x80\xFD[a\0k`\x04\x806\x03\x81\x01\x90a\0f\x91\x90a\x04\x8AV[a\0\xE9V[`@Qa\0x\x91\x90a\x04\xD0V[`@Q\x80\x91\x03\x90\xF3[a\0\x9B`\x04\x806\x03\x81\x01\x90a\0\x96\x91\x90a\x04\x8AV[a\x01\x01V[\0[a\0\xB7`\x04\x806\x03\x81\x01\x90a\0\xB2\x91\x90a\x05IV[a\x02oV[`@Qa\0\xC4\x91\x90a\x05\xA4V[`@Q\x80\x91\x03\x90\xF3[a\0\xE7`\x04\x806\x03\x81\x01\x90a\0\xE2\x91\x90a\x06$V[a\x02\x9EV[\0[`\0` R\x80`\0R`@`\0 `\0\x91P\x90PT\x81V[`\x01`\x003s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x81R` \x01\x90\x81R` \x01`\0 `\0\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x15a\x01\x96W`@Q\x7F|\x9A\x1C\xF9\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01`@Q\x80\x91\x03\x90\xFD[`\x01\x80`\x003s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0\x83\x81R` \x01\x90\x81R` \x01`\0 `\0a\x01\0\n\x81T\x81`\xFF\x02\x19\x16\x90\x83\x15\x15\x02\x17\x90UP`\x01`\0\x80\x83\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x82Ta\x02!\x91\x90a\x06\xA0V[\x92PP\x81\x90UP3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81\x7F\x98\xB6\xB1\x80ul\x84\x9B[\xFB\xBD+\xBD\t\x1F?\xE6K\t5\xAC\x19T\x18\xC0\xB6\x19\xB9\xB6a\xC7\x8D`@Q`@Q\x80\x91\x03\x90\xA3PV[`\x01` R\x81`\0R`@`\0 ` R\x80`\0R`@`\0 `\0\x91P\x91P\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x81V[`\x003\x83\x83`@Q` \x01a\x02\xB5\x93\x92\x91\x90a\x07[V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90P`\x01`\x003s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x81R` \x01\x90\x81R` \x01`\0 `\0\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x15a\x03bW`@Q\x7F|\x9A\x1C\xF9\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01`@Q\x80\x91\x03\x90\xFD[`\x01`\0\x80\x83\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x82Ta\x03\x85\x91\x90a\x06\xA0V[\x92PP\x81\x90UP`\x01\x80`\x003s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0\x83\x81R` \x01\x90\x81R` \x01`\0 `\0a\x01\0\n\x81T\x81`\xFF\x02\x19\x16\x90\x83\x15\x15\x02\x17\x90UP3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81\x7F\xEDno\xDF\x99\xCD^\x97\x14\\~Y\xAD\xE99#\xBE\x19yUzw\xE69\xED\x95\xA2\x03\xC7\xA8\xE8a\x85\x85`@Qa\x04=\x92\x91\x90a\x07\xD4V[`@Q\x80\x91\x03\x90\xA3PPPV[`\0\x80\xFD[`\0\x80\xFD[`\0\x81\x90P\x91\x90PV[a\x04g\x81a\x04TV[\x81\x14a\x04rW`\0\x80\xFD[PV[`\0\x815\x90Pa\x04\x84\x81a\x04^V[\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\x04\xA0Wa\x04\x9Fa\x04JV[[`\0a\x04\xAE\x84\x82\x85\x01a\x04uV[\x91PP\x92\x91PPV[`\0\x81\x90P\x91\x90PV[a\x04\xCA\x81a\x04\xB7V[\x82RPPV[`\0` \x82\x01\x90Pa\x04\xE5`\0\x83\x01\x84a\x04\xC1V[\x92\x91PPV[`\0s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[`\0a\x05\x16\x82a\x04\xEBV[\x90P\x91\x90PV[a\x05&\x81a\x05\x0BV[\x81\x14a\x051W`\0\x80\xFD[PV[`\0\x815\x90Pa\x05C\x81a\x05\x1DV[\x92\x91PPV[`\0\x80`@\x83\x85\x03\x12\x15a\x05`Wa\x05_a\x04JV[[`\0a\x05n\x85\x82\x86\x01a\x054V[\x92PP` a\x05\x7F\x85\x82\x86\x01a\x04uV[\x91PP\x92P\x92\x90PV[`\0\x81\x15\x15\x90P\x91\x90PV[a\x05\x9E\x81a\x05\x89V[\x82RPPV[`\0` \x82\x01\x90Pa\x05\xB9`\0\x83\x01\x84a\x05\x95V[\x92\x91PPV[`\0\x80\xFD[`\0\x80\xFD[`\0\x80\xFD[`\0\x80\x83`\x1F\x84\x01\x12a\x05\xE4Wa\x05\xE3a\x05\xBFV[[\x825\x90Pg\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x06\x01Wa\x06\0a\x05\xC4V[[` \x83\x01\x91P\x83`\x01\x82\x02\x83\x01\x11\x15a\x06\x1DWa\x06\x1Ca\x05\xC9V[[\x92P\x92\x90PV[`\0\x80` \x83\x85\x03\x12\x15a\x06;Wa\x06:a\x04JV[[`\0\x83\x015g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x06YWa\x06Xa\x04OV[[a\x06e\x85\x82\x86\x01a\x05\xCEV[\x92P\x92PP\x92P\x92\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0`\0R`\x11`\x04R`$`\0\xFD[`\0a\x06\xAB\x82a\x04\xB7V[\x91Pa\x06\xB6\x83a\x04\xB7V[\x92P\x82\x82\x01\x90P\x80\x82\x11\x15a\x06\xCEWa\x06\xCDa\x06qV[[\x92\x91PPV[`\0\x81``\x1B\x90P\x91\x90PV[`\0a\x06\xEC\x82a\x06\xD4V[\x90P\x91\x90PV[`\0a\x06\xFE\x82a\x06\xE1V[\x90P\x91\x90PV[a\x07\x16a\x07\x11\x82a\x05\x0BV[a\x06\xF3V[\x82RPPV[`\0\x81\x90P\x92\x91PPV[\x82\x81\x837`\0\x83\x83\x01RPPPV[`\0a\x07B\x83\x85a\x07\x1CV[\x93Pa\x07O\x83\x85\x84a\x07'V[\x82\x84\x01\x90P\x93\x92PPPV[`\0a\x07g\x82\x86a\x07\x05V[`\x14\x82\x01\x91Pa\x07x\x82\x84\x86a\x076V[\x91P\x81\x90P\x94\x93PPPPV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[`\0`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[`\0a\x07\xB3\x83\x85a\x07\x85V[\x93Pa\x07\xC0\x83\x85\x84a\x07'V[a\x07\xC9\x83a\x07\x96V[\x84\x01\x90P\x93\x92PPPV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x07\xEF\x81\x84\x86a\x07\xA7V[\x90P\x93\x92PPPV",
+    );
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `AlreadyVoted()` and selector `0x7c9a1cf9`.
 ```solidity
@@ -653,6 +718,278 @@ function votePost(bytes32 post_id) external;
             }
         }
     };
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `voted(address,bytes32)` and selector `0xabb7a0df`.
+```solidity
+function voted(address, bytes32) external view returns (bool);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct votedCall {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub _1: alloy::sol_types::private::FixedBytes<32>,
+    }
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`voted(address,bytes32)`](votedCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct votedReturn {
+        #[allow(missing_docs)]
+        pub _0: bool,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::FixedBytes<32>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Address,
+                alloy::sol_types::private::FixedBytes<32>,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<votedCall> for UnderlyingRustTuple<'_> {
+                fn from(value: votedCall) -> Self {
+                    (value._0, value._1)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for votedCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0, _1: tuple.1 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bool,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (bool,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<votedReturn> for UnderlyingRustTuple<'_> {
+                fn from(value: votedReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for votedReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for votedCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::FixedBytes<32>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = votedReturn;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "voted(address,bytes32)";
+            const SELECTOR: [u8; 4] = [171u8, 183u8, 160u8, 223u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self._0,
+                    ),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self._1),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(
+                data: &[u8],
+                validate: bool,
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `votes(bytes32)` and selector `0x2b38cd96`.
+```solidity
+function votes(bytes32) external view returns (uint256);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct votesCall {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::FixedBytes<32>,
+    }
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`votes(bytes32)`](votesCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct votesReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<votesCall> for UnderlyingRustTuple<'_> {
+                fn from(value: votesCall) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for votesCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<votesReturn> for UnderlyingRustTuple<'_> {
+                fn from(value: votesReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for votesReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for votesCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = votesReturn;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "votes(bytes32)";
+            const SELECTOR: [u8; 4] = [43u8, 56u8, 205u8, 150u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self._0),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(
+                data: &[u8],
+                validate: bool,
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                    .map(Into::into)
+            }
+        }
+    };
     ///Container for all the [`RankedFeed`](self) function calls.
     #[derive()]
     pub enum RankedFeedCalls {
@@ -660,6 +997,10 @@ function votePost(bytes32 post_id) external;
         createPost(createPostCall),
         #[allow(missing_docs)]
         votePost(votePostCall),
+        #[allow(missing_docs)]
+        voted(votedCall),
+        #[allow(missing_docs)]
+        votes(votesCall),
     }
     #[automatically_derived]
     impl RankedFeedCalls {
@@ -670,7 +1011,9 @@ function votePost(bytes32 post_id) external;
         ///
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
+            [43u8, 56u8, 205u8, 150u8],
             [161u8, 152u8, 27u8, 241u8],
+            [171u8, 183u8, 160u8, 223u8],
             [223u8, 186u8, 162u8, 251u8],
         ];
     }
@@ -678,7 +1021,7 @@ function votePost(bytes32 post_id) external;
     impl alloy_sol_types::SolInterface for RankedFeedCalls {
         const NAME: &'static str = "RankedFeedCalls";
         const MIN_DATA_LENGTH: usize = 32usize;
-        const COUNT: usize = 2usize;
+        const COUNT: usize = 4usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -686,6 +1029,8 @@ function votePost(bytes32 post_id) external;
                     <createPostCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::votePost(_) => <votePostCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::voted(_) => <votedCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::votes(_) => <votesCall as alloy_sol_types::SolCall>::SELECTOR,
             }
         }
         #[inline]
@@ -708,6 +1053,19 @@ function votePost(bytes32 post_id) external;
                 bool,
             ) -> alloy_sol_types::Result<RankedFeedCalls>] = &[
                 {
+                    fn votes(
+                        data: &[u8],
+                        validate: bool,
+                    ) -> alloy_sol_types::Result<RankedFeedCalls> {
+                        <votesCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                                validate,
+                            )
+                            .map(RankedFeedCalls::votes)
+                    }
+                    votes
+                },
+                {
                     fn votePost(
                         data: &[u8],
                         validate: bool,
@@ -719,6 +1077,19 @@ function votePost(bytes32 post_id) external;
                             .map(RankedFeedCalls::votePost)
                     }
                     votePost
+                },
+                {
+                    fn voted(
+                        data: &[u8],
+                        validate: bool,
+                    ) -> alloy_sol_types::Result<RankedFeedCalls> {
+                        <votedCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                                validate,
+                            )
+                            .map(RankedFeedCalls::voted)
+                    }
+                    voted
                 },
                 {
                     fn createPost(
@@ -753,6 +1124,12 @@ function votePost(bytes32 post_id) external;
                 Self::votePost(inner) => {
                     <votePostCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
+                Self::voted(inner) => {
+                    <votedCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                }
+                Self::votes(inner) => {
+                    <votesCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                }
             }
         }
         #[inline]
@@ -769,6 +1146,12 @@ function votePost(bytes32 post_id) external;
                         inner,
                         out,
                     )
+                }
+                Self::voted(inner) => {
+                    <votedCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                }
+                Self::votes(inner) => {
+                    <votesCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
             }
         }
@@ -972,6 +1355,36 @@ See the [wrapper's documentation](`RankedFeedInstance`) for more details.*/
     ) -> RankedFeedInstance<T, P, N> {
         RankedFeedInstance::<T, P, N>::new(address, provider)
     }
+    /**Deploys this contract using the given `provider` and constructor arguments, if any.
+
+Returns a new instance of the contract, if the deployment was successful.
+
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+    #[inline]
+    pub fn deploy<
+        T: alloy_contract::private::Transport + ::core::clone::Clone,
+        P: alloy_contract::private::Provider<T, N>,
+        N: alloy_contract::private::Network,
+    >(
+        provider: P,
+    ) -> impl ::core::future::Future<
+        Output = alloy_contract::Result<RankedFeedInstance<T, P, N>>,
+    > {
+        RankedFeedInstance::<T, P, N>::deploy(provider)
+    }
+    /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
+and constructor arguments, if any.
+
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+    #[inline]
+    pub fn deploy_builder<
+        T: alloy_contract::private::Transport + ::core::clone::Clone,
+        P: alloy_contract::private::Provider<T, N>,
+        N: alloy_contract::private::Network,
+    >(provider: P) -> alloy_contract::RawCallBuilder<T, P, N> {
+        RankedFeedInstance::<T, P, N>::deploy_builder(provider)
+    }
     /**A [`RankedFeed`](self) instance.
 
 Contains type-safe methods for interacting with an on-chain instance of the
@@ -1016,6 +1429,31 @@ See the [wrapper's documentation](`RankedFeedInstance`) for more details.*/
                 provider,
                 _network_transport: ::core::marker::PhantomData,
             }
+        }
+        /**Deploys this contract using the given `provider` and constructor arguments, if any.
+
+Returns a new instance of the contract, if the deployment was successful.
+
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+        #[inline]
+        pub async fn deploy(
+            provider: P,
+        ) -> alloy_contract::Result<RankedFeedInstance<T, P, N>> {
+            let call_builder = Self::deploy_builder(provider);
+            let contract_address = call_builder.deploy().await?;
+            Ok(Self::new(contract_address, call_builder.provider))
+        }
+        /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
+and constructor arguments, if any.
+
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+        #[inline]
+        pub fn deploy_builder(provider: P) -> alloy_contract::RawCallBuilder<T, P, N> {
+            alloy_contract::RawCallBuilder::new_raw_deploy(
+                provider,
+                ::core::clone::Clone::clone(&BYTECODE),
+            )
         }
         /// Returns a reference to the address.
         #[inline]
@@ -1079,6 +1517,21 @@ See the [wrapper's documentation](`RankedFeedInstance`) for more details.*/
             post_id: alloy::sol_types::private::FixedBytes<32>,
         ) -> alloy_contract::SolCallBuilder<T, &P, votePostCall, N> {
             self.call_builder(&votePostCall { post_id })
+        }
+        ///Creates a new call builder for the [`voted`] function.
+        pub fn voted(
+            &self,
+            _0: alloy::sol_types::private::Address,
+            _1: alloy::sol_types::private::FixedBytes<32>,
+        ) -> alloy_contract::SolCallBuilder<T, &P, votedCall, N> {
+            self.call_builder(&votedCall { _0, _1 })
+        }
+        ///Creates a new call builder for the [`votes`] function.
+        pub fn votes(
+            &self,
+            _0: alloy::sol_types::private::FixedBytes<32>,
+        ) -> alloy_contract::SolCallBuilder<T, &P, votesCall, N> {
+            self.call_builder(&votesCall { _0 })
         }
     }
     /// Event filters.
