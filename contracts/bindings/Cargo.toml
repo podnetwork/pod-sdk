@@ -2,7 +2,7 @@
 name = "pod-contracts"
 version = "0.1.0"
 edition = "2024"
-description = "Types of Software Development Kit for the pod Network"
+description = "Smart contracts for the pod Network Software Development Kit"
 license = "MIT OR Apache-2.0"
 readme = "../README.md"
 homepage = "https://pod.network/"
