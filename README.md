@@ -1,10 +1,10 @@
-# POD SDK
+# pod sdk
 
-This repository contains the Software Development Kit for the pod Network. It provides a simplified interface for interacting with the POD network.
+This repository contains the Software Development Kit for the pod Network. It provides a simplified interface for interacting with the pod network.
 
 ## Features
 
-- Simple connection to POD nodes using WebSocket or HTTP
+- Simple connection to pod nodes using WebSocket or HTTP
 - Transaction creation and submission
 - Receipt verification
 - Event subscription and verification
@@ -12,17 +12,17 @@ This repository contains the Software Development Kit for the pod Network. It pr
 
 ## Repository Structure
 
-The POD ecosystem is divided into several repositories:
+The pod ecosystem is divided into several repositories:
 
-- **POD SDK** (this repository): Client-side tools for interacting with the POD network
-- **POD Types**: The main implementation of the POD validator types
-- **POD Contracts**: Smart contracts powering the POD ecosystem
+- **pod sdk** (this repository): Client-side tools for interacting with the pod network
+- **pod types**: The main implementation of the pod validator types
+- **pod contracts**: Smart contracts powering the pod ecosystem
 
 ## Key Types
 
 The SDK provides several key types:
 
-- `PodProvider`: The main entry point for interacting with the POD network
+- `PodProvider`: The main entry point for interacting with the pod network
 - `PodProviderBuilder`: A builder pattern for creating configured providers
 - `Hash`: A cryptographic hash representing transaction IDs or other hashed data
 - `Receipt`: A proof of transaction inclusion in the blockchain
@@ -95,7 +95,7 @@ pod-sdk = "0.1.0"
 
 ## Using with Contracts
 
-The SDK works seamlessly with POD contract bindings from the POD Contracts repository:
+The SDK works seamlessly with contract bindings from the pod contracts repository:
 
 ```rust
 use pod_sdk::PodProvider;
