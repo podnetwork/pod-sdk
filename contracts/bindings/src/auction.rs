@@ -105,9 +105,9 @@ pub mod Auction {
     );
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `BidSubmitted(uint256,address,uint256,uint256)` and selector `0x71a5674c44b823bc0df08201dfeb2e8bdf698cd684fd2bbaa79adcf2c99fc186`.
-```solidity
-event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 indexed deadline, uint256 value);
-```*/
+    ```solidity
+    event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 indexed deadline, uint256 value);
+    ```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -136,9 +136,7 @@ event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 i
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for BidSubmitted {
             type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<256>,
@@ -146,11 +144,12 @@ event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 i
                 alloy::sol_types::sol_data::Uint<256>,
             );
             const SIGNATURE: &'static str = "BidSubmitted(uint256,address,uint256,uint256)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                113u8, 165u8, 103u8, 76u8, 68u8, 184u8, 35u8, 188u8, 13u8, 240u8, 130u8,
-                1u8, 223u8, 235u8, 46u8, 139u8, 223u8, 105u8, 140u8, 214u8, 132u8, 253u8,
-                43u8, 186u8, 167u8, 154u8, 220u8, 242u8, 201u8, 159u8, 193u8, 134u8,
-            ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
+                alloy_sol_types::private::B256::new([
+                    113u8, 165u8, 103u8, 76u8, 68u8, 184u8, 35u8, 188u8, 13u8, 240u8, 130u8, 1u8,
+                    223u8, 235u8, 46u8, 139u8, 223u8, 105u8, 140u8, 214u8, 132u8, 253u8, 43u8,
+                    186u8, 167u8, 154u8, 220u8, 242u8, 201u8, 159u8, 193u8, 134u8,
+                ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -170,22 +169,20 @@ event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 i
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
+                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
+                        Self::SIGNATURE,
+                        topics.0,
+                        Self::SIGNATURE_HASH,
+                    ));
                 }
                 Ok(())
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.value),
+                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
+                        &self.value,
+                    ),
                 )
             }
             #[inline]
@@ -205,9 +202,7 @@ event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 i
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
+                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
                 out[1usize] = <alloy::sol_types::sol_data::Uint<
                     256,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.auction_id);
@@ -239,9 +234,9 @@ event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 i
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `submitBid(uint256,uint256,uint256,bytes)` and selector `0x852ca612`.
-```solidity
-function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes memory data) external;
-```*/
+    ```solidity
+    function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes memory data) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct submitBidCall {
@@ -283,9 +278,7 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -319,9 +312,7 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -351,14 +342,10 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Bytes,
             );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = submitBidReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "submitBid(uint256,uint256,uint256,bytes)";
             const SELECTOR: [u8; 4] = [133u8, 44u8, 166u8, 18u8];
             #[inline]
@@ -370,15 +357,15 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.auction_id),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.deadline),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.value),
+                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
+                        &self.auction_id,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
+                        &self.deadline,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
+                        &self.value,
+                    ),
                     <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
                         &self.data,
                     ),
@@ -389,10 +376,10 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
@@ -420,9 +407,7 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
-                Self::submitBid(_) => {
-                    <submitBidCall as alloy_sol_types::SolCall>::SELECTOR
-                }
+                Self::submitBid(_) => <submitBidCall as alloy_sol_types::SolCall>::SELECTOR,
             }
         }
         #[inline]
@@ -440,31 +425,18 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
             data: &[u8],
             validate: bool,
         ) -> alloy_sol_types::Result<Self> {
-            static DECODE_SHIMS: &[fn(
-                &[u8],
-                bool,
-            ) -> alloy_sol_types::Result<AuctionCalls>] = &[
-                {
-                    fn submitBid(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<AuctionCalls> {
-                        <submitBidCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
-                            .map(AuctionCalls::submitBid)
-                    }
-                    submitBid
-                },
-            ];
+            static DECODE_SHIMS: &[fn(&[u8], bool) -> alloy_sol_types::Result<AuctionCalls>] = &[{
+                fn submitBid(data: &[u8], validate: bool) -> alloy_sol_types::Result<AuctionCalls> {
+                    <submitBidCall as alloy_sol_types::SolCall>::abi_decode_raw(data, validate)
+                        .map(AuctionCalls::submitBid)
+                }
+                submitBid
+            }];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(
-                    alloy_sol_types::Error::unknown_selector(
-                        <Self as alloy_sol_types::SolInterface>::NAME,
-                        selector,
-                    ),
-                );
+                return Err(alloy_sol_types::Error::unknown_selector(
+                    <Self as alloy_sol_types::SolInterface>::NAME,
+                    selector,
+                ));
             };
             DECODE_SHIMS[idx](data, validate)
         }
@@ -480,10 +452,7 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
                 Self::submitBid(inner) => {
-                    <submitBidCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <submitBidCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
             }
         }
@@ -502,13 +471,11 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
         /// No guarantees are made about the order of the selectors.
         ///
         /// Prefer using `SolInterface` methods instead.
-        pub const SELECTORS: &'static [[u8; 32usize]] = &[
-            [
-                113u8, 165u8, 103u8, 76u8, 68u8, 184u8, 35u8, 188u8, 13u8, 240u8, 130u8,
-                1u8, 223u8, 235u8, 46u8, 139u8, 223u8, 105u8, 140u8, 214u8, 132u8, 253u8,
-                43u8, 186u8, 167u8, 154u8, 220u8, 242u8, 201u8, 159u8, 193u8, 134u8,
-            ],
-        ];
+        pub const SELECTORS: &'static [[u8; 32usize]] = &[[
+            113u8, 165u8, 103u8, 76u8, 68u8, 184u8, 35u8, 188u8, 13u8, 240u8, 130u8, 1u8, 223u8,
+            235u8, 46u8, 139u8, 223u8, 105u8, 140u8, 214u8, 132u8, 253u8, 43u8, 186u8, 167u8,
+            154u8, 220u8, 242u8, 201u8, 159u8, 193u8, 134u8,
+        ]];
     }
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for AuctionEvents {
@@ -522,23 +489,19 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
             match topics.first().copied() {
                 Some(<BidSubmitted as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <BidSubmitted as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                            validate,
-                        )
-                        .map(Self::BidSubmitted)
+                        topics, data, validate,
+                    )
+                    .map(Self::BidSubmitted)
                 }
-                _ => {
-                    alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
-                        name: <Self as alloy_sol_types::SolEventInterface>::NAME,
-                        log: alloy_sol_types::private::Box::new(
-                            alloy_sol_types::private::LogData::new_unchecked(
-                                topics.to_vec(),
-                                data.to_vec().into(),
-                            ),
+                _ => alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
+                    name: <Self as alloy_sol_types::SolEventInterface>::NAME,
+                    log: alloy_sol_types::private::Box::new(
+                        alloy_sol_types::private::LogData::new_unchecked(
+                            topics.to_vec(),
+                            data.to_vec().into(),
                         ),
-                    })
-                }
+                    ),
+                }),
             }
         }
     }
@@ -562,7 +525,7 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`Auction`](self) contract instance.
 
-See the [wrapper's documentation](`AuctionInstance`) for more details.*/
+    See the [wrapper's documentation](`AuctionInstance`) for more details.*/
     #[inline]
     pub const fn new<
         T: alloy_contract::private::Transport + ::core::clone::Clone,
@@ -576,9 +539,9 @@ See the [wrapper's documentation](`AuctionInstance`) for more details.*/
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-Returns a new instance of the contract, if the deployment was successful.
+    Returns a new instance of the contract, if the deployment was successful.
 
-For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+    For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
     pub fn deploy<
         T: alloy_contract::private::Transport + ::core::clone::Clone,
@@ -586,35 +549,36 @@ For more fine-grained control over the deployment process, use [`deploy_builder`
         N: alloy_contract::private::Network,
     >(
         provider: P,
-    ) -> impl ::core::future::Future<
-        Output = alloy_contract::Result<AuctionInstance<T, P, N>>,
-    > {
+    ) -> impl ::core::future::Future<Output = alloy_contract::Result<AuctionInstance<T, P, N>>>
+    {
         AuctionInstance::<T, P, N>::deploy(provider)
     }
     /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-and constructor arguments, if any.
+    and constructor arguments, if any.
 
-This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+    This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+    the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     #[inline]
     pub fn deploy_builder<
         T: alloy_contract::private::Transport + ::core::clone::Clone,
         P: alloy_contract::private::Provider<T, N>,
         N: alloy_contract::private::Network,
-    >(provider: P) -> alloy_contract::RawCallBuilder<T, P, N> {
+    >(
+        provider: P,
+    ) -> alloy_contract::RawCallBuilder<T, P, N> {
         AuctionInstance::<T, P, N>::deploy_builder(provider)
     }
     /**A [`Auction`](self) instance.
 
-Contains type-safe methods for interacting with an on-chain instance of the
-[`Auction`](self) contract located at a given `address`, using a given
-provider `P`.
+    Contains type-safe methods for interacting with an on-chain instance of the
+    [`Auction`](self) contract located at a given `address`, using a given
+    provider `P`.
 
-If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-be used to deploy a new instance of the contract.
+    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+    be used to deploy a new instance of the contract.
 
-See the [module-level documentation](self) for all the available methods.*/
+    See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct AuctionInstance<T, P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -625,24 +589,24 @@ See the [module-level documentation](self) for all the available methods.*/
     impl<T, P, N> ::core::fmt::Debug for AuctionInstance<T, P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("AuctionInstance").field(&self.address).finish()
+            f.debug_tuple("AuctionInstance")
+                .field(&self.address)
+                .finish()
         }
     }
     /// Instantiation and getters/setters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > AuctionInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > AuctionInstance<T, P, N>
+    {
         /**Creates a new wrapper around an on-chain [`Auction`](self) contract instance.
 
-See the [wrapper's documentation](`AuctionInstance`) for more details.*/
+        See the [wrapper's documentation](`AuctionInstance`) for more details.*/
         #[inline]
-        pub const fn new(
-            address: alloy_sol_types::private::Address,
-            provider: P,
-        ) -> Self {
+        pub const fn new(address: alloy_sol_types::private::Address, provider: P) -> Self {
             Self {
                 address,
                 provider,
@@ -651,22 +615,20 @@ See the [wrapper's documentation](`AuctionInstance`) for more details.*/
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-Returns a new instance of the contract, if the deployment was successful.
+        Returns a new instance of the contract, if the deployment was successful.
 
-For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+        For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
         #[inline]
-        pub async fn deploy(
-            provider: P,
-        ) -> alloy_contract::Result<AuctionInstance<T, P, N>> {
+        pub async fn deploy(provider: P) -> alloy_contract::Result<AuctionInstance<T, P, N>> {
             let call_builder = Self::deploy_builder(provider);
             let contract_address = call_builder.deploy().await?;
             Ok(Self::new(contract_address, call_builder.provider))
         }
         /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-and constructor arguments, if any.
+        and constructor arguments, if any.
 
-This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+        This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+        the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
         pub fn deploy_builder(provider: P) -> alloy_contract::RawCallBuilder<T, P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
@@ -709,10 +671,11 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     /// Function calls.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > AuctionInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > AuctionInstance<T, P, N>
+    {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -731,23 +694,22 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             value: alloy::sol_types::private::primitives::aliases::U256,
             data: alloy::sol_types::private::Bytes,
         ) -> alloy_contract::SolCallBuilder<T, &P, submitBidCall, N> {
-            self.call_builder(
-                &submitBidCall {
-                    auction_id,
-                    deadline,
-                    value,
-                    data,
-                },
-            )
+            self.call_builder(&submitBidCall {
+                auction_id,
+                deadline,
+                value,
+                data,
+            })
         }
     }
     /// Event filters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > AuctionInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > AuctionInstance<T, P, N>
+    {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
@@ -758,9 +720,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             alloy_contract::Event::new_sol(&self.provider, &self.address)
         }
         ///Creates a new event filter for the [`BidSubmitted`] event.
-        pub fn BidSubmitted_filter(
-            &self,
-        ) -> alloy_contract::Event<T, &P, BidSubmitted, N> {
+        pub fn BidSubmitted_filter(&self) -> alloy_contract::Event<T, &P, BidSubmitted, N> {
             self.event_filter::<BidSubmitted>()
         }
     }

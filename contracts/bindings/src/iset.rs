@@ -81,9 +81,9 @@ pub mod ISet {
     );
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `insert(bytes32,bytes32)` and selector `0xfeac36d7`.
-```solidity
-function insert(bytes32 key, bytes32 e) external;
-```*/
+    ```solidity
+    function insert(bytes32 key, bytes32 e) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct insertCall {
@@ -117,9 +117,7 @@ function insert(bytes32 key, bytes32 e) external;
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -137,7 +135,10 @@ function insert(bytes32 key, bytes32 e) external;
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for insertCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { key: tuple.0, e: tuple.1 }
+                    Self {
+                        key: tuple.0,
+                        e: tuple.1,
+                    }
                 }
             }
         }
@@ -148,9 +149,7 @@ function insert(bytes32 key, bytes32 e) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -178,14 +177,10 @@ function insert(bytes32 key, bytes32 e) external;
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = insertReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "insert(bytes32,bytes32)";
             const SELECTOR: [u8; 4] = [254u8, 172u8, 54u8, 215u8];
             #[inline]
@@ -210,18 +205,18 @@ function insert(bytes32 key, bytes32 e) external;
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `requireExist(bytes32,bytes32)` and selector `0x8635a591`.
-```solidity
-function requireExist(bytes32 key, bytes32 e) external view;
-```*/
+    ```solidity
+    function requireExist(bytes32 key, bytes32 e) external view;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct requireExistCall {
@@ -255,9 +250,7 @@ function requireExist(bytes32 key, bytes32 e) external view;
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -275,7 +268,10 @@ function requireExist(bytes32 key, bytes32 e) external view;
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for requireExistCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { key: tuple.0, e: tuple.1 }
+                    Self {
+                        key: tuple.0,
+                        e: tuple.1,
+                    }
                 }
             }
         }
@@ -286,9 +282,7 @@ function requireExist(bytes32 key, bytes32 e) external view;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -316,14 +310,10 @@ function requireExist(bytes32 key, bytes32 e) external view;
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = requireExistReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "requireExist(bytes32,bytes32)";
             const SELECTOR: [u8; 4] = [134u8, 53u8, 165u8, 145u8];
             #[inline]
@@ -348,10 +338,10 @@ function requireExist(bytes32 key, bytes32 e) external view;
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
@@ -371,10 +361,8 @@ function requireExist(bytes32 key, bytes32 e) external view;
         /// No guarantees are made about the order of the selectors.
         ///
         /// Prefer using `SolInterface` methods instead.
-        pub const SELECTORS: &'static [[u8; 4usize]] = &[
-            [134u8, 53u8, 165u8, 145u8],
-            [254u8, 172u8, 54u8, 215u8],
-        ];
+        pub const SELECTORS: &'static [[u8; 4usize]] =
+            &[[134u8, 53u8, 165u8, 145u8], [254u8, 172u8, 54u8, 215u8]];
     }
     #[automatically_derived]
     impl alloy_sol_types::SolInterface for ISetCalls {
@@ -385,9 +373,7 @@ function requireExist(bytes32 key, bytes32 e) external view;
         fn selector(&self) -> [u8; 4] {
             match self {
                 Self::insert(_) => <insertCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::requireExist(_) => {
-                    <requireExistCall as alloy_sol_types::SolCall>::SELECTOR
-                }
+                Self::requireExist(_) => <requireExistCall as alloy_sol_types::SolCall>::SELECTOR,
             }
         }
         #[inline]
@@ -405,44 +391,32 @@ function requireExist(bytes32 key, bytes32 e) external view;
             data: &[u8],
             validate: bool,
         ) -> alloy_sol_types::Result<Self> {
-            static DECODE_SHIMS: &[fn(
-                &[u8],
-                bool,
-            ) -> alloy_sol_types::Result<ISetCalls>] = &[
+            static DECODE_SHIMS: &[fn(&[u8], bool) -> alloy_sol_types::Result<ISetCalls>] = &[
                 {
                     fn requireExist(
                         data: &[u8],
                         validate: bool,
                     ) -> alloy_sol_types::Result<ISetCalls> {
                         <requireExistCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
-                            .map(ISetCalls::requireExist)
+                            data, validate,
+                        )
+                        .map(ISetCalls::requireExist)
                     }
                     requireExist
                 },
                 {
-                    fn insert(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<ISetCalls> {
-                        <insertCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                    fn insert(data: &[u8], validate: bool) -> alloy_sol_types::Result<ISetCalls> {
+                        <insertCall as alloy_sol_types::SolCall>::abi_decode_raw(data, validate)
                             .map(ISetCalls::insert)
                     }
                     insert
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(
-                    alloy_sol_types::Error::unknown_selector(
-                        <Self as alloy_sol_types::SolInterface>::NAME,
-                        selector,
-                    ),
-                );
+                return Err(alloy_sol_types::Error::unknown_selector(
+                    <Self as alloy_sol_types::SolInterface>::NAME,
+                    selector,
+                ));
             };
             DECODE_SHIMS[idx](data, validate)
         }
@@ -453,9 +427,7 @@ function requireExist(bytes32 key, bytes32 e) external view;
                     <insertCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::requireExist(inner) => {
-                    <requireExistCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <requireExistCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
             }
         }
@@ -466,10 +438,7 @@ function requireExist(bytes32 key, bytes32 e) external view;
                     <insertCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::requireExist(inner) => {
-                    <requireExistCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <requireExistCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
             }
         }
@@ -477,20 +446,23 @@ function requireExist(bytes32 key, bytes32 e) external view;
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`ISet`](self) contract instance.
 
-See the [wrapper's documentation](`ISetInstance`) for more details.*/
+    See the [wrapper's documentation](`ISetInstance`) for more details.*/
     #[inline]
     pub const fn new<
         T: alloy_contract::private::Transport + ::core::clone::Clone,
         P: alloy_contract::private::Provider<T, N>,
         N: alloy_contract::private::Network,
-    >(address: alloy_sol_types::private::Address, provider: P) -> ISetInstance<T, P, N> {
+    >(
+        address: alloy_sol_types::private::Address,
+        provider: P,
+    ) -> ISetInstance<T, P, N> {
         ISetInstance::<T, P, N>::new(address, provider)
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-Returns a new instance of the contract, if the deployment was successful.
+    Returns a new instance of the contract, if the deployment was successful.
 
-For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+    For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
     pub fn deploy<
         T: alloy_contract::private::Transport + ::core::clone::Clone,
@@ -498,35 +470,35 @@ For more fine-grained control over the deployment process, use [`deploy_builder`
         N: alloy_contract::private::Network,
     >(
         provider: P,
-    ) -> impl ::core::future::Future<
-        Output = alloy_contract::Result<ISetInstance<T, P, N>>,
-    > {
+    ) -> impl ::core::future::Future<Output = alloy_contract::Result<ISetInstance<T, P, N>>> {
         ISetInstance::<T, P, N>::deploy(provider)
     }
     /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-and constructor arguments, if any.
+    and constructor arguments, if any.
 
-This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+    This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+    the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     #[inline]
     pub fn deploy_builder<
         T: alloy_contract::private::Transport + ::core::clone::Clone,
         P: alloy_contract::private::Provider<T, N>,
         N: alloy_contract::private::Network,
-    >(provider: P) -> alloy_contract::RawCallBuilder<T, P, N> {
+    >(
+        provider: P,
+    ) -> alloy_contract::RawCallBuilder<T, P, N> {
         ISetInstance::<T, P, N>::deploy_builder(provider)
     }
     /**A [`ISet`](self) instance.
 
-Contains type-safe methods for interacting with an on-chain instance of the
-[`ISet`](self) contract located at a given `address`, using a given
-provider `P`.
+    Contains type-safe methods for interacting with an on-chain instance of the
+    [`ISet`](self) contract located at a given `address`, using a given
+    provider `P`.
 
-If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-be used to deploy a new instance of the contract.
+    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+    be used to deploy a new instance of the contract.
 
-See the [module-level documentation](self) for all the available methods.*/
+    See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct ISetInstance<T, P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -543,18 +515,16 @@ See the [module-level documentation](self) for all the available methods.*/
     /// Instantiation and getters/setters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > ISetInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > ISetInstance<T, P, N>
+    {
         /**Creates a new wrapper around an on-chain [`ISet`](self) contract instance.
 
-See the [wrapper's documentation](`ISetInstance`) for more details.*/
+        See the [wrapper's documentation](`ISetInstance`) for more details.*/
         #[inline]
-        pub const fn new(
-            address: alloy_sol_types::private::Address,
-            provider: P,
-        ) -> Self {
+        pub const fn new(address: alloy_sol_types::private::Address, provider: P) -> Self {
             Self {
                 address,
                 provider,
@@ -563,22 +533,20 @@ See the [wrapper's documentation](`ISetInstance`) for more details.*/
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-Returns a new instance of the contract, if the deployment was successful.
+        Returns a new instance of the contract, if the deployment was successful.
 
-For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+        For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
         #[inline]
-        pub async fn deploy(
-            provider: P,
-        ) -> alloy_contract::Result<ISetInstance<T, P, N>> {
+        pub async fn deploy(provider: P) -> alloy_contract::Result<ISetInstance<T, P, N>> {
             let call_builder = Self::deploy_builder(provider);
             let contract_address = call_builder.deploy().await?;
             Ok(Self::new(contract_address, call_builder.provider))
         }
         /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-and constructor arguments, if any.
+        and constructor arguments, if any.
 
-This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+        This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+        the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
         pub fn deploy_builder(provider: P) -> alloy_contract::RawCallBuilder<T, P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
@@ -621,10 +589,11 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     /// Function calls.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > ISetInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > ISetInstance<T, P, N>
+    {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -655,10 +624,11 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     /// Event filters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > ISetInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > ISetInstance<T, P, N>
+    {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.

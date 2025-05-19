@@ -237,8 +237,8 @@ pub mod Voting {
     use alloy::sol_types as alloy_sol_types;
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address owner; }
-```*/
+    struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address owner; }
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct VotingInfo {
@@ -275,9 +275,7 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
+        fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
             match _t {
                 alloy_sol_types::private::AssertTypeEq::<
                     <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -312,15 +310,15 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
             #[inline]
             fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.threshold),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.deadline),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.nonce),
+                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
+                        &self.threshold,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
+                        &self.deadline,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
+                        &self.nonce,
+                    ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.owner,
                     ),
@@ -331,64 +329,50 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
                 if let Some(size) = <Self as alloy_sol_types::SolType>::ENCODED_SIZE {
                     return size;
                 }
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
+                let tuple =
+                    <UnderlyingRustTuple<'_> as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
             }
             #[inline]
             fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
                 <Self as alloy_sol_types::SolStruct>::eip712_hash_struct(self)
             }
             #[inline]
-            fn stv_abi_encode_packed_to(
-                &self,
-                out: &mut alloy_sol_types::private::Vec<u8>,
-            ) {
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_encode_packed_to(&tuple, out)
+            fn stv_abi_encode_packed_to(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
+                let tuple =
+                    <UnderlyingRustTuple<'_> as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::abi_encode_packed_to(
+                    &tuple, out,
+                )
             }
             #[inline]
             fn stv_abi_packed_encoded_size(&self) -> usize {
                 if let Some(size) = <Self as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE {
                     return size;
                 }
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_packed_encoded_size(&tuple)
+                let tuple =
+                    <UnderlyingRustTuple<'_> as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::abi_packed_encoded_size(
+                    &tuple,
+                )
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolType for VotingInfo {
             type RustType = Self;
-            type Token<'a> = <UnderlyingSolTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <UnderlyingSolTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SOL_NAME: &'static str = <Self as alloy_sol_types::SolStruct>::NAME;
-            const ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
-                '_,
-            > as alloy_sol_types::SolType>::ENCODED_SIZE;
-            const PACKED_ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
-                '_,
-            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            const ENCODED_SIZE: Option<usize> =
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> =
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
             #[inline]
             fn valid_token(token: &Self::Token<'_>) -> bool {
                 <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::valid_token(token)
             }
             #[inline]
             fn detokenize(token: Self::Token<'_>) -> Self::RustType {
-                let tuple = <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::detokenize(token);
+                let tuple = <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::detokenize(token);
                 <Self as ::core::convert::From<UnderlyingRustTuple<'_>>>::from(tuple)
             }
         }
@@ -402,9 +386,9 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
                 )
             }
             #[inline]
-            fn eip712_components() -> alloy_sol_types::private::Vec<
-                alloy_sol_types::private::Cow<'static, str>,
-            > {
+            fn eip712_components(
+            ) -> alloy_sol_types::private::Vec<alloy_sol_types::private::Cow<'static, str>>
+            {
                 alloy_sol_types::private::Vec::new()
             }
             #[inline]
@@ -461,9 +445,7 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
                 rust: &Self::RustType,
                 out: &mut alloy_sol_types::private::Vec<u8>,
             ) {
-                out.reserve(
-                    <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
-                );
+                out.reserve(<Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust));
                 <alloy::sol_types::sol_data::Uint<
                     256,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -488,25 +470,18 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
                 );
             }
             #[inline]
-            fn encode_topic(
-                rust: &Self::RustType,
-            ) -> alloy_sol_types::abi::token::WordToken {
+            fn encode_topic(rust: &Self::RustType) -> alloy_sol_types::abi::token::WordToken {
                 let mut out = alloy_sol_types::private::Vec::new();
-                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    rust,
-                    &mut out,
-                );
-                alloy_sol_types::abi::token::WordToken(
-                    alloy_sol_types::private::keccak256(out),
-                )
+                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, &mut out);
+                alloy_sol_types::abi::token::WordToken(alloy_sol_types::private::keccak256(out))
             }
         }
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `Voted(bytes32,address,uint256)` and selector `0xe4abc5380fa6939d1dc23b5e90b3a8a0e328f0f1a82a5f42bfb795bf9c717505`.
-```solidity
-event Voted(bytes32 indexed votingId, address indexed voter, uint256 indexed choice);
-```*/
+    ```solidity
+    event Voted(bytes32 indexed votingId, address indexed voter, uint256 indexed choice);
+    ```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -533,9 +508,7 @@ event Voted(bytes32 indexed votingId, address indexed voter, uint256 indexed cho
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for Voted {
             type DataTuple<'a> = ();
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
@@ -543,11 +516,12 @@ event Voted(bytes32 indexed votingId, address indexed voter, uint256 indexed cho
                 alloy::sol_types::sol_data::Uint<256>,
             );
             const SIGNATURE: &'static str = "Voted(bytes32,address,uint256)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                228u8, 171u8, 197u8, 56u8, 15u8, 166u8, 147u8, 157u8, 29u8, 194u8, 59u8,
-                94u8, 144u8, 179u8, 168u8, 160u8, 227u8, 40u8, 240u8, 241u8, 168u8, 42u8,
-                95u8, 66u8, 191u8, 183u8, 149u8, 191u8, 156u8, 113u8, 117u8, 5u8,
-            ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
+                alloy_sol_types::private::B256::new([
+                    228u8, 171u8, 197u8, 56u8, 15u8, 166u8, 147u8, 157u8, 29u8, 194u8, 59u8, 94u8,
+                    144u8, 179u8, 168u8, 160u8, 227u8, 40u8, 240u8, 241u8, 168u8, 42u8, 95u8, 66u8,
+                    191u8, 183u8, 149u8, 191u8, 156u8, 113u8, 117u8, 5u8,
+                ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -566,13 +540,11 @@ event Voted(bytes32 indexed votingId, address indexed voter, uint256 indexed cho
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
+                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
+                        Self::SIGNATURE,
+                        topics.0,
+                        Self::SIGNATURE_HASH,
+                    ));
                 }
                 Ok(())
             }
@@ -597,9 +569,7 @@ event Voted(bytes32 indexed votingId, address indexed voter, uint256 indexed cho
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
+                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
                 out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.votingId);
@@ -631,9 +601,9 @@ event Voted(bytes32 indexed votingId, address indexed voter, uint256 indexed cho
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `Winner(bytes32,uint256)` and selector `0x269d3a24712436f77df15d63de7d2337a060c9102dee6f46c909fb0fa2d52f0c`.
-```solidity
-event Winner(bytes32 indexed votingId, uint256 indexed choice);
-```*/
+    ```solidity
+    event Winner(bytes32 indexed votingId, uint256 indexed choice);
+    ```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -658,20 +628,19 @@ event Winner(bytes32 indexed votingId, uint256 indexed choice);
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for Winner {
             type DataTuple<'a> = ();
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<256>,
             );
             const SIGNATURE: &'static str = "Winner(bytes32,uint256)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                38u8, 157u8, 58u8, 36u8, 113u8, 36u8, 54u8, 247u8, 125u8, 241u8, 93u8,
-                99u8, 222u8, 125u8, 35u8, 55u8, 160u8, 96u8, 201u8, 16u8, 45u8, 238u8,
-                111u8, 70u8, 201u8, 9u8, 251u8, 15u8, 162u8, 213u8, 47u8, 12u8,
-            ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
+                alloy_sol_types::private::B256::new([
+                    38u8, 157u8, 58u8, 36u8, 113u8, 36u8, 54u8, 247u8, 125u8, 241u8, 93u8, 99u8,
+                    222u8, 125u8, 35u8, 55u8, 160u8, 96u8, 201u8, 16u8, 45u8, 238u8, 111u8, 70u8,
+                    201u8, 9u8, 251u8, 15u8, 162u8, 213u8, 47u8, 12u8,
+                ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -689,13 +658,11 @@ event Winner(bytes32 indexed votingId, uint256 indexed choice);
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
+                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
+                        Self::SIGNATURE,
+                        topics.0,
+                        Self::SIGNATURE_HASH,
+                    ));
                 }
                 Ok(())
             }
@@ -705,7 +672,11 @@ event Winner(bytes32 indexed votingId, uint256 indexed choice);
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(), self.votingId.clone(), self.choice.clone())
+                (
+                    Self::SIGNATURE_HASH.into(),
+                    self.votingId.clone(),
+                    self.choice.clone(),
+                )
             }
             #[inline]
             fn encode_topics_raw(
@@ -715,9 +686,7 @@ event Winner(bytes32 indexed votingId, uint256 indexed choice);
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
+                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
                 out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.votingId);
@@ -746,9 +715,9 @@ event Winner(bytes32 indexed votingId, uint256 indexed choice);
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `register((uint256,uint256,uint256,address))` and selector `0x8f253c75`.
-```solidity
-function register(VotingInfo memory v) external;
-```*/
+    ```solidity
+    function register(VotingInfo memory v) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct registerCall {
@@ -771,14 +740,10 @@ function register(VotingInfo memory v) external;
             #[doc(hidden)]
             type UnderlyingSolTuple<'a> = (VotingInfo,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                <VotingInfo as alloy::sol_types::SolType>::RustType,
-            );
+            type UnderlyingRustTuple<'a> = (<VotingInfo as alloy::sol_types::SolType>::RustType,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -807,9 +772,7 @@ function register(VotingInfo memory v) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -834,14 +797,10 @@ function register(VotingInfo memory v) external;
         #[automatically_derived]
         impl alloy_sol_types::SolCall for registerCall {
             type Parameters<'a> = (VotingInfo,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = registerReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "register((uint256,uint256,uint256,address))";
             const SELECTOR: [u8; 4] = [143u8, 37u8, 60u8, 117u8];
             #[inline]
@@ -859,18 +818,18 @@ function register(VotingInfo memory v) external;
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setWinner((uint256,uint256,uint256,address),uint256)` and selector `0x9747a952`.
-```solidity
-function setWinner(VotingInfo memory v, uint256 choice) external;
-```*/
+    ```solidity
+    function setWinner(VotingInfo memory v, uint256 choice) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setWinnerCall {
@@ -893,10 +852,7 @@ function setWinner(VotingInfo memory v, uint256 choice) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = (
-                VotingInfo,
-                alloy::sol_types::sol_data::Uint<256>,
-            );
+            type UnderlyingSolTuple<'a> = (VotingInfo, alloy::sol_types::sol_data::Uint<256>);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
                 <VotingInfo as alloy::sol_types::SolType>::RustType,
@@ -904,9 +860,7 @@ function setWinner(VotingInfo memory v, uint256 choice) external;
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -938,9 +892,7 @@ function setWinner(VotingInfo memory v, uint256 choice) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -965,14 +917,10 @@ function setWinner(VotingInfo memory v, uint256 choice) external;
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setWinnerCall {
             type Parameters<'a> = (VotingInfo, alloy::sol_types::sol_data::Uint<256>);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setWinnerReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setWinner((uint256,uint256,uint256,address),uint256)";
             const SELECTOR: [u8; 4] = [151u8, 71u8, 169u8, 82u8];
             #[inline]
@@ -985,9 +933,9 @@ function setWinner(VotingInfo memory v, uint256 choice) external;
             fn tokenize(&self) -> Self::Token<'_> {
                 (
                     <VotingInfo as alloy_sol_types::SolType>::tokenize(&self.v),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.choice),
+                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
+                        &self.choice,
+                    ),
                 )
             }
             #[inline]
@@ -995,18 +943,18 @@ function setWinner(VotingInfo memory v, uint256 choice) external;
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `vote((uint256,uint256,uint256,address),uint256)` and selector `0x152d18c4`.
-```solidity
-function vote(VotingInfo memory v, uint256 choice) external;
-```*/
+    ```solidity
+    function vote(VotingInfo memory v, uint256 choice) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct voteCall {
@@ -1029,10 +977,7 @@ function vote(VotingInfo memory v, uint256 choice) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = (
-                VotingInfo,
-                alloy::sol_types::sol_data::Uint<256>,
-            );
+            type UnderlyingSolTuple<'a> = (VotingInfo, alloy::sol_types::sol_data::Uint<256>);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
                 <VotingInfo as alloy::sol_types::SolType>::RustType,
@@ -1040,9 +985,7 @@ function vote(VotingInfo memory v, uint256 choice) external;
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1074,9 +1017,7 @@ function vote(VotingInfo memory v, uint256 choice) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1101,14 +1042,10 @@ function vote(VotingInfo memory v, uint256 choice) external;
         #[automatically_derived]
         impl alloy_sol_types::SolCall for voteCall {
             type Parameters<'a> = (VotingInfo, alloy::sol_types::sol_data::Uint<256>);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = voteReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "vote((uint256,uint256,uint256,address),uint256)";
             const SELECTOR: [u8; 4] = [21u8, 45u8, 24u8, 196u8];
             #[inline]
@@ -1121,9 +1058,9 @@ function vote(VotingInfo memory v, uint256 choice) external;
             fn tokenize(&self) -> Self::Token<'_> {
                 (
                     <VotingInfo as alloy_sol_types::SolType>::tokenize(&self.v),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.choice),
+                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
+                        &self.choice,
+                    ),
                 )
             }
             #[inline]
@@ -1131,18 +1068,18 @@ function vote(VotingInfo memory v, uint256 choice) external;
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `votingId((uint256,uint256,uint256,address))` and selector `0x39db6659`.
-```solidity
-function votingId(VotingInfo memory v) external pure returns (bytes32);
-```*/
+    ```solidity
+    function votingId(VotingInfo memory v) external pure returns (bytes32);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct votingIdCall {
@@ -1169,14 +1106,10 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
             #[doc(hidden)]
             type UnderlyingSolTuple<'a> = (VotingInfo,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                <VotingInfo as alloy::sol_types::SolType>::RustType,
-            );
+            type UnderlyingRustTuple<'a> = (<VotingInfo as alloy::sol_types::SolType>::RustType,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1205,9 +1138,7 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1232,14 +1163,10 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for votingIdCall {
             type Parameters<'a> = (VotingInfo,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = votingIdReturn;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "votingId((uint256,uint256,uint256,address))";
             const SELECTOR: [u8; 4] = [57u8, 219u8, 102u8, 89u8];
             #[inline]
@@ -1257,10 +1184,10 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
@@ -1300,9 +1227,7 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
         fn selector(&self) -> [u8; 4] {
             match self {
                 Self::register(_) => <registerCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::setWinner(_) => {
-                    <setWinnerCall as alloy_sol_types::SolCall>::SELECTOR
-                }
+                Self::setWinner(_) => <setWinnerCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::vote(_) => <voteCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::votingId(_) => <votingIdCall as alloy_sol_types::SolCall>::SELECTOR,
             }
@@ -1322,19 +1247,10 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
             data: &[u8],
             validate: bool,
         ) -> alloy_sol_types::Result<Self> {
-            static DECODE_SHIMS: &[fn(
-                &[u8],
-                bool,
-            ) -> alloy_sol_types::Result<VotingCalls>] = &[
+            static DECODE_SHIMS: &[fn(&[u8], bool) -> alloy_sol_types::Result<VotingCalls>] = &[
                 {
-                    fn vote(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<VotingCalls> {
-                        <voteCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                    fn vote(data: &[u8], validate: bool) -> alloy_sol_types::Result<VotingCalls> {
+                        <voteCall as alloy_sol_types::SolCall>::abi_decode_raw(data, validate)
                             .map(VotingCalls::vote)
                     }
                     vote
@@ -1344,10 +1260,7 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
                         data: &[u8],
                         validate: bool,
                     ) -> alloy_sol_types::Result<VotingCalls> {
-                        <votingIdCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                        <votingIdCall as alloy_sol_types::SolCall>::abi_decode_raw(data, validate)
                             .map(VotingCalls::votingId)
                     }
                     votingId
@@ -1357,10 +1270,7 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
                         data: &[u8],
                         validate: bool,
                     ) -> alloy_sol_types::Result<VotingCalls> {
-                        <registerCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                        <registerCall as alloy_sol_types::SolCall>::abi_decode_raw(data, validate)
                             .map(VotingCalls::register)
                     }
                     register
@@ -1370,22 +1280,17 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
                         data: &[u8],
                         validate: bool,
                     ) -> alloy_sol_types::Result<VotingCalls> {
-                        <setWinnerCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                        <setWinnerCall as alloy_sol_types::SolCall>::abi_decode_raw(data, validate)
                             .map(VotingCalls::setWinner)
                     }
                     setWinner
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(
-                    alloy_sol_types::Error::unknown_selector(
-                        <Self as alloy_sol_types::SolInterface>::NAME,
-                        selector,
-                    ),
-                );
+                return Err(alloy_sol_types::Error::unknown_selector(
+                    <Self as alloy_sol_types::SolInterface>::NAME,
+                    selector,
+                ));
             };
             DECODE_SHIMS[idx](data, validate)
         }
@@ -1410,25 +1315,16 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
                 Self::register(inner) => {
-                    <registerCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <registerCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::setWinner(inner) => {
-                    <setWinnerCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <setWinnerCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::vote(inner) => {
                     <voteCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::votingId(inner) => {
-                    <votingIdCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <votingIdCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
             }
         }
@@ -1451,14 +1347,14 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                38u8, 157u8, 58u8, 36u8, 113u8, 36u8, 54u8, 247u8, 125u8, 241u8, 93u8,
-                99u8, 222u8, 125u8, 35u8, 55u8, 160u8, 96u8, 201u8, 16u8, 45u8, 238u8,
-                111u8, 70u8, 201u8, 9u8, 251u8, 15u8, 162u8, 213u8, 47u8, 12u8,
+                38u8, 157u8, 58u8, 36u8, 113u8, 36u8, 54u8, 247u8, 125u8, 241u8, 93u8, 99u8, 222u8,
+                125u8, 35u8, 55u8, 160u8, 96u8, 201u8, 16u8, 45u8, 238u8, 111u8, 70u8, 201u8, 9u8,
+                251u8, 15u8, 162u8, 213u8, 47u8, 12u8,
             ],
             [
-                228u8, 171u8, 197u8, 56u8, 15u8, 166u8, 147u8, 157u8, 29u8, 194u8, 59u8,
-                94u8, 144u8, 179u8, 168u8, 160u8, 227u8, 40u8, 240u8, 241u8, 168u8, 42u8,
-                95u8, 66u8, 191u8, 183u8, 149u8, 191u8, 156u8, 113u8, 117u8, 5u8,
+                228u8, 171u8, 197u8, 56u8, 15u8, 166u8, 147u8, 157u8, 29u8, 194u8, 59u8, 94u8,
+                144u8, 179u8, 168u8, 160u8, 227u8, 40u8, 240u8, 241u8, 168u8, 42u8, 95u8, 66u8,
+                191u8, 183u8, 149u8, 191u8, 156u8, 113u8, 117u8, 5u8,
             ],
         ];
     }
@@ -1473,32 +1369,22 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
         ) -> alloy_sol_types::Result<Self> {
             match topics.first().copied() {
                 Some(<Voted as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <Voted as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                            validate,
-                        )
+                    <Voted as alloy_sol_types::SolEvent>::decode_raw_log(topics, data, validate)
                         .map(Self::Voted)
                 }
                 Some(<Winner as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <Winner as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                            validate,
-                        )
+                    <Winner as alloy_sol_types::SolEvent>::decode_raw_log(topics, data, validate)
                         .map(Self::Winner)
                 }
-                _ => {
-                    alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
-                        name: <Self as alloy_sol_types::SolEventInterface>::NAME,
-                        log: alloy_sol_types::private::Box::new(
-                            alloy_sol_types::private::LogData::new_unchecked(
-                                topics.to_vec(),
-                                data.to_vec().into(),
-                            ),
+                _ => alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
+                    name: <Self as alloy_sol_types::SolEventInterface>::NAME,
+                    log: alloy_sol_types::private::Box::new(
+                        alloy_sol_types::private::LogData::new_unchecked(
+                            topics.to_vec(),
+                            data.to_vec().into(),
                         ),
-                    })
-                }
+                    ),
+                }),
             }
         }
     }
@@ -1506,29 +1392,21 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
     impl alloy_sol_types::private::IntoLogData for VotingEvents {
         fn to_log_data(&self) -> alloy_sol_types::private::LogData {
             match self {
-                Self::Voted(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
-                Self::Winner(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
+                Self::Voted(inner) => alloy_sol_types::private::IntoLogData::to_log_data(inner),
+                Self::Winner(inner) => alloy_sol_types::private::IntoLogData::to_log_data(inner),
             }
         }
         fn into_log_data(self) -> alloy_sol_types::private::LogData {
             match self {
-                Self::Voted(inner) => {
-                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
-                }
-                Self::Winner(inner) => {
-                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
-                }
+                Self::Voted(inner) => alloy_sol_types::private::IntoLogData::into_log_data(inner),
+                Self::Winner(inner) => alloy_sol_types::private::IntoLogData::into_log_data(inner),
             }
         }
     }
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`Voting`](self) contract instance.
 
-See the [wrapper's documentation](`VotingInstance`) for more details.*/
+    See the [wrapper's documentation](`VotingInstance`) for more details.*/
     #[inline]
     pub const fn new<
         T: alloy_contract::private::Transport + ::core::clone::Clone,
@@ -1542,15 +1420,15 @@ See the [wrapper's documentation](`VotingInstance`) for more details.*/
     }
     /**A [`Voting`](self) instance.
 
-Contains type-safe methods for interacting with an on-chain instance of the
-[`Voting`](self) contract located at a given `address`, using a given
-provider `P`.
+    Contains type-safe methods for interacting with an on-chain instance of the
+    [`Voting`](self) contract located at a given `address`, using a given
+    provider `P`.
 
-If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-be used to deploy a new instance of the contract.
+    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+    be used to deploy a new instance of the contract.
 
-See the [module-level documentation](self) for all the available methods.*/
+    See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct VotingInstance<T, P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -1561,24 +1439,24 @@ See the [module-level documentation](self) for all the available methods.*/
     impl<T, P, N> ::core::fmt::Debug for VotingInstance<T, P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("VotingInstance").field(&self.address).finish()
+            f.debug_tuple("VotingInstance")
+                .field(&self.address)
+                .finish()
         }
     }
     /// Instantiation and getters/setters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > VotingInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > VotingInstance<T, P, N>
+    {
         /**Creates a new wrapper around an on-chain [`Voting`](self) contract instance.
 
-See the [wrapper's documentation](`VotingInstance`) for more details.*/
+        See the [wrapper's documentation](`VotingInstance`) for more details.*/
         #[inline]
-        pub const fn new(
-            address: alloy_sol_types::private::Address,
-            provider: P,
-        ) -> Self {
+        pub const fn new(address: alloy_sol_types::private::Address, provider: P) -> Self {
             Self {
                 address,
                 provider,
@@ -1620,10 +1498,11 @@ See the [wrapper's documentation](`VotingInstance`) for more details.*/
     /// Function calls.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > VotingInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > VotingInstance<T, P, N>
+    {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -1668,10 +1547,11 @@ See the [wrapper's documentation](`VotingInstance`) for more details.*/
     /// Event filters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > VotingInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > VotingInstance<T, P, N>
+    {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.

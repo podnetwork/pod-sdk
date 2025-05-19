@@ -157,9 +157,9 @@ pub mod ProfileRegistry {
     use alloy::sol_types as alloy_sol_types;
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `HandleUpdated(address,bytes32)` and selector `0x4b8df1bb0e16405b186540fc9d887fe0c5976286be87aea97c186956548c6efb`.
-```solidity
-event HandleUpdated(address indexed user, bytes32 indexed handle);
-```*/
+    ```solidity
+    event HandleUpdated(address indexed user, bytes32 indexed handle);
+    ```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -184,20 +184,19 @@ event HandleUpdated(address indexed user, bytes32 indexed handle);
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for HandleUpdated {
             type DataTuple<'a> = ();
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
             const SIGNATURE: &'static str = "HandleUpdated(address,bytes32)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                75u8, 141u8, 241u8, 187u8, 14u8, 22u8, 64u8, 91u8, 24u8, 101u8, 64u8,
-                252u8, 157u8, 136u8, 127u8, 224u8, 197u8, 151u8, 98u8, 134u8, 190u8,
-                135u8, 174u8, 169u8, 124u8, 24u8, 105u8, 86u8, 84u8, 140u8, 110u8, 251u8,
-            ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
+                alloy_sol_types::private::B256::new([
+                    75u8, 141u8, 241u8, 187u8, 14u8, 22u8, 64u8, 91u8, 24u8, 101u8, 64u8, 252u8,
+                    157u8, 136u8, 127u8, 224u8, 197u8, 151u8, 98u8, 134u8, 190u8, 135u8, 174u8,
+                    169u8, 124u8, 24u8, 105u8, 86u8, 84u8, 140u8, 110u8, 251u8,
+                ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -215,13 +214,11 @@ event HandleUpdated(address indexed user, bytes32 indexed handle);
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
+                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
+                        Self::SIGNATURE,
+                        topics.0,
+                        Self::SIGNATURE_HASH,
+                    ));
                 }
                 Ok(())
             }
@@ -231,7 +228,11 @@ event HandleUpdated(address indexed user, bytes32 indexed handle);
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(), self.user.clone(), self.handle.clone())
+                (
+                    Self::SIGNATURE_HASH.into(),
+                    self.user.clone(),
+                    self.handle.clone(),
+                )
             }
             #[inline]
             fn encode_topics_raw(
@@ -241,9 +242,7 @@ event HandleUpdated(address indexed user, bytes32 indexed handle);
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
+                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
                 out[1usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
                     &self.user,
                 );
@@ -272,9 +271,9 @@ event HandleUpdated(address indexed user, bytes32 indexed handle);
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `PictureUpdated(address,bytes32)` and selector `0xacbf1b0770c0925c7d13c92ff79c115853d5faabd61509ce8aa766841bc348e4`.
-```solidity
-event PictureUpdated(address indexed user, bytes32 picture);
-```*/
+    ```solidity
+    event PictureUpdated(address indexed user, bytes32 picture);
+    ```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -299,19 +298,18 @@ event PictureUpdated(address indexed user, bytes32 picture);
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for PictureUpdated {
             type DataTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
             );
             const SIGNATURE: &'static str = "PictureUpdated(address,bytes32)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                172u8, 191u8, 27u8, 7u8, 112u8, 192u8, 146u8, 92u8, 125u8, 19u8, 201u8,
-                47u8, 247u8, 156u8, 17u8, 88u8, 83u8, 213u8, 250u8, 171u8, 214u8, 21u8,
-                9u8, 206u8, 138u8, 167u8, 102u8, 132u8, 27u8, 195u8, 72u8, 228u8,
-            ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
+                alloy_sol_types::private::B256::new([
+                    172u8, 191u8, 27u8, 7u8, 112u8, 192u8, 146u8, 92u8, 125u8, 19u8, 201u8, 47u8,
+                    247u8, 156u8, 17u8, 88u8, 83u8, 213u8, 250u8, 171u8, 214u8, 21u8, 9u8, 206u8,
+                    138u8, 167u8, 102u8, 132u8, 27u8, 195u8, 72u8, 228u8,
+                ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -329,13 +327,11 @@ event PictureUpdated(address indexed user, bytes32 picture);
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
+                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
+                        Self::SIGNATURE,
+                        topics.0,
+                        Self::SIGNATURE_HASH,
+                    ));
                 }
                 Ok(())
             }
@@ -359,9 +355,7 @@ event PictureUpdated(address indexed user, bytes32 picture);
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
+                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
                 out[1usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
                     &self.user,
                 );
@@ -387,9 +381,9 @@ event PictureUpdated(address indexed user, bytes32 picture);
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getProfile(address)` and selector `0x0f53a470`.
-```solidity
-function getProfile(address user) external view returns (bytes32 handle, bytes32 picture);
-```*/
+    ```solidity
+    function getProfile(address user) external view returns (bytes32 handle, bytes32 picture);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct getProfileCall {
@@ -421,9 +415,7 @@ function getProfile(address user) external view returns (bytes32 handle, bytes32
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -458,9 +450,7 @@ function getProfile(address user) external view returns (bytes32 handle, bytes32
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -488,17 +478,13 @@ function getProfile(address user) external view returns (bytes32 handle, bytes32
         #[automatically_derived]
         impl alloy_sol_types::SolCall for getProfileCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = getProfileReturn;
             type ReturnTuple<'a> = (
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "getProfile(address)";
             const SELECTOR: [u8; 4] = [15u8, 83u8, 164u8, 112u8];
             #[inline]
@@ -520,18 +506,18 @@ function getProfile(address user) external view returns (bytes32 handle, bytes32
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `handles(bytes32)` and selector `0x9e087431`.
-```solidity
-function handles(bytes32) external view returns (address);
-```*/
+    ```solidity
+    function handles(bytes32) external view returns (address);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct handlesCall {
@@ -561,9 +547,7 @@ function handles(bytes32) external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -592,9 +576,7 @@ function handles(bytes32) external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -619,14 +601,10 @@ function handles(bytes32) external view returns (address);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for handlesCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = handlesReturn;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "handles(bytes32)";
             const SELECTOR: [u8; 4] = [158u8, 8u8, 116u8, 49u8];
             #[inline]
@@ -648,18 +626,18 @@ function handles(bytes32) external view returns (address);
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `resolveHandle(bytes32)` and selector `0x8d531c3d`.
-```solidity
-function resolveHandle(bytes32 handle) external view returns (address);
-```*/
+    ```solidity
+    function resolveHandle(bytes32 handle) external view returns (address);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct resolveHandleCall {
@@ -689,9 +667,7 @@ function resolveHandle(bytes32 handle) external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -720,9 +696,7 @@ function resolveHandle(bytes32 handle) external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -747,14 +721,10 @@ function resolveHandle(bytes32 handle) external view returns (address);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for resolveHandleCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = resolveHandleReturn;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "resolveHandle(bytes32)";
             const SELECTOR: [u8; 4] = [141u8, 83u8, 28u8, 61u8];
             #[inline]
@@ -776,18 +746,18 @@ function resolveHandle(bytes32 handle) external view returns (address);
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setHandle(bytes32)` and selector `0xfd8ff3a3`.
-```solidity
-function setHandle(bytes32 handle) external;
-```*/
+    ```solidity
+    function setHandle(bytes32 handle) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setHandleCall {
@@ -813,9 +783,7 @@ function setHandle(bytes32 handle) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -844,9 +812,7 @@ function setHandle(bytes32 handle) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -871,14 +837,10 @@ function setHandle(bytes32 handle) external;
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setHandleCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setHandleReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setHandle(bytes32)";
             const SELECTOR: [u8; 4] = [253u8, 143u8, 243u8, 163u8];
             #[inline]
@@ -900,18 +862,18 @@ function setHandle(bytes32 handle) external;
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setPicture(bytes32)` and selector `0xc9a3b592`.
-```solidity
-function setPicture(bytes32 picture) external;
-```*/
+    ```solidity
+    function setPicture(bytes32 picture) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setPictureCall {
@@ -937,9 +899,7 @@ function setPicture(bytes32 picture) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -968,9 +928,7 @@ function setPicture(bytes32 picture) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -995,14 +953,10 @@ function setPicture(bytes32 picture) external;
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setPictureCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setPictureReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setPicture(bytes32)";
             const SELECTOR: [u8; 4] = [201u8, 163u8, 181u8, 146u8];
             #[inline]
@@ -1024,10 +978,10 @@ function setPicture(bytes32 picture) external;
                 data: &[u8],
                 validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(
+                    data, validate,
+                )
+                .map(Into::into)
             }
         }
     };
@@ -1069,19 +1023,11 @@ function setPicture(bytes32 picture) external;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
-                Self::getProfile(_) => {
-                    <getProfileCall as alloy_sol_types::SolCall>::SELECTOR
-                }
+                Self::getProfile(_) => <getProfileCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::handles(_) => <handlesCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::resolveHandle(_) => {
-                    <resolveHandleCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::setHandle(_) => {
-                    <setHandleCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::setPicture(_) => {
-                    <setPictureCall as alloy_sol_types::SolCall>::SELECTOR
-                }
+                Self::resolveHandle(_) => <resolveHandleCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::setHandle(_) => <setHandleCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::setPicture(_) => <setPictureCall as alloy_sol_types::SolCall>::SELECTOR,
             }
         }
         #[inline]
@@ -1102,16 +1048,14 @@ function setPicture(bytes32 picture) external;
             static DECODE_SHIMS: &[fn(
                 &[u8],
                 bool,
-            ) -> alloy_sol_types::Result<ProfileRegistryCalls>] = &[
+            )
+                -> alloy_sol_types::Result<ProfileRegistryCalls>] = &[
                 {
                     fn getProfile(
                         data: &[u8],
                         validate: bool,
                     ) -> alloy_sol_types::Result<ProfileRegistryCalls> {
-                        <getProfileCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                        <getProfileCall as alloy_sol_types::SolCall>::abi_decode_raw(data, validate)
                             .map(ProfileRegistryCalls::getProfile)
                     }
                     getProfile
@@ -1122,10 +1066,9 @@ function setPicture(bytes32 picture) external;
                         validate: bool,
                     ) -> alloy_sol_types::Result<ProfileRegistryCalls> {
                         <resolveHandleCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
-                            .map(ProfileRegistryCalls::resolveHandle)
+                            data, validate,
+                        )
+                        .map(ProfileRegistryCalls::resolveHandle)
                     }
                     resolveHandle
                 },
@@ -1134,10 +1077,7 @@ function setPicture(bytes32 picture) external;
                         data: &[u8],
                         validate: bool,
                     ) -> alloy_sol_types::Result<ProfileRegistryCalls> {
-                        <handlesCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                        <handlesCall as alloy_sol_types::SolCall>::abi_decode_raw(data, validate)
                             .map(ProfileRegistryCalls::handles)
                     }
                     handles
@@ -1147,10 +1087,7 @@ function setPicture(bytes32 picture) external;
                         data: &[u8],
                         validate: bool,
                     ) -> alloy_sol_types::Result<ProfileRegistryCalls> {
-                        <setPictureCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                        <setPictureCall as alloy_sol_types::SolCall>::abi_decode_raw(data, validate)
                             .map(ProfileRegistryCalls::setPicture)
                     }
                     setPicture
@@ -1160,22 +1097,17 @@ function setPicture(bytes32 picture) external;
                         data: &[u8],
                         validate: bool,
                     ) -> alloy_sol_types::Result<ProfileRegistryCalls> {
-                        <setHandleCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                        <setHandleCall as alloy_sol_types::SolCall>::abi_decode_raw(data, validate)
                             .map(ProfileRegistryCalls::setHandle)
                     }
                     setHandle
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(
-                    alloy_sol_types::Error::unknown_selector(
-                        <Self as alloy_sol_types::SolInterface>::NAME,
-                        selector,
-                    ),
-                );
+                return Err(alloy_sol_types::Error::unknown_selector(
+                    <Self as alloy_sol_types::SolInterface>::NAME,
+                    selector,
+                ));
             };
             DECODE_SHIMS[idx](data, validate)
         }
@@ -1189,9 +1121,7 @@ function setPicture(bytes32 picture) external;
                     <handlesCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::resolveHandle(inner) => {
-                    <resolveHandleCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <resolveHandleCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::setHandle(inner) => {
                     <setHandleCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
@@ -1205,31 +1135,19 @@ function setPicture(bytes32 picture) external;
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
                 Self::getProfile(inner) => {
-                    <getProfileCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <getProfileCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::handles(inner) => {
                     <handlesCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::resolveHandle(inner) => {
-                    <resolveHandleCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <resolveHandleCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::setHandle(inner) => {
-                    <setHandleCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <setHandleCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::setPicture(inner) => {
-                    <setPictureCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <setPictureCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
             }
         }
@@ -1252,14 +1170,14 @@ function setPicture(bytes32 picture) external;
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                75u8, 141u8, 241u8, 187u8, 14u8, 22u8, 64u8, 91u8, 24u8, 101u8, 64u8,
-                252u8, 157u8, 136u8, 127u8, 224u8, 197u8, 151u8, 98u8, 134u8, 190u8,
-                135u8, 174u8, 169u8, 124u8, 24u8, 105u8, 86u8, 84u8, 140u8, 110u8, 251u8,
+                75u8, 141u8, 241u8, 187u8, 14u8, 22u8, 64u8, 91u8, 24u8, 101u8, 64u8, 252u8, 157u8,
+                136u8, 127u8, 224u8, 197u8, 151u8, 98u8, 134u8, 190u8, 135u8, 174u8, 169u8, 124u8,
+                24u8, 105u8, 86u8, 84u8, 140u8, 110u8, 251u8,
             ],
             [
-                172u8, 191u8, 27u8, 7u8, 112u8, 192u8, 146u8, 92u8, 125u8, 19u8, 201u8,
-                47u8, 247u8, 156u8, 17u8, 88u8, 83u8, 213u8, 250u8, 171u8, 214u8, 21u8,
-                9u8, 206u8, 138u8, 167u8, 102u8, 132u8, 27u8, 195u8, 72u8, 228u8,
+                172u8, 191u8, 27u8, 7u8, 112u8, 192u8, 146u8, 92u8, 125u8, 19u8, 201u8, 47u8,
+                247u8, 156u8, 17u8, 88u8, 83u8, 213u8, 250u8, 171u8, 214u8, 21u8, 9u8, 206u8,
+                138u8, 167u8, 102u8, 132u8, 27u8, 195u8, 72u8, 228u8,
             ],
         ];
     }
@@ -1275,31 +1193,25 @@ function setPicture(bytes32 picture) external;
             match topics.first().copied() {
                 Some(<HandleUpdated as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <HandleUpdated as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                            validate,
-                        )
-                        .map(Self::HandleUpdated)
+                        topics, data, validate,
+                    )
+                    .map(Self::HandleUpdated)
                 }
                 Some(<PictureUpdated as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <PictureUpdated as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                            validate,
-                        )
-                        .map(Self::PictureUpdated)
+                        topics, data, validate,
+                    )
+                    .map(Self::PictureUpdated)
                 }
-                _ => {
-                    alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
-                        name: <Self as alloy_sol_types::SolEventInterface>::NAME,
-                        log: alloy_sol_types::private::Box::new(
-                            alloy_sol_types::private::LogData::new_unchecked(
-                                topics.to_vec(),
-                                data.to_vec().into(),
-                            ),
+                _ => alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
+                    name: <Self as alloy_sol_types::SolEventInterface>::NAME,
+                    log: alloy_sol_types::private::Box::new(
+                        alloy_sol_types::private::LogData::new_unchecked(
+                            topics.to_vec(),
+                            data.to_vec().into(),
                         ),
-                    })
-                }
+                    ),
+                }),
             }
         }
     }
@@ -1329,7 +1241,7 @@ function setPicture(bytes32 picture) external;
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`ProfileRegistry`](self) contract instance.
 
-See the [wrapper's documentation](`ProfileRegistryInstance`) for more details.*/
+    See the [wrapper's documentation](`ProfileRegistryInstance`) for more details.*/
     #[inline]
     pub const fn new<
         T: alloy_contract::private::Transport + ::core::clone::Clone,
@@ -1343,15 +1255,15 @@ See the [wrapper's documentation](`ProfileRegistryInstance`) for more details.*/
     }
     /**A [`ProfileRegistry`](self) instance.
 
-Contains type-safe methods for interacting with an on-chain instance of the
-[`ProfileRegistry`](self) contract located at a given `address`, using a given
-provider `P`.
+    Contains type-safe methods for interacting with an on-chain instance of the
+    [`ProfileRegistry`](self) contract located at a given `address`, using a given
+    provider `P`.
 
-If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-be used to deploy a new instance of the contract.
+    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+    be used to deploy a new instance of the contract.
 
-See the [module-level documentation](self) for all the available methods.*/
+    See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct ProfileRegistryInstance<T, P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -1362,24 +1274,24 @@ See the [module-level documentation](self) for all the available methods.*/
     impl<T, P, N> ::core::fmt::Debug for ProfileRegistryInstance<T, P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("ProfileRegistryInstance").field(&self.address).finish()
+            f.debug_tuple("ProfileRegistryInstance")
+                .field(&self.address)
+                .finish()
         }
     }
     /// Instantiation and getters/setters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > ProfileRegistryInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > ProfileRegistryInstance<T, P, N>
+    {
         /**Creates a new wrapper around an on-chain [`ProfileRegistry`](self) contract instance.
 
-See the [wrapper's documentation](`ProfileRegistryInstance`) for more details.*/
+        See the [wrapper's documentation](`ProfileRegistryInstance`) for more details.*/
         #[inline]
-        pub const fn new(
-            address: alloy_sol_types::private::Address,
-            provider: P,
-        ) -> Self {
+        pub const fn new(address: alloy_sol_types::private::Address, provider: P) -> Self {
             Self {
                 address,
                 provider,
@@ -1421,10 +1333,11 @@ See the [wrapper's documentation](`ProfileRegistryInstance`) for more details.*/
     /// Function calls.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > ProfileRegistryInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > ProfileRegistryInstance<T, P, N>
+    {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -1474,10 +1387,11 @@ See the [wrapper's documentation](`ProfileRegistryInstance`) for more details.*/
     /// Event filters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
-        N: alloy_contract::private::Network,
-    > ProfileRegistryInstance<T, P, N> {
+            T: alloy_contract::private::Transport + ::core::clone::Clone,
+            P: alloy_contract::private::Provider<T, N>,
+            N: alloy_contract::private::Network,
+        > ProfileRegistryInstance<T, P, N>
+    {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
@@ -1488,15 +1402,11 @@ See the [wrapper's documentation](`ProfileRegistryInstance`) for more details.*/
             alloy_contract::Event::new_sol(&self.provider, &self.address)
         }
         ///Creates a new event filter for the [`HandleUpdated`] event.
-        pub fn HandleUpdated_filter(
-            &self,
-        ) -> alloy_contract::Event<T, &P, HandleUpdated, N> {
+        pub fn HandleUpdated_filter(&self) -> alloy_contract::Event<T, &P, HandleUpdated, N> {
             self.event_filter::<HandleUpdated>()
         }
         ///Creates a new event filter for the [`PictureUpdated`] event.
-        pub fn PictureUpdated_filter(
-            &self,
-        ) -> alloy_contract::Event<T, &P, PictureUpdated, N> {
+        pub fn PictureUpdated_filter(&self) -> alloy_contract::Event<T, &P, PictureUpdated, N> {
             self.event_filter::<PictureUpdated>()
         }
     }
