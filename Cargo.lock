@@ -2375,6 +2375,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pod-contracts"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4dddc1df84a2d74f52a026e489739d30ef49b230d8cb5ae9dd987d7b9325646"
+dependencies = [
+ "alloy",
+]
+
+[[package]]
 name = "pod-sdk"
 version = "0.1.0"
 dependencies = [
@@ -2397,8 +2406,8 @@ dependencies = [
  "eyre",
  "futures",
  "hex",
- "pod-contracts",
- "pod-types",
+ "pod-contracts 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pod-types 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "thiserror 2.0.11",
  "tokio",
@@ -2407,6 +2416,31 @@ dependencies = [
 [[package]]
 name = "pod-types"
 version = "0.1.0"
+dependencies = [
+ "alloy-consensus",
+ "alloy-primitives",
+ "alloy-rpc-types",
+ "alloy-signer",
+ "alloy-signer-local",
+ "alloy-sol-types",
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "bytes",
+ "hex",
+ "itertools 0.13.0",
+ "k256",
+ "serde",
+ "sha3 0.11.0-pre.4",
+ "tokio",
+ "utoipa",
+]
+
+[[package]]
+name = "pod-types"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f8dc65e39c1fd6343fe47ca77589af974e063c31688be68f9794713649b5edb"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
