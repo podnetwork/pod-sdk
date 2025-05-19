@@ -1,6 +1,6 @@
 use crate::Timestamp;
 use alloy_primitives::Address;
-pub use alloy_primitives::{keccak256 as hash, B256 as Hash};
+pub use alloy_primitives::{B256 as Hash, keccak256 as hash};
 use bytes::Bytes;
 use std::hash::{DefaultHasher, Hash as StdHash, Hasher};
 

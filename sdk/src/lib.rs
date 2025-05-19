@@ -16,7 +16,7 @@ pub use alloy_signer_local::PrivateKeySigner;
 
 // Re-export types types used in public API
 pub use pod_types::{
+    Certificate, Receipt, Transaction,
     consensus::attestation::HeadlessAttestation,
     cryptography::ecdsa::{AddressECDSA, SignatureECDSA},
-    Certificate, Receipt, Transaction,
 };

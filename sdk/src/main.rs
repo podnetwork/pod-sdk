@@ -7,7 +7,7 @@ use std::{
 };
 
 use alloy_network::{EthereumWallet, TransactionBuilder};
-use alloy_primitives::{address, Address, TxKind, U256};
+use alloy_primitives::{Address, TxKind, U256, address};
 use alloy_provider::Provider;
 use alloy_signer::k256::ecdsa::SigningKey;
 use alloy_transport_http::reqwest::Url;

@@ -7,14 +7,14 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    Certificate, Committee, Timestamp,
     consensus::attestation::{HeadlessAttestation, Indexed},
     cryptography::{
-        hash::Hashable,
-        merkle_tree::{index_prefix, MerkleBuilder, MerkleProof, StandardMerkleTree},
         Hash, MerkleMultiProof, Merkleizable,
+        hash::Hashable,
+        merkle_tree::{MerkleBuilder, MerkleProof, StandardMerkleTree, index_prefix},
     },
     metadata::{MetadataWrappedItem, PodLogMetadata},
-    Certificate, Committee, Timestamp,
 };
 
 use super::Receipt;
@@ -220,9 +220,11 @@ mod test {
             .to_merkle_tree()
             .hash_custom();
 
-        assert!(verifiable_log
-            .verify_proof(receipt_root, log, proof)
-            .unwrap());
+        assert!(
+            verifiable_log
+                .verify_proof(receipt_root, log, proof)
+                .unwrap()
+        );
         assert_eq!(verifiable_log.inner.log_index, Some(0));
     }
 }

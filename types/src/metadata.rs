@@ -1,4 +1,4 @@
-use crate::{consensus::attestation::TimestampedHeadlessAttestation, Receipt, Signed, Transaction};
+use crate::{Receipt, Signed, Transaction, consensus::attestation::TimestampedHeadlessAttestation};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

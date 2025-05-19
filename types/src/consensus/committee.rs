@@ -4,7 +4,7 @@ use crate::{
     ecdsa::SignatureECDSA,
 };
 use alloy_primitives::B256;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
