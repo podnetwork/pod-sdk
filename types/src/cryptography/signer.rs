@@ -4,15 +4,15 @@ use alloy_sol_types::SolValue;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{
+    Deserialize, Deserializer, Serialize, Serializer,
     de::{self, MapAccess, Visitor},
     ser::SerializeStruct,
-    Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::ops::Deref;
 
 use alloy_primitives::Address;
 
-use super::{merkle_tree::MerkleBuilder, Hashable, Merkleizable};
+use super::{Hashable, Merkleizable, merkle_tree::MerkleBuilder};
 use crate::Transaction;
 
 #[async_trait]

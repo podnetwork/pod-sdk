@@ -12,7 +12,7 @@ use pod_types::{
     pagination::{ApiPaginatedResult, CursorPaginationRequest},
 };
 
-use alloy_primitives::{Address, Log, B256 as Hash};
+use alloy_primitives::{Address, B256 as Hash, Log};
 
 use pod_types::Timestamp;
 use serde::{Deserialize, Serialize};

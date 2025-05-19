@@ -4,7 +4,7 @@ use alloy_network::{
     BuildResult, Network, NetworkWallet, ReceiptResponse, TransactionBuilder,
     TransactionBuilderError,
 };
-use alloy_primitives::{Address, BlockHash, Bytes, ChainId, Log, TxHash, TxKind, B256, U256};
+use alloy_primitives::{Address, B256, BlockHash, Bytes, ChainId, Log, TxHash, TxKind, U256};
 use alloy_provider::fillers::{
     ChainIdFiller, GasFiller, JoinFill, NonceFiller, RecommendedFillers,
 };
@@ -16,8 +16,8 @@ use pod_types::ledger::Transaction;
 use alloy_consensus::TxEnvelope;
 use alloy_rpc_types::TransactionReceipt;
 use pod_types::{
-    ecdsa::{AddressECDSA, SignatureECDSA},
     Committee, Hashable, Merkleizable, Receipt, Signed, Timestamp,
+    ecdsa::{AddressECDSA, SignatureECDSA},
 };
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};

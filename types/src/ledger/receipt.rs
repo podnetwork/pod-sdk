@@ -2,14 +2,14 @@ use alloy_consensus::{Eip658Value, ReceiptWithBloom};
 use alloy_primitives::{Address, Bloom, Log};
 use alloy_rpc_types::TransactionReceipt;
 use alloy_sol_types::SolValue;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
-use super::{log, Transaction};
+use super::{Transaction, log};
 use crate::cryptography::{
     hash::{Hash, Hashable},
-    merkle_tree::{index_prefix, MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable},
+    merkle_tree::{MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable, index_prefix},
     signer::{Signed, UncheckedSigned},
 };
 
@@ -240,7 +240,7 @@ mod test {
     use alloy_signer_local::PrivateKeySigner;
 
     use crate::{
-        cryptography::merkle_tree::StandardMerkleTree, Hashable, Merkleizable, Transaction,
+        Hashable, Merkleizable, Transaction, cryptography::merkle_tree::StandardMerkleTree,
     };
 
     use super::Receipt;
