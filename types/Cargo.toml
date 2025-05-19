@@ -1,7 +1,14 @@
 [package]
 name = "pod-types"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+description = "Types of Software Development Kit for the pod Network"
+license = "MIT OR Apache-2.0"
+readme = "../README.md"
+homepage = "https://pod.network/"
+repository = "https://github.com/podnetwork/pod-sdk"
+keywords = ["web3", "sdk", "rust", "dapp", "crypto"]
+documentation = "https://docs.rs/pod-types"
 
 [lib]
 name = "pod_types"
