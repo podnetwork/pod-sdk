@@ -24,35 +24,6 @@ use alloy_sol_types::SolEvent;
 
 use pod_contracts::auction::Auction;
 
-// Add internal clock trait and implementation
-trait Clock {
-    fn now(&self) -> Timestamp;
-}
-
-struct Timestamp {
-    seconds: u64,
-}
-
-impl Timestamp {
-    fn as_seconds(&self) -> u64 {
-        self.seconds
-    }
-}
-
-struct InternalClock;
-
-impl Clock for InternalClock {
-    fn now(&self) -> Timestamp {
-        let duration = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards");
-
-        Timestamp {
-            seconds: duration.as_secs(),
-        }
-    }
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let private_key_string = env::var("PRIVATE_KEY")?;
@@ -109,9 +80,8 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Using the internal clock implementation instead of pod_types::time::SystemClock
-    let clock = InternalClock {};
-    let now = clock.now().as_seconds();
+    let now = UNIX_EPOCH.elapsed().unwrap().as_secs();
+
     println!("waiting for time to be past perfect");
     pod_provider.wait_past_perfect_time(now).await?;
     println!("perfect time reached");
