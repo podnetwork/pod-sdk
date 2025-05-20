@@ -1,5 +1,3 @@
-//! Example showing how to send a legacy transaction.
-
 use std::{
     env,
     str::FromStr,
@@ -11,20 +9,16 @@ use alloy_primitives::{Address, TxKind, U256, address};
 use alloy_provider::Provider;
 use alloy_signer::k256::ecdsa::SigningKey;
 use alloy_transport_http::reqwest::Url;
-use eyre::Result;
+use anyhow::Result;
 
 use alloy_provider::WsConnect;
 use alloy_rpc_types_eth::Filter;
 use futures::StreamExt;
-// Removed pod_types::Clock import
-use pod_sdk::PrivateKeySigner;
-
-pub mod provider;
-
-mod network;
-use crate::network::PodTransactionRequest;
-
-use crate::provider::PodProviderExt;
+use pod_sdk::{
+    PrivateKeySigner,
+    network::PodTransactionRequest,
+    provider::{PodProviderBuilder, PodProviderExt},
+};
 
 use alloy_sol_types::SolEvent;
 
@@ -73,7 +67,7 @@ async fn main() -> Result<()> {
     let ws = WsConnect::new(ws_url);
     let wallet = EthereumWallet::new(signer);
 
-    let pod_provider = provider::PodProviderBuilder::new()
+    let pod_provider = PodProviderBuilder::new()
         .with_recommended_fillers()
         .wallet(wallet.clone())
         .on_ws(ws)
