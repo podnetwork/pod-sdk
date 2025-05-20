@@ -101,10 +101,8 @@ pub trait PodProviderExt<T: Transport + Clone>: Provider<T, PodNetwork> {
             let subscription: Subscription<String> = self
                 .websocket_subscribe("pod_pastPerfectTime", timestamp)
                 .await?;
-            println!("subscription {:?}", subscription);
             // returns None if connection closes before a notification was sent
             let first_notification = subscription.into_stream().next().await;
-            println!("first notification {:?}", first_notification);
             if first_notification.is_some() {
                 break;
             }
