@@ -17,6 +17,7 @@ contract HashChallenge {
         uint256 maxDelay;        // Maximum delay to be eligible for reward
         uint256 rewardedAmount;  // Amount rewarded to the responder
         uint256 refundedAmount;  // Amount refunded to the challenger
+        uint256 sequenceNumber;  // Sequence number of the challenge, allows for multiple challenges with the same options
     }
 
     // Mapping from challenge ID to Challenge
@@ -32,12 +33,13 @@ contract HashChallenge {
      * @param dataHash The hash of the data
      * @param responder The address of the intended responder
      * @param maxDelay The maximum time in seconds for claiming full reward
+     * @param sequenceNumber The sequence number of the challenge, allows for multiple challenges with the same options
      */
-    function createChallenge(bytes32 dataHash, address responder, uint256 maxDelay) external payable {
+    function createChallenge(bytes32 dataHash, address responder, uint256 maxDelay, uint256 sequenceNumber) external payable {
         require(msg.value > 0, "Reward must be greater than 0");
         require(responder != address(0), "Responder cannot be zero address");
 
-        uint256 challengeId = uint256(keccak256(abi.encodePacked(dataHash, responder, maxDelay, msg.sender)));
+        uint256 challengeId = uint256(keccak256(abi.encodePacked(dataHash, responder, maxDelay, msg.sender, sequenceNumber)));
         
         challenges[challengeId] = Challenge({
             hash: dataHash,
@@ -47,7 +49,8 @@ contract HashChallenge {
             creationTime: block.timestamp,
             maxDelay: maxDelay,
             rewardedAmount: 0,
-            refundedAmount: 0
+            refundedAmount: 0,
+            sequenceNumber: sequenceNumber
         });
         
         emit ChallengeCreated(challengeId, msg.sender, responder, msg.value);
