@@ -2,10 +2,24 @@ menu:
   - heading: getting-started
   - href: /
     label: Welcome to pod
+  - href: /devnet
+    label: Devnet
   - href: /faq
     label: Frequently Asked Questions 
   - href: /coming-from-ethereum 
     label: Coming from Ethereum 
+
+  - heading: Build on pod 
+  - href: /fastpath
+    label: Fastpath
+  - href: /fastpath/evmx
+    label: EVMx
+
+  - heading: reference
+  - href: /reference/read-write
+    label: Read & Write
+  - href: /reference/verify
+    label: Verify 
 
   - heading: examples 
   - href: /examples/
@@ -17,20 +31,16 @@ menu:
   - href: /examples/ranked-feed
     label: Ranked Feed 
 
-  - heading: architecture
-  - href: /architecture/architecture-basics
-    label: Architecture Basics
-  - href: /architecture/execution-model
-    label: Execution Model
-  - href: /architecture/fast-path
-    label: Fast Path
-  - href: /architecture/network
-    label: Network
-  - href: /architecture/transaction-lifecycle
-    label: Transaction Lifecycle
+  # - heading: architecture
+  # - href: /architecture/architecture-basics
+  #   label: Architecture Basics
+  # - href: /architecture/execution-model
+  #   label: Execution Model
+  # - href: /architecture/fast-path
+  #   label: Fast Path
+  # - href: /architecture/network
+  #   label: Network
+  # - href: /architecture/transaction-lifecycle
+  #   label: Transaction Lifecycle
 
-  - heading: reference
-  - href: /reference/sdk
-    label: Reference SDK
-  - href: /reference/solidity-sdk
-    label: Solidity SDK
+  

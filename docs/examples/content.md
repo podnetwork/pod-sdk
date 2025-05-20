@@ -23,7 +23,22 @@ toc:
 
 ### Advanced projects to dive deeper into pod. 
 ! table style1
-| [CoW Protocol Batch Auctions](./optimistic-auction) | A demonstration of how pod can be used decentralise the limit-order service of CoW Protocol. The protocol is an optimistic auction on pod, where bidders bid on pod where as the auction is settled on Ethereum.|  
+| [Batch Auction CLOB](./optimistic-auction) | ! snippet use batch_auction_description |
 | --------- | ----- |  
-| [Bluesky DID PLC](./bluesky-did-plc) | A demonstration of how pod can be used to decentralise the DID PLC registry used by Bluesky to map accounts to identities and keys. The protocol is a  self-authenticating DID which is a strongly-consistent, recoverable, and allows for key rotation.|  
+| [DID PLC Registry](./did-plc-registry) | ! snippet use did_plc_description| 
+| [Shitpost](./shitpost) | Learn how shitpost works behind the schene. |
 ! table end
+
+! snippet batch_auction_description 
+A demonstration of how pod can be used to build a fast, decentralised  
+limit-order protocol that settles on Ethereum. This can be leveraged  
+by protocols such as CowSwap, UniswapX, etc.   
+! snippet end
+
+! snippet did_plc_description
+A demonstration of how pod can be used to build a decentralised identity   
+registry that is compatible with the W3C Decentralised Identifier (DID)  
+and allows for key rotation. Such a registry can be used by decentralised  
+social networks, such as Bluesky, to allow users to resolve identities and keys.  
+! snippet end
+
