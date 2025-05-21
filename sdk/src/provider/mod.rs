@@ -267,6 +267,20 @@ where
             .await
     }
 
+    pub async fn get_account_receipts(
+        &self,
+        address: Address,
+        since_micros: u64,
+        paginator: Option<CursorPaginationRequest>,
+    ) -> TransportResult<ApiPaginatedResult<<PodNetwork as Network>::ReceiptResponse>> {
+        self.client()
+            .request(
+                "pod_listAccountReceipts",
+                &(address, since_micros, paginator),
+            )
+            .await
+    }
+
     /// Transfer specified `amount` funds to the `to` account.
     pub async fn transfer(
         &self,
