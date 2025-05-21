@@ -8,13 +8,12 @@ use alloy_primitives::{Address, B256, BlockHash, Bytes, ChainId, Log, TxHash, Tx
 use alloy_provider::fillers::{
     ChainIdFiller, GasFiller, JoinFill, NonceFiller, RecommendedFillers,
 };
-use alloy_rpc_types_eth::TransactionRequest;
 
 use anyhow::Result;
 use pod_types::ledger::Transaction;
 
 use alloy_consensus::TxEnvelope;
-use alloy_rpc_types::TransactionReceipt;
+use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
 use pod_types::{
     Committee, Hashable, Merkleizable, Receipt, Signed, Timestamp,
     ecdsa::{AddressECDSA, SignatureECDSA},
@@ -361,10 +360,10 @@ impl Network for PodNetwork {
     type ReceiptEnvelope = alloy_consensus::ReceiptEnvelope;
     type Header = alloy_consensus::Header;
     type TransactionRequest = PodTransactionRequest;
-    type TransactionResponse = alloy_rpc_types_eth::Transaction;
+    type TransactionResponse = alloy_rpc_types::Transaction;
     type ReceiptResponse = PodReceiptResponse;
-    type HeaderResponse = alloy_rpc_types_eth::Header;
-    type BlockResponse = alloy_rpc_types_eth::Block;
+    type HeaderResponse = alloy_rpc_types::Header;
+    type BlockResponse = alloy_rpc_types::Block;
 }
 
 impl RecommendedFillers for PodNetwork {
