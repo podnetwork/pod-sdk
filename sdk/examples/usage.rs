@@ -55,6 +55,19 @@ async fn main() -> Result<()> {
         }
     }
 
+    // recipient listens for new receipts and verifies payment
+    let recipient_receipts = pod_provider
+        .get_account_receipts(recipient, start_time, None)
+        .await?;
+
+    for recipient_receipt in recipient_receipts.items {
+        if recipient_receipt.transaction().to == TxKind::Call(recipient)
+            && matches!(recipient_receipt.verify(&committee), Ok(true))
+        {
+            println!("found verified receipt {:?}", recipient_receipt);
+        }
+    }
+
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)?
         .as_secs();
