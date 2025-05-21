@@ -1,28 +1,19 @@
-use std::{env, str::FromStr, time::SystemTime};
+use std::{str::FromStr, time::SystemTime};
 
 use anyhow::Result;
 
 use futures::StreamExt;
 use pod_sdk::{
-    Address, EthereumWallet, PrivateKeySigner, SigningKey, TxKind, U256, alloy_rpc_types::Filter,
-    alloy_sol_types::SolEvent, provider::PodProviderBuilder,
+    Address, TxKind, U256, alloy_rpc_types::Filter, alloy_sol_types::SolEvent,
+    provider::PodProviderBuilder,
 };
 
 use pod_contracts::auction::Auction;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let private_key_string = env::var("PRIVATE_KEY")?;
-    let private_key_bytes = hex::decode(private_key_string)?;
-    let private_key = SigningKey::from_slice(&private_key_bytes)?;
-    let signer = PrivateKeySigner::from_signing_key(private_key);
-
-    let rpc_url = env::var("RPC_URL").unwrap_or("ws://127.0.0.1:8545".to_string());
-    let wallet = EthereumWallet::new(signer);
-
     let pod_provider = PodProviderBuilder::with_recommended_settings()
-        .wallet(wallet)
-        .on_url(&rpc_url)
+        .from_env()
         .await?;
 
     let committee = pod_provider.get_committee().await?;
