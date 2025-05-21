@@ -125,7 +125,6 @@ impl<L, F> PodProviderBuilder<L, F> {
 
 /// A provider tailored for pod, extending capabilities of alloy [Provider]
 /// with pod-specific features.
-#[derive(Clone)]
 pub struct PodProvider<P, T>
 where
     T: Transport + Clone,
@@ -133,6 +132,19 @@ where
 {
     inner: Arc<P>,
     transport: std::marker::PhantomData<T>,
+}
+
+impl<P, T> Clone for PodProvider<P, T>
+where
+    T: Transport + Clone,
+    P: Provider<T, PodNetwork>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            transport: self.transport,
+        }
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
