@@ -6,10 +6,12 @@ use crate::network::{PodNetwork, PodReceiptResponse, PodTransactionRequest};
 use alloy_json_rpc::{RpcParam, RpcReturn};
 use alloy_network::{Network, TransactionBuilder};
 use alloy_provider::{
-    Identity, Provider, ProviderBuilder, ProviderLayer, RootProvider,
+    Identity, PendingTransactionBuilder, Provider, ProviderBuilder, ProviderLayer, RootProvider,
+    SendableTx,
     fillers::{JoinFill, RecommendedFillers, TxFiller, WalletFiller},
 };
 use alloy_pubsub::Subscription;
+use async_trait::async_trait;
 
 use alloy_transport::{BoxTransport, Transport, TransportError, TransportResult};
 use futures::StreamExt;
@@ -99,6 +101,8 @@ where
     transport: std::marker::PhantomData<T>,
 }
 
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl<P, T> Provider<T, PodNetwork> for PodProvider<P, T>
 where
     T: Transport + Clone,
@@ -106,6 +110,17 @@ where
 {
     fn root(&self) -> &RootProvider<T, PodNetwork> {
         self.inner.root()
+    }
+
+    // NOTE: we need to override send_transaction_internal because it is
+    // overriden in [FillProvider], which we use internally in `inner.
+    // Otherwise, we would call the default implementation, which is different.
+    // Perhaps we should do this for all methods?
+    async fn send_transaction_internal(
+        &self,
+        tx: SendableTx<PodNetwork>,
+    ) -> TransportResult<PendingTransactionBuilder<T, PodNetwork>> {
+        self.inner.send_transaction_internal(tx).await
     }
 }
 
@@ -143,6 +158,7 @@ where
             transport: std::marker::PhantomData::<T>,
         }
     }
+
     /// Gets the current committee members
     pub async fn get_committee(&self) -> TransportResult<Committee> {
         self.client().request_noparams("pod_getCommittee").await
@@ -227,7 +243,7 @@ where
             .with_to(to)
             .with_value(amount);
 
-        let pending_tx = self.inner.send_transaction(tx).await?;
+        let pending_tx = self.send_transaction(tx).await?;
 
         let receipt = pending_tx.get_receipt().await?;
 

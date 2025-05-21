@@ -4,9 +4,8 @@ use anyhow::Result;
 
 use futures::StreamExt;
 use pod_sdk::{
-    Address, EthereumWallet, PrivateKeySigner, Provider, SigningKey, TransactionBuilder, TxKind,
-    U256, alloy_rpc_types::Filter, alloy_sol_types::SolEvent, network::PodTransactionRequest,
-    provider::PodProviderBuilder,
+    Address, EthereumWallet, PrivateKeySigner, SigningKey, TxKind, U256, alloy_rpc_types::Filter,
+    alloy_sol_types::SolEvent, provider::PodProviderBuilder,
 };
 
 use pod_contracts::auction::Auction;
@@ -17,7 +16,6 @@ async fn main() -> Result<()> {
     let private_key_bytes = hex::decode(private_key_string)?;
     let private_key = SigningKey::from_slice(&private_key_bytes)?;
     let signer = PrivateKeySigner::from_signing_key(private_key);
-    let address = signer.address();
 
     let rpc_url = env::var("RPC_URL").unwrap_or("ws://127.0.0.1:8545".to_string());
     let wallet = EthereumWallet::new(signer);
@@ -38,15 +36,10 @@ async fn main() -> Result<()> {
 
     let recipient = Address::from_str("0xC7096D019F96faE581361aFB07311cd6D3a25596").unwrap();
 
-    let tx = PodTransactionRequest::default()
-        .with_from(address)
-        .with_to(recipient)
-        .with_value(U256::from(1_000_000));
-    println!("tx {:?}", tx);
-
-    let pending_tx = pod_provider.send_transaction(tx).await?;
-    println!("tx hash {:?}", pending_tx.tx_hash());
-    let receipt = pending_tx.get_receipt().await?;
+    let receipt = pod_provider
+        .transfer(recipient, U256::from(1_000_000))
+        .await
+        .unwrap();
     println!("receipt: {:?}", receipt);
 
     // recipient listens for new receipts and verifies payment
