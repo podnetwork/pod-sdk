@@ -247,10 +247,6 @@ where
             .await
     }
 
-    pub async fn get_network_id(&self) -> TransportResult<String> {
-        self.client().request_noparams("eth_networkId").await
-    }
-
     /// Transfer specified `amount` funds to the `to` account.
     pub async fn transfer(
         &self,
