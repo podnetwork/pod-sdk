@@ -1,26 +1,13 @@
-use std::{
-    env,
-    str::FromStr,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{env, str::FromStr, time::SystemTime};
 
-use alloy_network::{EthereumWallet, TransactionBuilder};
-use alloy_primitives::{Address, TxKind, U256, address};
-use alloy_provider::Provider;
-use alloy_signer::k256::ecdsa::SigningKey;
-use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 
-use alloy_provider::WsConnect;
-use alloy_rpc_types_eth::Filter;
 use futures::StreamExt;
 use pod_sdk::{
-    PrivateKeySigner,
-    network::PodTransactionRequest,
-    provider::{PodProviderBuilder, PodProviderExt},
+    Address, EthereumWallet, PrivateKeySigner, Provider, SigningKey, TransactionBuilder, TxKind,
+    U256, alloy_rpc_types::Filter, alloy_sol_types::SolEvent, network::PodTransactionRequest,
+    provider::PodProviderBuilder,
 };
-
-use alloy_sol_types::SolEvent;
 
 use pod_contracts::auction::Auction;
 
@@ -33,15 +20,11 @@ async fn main() -> Result<()> {
     let address = signer.address();
 
     let rpc_url = env::var("RPC_URL").unwrap_or("ws://127.0.0.1:8545".to_string());
-    let ws_url = Url::parse(&rpc_url)?;
-
-    let ws = WsConnect::new(ws_url);
     let wallet = EthereumWallet::new(signer);
 
-    let pod_provider = PodProviderBuilder::new()
-        .with_recommended_fillers()
-        .wallet(wallet.clone())
-        .on_ws(ws)
+    let pod_provider = PodProviderBuilder::with_recommended_settings()
+        .wallet(wallet)
+        .on_url(&rpc_url)
         .await?;
 
     let committee = pod_provider.get_committee().await?;
@@ -53,7 +36,7 @@ async fn main() -> Result<()> {
         .as_micros()
         .try_into()?;
 
-    let recipient = Address::from_str("0xC7096D019F96faE581361aFB07311cd6D3a25596")?;
+    let recipient = Address::from_str("0xC7096D019F96faE581361aFB07311cd6D3a25596").unwrap();
 
     let tx = PodTransactionRequest::default()
         .with_from(address)
@@ -69,8 +52,7 @@ async fn main() -> Result<()> {
     // recipient listens for new receipts and verifies payment
     let receipts = pod_provider
         .get_confirmed_receipts(start_time, None)
-        .await
-        .unwrap();
+        .await?;
 
     for receipt in receipts.items {
         if receipt.transaction().to == TxKind::Call(recipient)
@@ -80,14 +62,16 @@ async fn main() -> Result<()> {
         }
     }
 
-    let now = UNIX_EPOCH.elapsed().unwrap().as_secs();
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)?
+        .as_secs();
 
     println!("waiting for time to be past perfect");
     pod_provider.wait_past_perfect_time(now).await?;
     println!("perfect time reached");
 
     let filter = Filter::new()
-        .address(address!("0x4CF3F1637bfEf1534e56352B6ebAae243aF464c3"))
+        .address(Address::from_str("0x4CF3F1637bfEf1534e56352B6ebAae243aF464c3").unwrap())
         .event_signature(Auction::BidSubmitted::SIGNATURE_HASH)
         .from_block(0);
 
