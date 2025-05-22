@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {requireTimeAfter,requireTimeBefore} from "../lib/Deadline.sol";
+import {requireTimeAfter, requireTimeBefore} from "../lib/Deadline.sol";
 
 /**
  * @title HashChallenge
@@ -9,23 +9,27 @@ import {requireTimeAfter,requireTimeBefore} from "../lib/Deadline.sol";
  */
 contract HashChallenge {
     struct Challenge {
-        bytes32 hash;            // Hash of the data
-        address challenger;      // Address of the person who created the challenge
-        address responder;       // Address of the intended responder
-        uint256 reward;          // Total reward amount (in wei)
-        uint256 creationTime;    // Timestamp when the challenge was created (local per validator)
-        uint256 maxDelay;        // Maximum delay to be eligible for reward
-        uint256 rewardedAmount;  // Amount rewarded to the responder
-        uint256 refundedAmount;  // Amount refunded to the challenger
-        uint256 sequenceNumber;  // Sequence number of the challenge, allows for multiple challenges with the same options
+        bytes32 hash; // Hash of the data
+        address challenger; // Address of the person who created the challenge
+        address responder; // Address of the intended responder
+        uint256 reward; // Total reward amount (in wei)
+        uint256 creationTime; // Timestamp when the challenge was created (local per validator)
+        uint256 maxDelay; // Maximum delay to be eligible for reward
+        uint256 rewardedAmount; // Amount rewarded to the responder
+        uint256 refundedAmount; // Amount refunded to the challenger
+        uint256 sequenceNumber; // Sequence number of the challenge, allows for multiple challenges with the same options
     }
 
     // Mapping from challenge ID to Challenge
     mapping(uint256 => Challenge) public challenges;
-    
+
     // Events
-    event ChallengeCreated(uint256 indexed challengeId, address indexed challenger, address indexed responder, uint256 reward);
-    event ChallengeClaimed(uint256 indexed challengeId, address indexed responder, uint256 rewardPaid, uint256 responseTime);
+    event ChallengeCreated(
+        uint256 indexed challengeId, address indexed challenger, address indexed responder, uint256 reward
+    );
+    event ChallengeClaimed(
+        uint256 indexed challengeId, address indexed responder, uint256 rewardPaid, uint256 responseTime
+    );
     event ChallengeRefunded(uint256 indexed challengeId, uint256 refundAmount);
 
     /**
@@ -35,12 +39,16 @@ contract HashChallenge {
      * @param maxDelay The maximum time in seconds for claiming full reward
      * @param sequenceNumber The sequence number of the challenge, allows for multiple challenges with the same options
      */
-    function createChallenge(bytes32 dataHash, address responder, uint256 maxDelay, uint256 sequenceNumber) external payable {
+    function createChallenge(bytes32 dataHash, address responder, uint256 maxDelay, uint256 sequenceNumber)
+        external
+        payable
+    {
         require(msg.value > 0, "Reward must be greater than 0");
         require(responder != address(0), "Responder cannot be zero address");
 
-        uint256 challengeId = uint256(keccak256(abi.encodePacked(dataHash, responder, maxDelay, msg.sender, sequenceNumber)));
-        
+        uint256 challengeId =
+            uint256(keccak256(abi.encodePacked(dataHash, responder, maxDelay, msg.sender, sequenceNumber)));
+
         challenges[challengeId] = Challenge({
             hash: dataHash,
             challenger: msg.sender,
@@ -52,10 +60,10 @@ contract HashChallenge {
             refundedAmount: 0,
             sequenceNumber: sequenceNumber
         });
-        
+
         emit ChallengeCreated(challengeId, msg.sender, responder, msg.value);
     }
-    
+
     /**
      * @dev Calculate reward based on elapsed time, using a linear decay function
      * @param elapsedTime Time elapsed since challenge creation
@@ -72,7 +80,7 @@ contract HashChallenge {
 
         return (totalReward * factor) / 1e18;
     }
-    
+
     /**
      * @dev Claim a challenge by providing the correct preimage
      * @param challengeId The ID of the challenge
@@ -80,7 +88,7 @@ contract HashChallenge {
      */
     function claimChallenge(uint256 challengeId, bytes calldata preimage, uint256 claimedDelay) external {
         Challenge storage challenge = challenges[challengeId];
-        
+
         require(challenge.rewardedAmount == 0, "Challenge already claimed");
         require(msg.sender == challenge.responder, "Only intended responder can claim");
         require(keccak256(preimage) == challenge.hash, "Incorrect preimage");
@@ -88,20 +96,16 @@ contract HashChallenge {
         uint256 deadline = challenge.creationTime + claimedDelay;
         requireTimeBefore(deadline, "More than claimed delay has passed");
 
-        uint256 rewardAmount = calculateReward(
-            claimedDelay,
-            challenge.maxDelay,
-            challenge.reward
-        );
+        uint256 rewardAmount = calculateReward(claimedDelay, challenge.maxDelay, challenge.reward);
 
         require(rewardAmount >= 0 && rewardAmount <= challenge.reward, "Invalid reward amount");
-        
+
         challenge.rewardedAmount = rewardAmount;
-        
+
         // Send reward to responder
-        (bool success, ) = challenge.responder.call{value: rewardAmount}("");
+        (bool success,) = challenge.responder.call{value: rewardAmount}("");
         require(success, "Transfer failed");
-                
+
         emit ChallengeClaimed(challengeId, msg.sender, rewardAmount, claimedDelay);
     }
 
@@ -115,29 +119,36 @@ contract HashChallenge {
         Challenge storage challenge = challenges[challengeId];
 
         requireTimeAfter(challenge.creationTime + challenge.maxDelay, "Cannot refund before max delay");
-        require(challenge.reward - challenge.rewardedAmount >= refundAmount + challenge.refundedAmount, "Cannot refund more than the amount remaining after claiming");
+        require(
+            challenge.reward - challenge.rewardedAmount >= refundAmount + challenge.refundedAmount,
+            "Cannot refund more than the amount remaining after claiming"
+        );
 
-        (bool refundSuccess, ) = challenge.challenger.call{value: refundAmount}("");
+        (bool refundSuccess,) = challenge.challenger.call{value: refundAmount}("");
         require(refundSuccess, "Refund failed");
 
         challenge.refundedAmount += refundAmount;
         emit ChallengeRefunded(challengeId, refundAmount);
     }
-    
+
     /**
      * @dev Get challenge details
      * @param challengeId The ID of the challenge
      */
-    function getChallenge(uint256 challengeId) external view returns (
-        bytes32 hash,
-        address challenger,
-        address responder,
-        uint256 reward,
-        uint256 creationTime,
-        uint256 maxDelay,
-        uint256 rewardedAmount,
-        uint256 refundedAmount
-    ) {
+    function getChallenge(uint256 challengeId)
+        external
+        view
+        returns (
+            bytes32 hash,
+            address challenger,
+            address responder,
+            uint256 reward,
+            uint256 creationTime,
+            uint256 maxDelay,
+            uint256 rewardedAmount,
+            uint256 refundedAmount
+        )
+    {
         Challenge storage challenge = challenges[challengeId];
         return (
             challenge.hash,
@@ -150,7 +161,7 @@ contract HashChallenge {
             challenge.refundedAmount
         );
     }
-    
+
     /**
      * @dev Preview the current reward amount for a challenge
      * @param challengeId The ID of the challenge
@@ -159,7 +170,7 @@ contract HashChallenge {
     function previewReward(uint256 challengeId) external view returns (uint256) {
         Challenge storage challenge = challenges[challengeId];
         require(challenge.rewardedAmount == 0, "Challenge already claimed");
-        
+
         uint256 elapsedTime = block.timestamp - challenge.creationTime;
         return calculateReward(elapsedTime, challenge.maxDelay, challenge.reward);
     }
