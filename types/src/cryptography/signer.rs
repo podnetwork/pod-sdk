@@ -36,6 +36,26 @@ where
     }
 }
 
+pub trait SignerSync {
+    fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>>;
+}
+
+impl<S> SignerSync for S
+where
+    S: alloy_signer::SignerSync<PrimitiveSignature> + Send + Sync,
+    S: alloy_signer::Signer<PrimitiveSignature> + Send + Sync,
+{
+    fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>> {
+        let signature = self.sign_hash_sync(&tx.signature_hash())?;
+        Ok(Signed {
+            signed: tx.clone(),
+            signature,
+            signer: self.address(),
+            _private: (),
+        })
+    }
+}
+
 // Guarantees Signed<T>.signer == Signed<T>.signature.recover_address(T.hash())
 // by the fact that it can only be constructed by functions that guarantee the address.
 // Only works with ECDSA signatures for now
