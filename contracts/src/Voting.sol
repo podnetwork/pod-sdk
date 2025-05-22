@@ -5,9 +5,8 @@ import {requireTimeBefore, requireTimeAfter} from "./lib/Deadline.sol";
 
 contract Voting {
     using FastTypes for FastTypes.Set;
-    using FastTypes for FastTypes.Owned;
-    using FastTypes for FastTypes.Counter;
-    using FastTypes for FastTypes.Constant;
+    using FastTypes for FastTypes.OwnedBytes32;
+    using FastTypes for FastTypes.SharedCounter;
 
     struct VotingInfo {
         uint256 threshold;
@@ -37,25 +36,23 @@ contract Voting {
         FastTypes.Set memory voters = FastTypes.Set(vId);
         voters.requireExist(bytes32(uint256(uint160(msg.sender))));
 
-        FastTypes.Owned memory hasVoted = FastTypes.Owned(vId, msg.sender);
+        FastTypes.OwnedBytes32 memory hasVoted = FastTypes.OwnedBytes32(vId, msg.sender);
         require(hasVoted.get() == bytes32(0));
         hasVoted.set(bytes32(uint256(1)));
 
-        FastTypes.Counter memory voteCount = FastTypes.Counter(keccak256(abi.encode(vId, choice)));
+        FastTypes.SharedCounter memory voteCount = FastTypes.SharedCounter(keccak256(abi.encode(vId, choice)));
         voteCount.increment(1);
 
         emit Voted(vId, msg.sender, choice);
     }
 
     function setWinner(VotingInfo calldata v, uint256 choice) public {
-        requireTimeAfter(v.deadline, "Cannot set winner before deadline");
+        requireTimeAfter(v.deadline, "Cannot decide winner before deadline");
 
         bytes32 vId = votingId(v);
-        FastTypes.Counter memory voteCount = FastTypes.Counter(keccak256(abi.encode(vId, choice)));
+        FastTypes.SharedCounter memory voteCount = FastTypes.SharedCounter(keccak256(abi.encode(vId, choice)));
         voteCount.requireGte(v.threshold);
 
-        FastTypes.Constant memory winner = FastTypes.Constant(vId);
-        winner.set(bytes32(choice));
         emit Winner(vId, choice);
     }
 }
