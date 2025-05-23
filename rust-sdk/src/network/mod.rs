@@ -285,9 +285,9 @@ impl ReceiptResponse for PodReceiptResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AttestationData {
-    public_key: AddressECDSA,
-    signature: SignatureECDSA,
-    timestamp: Timestamp,
+    pub public_key: AddressECDSA,
+    pub signature: SignatureECDSA,
+    pub timestamp: Timestamp,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
