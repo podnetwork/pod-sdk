@@ -1,7 +1,7 @@
 pragma solidity ^0.8.25;
 
 import {FastTypes} from "./lib/FastTypes.sol";
-import {requireTimeBefore, requireTimeAfter} from "./lib/Deadline.sol";
+import {requireTimeBefore, requireTimeAfter} from "./lib/Time.sol";
 
 contract Voting {
     using FastTypes for FastTypes.AddressSet;

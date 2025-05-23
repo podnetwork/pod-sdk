@@ -1,6 +1,6 @@
 pragma solidity ^0.8.26;
 
-import {requireTimeBefore} from "./lib/Deadline.sol";
+import {requireTimeBefore} from "../../../contracts/src/lib/Time.sol";
 
 contract Auction {
     event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 indexed deadline, uint256 value, bytes data);
