@@ -51,6 +51,31 @@
 //!
 //! pod_provider.transfer(to, amount).await.unwrap();
 //! # })
+//!```
+//!
+//! ## Configuring [provider::PodProvider] from environment variables
+//!
+//! The RPC url and a single private key, which will be used
+//! to sign transactions, can be loaded from the env.
+//! Check out [provider::PodProviderBuilder::from_env] for details.
+//!
+//! ```no_run
+//! // export POD_PRIVATE_KEY=9a3f1b8475d296f2e7c1a3d5986b34c7f4de1bc2093a60f8be4f7dcaa12389ef
+//! // export POD_RPC_URL=https://rpc.dev.pod.network
+//! use std::str::FromStr;
+//! use pod_sdk::{Address, provider::PodProviderBuilder, U256};
+//!
+//! let to = Address::from_str("0xC7096D019F96faE581361aFB07311cd6D3a25596").unwrap();
+//! let amount = U256::from(1000);
+//!
+//! # tokio_test::block_on(async {
+//! let pod_provider = PodProviderBuilder::with_recommended_settings()
+//!     .from_env()
+//!     .await
+//!     .unwrap();
+//!
+//! pod_provider.transfer(to, amount).await.unwrap();
+//! # })
 //! ```
 
 pub mod network;
