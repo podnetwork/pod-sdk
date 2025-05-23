@@ -263,9 +263,10 @@ where
 
     pub async fn subscribe_account_receipts(
         &self,
-        account: &Address,
+        address: Address,
+        since: Timestamp,
     ) -> TransportResult<Subscription<PodReceiptResponse>> {
-        self.websocket_subscribe("pod_accountReceipts", account)
+        self.websocket_subscribe("pod_accountReceipts", (address, since))
             .await
     }
 
