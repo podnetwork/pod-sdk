@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 pub use alloy_provider;
+use alloy_rpc_types::TransactionReceipt;
 use anyhow::Context;
 
-use crate::network::{PodNetwork, PodReceiptResponse, PodTransactionRequest};
+use crate::network::{PodNetwork, PodTransactionRequest};
 use alloy_json_rpc::{RpcParam, RpcReturn};
 use alloy_network::{Network, TransactionBuilder};
 use alloy_provider::{
@@ -19,6 +20,7 @@ use futures::StreamExt;
 use pod_types::{
     consensus::Committee,
     ledger::log::VerifiableLog,
+    metadata::{MetadataWrappedItem, RegularReceiptMetadata},
     pagination::{ApiPaginatedResult, CursorPaginationRequest},
 };
 
@@ -254,19 +256,18 @@ where
         Ok(())
     }
 
-    pub async fn subscribe_confirmed_receipts(
+    /// Subscribe to continuously receive TX receipts as they are created on the node.
+    ///
+    /// The parameters `address` and `since` allow to optionally filter receipts.
+    /// Pass `None` and `Timestamp::zero()` respectively for wildcards.
+    pub async fn subscribe_receipts(
         &self,
-    ) -> TransportResult<Subscription<PodReceiptResponse>> {
-        self.websocket_subscribe("pod_confirmedReceipts", None::<()>)
-            .await
-    }
-
-    pub async fn subscribe_account_receipts(
-        &self,
-        address: Address,
+        address: Option<Address>,
         since: Timestamp,
-    ) -> TransportResult<Subscription<PodReceiptResponse>> {
-        self.websocket_subscribe("pod_accountReceipts", (address, since))
+    ) -> TransportResult<
+        Subscription<MetadataWrappedItem<TransactionReceipt, RegularReceiptMetadata>>,
+    > {
+        self.websocket_subscribe("pod_receipts", (address, since))
             .await
     }
 

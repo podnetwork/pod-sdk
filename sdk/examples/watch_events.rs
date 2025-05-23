@@ -18,9 +18,10 @@ async fn main() {
     let event_signature =
         hex::decode("98b6b180756c849b5bfbbd2bbd091f3fe64b0935ac195418c0b619b9b661c78d").unwrap();
     let event_signature = U256::from_be_slice(&event_signature);
-    let filter = Filter::new().from_block(0);
-    // .event_signature(event_signature)
-    // .address(address);
+    let filter = Filter::new()
+        .from_block(0)
+        .event_signature(event_signature)
+        .address(address);
     let mut stream = pod_provider
         .subscribe_verifiable_logs(&filter)
         .await
