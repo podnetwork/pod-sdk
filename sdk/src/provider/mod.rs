@@ -277,27 +277,14 @@ where
             .await
     }
 
-    pub async fn get_confirmed_receipts(
+    pub async fn get_receipts(
         &self,
+        address: Option<Address>,
         since_micros: u64,
         paginator: Option<CursorPaginationRequest>,
     ) -> TransportResult<ApiPaginatedResult<<PodNetwork as Network>::ReceiptResponse>> {
         self.client()
-            .request("pod_listConfirmedReceipts", &(since_micros, paginator))
-            .await
-    }
-
-    pub async fn get_account_receipts(
-        &self,
-        address: Address,
-        since_micros: u64,
-        paginator: Option<CursorPaginationRequest>,
-    ) -> TransportResult<ApiPaginatedResult<<PodNetwork as Network>::ReceiptResponse>> {
-        self.client()
-            .request(
-                "pod_listAccountReceipts",
-                &(address, since_micros, paginator),
-            )
+            .request("pod_listReceipts", &(address, since_micros, paginator))
             .await
     }
 

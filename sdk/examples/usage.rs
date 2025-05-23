@@ -34,9 +34,7 @@ async fn main() -> Result<()> {
     println!("receipt: {:?}", receipt);
 
     // recipient listens for new receipts and verifies payment
-    let receipts = pod_provider
-        .get_confirmed_receipts(start_time, None)
-        .await?;
+    let receipts = pod_provider.get_receipts(None, start_time, None).await?;
 
     for receipt in receipts.items {
         if receipt.transaction().to == TxKind::Call(recipient)
@@ -48,7 +46,7 @@ async fn main() -> Result<()> {
 
     // recipient listens for new receipts and verifies payment
     let recipient_receipts = pod_provider
-        .get_account_receipts(recipient, start_time, None)
+        .get_receipts(Some(recipient), start_time, None)
         .await?;
 
     for recipient_receipt in recipient_receipts.items {
