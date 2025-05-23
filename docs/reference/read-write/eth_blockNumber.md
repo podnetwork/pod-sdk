@@ -17,6 +17,8 @@
 
 ! content id="eth_blockNumber"
 
+! lang-tab
+
 ## Get Block Number
 
 Returns the latest past perfection pod timestamp in microseconds.
@@ -27,12 +29,35 @@ None
 
 ### Response
 
+! lang-content lang="rust"
+! content
+| Key                | Type    | Description             |
+| ------------------ | ------- | ----------------------- |
+| `result`  | u64  | latest past perfection pod timestamp in microseconds     |
+! content end
+! lang-content end
+
+! lang-content lang="bash"
+! content
 | Key                | Type    | Description             |
 | ------------------ | ------- | ----------------------- |
 | `statusCode`       | integer | HTTP status code        |
 | `response.jsonrpc` | string  | same value as request   |
 | `response.id`      | integer | unique value as request |
-| `response.result`  | string  | latest block number     |
+| `response.result`  | string  | latest past perfection pod timestamp in microseconds    |
+! content end
+! lang-content end
+
+! lang-content lang="js"
+! content
+| Key                | Type    | Description             |
+| ------------------ | ------- | ----------------------- |
+| `statusCode`       | integer | HTTP status code        |
+| `response.jsonrpc` | string  | same value as request   |
+| `response.id`      | integer | unique value as request |
+| `response.result`  | string  | latest past perfection pod timestamp in microseconds     |
+! content end
+! lang-content end
 
 ! content end
 
@@ -47,8 +72,8 @@ use reqwest::Client;
 use serde_json::{json, Value};
 
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let block_number = pod_provider.get_block_number().await?;
-    println!("{}", block_number);
+    let pp_time = pod_provider.get_block_number().await?;
+    println!("{}", pp_time);
 
     Ok(())
 }
@@ -86,17 +111,37 @@ await fetch('https://rpc.dev.pod.network/', {
 
 Example Response:
 
+! lang-content lang="rust"
 ! codeblock
+```rust
+1747754841u64
+```
+! codeblock end
+! lang-content end
 
+! lang-content lang="js"
+! codeblock
 ```json
 {
 	"jsonrpc": "2.0",
-	"result": "0x67505ef7",
+	"result": "1747754841",
 	"id": 1
 }
 ```
-
 ! codeblock end
+! lang-content end
+
+! lang-content lang="bash"
+! codeblock
+```json
+{
+	"jsonrpc": "2.0",
+	"result": "1747754841",
+	"id": 1
+}
+```
+! codeblock end
+! lang-content end
 
 ! sticky end
 

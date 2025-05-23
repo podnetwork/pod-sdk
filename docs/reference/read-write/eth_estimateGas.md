@@ -20,12 +20,24 @@
 
 ! content id="eth_estimateGas"
 
+! lang-tab
+
 ## Get Gas Estimation
 
 Estimates gas needed for a transaction.
 
 ### Parameters
 
+! lang-content lang="rust"
+! content
+| Name                | Type    | Description             |
+| ------------------ | ------- | ----------------------- |
+| `tx`  | TransactionRequest  | Transaction request to estimate gas for     |
+! content end
+! lang-content end
+
+! lang-content lang="bash"
+! content
 | Parameter  | Type   | Description                                            |
 | ---------- | ------ | ------------------------------------------------------ |
 | `object`   | object | Transaction call object with the following fields:     |
@@ -35,6 +47,22 @@ Estimates gas needed for a transaction.
 | `gasPrice` | string | (optional) Gas price in wei                            |
 | `value`    | string | (optional) Value in wei                                |
 | `data`     | string | (optional) Contract code or encoded function call data |
+! content end
+! lang-content end
+
+! lang-content lang="js"
+! content
+| Parameter  | Type   | Description                                            |
+| ---------- | ------ | ------------------------------------------------------ |
+| `object`   | object | Transaction call object with the following fields:     |
+| `from`     | string | (optional) 20-byte address of sender                   |
+| `to`       | string | 20-byte address of recipient                           |
+| `gas`      | string | (optional) Gas provided for transaction execution      |
+| `gasPrice` | string | (optional) Gas price in wei                            |
+| `value`    | string | (optional) Value in wei                                |
+| `data`     | string | (optional) Contract code or encoded function call data |
+! content end
+! lang-content end
 
 > Note: Only Legacy transactions are supported
 
@@ -112,17 +140,37 @@ await fetch('https://rpc.dev.pod.network/', {
 
 Example Response:
 
+! lang-content lang="rust"
 ! codeblock
+```rust
+21,000u64
+```
+! codeblock end
+! lang-content end
 
+! lang-content lang="js"
+! codeblock
 ```json
 {
-    "jsonrpc": "2.0",
-    "result": "0x493e0",
-    "id": 1
+	"jsonrpc": "2.0",
+	"result": "0x493e0",
+	"id": 1
 }
 ```
-
 ! codeblock end
+! lang-content end
+
+! lang-content lang="js"
+! codeblock
+```json
+{
+	"jsonrpc": "2.0",
+	"result": "0x493e0",
+	"id": 1
+}
+```
+! codeblock end
+! lang-content end
 
 ! sticky end
 

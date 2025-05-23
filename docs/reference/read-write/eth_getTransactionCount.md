@@ -17,27 +17,73 @@
 
 ! content id="eth_getTransactionCount"
 
+! lang-tab
+
 ## Get Transaction Count
 
 Returns the number of transactions sent from an address.
 
 ### Parameters
 
+! lang-content lang="rust"
+! content
+| Parameter | Type   | Description                                                                                                  |
+| --------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| `address`     | Address | Address to check the number of transactions sent                                                        |
+! content end
+! lang-content end
+
+! lang-content lang="js"
+! content
 | Parameter | Type   | Description                                                                                                  |
 | --------- | ------ | ------------------------------------------------------------------------------------------------------------ |
 | `[1]`     | string | 20-byte address                                                                                              |
 | `[2]`     | string | Past perfect timestamp in seconds (hexadecimal format). Can also be the tags: earliest, finalized or latest. |
+! content end
+! lang-content end
+
+! lang-content lang="bash"
+! content
+| Parameter | Type   | Description                                                                                                  |
+| --------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| `[1]`     | string | 20-byte address                                                                                              |
+| `[2]`     | string | Past perfect timestamp in seconds (hexadecimal format). Can also be the tags: earliest, finalized or latest. |
+! content end
+! lang-content end
 
 > Note: Currently returns the current transaction count regardless of timestamp
 
 ### Response
 
+! lang-content lang="rust"
+! content
+| Type   | Description                                  |
+|--------|----------------------------------------------|
+| `u64` | Number of sent transactions by the sender prior to this one |
+! content end
+! lang-content end
+
+! lang-content lang="js"
+! content
 | Key                | Type    | Description                                                 |
 | ------------------ | ------- | ----------------------------------------------------------- |
 | `statusCode`       | integer | HTTP status code                                            |
 | `response.jsonrpc` | string  | same value as request                                       |
 | `response.id`      | integer | unique value as request                                     |
 | `response.result`  | string  | Number of transactions sent by the sender prior to this one |
+! content end
+! lang-content end
+
+! lang-content lang="bash"
+! content
+| Key                | Type    | Description                                                 |
+| ------------------ | ------- | ----------------------------------------------------------- |
+| `statusCode`       | integer | HTTP status code                                            |
+| `response.jsonrpc` | string  | same value as request                                       |
+| `response.id`      | integer | unique value as request                                     |
+| `response.result`  | string  | Number of transactions sent by the sender prior to this one |
+! content end
+! lang-content end
 
 ! content end
 
@@ -98,17 +144,37 @@ await fetch('https://rpc.dev.pod.network/', {
 
 Example Response:
 
+! lang-content lang="rust"
 ! codeblock
+```rust
+100u64
+```
+! codeblock end
+! lang-content end
 
+! lang-content lang="js"
+! codeblock
 ```json
 {
 	"jsonrpc": "2.0",
-	"result": "0x0",
+	"result": "100",
 	"id": 1
 }
 ```
-
 ! codeblock end
+! lang-content end
+
+! lang-content lang="js"
+! codeblock
+```json
+{
+	"jsonrpc": "2.0",
+	"result": "100",
+	"id": 1
+}
+```
+! codeblock end
+! lang-content end
 
 ! sticky end
 

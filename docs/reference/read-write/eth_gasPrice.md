@@ -17,6 +17,8 @@
 
 ! content id="eth_gasPrice"
 
+! lang-tab
+
 ## Get Gas Price
 
 Returns the current gas price.
@@ -27,12 +29,36 @@ None
 
 ### Response
 
+! lang-content lang="rust"
+! content
+| Key                | Type    | Description             |
+| ------------------ | ------- | ----------------------- |
+| `result`  | u128  | Current gas price in wei     |
+! content end
+! lang-content end
+
+
+! lang-content lang="bash"
+! content
 | Key                | Type    | Description                                   |
 | ------------------ | ------- | --------------------------------------------- |
 | `statusCode`       | integer | HTTP status code                              |
 | `response.jsonrpc` | string  | same value as request                         |
 | `response.id`      | integer | unique value as request                       |
 | `response.result`  | string  | Current gas price in wei (hexadecimal format) |
+! content end
+! lang-content end
+
+! lang-content lang="js"
+! content
+| Key                | Type    | Description                                   |
+| ------------------ | ------- | --------------------------------------------- |
+| `statusCode`       | integer | HTTP status code                              |
+| `response.jsonrpc` | string  | same value as request                         |
+| `response.id`      | integer | unique value as request                       |
+| `response.result`  | string  | Current gas price in wei (hexadecimal format) |
+! content end
+! lang-content end
 
 ! content end
 
@@ -84,17 +110,37 @@ await fetch('https://rpc.dev.pod.network/', {
 
 Example Response:
 
+! lang-content lang="rust"
 ! codeblock
+```rust
+1000000000u128
+```
+! codeblock end
+! lang-content end
 
+! lang-content lang="bash"
+! codeblock
 ```json
 {
-    "jsonrpc": "2.0",
-    "result": "0x1",
-    "id": 1
+	"jsonrpc": "2.0",
+	"result": "0x1",
+	"id": 1
 }
 ```
-
 ! codeblock end
+! lang-content end
+
+! lang-content lang="js"
+! codeblock
+```json
+{
+	"jsonrpc": "2.0",
+	"result": "0x1",
+	"id": 1
+}
+```
+! codeblock end
+! lang-content end
 
 ! sticky end
 

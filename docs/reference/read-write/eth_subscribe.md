@@ -1,17 +1,72 @@
 ! content id="eth_subscribe"
 
+! lang-tab
+
 ## Subscribe
 
-Creates a subscription for specific events. This endpoint streams the new events, for historical data use the other endpoints (pod_listAccountReceipts, pod_listConfirmedReceipts, pod_pastPerfectTime, eth_getLogs). Each subscription type has different parameter requirements.
+Creates a subscription for specific events. This endpoint streams the new events, for historical data use the other endpoints (pod_receipts, pod_pastPerfectTime, eth_getLogs). Each subscription type has different parameter requirements.
 
 ### Parameters
 
+! lang-content lang="rust"
+! content
+| Parameter | Type                        | Description                                                                 |
+|-----------|-----------------------------|-----------------------------------------------------------------------------|
+| `filter`  | `&Filter`                   | Filter criteria for selecting logs. Includes block range, address, and topics. |
+|           | └─ `block_option` | `FilterBlockOption`        | Block range or tag to apply the filter (see [EIP-234](https://eips.ethereum.org/EIPS/eip-234)) |
+|           | └─ `address`      | `FilterSet<Address>`        | One or more addresses to filter logs by                                      |
+|           | └─ `topics`       | `[Topic; 4]`                | Array of up to 4 optional topics to match against log entries                |
+! content end
+! lang-content end
+
+! lang-content lang="js"
+! content
 | Parameter | Type   | Description                                                                                                 |
 | --------- | ------ | ----------------------------------------------------------------------------------------------------------- |
-| `[0]`     | string | Subscription type (required): `logs`, `pod_accountReceipts`, `pod_confirmedReceipts`, `pod_pastPerfectTime` |
+| `[0]`     | string | Subscription type (required): `logs`, `pod_receipts`, `pod_pastPerfectTime`                                  |
 | `[1]`     | object | Parameters object (varies by subscription type)                                                             |
+! content end
+! lang-content end
+
+! lang-content lang="bash"
+! content
+| Parameter | Type   | Description                                                                                                 |
+| --------- | ------ | ----------------------------------------------------------------------------------------------------------- |
+| `[0]`     | string | Subscription type (required): `logs`, `pod_receipts`, `pod_pastPerfectTime`                                  |
+| `[1]`     | object | Parameters object (varies by subscription type)                                                             |
+! content end
+! lang-content end
+
+
 
 ### Subscription Types and Parameters:
+
+! lang-content lang="rust"
+! content
+
+! codeblock title="logs"
+
+```rust
+let account = Address::from_str("0xbabebabebabe0000000000000000000000000000")?;
+let topic = U256::from_str(&account.to_string())?;
+let filter = Filter::new().address(contract_address).topic2(topic);
+```
+
+! codeblock end
+
+! codeblock title="pod_receipts"
+
+```rust
+let account = Address::from_str("0xbabebabebabe0000000000000000000000000000")?;
+let since = 1687245924000000u64;
+```
+! codeblock end
+
+! content end
+! lang-content end
+
+! lang-content lang="js"
+! content
 
 ! codeblock title="logs"
 
@@ -38,10 +93,39 @@ Creates a subscription for specific events. This endpoint streams the new events
 
 ! codeblock end
 
-! codeblock title="pod_confirmedReceipts"
+! codeblock title="pod_pastPerfectTime"
+
+```bash
+1687245924000000 // Timestamp in microseconds
+```
+
+! codeblock end
+
+! content end
+! lang-content end
+
+! lang-content lang="bash"
+! content
+
+! codeblock title="logs"
 
 ```json
 {
+	"address": "0x1234567890123456789012345678901234567890",
+	"topics": ["0x71a5674c44b823bc0df08201dfeb2e8bdf698cd684fd2bbaa79adcf2c99fc186"],
+	"fromBlock": "0x1",
+	"toBlock": "latest",
+	"minAttestations": 3
+}
+```
+
+! codeblock end
+
+! codeblock title="pod_accountReceipts"
+
+```json
+{
+	"address": "0x13791790Bef192d14712D627f13A55c4ABEe52a4",
 	"since": 1687245924000000 // Timestamp in microseconds
 }
 ```
@@ -56,11 +140,48 @@ Creates a subscription for specific events. This endpoint streams the new events
 
 ! codeblock end
 
+! content end
+! lang-content end
+
 ### Response
 
+! lang-content lang="rust"
+! content
+| Type                      | Description                                                                 |
+|---------------------------|-----------------------------------------------------------------------------|
+| `Subscription<VerifiableLog>` | A live stream of verifiable logs as they are emitted                     |
+|                           | Each `VerifiableLog` is a `MetadataWrappedItem<Log, PodLogMetadata>`        |
+| └─ `inner`                | `alloy_rpc_types_eth::Log`             | Consensus log object from Ethereum JSON-RPC |
+| └─ `pod_metadata`         | `PodLogMetadata`                                                              |
+|    └─ `attestations`      | `Vec<TimestampedHeadlessAttestation>` | Attestations for verifying the log        |
+|       └─ `timestamp`      | `Timestamp`                         | Timestamp when the attestation was made     |
+|       └─ `public_key`     | `AddressECDSA`                      | Public key of the attestor                  |
+|       └─ `signature`      | `SignatureECDSA`                    | Signature over the attested log             |
+|    └─ `receipt`           | `Receipt`                                                                    |
+|       └─ `status`         | `bool`                              | Whether the transaction succeeded           |
+|       └─ `actual_gas_used`| `u64`                               | Actual gas used by the transaction          |
+|       └─ `logs`           | `Vec<Log>`                          | Logs emitted by the transaction             |
+|       └─ `logs_root`      | `Hash`                              | Logs root of the transaction receipt        |
+|       └─ `tx`             | `Signed<Transaction>`              | Signed transaction data                     |
+|       └─ `contract_address`| `Option<Address>`                  | Contract address created (if any)           |
+! content end
+! lang-content end
+
+! lang-content lang="js"
+! content
 | Type   | Description     |
 | ------ | --------------- |
 | string | Subscription ID |
+! content end
+! lang-content end
+
+! lang-content lang="bash"
+! content
+| Type   | Description     |
+| ------ | --------------- |
+| string | Subscription ID |
+! content end
+! lang-content end
 
 ! content end
 
@@ -69,6 +190,43 @@ Creates a subscription for specific events. This endpoint streams the new events
 ! sticky
 
 ! codeblock title="Example request"
+
+```rust alias="rust"
+use tokio::net::TcpStream;
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message, WebSocketStream, MaybeTlsStream};
+use futures_util::{StreamExt, SinkExt};
+use serde_json::json;
+
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let committee = pod_provider.get_committee().await.unwrap();
+
+    let address = Address::from_str("0x12296f2d128530a834460df6c36a2895b793f26d").unwrap();
+
+    let event_signature =
+        hex::decode("98b6b180756c849b5bfbbd2bbd091f3fe64b0935ac195418c0b619b9b661c78d").unwrap();
+    let event_signature = U256::from_be_slice(&event_signature);
+    let filter = Filter::new()
+        .from_block(0)
+        .event_signature(event_signature)
+        .address(address);
+    let mut stream = pod_provider
+        .subscribe_verifiable_logs(&filter)
+        .await
+        .unwrap()
+        .into_stream();
+
+    println!("waiting for new logs");
+    while let Some(log) = stream.next().await {
+        println!("got log {:?}", log);
+        if log.verify(&committee).unwrap() {
+            println!("Found verified auction contract event: {log:?}");
+            println!("Event merkle multi-proof: {:?}", log.generate_multi_proof())
+        }
+    }
+
+    Ok(())
+}
+```
 
 ```bash alias="curl"
 wscat -c ws://rpc.dev.pod.network \
@@ -115,41 +273,6 @@ socket.onerror = (error) => {
 socket.onclose = () => {
 	console.log('WebSocket connection closed');
 };
-```
-
-```rust alias="rust"
-use tokio::net::TcpStream;
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message, WebSocketStream, MaybeTlsStream};
-use futures_util::{StreamExt, SinkExt};
-use serde_json::json;
-
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (ws_stream, _) = connect_async("ws://rpc.dev.pod.network").await?;
-    let (mut write, mut read) = ws_stream.split();
-
-    // Subscribe to logs
-    let subscribe_msg = json!({
-        "jsonrpc": "2.0",
-        "method": "eth_subscribe",
-        "params": ["logs", {
-            "address": "0x1234567890123456789012345678901234567890",
-            "topics": ["0x71a5674c44b823bc0df08201dfeb2e8bdf698cd684fd2bbaa79adcf2c99fc186"]
-        }],
-        "id": 1
-    });
-
-    write.send(Message::Text(subscribe_msg.to_string())).await?;
-
-    // Process incoming messages
-    while let Some(msg) = read.next().await {
-        let msg = msg?;
-        if let Message::Text(text) = msg {
-            println!("Received: {}", text);
-        }
-    }
-
-    Ok(())
-}
 ```
 
 ! codeblock end

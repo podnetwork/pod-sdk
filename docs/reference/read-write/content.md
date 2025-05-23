@@ -31,13 +31,11 @@ toc:
   eth_getTransactionByHash: Get Transaction by Hash
   eth_getTransactionCount: Get Transaction Count
   eth_getTransactionReceipt: Get Transaction Receipt
-  eth_networkId: Get Network Id
   eth_sendRawTransaction: Send Raw Transaction
   eth_subscribe: Subscribe
   pod_getCommittee: Get Committee
   pod_listAccountReceipts: List Account Receipts
   pod_listConfirmedReceipts: List Confirmed Receipts
-  pod_metrics: Get Metrics
   security-considerations: Security Considerations
   resources: Resources
 ---
@@ -90,8 +88,6 @@ toc:
 
 ! import ./eth_getTransactionReceipt.md
 
-! import ./eth_networkId.md
-
 ! import ./eth_sendRawTransaction.md
 
 ! import ./eth_subscribe.md
@@ -101,8 +97,6 @@ toc:
 ! import ./pod_listAccountReceipts.md
 
 ! import ./pod_listConfirmedReceipts.md
-
-! import ./pod_metrics.md
 
 ! import ./best-practices.md
 
