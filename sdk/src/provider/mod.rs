@@ -39,18 +39,18 @@ impl CommitteeResponse {
 
 pub struct PodProviderBuilder<L, F>(ProviderBuilder<L, F, PodNetwork>);
 
-/// Create a PodProviderBuilder set up with recommended settings.
-///
-/// The builder can be used to build a [Provider] configured for the [PodNetwork].
-///
-/// The returned builder has fillers preconfigured to automatically fill
-/// chain ID, nonce and gas price. Check [PodNetwork::RecommendedFillers] for details.
 impl
     PodProviderBuilder<
         Identity,
         JoinFill<Identity, <PodNetwork as RecommendedFillers>::RecommendedFillers>,
     >
 {
+    /// Create a PodProviderBuilder set up with recommended settings.
+    ///
+    /// The builder can be used to build a [Provider] configured for the [PodNetwork].
+    ///
+    /// The returned builder has fillers preconfigured to automatically fill
+    /// chain ID, nonce and gas price. Check [PodNetwork::RecommendedFillers] for details.
     pub fn with_recommended_settings() -> Self {
         Self(PodProviderBuilder::default().0.with_recommended_fillers())
     }
@@ -85,6 +85,7 @@ impl<L, F> PodProviderBuilder<L, F> {
         Ok(PodProvider::new(alloy_provider))
     }
 
+    /// Configure a wallet to be used for signing transactions and spending funds.
     pub fn wallet<W>(self, wallet: W) -> PodProviderBuilder<L, JoinFill<F, WalletFiller<W>>> {
         PodProviderBuilder::<_, _>(self.0.wallet(wallet))
     }
@@ -97,7 +98,12 @@ impl<L, F> PodProviderBuilder<L, F> {
     ///   (default: ws://127.0.0.1:8545)
     pub async fn from_env(
         self,
-    ) -> anyhow::Result<PodProvider<impl Provider<BoxTransport, PodNetwork>, BoxTransport>> {
+    ) -> anyhow::Result<PodProvider<impl Provider<BoxTransport, PodNetwork>, BoxTransport>>
+    where
+        L: ProviderLayer<RootProvider<BoxTransport, PodNetwork>, BoxTransport, PodNetwork>,
+        F: TxFiller<PodNetwork> + ProviderLayer<L::Provider, BoxTransport, PodNetwork> + 'static,
+        L::Provider: 'static,
+    {
         const PK_ENV: &str = "POD_PRIVATE_KEY";
         fn load_private_key() -> anyhow::Result<crate::SigningKey> {
             let pk_string = std::env::var(PK_ENV)?;
@@ -113,7 +119,7 @@ impl<L, F> PodProviderBuilder<L, F> {
         let rpc_url = std::env::var("POD_RPC_URL").unwrap_or("ws://127.0.0.1:8545".to_string());
         let wallet = crate::EthereumWallet::new(signer);
 
-        let provider = PodProviderBuilder::with_recommended_settings()
+        let provider = self
             .wallet(wallet)
             .on_url(rpc_url.clone())
             .await
