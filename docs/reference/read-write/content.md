@@ -34,8 +34,7 @@ toc:
   eth_sendRawTransaction: Send Raw Transaction
   eth_subscribe: Subscribe
   pod_getCommittee: Get Committee
-  pod_listAccountReceipts: List Account Receipts
-  pod_listConfirmedReceipts: List Confirmed Receipts
+  pod_listReceipts: List Receipts
   security-considerations: Security Considerations
   resources: Resources
 ---
@@ -94,9 +93,7 @@ toc:
 
 ! import ./pod_getCommittee.md
 
-! import ./pod_listAccountReceipts.md
-
-! import ./pod_listConfirmedReceipts.md
+! import ./pod_listReceipts.md
 
 ! import ./best-practices.md
 

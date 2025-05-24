@@ -7,8 +7,9 @@
             },
             body: JSON.stringify({
                 jsonrpc: '2.0',
-                method: 'pod_listConfirmedReceipts',
+                method: 'pod_listReceipts',
                 params: {
+                    address: '0x13791790Bef192d14712D627f13A55c4ABEe52a4',
                     since: 0
                 },
                 id: 1
@@ -17,13 +18,13 @@
     }
 </script>
 
-! content id="pod_listConfirmedReceipts"
+! content id="pod_listReceipts"
 
 ! lang-tab
 
-## List Confirmed Receipts
+## List Receipts
 
-Retrieves confirmed transaction receipts after a specified timestamp.
+Retrieves transaction receipts originating optionally from or directed to a specific address
 
 ### Parameters
 
@@ -31,6 +32,7 @@ Retrieves confirmed transaction receipts after a specified timestamp.
 ! content
 | Parameter   | Type                             | Description                                      |
 |-------------|----------------------------------|--------------------------------------------------|
+| `address`   | `Option<Address>`                | Optional address to filter on                             |
 | `since`     | `u64`                            | Timestamp or logical clock to start listing from |
 | `pagination`| `Option<CursorPaginationRequest>`| Optional pagination cursor and limit             |
 ! content end
@@ -38,27 +40,27 @@ Retrieves confirmed transaction receipts after a specified timestamp.
 
 ! lang-content lang="js"
 ! content
-| Key                          | Type    | Description                                                                      |
-| ---------------------------- | ------- | -------------------------------------------------------------------------------- |
-|                          | object  |                                                                                  |
-| `since`                   | string  | Timestamp specified in microseconds representing the start of the range to query |
-| `pagination`              | object  | (optional) Pagination object                                                     |
-| `pagination.cursor`       | string  | (optional) Cursor to start the query from                                        |
-| `pagination.limit`        | integer | (optional) Maximum number of receipts to return                                  |
-| `pagination.newest_first` | boolean | (optional) Whether to start the query from the most recent receipts              |
+| Key                | Type    | Description                                                                      |
+| ------------------ | ------- | -------------------------------------------------------------------------------- |
+| `[1]`              | string  | (optional) 20-byte address                                                       |
+| `[2]`              | string  | Timestamp specified in microseconds representing the start of the range to query |
+| `[3]`              | object  | (optional) Pagination object                                                     |
+| `[3].cursor`       | string  | (optional) Cursor for pagination                                                 |
+| `[3].limit`        | integer | (optional) Number of results to return                                           |
+| `[3].newest_first` | boolean | (optional) Whether to start the query from the most recent receipts              |
 ! content end
 ! lang-content end
 
 ! lang-content lang="bash"
 ! content
-| Key                          | Type    | Description                                                                      |
-| ---------------------------- | ------- | -------------------------------------------------------------------------------- |
-|                          | object  |                                                                                  |
-| `since`                   | string  | Timestamp specified in microseconds representing the start of the range to query |
-| `pagination`              | object  | (optional) Pagination object                                                     |
-| `pagination.cursor`       | string  | (optional) Cursor to start the query from                                        |
-| `pagination.limit`        | integer | (optional) Maximum number of receipts to return                                  |
-| `pagination.newest_first` | boolean | (optional) Whether to start the query from the most recent receipts              |
+| Key                | Type    | Description                                                                      |
+| ------------------ | ------- | -------------------------------------------------------------------------------- |
+| `[1]`              | string  | (optional) 20-byte address                                                       |
+| `[2]`              | string  | Timestamp specified in microseconds representing the start of the range to query |
+| `[3]`              | object  | (optional) Pagination object                                                     |
+| `[3].cursor`       | string  | (optional) Cursor for pagination                                                 |
+| `[3].limit`        | integer | (optional) Number of results to return                                           |
+| `[3].newest_first` | boolean | (optional) Whether to start the query from the most recent receipts              |
 ! content end
 ! lang-content end
 
@@ -131,12 +133,13 @@ use reqwest::Client;
 use serde_json::{json, Value};
 
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let recipient_address = Address::from_word(b256!("0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045"));
     let start_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_micros()
             .try_into()?;
     let receipts = pod_provider
-            .get_confirmed_receipts(start_time, None)
+            .get_receipts(Some(recipient_address), start_time, None)
             .await?;
     println!("{:?}", receipts);
 
@@ -149,8 +152,9 @@ curl -X POST https://rpc.dev.pod.network \
     -H "Content-Type: application/json" \
     -d '{
         "jsonrpc": "2.0",
-        "method": "pod_listConfirmedReceipts",
+        "method": "pod_listAccountReceipts",
         "params": {
+            "address": "0x13791790Bef192d14712D627f13A55c4ABEe52a4",
             "since": 0
         },
         "id": 1
@@ -165,8 +169,9 @@ await fetch('https://rpc.dev.pod.network/', {
 	},
 	body: JSON.stringify({
 		jsonrpc: '2.0',
-		method: 'pod_listConfirmedReceipts',
+		method: 'pod_listAccountReceipts',
 		params: {
+			address: '0x13791790Bef192d14712D627f13A55c4ABEe52a4',
 			since: 0
 		},
 		id: 1
