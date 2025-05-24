@@ -1,10 +1,10 @@
-! content id="eth_subscribe"
+! content id="eth_subscribe_logs"
 
 ! lang-tab
 
-## Subscribe
+## Subscribe Logs
 
-Creates a subscription for specific events. This endpoint streams the new events, for historical data use the other endpoints (pod_receipts, pod_pastPerfectTime, eth_getLogs). Each subscription type has different parameter requirements.
+Creates a subscription for logs. This endpoint streams the new events, for historical logs use the other endpoints eth_getLogs. Each subscription type has different parameter requirements.
 
 ### Parameters
 
@@ -23,7 +23,7 @@ Creates a subscription for specific events. This endpoint streams the new events
 ! content
 | Parameter | Type   | Description                                                                                                 |
 | --------- | ------ | ----------------------------------------------------------------------------------------------------------- |
-| `[0]`     | string | Subscription type (required): `logs`, `pod_receipts`, `pod_pastPerfectTime`                                  |
+| `[0]`     | string | Subscription type (required): `logs`                                                                        |
 | `[1]`     | object | Parameters object (varies by subscription type)                                                             |
 ! content end
 ! lang-content end
@@ -32,7 +32,7 @@ Creates a subscription for specific events. This endpoint streams the new events
 ! content
 | Parameter | Type   | Description                                                                                                 |
 | --------- | ------ | ----------------------------------------------------------------------------------------------------------- |
-| `[0]`     | string | Subscription type (required): `logs`, `pod_receipts`, `pod_pastPerfectTime`                                  |
+| `[0]`     | string | Subscription type (required): `logs`                                                                        |
 | `[1]`     | object | Parameters object (varies by subscription type)                                                             |
 ! content end
 ! lang-content end
@@ -41,35 +41,20 @@ Creates a subscription for specific events. This endpoint streams the new events
 
 ### Subscription Types and Parameters:
 
+
+
 ! lang-content lang="rust"
 ! content
-
-! codeblock title="logs"
-
 ```rust
 let account = Address::from_str("0xbabebabebabe0000000000000000000000000000")?;
 let topic = U256::from_str(&account.to_string())?;
 let filter = Filter::new().address(contract_address).topic2(topic);
 ```
-
-! codeblock end
-
-! codeblock title="pod_receipts"
-
-```rust
-let account = Address::from_str("0xbabebabebabe0000000000000000000000000000")?;
-let since = 1687245924000000u64;
-```
-! codeblock end
-
 ! content end
 ! lang-content end
 
 ! lang-content lang="js"
 ! content
-
-! codeblock title="logs"
-
 ```json
 {
 	"address": "0x1234567890123456789012345678901234567890",
@@ -79,36 +64,11 @@ let since = 1687245924000000u64;
 	"minAttestations": 3
 }
 ```
-
-! codeblock end
-
-! codeblock title="pod_accountReceipts"
-
-```json
-{
-	"address": "0x13791790Bef192d14712D627f13A55c4ABEe52a4",
-	"since": 1687245924000000 // Timestamp in microseconds
-}
-```
-
-! codeblock end
-
-! codeblock title="pod_pastPerfectTime"
-
-```bash
-1687245924000000 // Timestamp in microseconds
-```
-
-! codeblock end
-
 ! content end
 ! lang-content end
 
 ! lang-content lang="bash"
 ! content
-
-! codeblock title="logs"
-
 ```json
 {
 	"address": "0x1234567890123456789012345678901234567890",
@@ -118,28 +78,6 @@ let since = 1687245924000000u64;
 	"minAttestations": 3
 }
 ```
-
-! codeblock end
-
-! codeblock title="pod_accountReceipts"
-
-```json
-{
-	"address": "0x13791790Bef192d14712D627f13A55c4ABEe52a4",
-	"since": 1687245924000000 // Timestamp in microseconds
-}
-```
-
-! codeblock end
-
-! codeblock title="pod_pastPerfectTime"
-
-```bash
-1687245924000000 // Timestamp in microseconds
-```
-
-! codeblock end
-
 ! content end
 ! lang-content end
 
@@ -234,7 +172,15 @@ wscat -c ws://rpc.dev.pod.network \
     -d '{
         "jsonrpc": "2.0",
         "method": "eth_subscribe",
-        "params": ["<subscription_type>", <parameters>],
+        params: [
+    				'logs',
+    				{
+    					address: '0x1234567890123456789012345678901234567890',
+    					topics: ['0x71a5674c44b823bc0df08201dfeb2e8bdf698cd684fd2bbaa79adcf2c99fc186'],
+    					fromBlock: '0x1',
+    					toBlock: 'latest'
+    				}
+    			]
         "id": 1
     }'
 ```
@@ -277,18 +223,6 @@ socket.onclose = () => {
 
 ! codeblock end
 
-! codeblock title="Example Initial Response"
-
-```json
-{
-	"jsonrpc": "2.0",
-	"id": 1,
-	"result": "0xcd0c3e8af590364c09d0fa6a1210faf5"
-}
-```
-
-! codeblock end
-
 ! sticky end
 
 ! content end
@@ -305,8 +239,102 @@ Each subscription type returns different data in its subscription messages.
 
 ! sticky
 
-! codeblock title="logs"
+! codeblock title="Example sub"
 
+! lang-content lang="rust"
+! content
+```rust
+[
+   "MetadataWrappedItem"{
+      "inner":"Log"{
+         "inner":"Log"{
+            "address":0x4cf3f1637bfef1534e56352b6ebaae243af464c3,
+            "data":"LogData"{
+               "topics":[
+                  0xed6e6fdf99cd5e97145c7e59ade93923be1979557a77e639ed95a203c7a8e861,
+                  0x8ceaf286a47379747b8d5afc8eb3f4a835aeb071ddb474375f0e450d59aeb429,
+                  0x00000000000000000000000045d6b2f75d260f8d1a374ac05ff6c5f18d20b01f
+               ],
+               "data":0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000717b227469746c65223a225465737420506f7374207769746820457861637420476173222c22636f6e74656e74223a2254657374696e6720636f6e74726163742063616c6c20776974682065786163742066756e6473222c22637265617465644174223a313732353030303030303030307d000000000000000000000000000000
+            }
+         },
+         "block_hash":Some(0x0000000000000000000000000000000000000000000000000000000000000000),
+         "block_number":Some(0),
+         "block_timestamp":Some(1747904645),
+         "transaction_hash":Some(0x580dce63e15644c63e3990c2259bffdc3a9e0720e15db0c51c5cf9ea77b0e848),
+         "transaction_index":Some(0),
+         "log_index":Some(0),
+         "removed":false
+      },
+      "pod_metadata":"PodLogMetadata"{
+         "attestations":[
+            "TimestampedHeadlessAttestation"{
+               "timestamp":Timestamp(1747904645194243),
+               "public_key":AddressECDSA(0x7d5761b7b49fc7bfdd499e3ae908a4acfe0807e6),
+               "signature":SignatureECDSA(ac9be38323d88ad8b72d9654fd795fe2807e2f2adac921721ce25e2d24fb3b274a2b68926adb74f5e4874183a393138b571123616bce02295c3efa011cac000b1c)
+            },
+            "TimestampedHeadlessAttestation"{
+               "timestamp":Timestamp(1747904645194208),
+               "public_key":AddressECDSA(0xd64c0a2a1bae8390f4b79076ceae7b377b5761a3),
+               "signature":SignatureECDSA(761f4d570e3fc1a31862370f465bfde6a7bed9633e00621692b17f9706b44ca43ecc016d97bce2679e735ec8f114871f228119b6a97891532d1f143d89d9427b1c)
+            },
+            "TimestampedHeadlessAttestation"{
+               "timestamp":Timestamp(1747904645194346),
+               "public_key":AddressECDSA(0x06ad294f74dc98be290e03797e745cf0d9c03da2),
+               "signature":SignatureECDSA(d32e73c69e49d90fd21d56471deabd030d5aed7bf2a39b790f3cbd3bbe02b113239c44c92968b7af8badeb87ce38afc52bce2be412a4b630bc0363de36d343731b)
+            },
+            "TimestampedHeadlessAttestation"{
+               "timestamp":Timestamp(1747904645193980),
+               "public_key":AddressECDSA(0x8646d958225301a00a6cb7b6609fa23bab87da7c),
+               "signature":SignatureECDSA(1c2263212163167988f126e5e22b0eed50af2561e1c3b7fc838a1ffec10ed0a449f903ac994d1bb9c15e0cf67cae3caa3256753993222f8ccc15434e3f52b68a1b)
+            }
+         ],
+         "receipt":"Receipt"{
+            "status":true,
+            "actual_gas_used":72943,
+            "logs":[
+               "Log"{
+                  "address":0x4cf3f1637bfef1534e56352b6ebaae243af464c3,
+                  "data":"LogData"{
+                     "topics":[
+                        0xed6e6fdf99cd5e97145c7e59ade93923be1979557a77e639ed95a203c7a8e861,
+                        0x8ceaf286a47379747b8d5afc8eb3f4a835aeb071ddb474375f0e450d59aeb429,
+                        0x00000000000000000000000045d6b2f75d260f8d1a374ac05ff6c5f18d20b01f
+                     ],
+                     "data":0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000717b227469746c65223a225465737420506f7374207769746820457861637420476173222c22636f6e74656e74223a2254657374696e6720636f6e74726163742063616c6c20776974682065786163742066756e6473222c22637265617465644174223a313732353030303030303030307d000000000000000000000000000000
+                  }
+               }
+            ],
+            "logs_root":0x5f0f8029d888373b24b3543b4cc37143961770c20f753e026cd54e1a6c0492e6,
+            "tx":"Signed"{
+               "signed":"TxLegacy"{
+                  "chain_id":Some(1293),
+                  "nonce":0,
+                  "gas_price":1000000000,
+                  "gas_limit":72943,
+                  "to":Call(0x4cf3f1637bfef1534e56352b6ebaae243af464c3),
+                  "value":0,
+                  "input":0xdfbaa2fb000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000717b227469746c65223a225465737420506f7374207769746820457861637420476173222c22636f6e74656e74223a2254657374696e6720636f6e74726163742063616c6c20776974682065786163742066756e6473222c22637265617465644174223a313732353030303030303030307d000000000000000000000000000000
+               },
+               "signature":"PrimitiveSignature"{
+                  "y_parity":true,
+                  "r":56763389657353304422166881749384798948604480141505526760079464105140389284767,
+                  "s":25976622952547024465840204005188821148002320847533035480551040625899498850022
+               },
+               "signer":0x45d6b2f75d260f8d1a374ac05ff6c5f18d20b01f,
+               "_private":"()"
+            },
+            "contract_address":"None"
+         }
+      }
+   }
+]
+```
+! content end
+! lang-content end
+
+! lang-content lang="js"
+! content
 ```json
 {
 	"jsonrpc": "2.0",
@@ -339,11 +367,11 @@ Each subscription type returns different data in its subscription messages.
 	}
 }
 ```
+! content end
+! lang-content end
 
-! codeblock end
-
-! codeblock title="pod_accountReceipts and pod_confirmedReceipts"
-
+! lang-content lang="bash"
+! content
 ```json
 {
 	"jsonrpc": "2.0",
@@ -351,56 +379,33 @@ Each subscription type returns different data in its subscription messages.
 	"params": {
 		"subscription": "0xcd0c3e8af590364c09d0fa6a1210faf5",
 		"result": {
-			"certified": {
-				"actual_gas_used": 21000,
-				"logs": [],
-				"status": true,
-				"tx": {
-					"signature": {
-						"r": "0x23feb2e5d0d64ee34aa10b4140a321452ba3306a51ce562b1fcf218d041ca8ab",
-						"s": "0x7d62195ff365ec9887729675e2dbccb7c4127fe2e90717de3f61eb9f4b541d5d",
-						"v": "0x1",
-						"yParity": "0x1"
-					},
-					"signed": {
-						"call_data": "",
-						"gas_limit": 300000,
-						"gas_price": 1,
-						"nonce": 0,
-						"to": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-						"value": "0xde0b6b3a7640000"
-					},
-					"signer": "0xb8aa43999c2b3cbb10fbe2092432f98d8f35dcd7"
-				}
-			},
-			"signatures": [
-				{
-					"r": "0x52ca8bbfe8cda5060e8ebc001dbdbbf4fa2017ffc4debcfbf19df537cdb2595d",
-					"s": "0x1e8ceee2a6cc129194acccb0013be717836e2ca86d33146dbac67ebfc5495019",
-					"v": "0x1",
-					"yParity": "0x1"
-				}
-			],
-			"tx_hash": "0x4e5a4d444cf0614340425e18fd644d225c06514f933fa3814f4d407778c7859b"
+			"address": "0x1234567890123456789012345678901234567890",
+			"topics": ["0x71a5674c44b823bc0df08201dfeb2e8bdf698cd684fd2bbaa79adcf2c99fc186"],
+			"data": "0x0000000000000000000000000000000000000000000000000000000000000001",
+			"pod_metadata": {
+				"proof": {
+					"generalized_index": "5",
+					"path": [
+						"0x17e9064016f07fc958206a993067e187e4f5d314191a42b92fb30a749c03836d",
+						"0xa9cdde087f3cc534a93b1f728c5108c3f89b4505e07805691e40b0f6d4ffda22"
+					]
+				},
+				"receipt_root": "0xd0180358d6fa534054f22b12235af25558bbdd2d84e26396cae1fbacdc9122bf",
+				"signatures": [
+					{
+						"r": "0xa319f330b99ffd9ae9bf1d26dffc4643e2853d073e1100ef6aeced9b5cf0a5b4",
+						"s": "0xef0980560aaa17c6c107096c494c304e30adf7f4985141ebe17e9c4e7c967bb",
+						"v": "0x0",
+						"yParity": "0x0"
+					}
+				]
+			}
 		}
 	}
 }
 ```
-
-! codeblock end
-
-! codeblock title="pod_pastPerfectTime"
-
-```json
-{
-	"jsonrpc": "2.0",
-	"method": "eth_subscription",
-	"params": {
-		"subscription": "0xcd0c3e8af590364c09d0fa6a1210faf5",
-		"result": "0x67505ef7"
-	}
-}
-```
+! content end
+! lang-content end
 
 ! codeblock end
 
@@ -412,11 +417,37 @@ Each subscription type returns different data in its subscription messages.
 
 ### Error Handling
 
+! lang-content lang="rust"
+! content
+| Error Variant           | Description                                                                 |
+|-------------------------|-----------------------------------------------------------------------------|
+| `MissingBatchResponse(Id)` | Response for a batch request is missing; includes the missing request ID     |
+| `BackendGone`           | The backend connection task has stopped                                     |
+| `PubsubUnavailable`     | The provider does not support pubsub (e.g., HTTP instead of WebSocket)      |
+| `HttpError(HttpError)`  | Underlying HTTP error during transport (e.g., timeout, status code error)   |
+| `Custom(Box<dyn Error>)`| A custom transport-layer error                                               |
+! content end
+! lang-content end
+
+! lang-content lang="json"
+! content
 | Error Code | Message                             | Description                                              |
 | ---------- | ----------------------------------- | -------------------------------------------------------- |
 | -32602     | Invalid subscription type           | The requested subscription type is not supported         |
 | -32602     | Invalid parameters for subscription | The parameters provided for the subscription are invalid |
 | -32602     | Missing required parameters         | Required parameters for the subscription are missing     |
+! content end
+! lang-content end
+
+! lang-content lang="bash"
+! content
+| Error Code | Message                             | Description                                              |
+| ---------- | ----------------------------------- | -------------------------------------------------------- |
+| -32602     | Invalid subscription type           | The requested subscription type is not supported         |
+| -32602     | Invalid parameters for subscription | The parameters provided for the subscription are invalid |
+| -32602     | Missing required parameters         | Required parameters for the subscription are missing     |
+! content end
+! lang-content end
 
 ! content end
 
@@ -431,7 +462,7 @@ Each subscription type returns different data in its subscription messages.
 	"jsonrpc": "2.0",
 	"error": {
 		"code": -32602,
-		"message": "invalid parameters, expected [\"pod_accountReceipts\", {\"address\": <address>, \"since\": <since>}]"
+		"message": "invalid parameters, expected [\"eth_getLogs\", {\"address\": <address>, \"since\": <since>}]"
 	},
 	"id": 1
 }

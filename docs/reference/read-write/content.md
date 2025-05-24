@@ -32,7 +32,8 @@ toc:
   eth_getTransactionCount: Get Transaction Count
   eth_getTransactionReceipt: Get Transaction Receipt
   eth_sendRawTransaction: Send Raw Transaction
-  eth_subscribe: Subscribe
+  eth_subscribe_logs: Subscribe Logs
+  eth_subscribe_receipts: Subscribe Receipts
   pod_getCommittee: Get Committee
   pod_listReceipts: List Receipts
   security-considerations: Security Considerations
@@ -89,7 +90,9 @@ toc:
 
 ! import ./eth_sendRawTransaction.md
 
-! import ./eth_subscribe.md
+! import ./eth_subscribe_logs.md
+
+! import ./eth_subscribe_receipts.md
 
 ! import ./pod_getCommittee.md
 
