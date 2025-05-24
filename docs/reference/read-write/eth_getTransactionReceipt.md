@@ -57,7 +57,7 @@ Returns the receipt of a transaction by transaction hash.
 ! content
 | Key            | Type                                      | Description                                 |
 |----------------|-------------------------------------------|---------------------------------------------|
-| `receipt`      | `alloy_rpc_types_eth::transaction::receipt` | Standard Ethereum transaction receipt       |
+| `receipt`      | `receipt` | Standard Ethereum transaction receipt       |
 | `pod_metadata` | `PodMetadata`                             | Additional metadata for the receipt         |
 |                | └─ `attestations` | `Vec<AttestationData>`               | List of attestation data                   |
 |                | └─ `transaction`  | `Signed<TxLegacy>`                   | Signed transaction object                  |
