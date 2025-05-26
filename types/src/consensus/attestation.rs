@@ -1,14 +1,14 @@
 use alloy_sol_types::SolValue;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
+    Receipt, Signed, Timestamp, Transaction,
     cryptography::{
         ecdsa::{AddressECDSA, SignatureECDSA},
-        hash::{hash, Hash, Hashable},
+        hash::{Hash, Hashable, hash},
         signer::UncheckedSigned,
     },
     ledger::receipt::UncheckedReceipt,
-    Receipt, Signed, Timestamp, Transaction,
 };
 
 pub type TransactionAttestation = Attestation<Signed<Transaction>>;

@@ -1,7 +1,7 @@
 use alloy_pubsub::PubSubFrontend;
 use alloy_rpc_types::Filter;
 use alloy_sol_types::SolEvent;
-use alloy_transport::Transport;
+use alloy_transport::{BoxTransport, Transport};
 use dotenv::dotenv;
 
 use alloy_network::{Ethereum, EthereumWallet, Network, ReceiptResponse};
@@ -19,7 +19,7 @@ use anyhow::{anyhow, Result};
 use pod_examples_solidity::auction::Auction::{self, AuctionInstance, BidSubmitted};
 use pod_sdk::{
     network::PodNetwork,
-    provider::{PodProviderBuilder, PodProviderExt},
+    provider::{PodProvider, PodProviderBuilder},
     Provider, ProviderBuilder, U256,
 };
 
@@ -38,17 +38,20 @@ use reqwest::Client;
 
 use std::{env, str::FromStr, thread::sleep, time::Duration};
 
-type PodProviderType = FillProvider<
-    JoinFill<
+type PodProviderType = PodProvider<
+    FillProvider<
         JoinFill<
-            alloy_provider::Identity,
-            JoinFill<GasFiller, JoinFill<NonceFiller, ChainIdFiller>>,
+            JoinFill<
+                alloy_provider::Identity,
+                JoinFill<GasFiller, JoinFill<NonceFiller, ChainIdFiller>>,
+            >,
+            WalletFiller<EthereumWallet>,
         >,
-        WalletFiller<EthereumWallet>,
+        RootProvider<BoxTransport, PodNetwork>,
+        BoxTransport,
+        PodNetwork,
     >,
-    RootProvider<PubSubFrontend, PodNetwork>,
-    PubSubFrontend,
-    PodNetwork,
+    BoxTransport,
 >;
 
 type AuctionContractType = AuctionInstance<
@@ -97,9 +100,9 @@ type ConsumerContractType = PodAuctionConsumerInstance<
     >,
 >;
 
-struct AuctionClient {
-    pod_provider: PodProviderType,
-    auction_contract: AuctionContractType,
+struct AuctionClient<T: Provider<BoxTransport, PodNetwork>> {
+    pod_provider: PodProvider<T, BoxTransport>,
+    auction_contract: AuctionInstance<PubSubFrontend, T, PodNetwork>,
     consumer_provider: ConsumerProviderType,
     consumer_contract: ConsumerContractType,
 }
@@ -127,7 +130,7 @@ fn get_certifierd_log(log: &VerifiableLog) -> Result<CertifiedLog> {
     })
 }
 
-impl AuctionClient {
+impl<T: Provider<BoxTransport, PodNetwork>> AuctionClient<T> {
     pub async fn new(
         pod_rpc_url: String,
         consumer_rpc_url: String,
@@ -137,12 +140,9 @@ impl AuctionClient {
     ) -> Result<Self> {
         let wallet = EthereumWallet::from(signer);
 
-        let ws_connect = WsConnect::new(pod_rpc_url);
-
-        let pod_provider = PodProviderBuilder::new()
-            .with_recommended_fillers()
+        let pod_provider = PodProviderBuilder::with_recommended_settings()
             .wallet(wallet.clone())
-            .on_ws(ws_connect)
+            .on_url(pod_rpc_url)
             .await?;
 
         let auction_contract = Auction::new(auction_contract_address, pod_provider.clone());

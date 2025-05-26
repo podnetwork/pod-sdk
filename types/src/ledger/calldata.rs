@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
-use crate::{cryptography::merkle_tree::MerkleBuilder, Hashable, Merkleizable};
+use crate::{Hashable, Merkleizable, cryptography::merkle_tree::MerkleBuilder};
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct CallData(

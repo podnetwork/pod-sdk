@@ -84,7 +84,6 @@ impl VerifiableLog {
             signatures: self
                 .pod_metadata
                 .attestations
-                .clone()
                 .iter()
                 .map(|att| att.signature)
                 .collect(),

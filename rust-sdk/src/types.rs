@@ -1,11 +1,11 @@
 pub use alloy_consensus::TxLegacy;
 pub use alloy_primitives::U256;
 
-pub use alloy_primitives::{Address, Bytes, TxKind, B256 as Hash};
+pub use alloy_primitives::{Address, B256 as Hash, Bytes, TxKind};
 
 pub use pod_types::{
-    consensus::attestation::HeadlessAttestation, cryptography::ecdsa::SignatureECDSA, Certificate,
-    Receipt,
+    Certificate, Receipt, consensus::attestation::HeadlessAttestation,
+    cryptography::ecdsa::SignatureECDSA,
 };
 
 /// Hypothetical Chain IDs supported by POD
