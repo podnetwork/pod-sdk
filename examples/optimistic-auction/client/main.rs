@@ -1,4 +1,3 @@
-use alloy_pubsub::PubSubFrontend;
 use alloy_rpc_types::Filter;
 use alloy_sol_types::SolEvent;
 use alloy_transport::{BoxTransport, Transport};
@@ -10,7 +9,7 @@ use alloy_provider::{
     fillers::{
         BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
     },
-    Identity, RootProvider, WsConnect,
+    Identity, RootProvider,
 };
 use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::Http;
