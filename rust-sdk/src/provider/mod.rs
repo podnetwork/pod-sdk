@@ -205,18 +205,6 @@ where
             transport: std::marker::PhantomData::<T>,
         }
     }
-}
-
-impl<T> PodProvider<T>
-where
-    T: Transport + Clone,
-{
-    // }
-    // pub trait PodProviderExt: Provider {
-    //
-    //     pub async fn get_committee(&self) -> TransportResult<Committee> {
-    //
-    //         impl<P, T> PodProviderExt for PodProvider<P>
 
     /// Gets the current committee members
     pub async fn get_committee(&self) -> TransportResult<Committee> {
