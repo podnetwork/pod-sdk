@@ -8,9 +8,9 @@ use crate::network::{PodNetwork, PodTransactionRequest};
 use alloy_json_rpc::{RpcParam, RpcReturn};
 use alloy_network::{Network, TransactionBuilder};
 use alloy_provider::{
+    fillers::{JoinFill, RecommendedFillers, TxFiller, WalletFiller},
     Identity, PendingTransactionBuilder, Provider, ProviderBuilder, ProviderLayer, RootProvider,
     SendableTx,
-    fillers::{JoinFill, RecommendedFillers, TxFiller, WalletFiller},
 };
 use alloy_pubsub::Subscription;
 use async_trait::async_trait;
@@ -24,7 +24,7 @@ use pod_types::{
     pagination::{ApiPaginatedResult, CursorPaginationRequest},
 };
 
-use alloy_primitives::{Address, B256 as Hash, Log, U256};
+use alloy_primitives::{Address, Log, B256 as Hash, U256};
 
 use pod_types::Timestamp;
 use serde::{Deserialize, Serialize};
