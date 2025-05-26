@@ -123,11 +123,11 @@ contract HashChallenge {
             challenge.reward - challenge.rewardedAmount >= refundAmount + challenge.refundedAmount,
             "Cannot refund more than the amount remaining after claiming"
         );
+        challenge.refundedAmount += refundAmount;
 
         (bool refundSuccess,) = challenge.challenger.call{value: refundAmount}("");
         require(refundSuccess, "Refund failed");
 
-        challenge.refundedAmount += refundAmount;
         emit ChallengeRefunded(challengeId, refundAmount);
     }
 
