@@ -38,39 +38,6 @@ use reqwest::Client;
 
 use std::{env, str::FromStr, thread::sleep, time::Duration};
 
-type PodProviderType = PodProvider<
-    FillProvider<
-        JoinFill<
-            JoinFill<
-                alloy_provider::Identity,
-                JoinFill<GasFiller, JoinFill<NonceFiller, ChainIdFiller>>,
-            >,
-            WalletFiller<EthereumWallet>,
-        >,
-        RootProvider<BoxTransport, PodNetwork>,
-        BoxTransport,
-        PodNetwork,
-    >,
-    BoxTransport,
->;
-
-type AuctionContractType = AuctionInstance<
-    PubSubFrontend,
-    FillProvider<
-        JoinFill<
-            JoinFill<
-                alloy_provider::Identity,
-                JoinFill<GasFiller, JoinFill<NonceFiller, ChainIdFiller>>,
-            >,
-            WalletFiller<EthereumWallet>,
-        >,
-        RootProvider<PubSubFrontend, PodNetwork>,
-        PubSubFrontend,
-        PodNetwork,
-    >,
-    PodNetwork,
->;
-
 type ConsumerProviderType = FillProvider<
     JoinFill<
         JoinFill<
@@ -100,9 +67,9 @@ type ConsumerContractType = PodAuctionConsumerInstance<
     >,
 >;
 
-struct AuctionClient<T: Provider<BoxTransport, PodNetwork>> {
-    pod_provider: PodProvider<T, BoxTransport>,
-    auction_contract: AuctionInstance<PubSubFrontend, T, PodNetwork>,
+struct AuctionClient {
+    pod_provider: PodProvider<BoxTransport>,
+    auction_contract: AuctionInstance<BoxTransport, PodProvider<BoxTransport>, PodNetwork>,
     consumer_provider: ConsumerProviderType,
     consumer_contract: ConsumerContractType,
 }
@@ -130,7 +97,7 @@ fn get_certifierd_log(log: &VerifiableLog) -> Result<CertifiedLog> {
     })
 }
 
-impl<T: Provider<BoxTransport, PodNetwork>> AuctionClient<T> {
+impl AuctionClient {
     pub async fn new(
         pod_rpc_url: String,
         consumer_rpc_url: String,

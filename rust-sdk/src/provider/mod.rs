@@ -77,7 +77,7 @@ impl<L, F> PodProviderBuilder<L, F> {
     pub async fn on_url<U: AsRef<str>>(
         self,
         url: U,
-    ) -> Result<PodProvider<impl Provider<BoxTransport, PodNetwork>, BoxTransport>, TransportError>
+    ) -> Result<PodProvider<BoxTransport>, TransportError>
     where
         L: ProviderLayer<RootProvider<BoxTransport, PodNetwork>, BoxTransport, PodNetwork>,
         F: TxFiller<PodNetwork> + ProviderLayer<L::Provider, BoxTransport, PodNetwork>,
@@ -98,9 +98,7 @@ impl<L, F> PodProviderBuilder<L, F> {
     /// - POD_PRIVATE_KEY: hex-encoded ECDSA private key of the wallet owner
     /// - POD_RPC_URL: URL for a pod RPC API (example: <https://rpc.dev.pod.network>)
     ///   (default: ws://127.0.0.1:8545)
-    pub async fn from_env(
-        self,
-    ) -> anyhow::Result<PodProvider<impl Provider<BoxTransport, PodNetwork>, BoxTransport>>
+    pub async fn from_env(self) -> anyhow::Result<PodProvider<BoxTransport>>
     where
         L: ProviderLayer<RootProvider<BoxTransport, PodNetwork>, BoxTransport, PodNetwork>,
         F: TxFiller<PodNetwork> + ProviderLayer<L::Provider, BoxTransport, PodNetwork> + 'static,
@@ -133,19 +131,17 @@ impl<L, F> PodProviderBuilder<L, F> {
 
 /// A provider tailored for pod, extending capabilities of alloy [Provider]
 /// with pod-specific features.
-pub struct PodProvider<P, T>
+pub struct PodProvider<T>
 where
     T: Transport + Clone,
-    P: Provider<T, PodNetwork>,
 {
-    inner: Arc<P>,
+    inner: Arc<dyn Provider<T, PodNetwork>>,
     transport: std::marker::PhantomData<T>,
 }
 
-impl<P, T> Clone for PodProvider<P, T>
+impl<T> Clone for PodProvider<T>
 where
     T: Transport + Clone,
-    P: Provider<T, PodNetwork>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -157,10 +153,9 @@ where
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl<P, T> Provider<T, PodNetwork> for PodProvider<P, T>
+impl<T> Provider<T, PodNetwork> for PodProvider<T>
 where
     T: Transport + Clone,
-    P: Provider<T, PodNetwork>,
 {
     fn root(&self) -> &RootProvider<T, PodNetwork> {
         self.inner.root()
@@ -199,19 +194,29 @@ pub enum LogVerificationError {
     #[error("invalid receipt response")]
     InvalidReceiptResponse,
 }
-
-impl<P, T> PodProvider<P, T>
+impl<T> PodProvider<T>
 where
     T: Transport + Clone,
-    P: Provider<T, PodNetwork>,
 {
     /// Create a new [PodProvider] using the underlying alloy [Provider].
-    pub fn new(provider: P) -> Self {
+    pub fn new(provider: impl Provider<T, PodNetwork> + 'static) -> Self {
         Self {
             inner: Arc::new(provider),
             transport: std::marker::PhantomData::<T>,
         }
     }
+}
+
+impl<T> PodProvider<T>
+where
+    T: Transport + Clone,
+{
+    // }
+    // pub trait PodProviderExt: Provider {
+    //
+    //     pub async fn get_committee(&self) -> TransportResult<Committee> {
+    //
+    //         impl<P, T> PodProviderExt for PodProvider<P>
 
     /// Gets the current committee members
     pub async fn get_committee(&self) -> TransportResult<Committee> {
