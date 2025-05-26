@@ -59,5 +59,7 @@ The PodAuctionConsumer contract address can be found in the logs when executing 
 
 Now the example can be executed by running
 ```shell
-cargo run
+cargo run -- --iteration <i>
 ```
+
+Where iteration is the i-th time we're executing the program with the same anvil chain running in the background.

@@ -333,9 +333,23 @@ where
     Ok(())
 }
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    // The iteration number we're running to adjust the anvil timestamp
+    #[arg(short, long, default_value_t = 1)]
+    iteration: u64,
+}
+
+const WAITING_PERIOD: u64 = 600;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
+    let args = Args::parse();
+
     let pod_rpc_url = env::var("POD_RPC_URL").expect("POD_RPC_URL must be set");
     let consumer_rpc_url = env::var("CONSUMER_RPC_URL").expect("CONSUMER_RPC_URL must be set");
     let auction_contract_address_str =
@@ -351,15 +365,15 @@ async fn main() -> Result<()> {
     let private_key_2 = env::var("PRIVATE_KEY_2").expect("PRIVATE_KEY_2 must be set");
     let signer_2: PrivateKeySigner = private_key_2.parse()?;
 
-    let now = std::time::SystemTime::now()
+    let now = (std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs()
-        + 1400;
+        .as_secs())
+        + (4 * WAITING_PERIOD * args.iteration);
 
     let deadline = U256::from(now + 5);
 
-    let writing_period_ends = deadline + U256::from(601);
-    let dispute_period_ends = writing_period_ends + U256::from(601);
+    let writing_period_ends = deadline + U256::from(WAITING_PERIOD + 1);
+    let dispute_period_ends = writing_period_ends + U256::from(WAITING_PERIOD + 1);
 
     let data = vec![0x12, 0x34, 0x56];
 
