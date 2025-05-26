@@ -4,7 +4,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{anyhow, Error};
+use anyhow::{Error, anyhow};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]

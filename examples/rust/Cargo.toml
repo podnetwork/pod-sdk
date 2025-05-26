@@ -1,10 +1,32 @@
 [package]
 name = "rust"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [[bin]]
-name = "pod_examples_rust"
-path = "src/main.rs"
+name = "usage"
+path = "src/usage.rs"
+[[bin]]
+name = "watch_account_receipts"
+path = "src/watch_account_receipts.rs"
+[[bin]]
+name = "watch_events"
+path = "src/watch_events.rs"
 
 [dependencies]
+anyhow = "1.0.95"
+futures = "0.3.31"
+pod-types = { path = "../../types" }
+pod-sdk = { path = "../../rust-sdk" }
+pod-examples-solidity = { path = "../solidity/bindings" }
+tokio = { version = "1", features = ["full"] }
+env_logger = "*"
+hex = "0.4.3"
+
+
+[dev-dependencies]
+tokio-test = "0.4.4"
+
+[package.metadata.cargo-shear]
+# tokio-test is used in doctests
+ignored = ["tokio-test"]

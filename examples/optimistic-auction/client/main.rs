@@ -1,7 +1,6 @@
-use alloy_pubsub::PubSubFrontend;
 use alloy_rpc_types::Filter;
 use alloy_sol_types::SolEvent;
-use alloy_transport::Transport;
+use alloy_transport::{BoxTransport, Transport};
 use dotenv::dotenv;
 
 use alloy_network::{Ethereum, EthereumWallet, Network, ReceiptResponse};
@@ -10,7 +9,7 @@ use alloy_provider::{
     fillers::{
         BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
     },
-    Identity, RootProvider, WsConnect,
+    Identity, RootProvider,
 };
 use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::Http;
@@ -19,7 +18,7 @@ use anyhow::{anyhow, Result};
 use pod_examples_solidity::auction::Auction::{self, AuctionInstance, BidSubmitted};
 use pod_sdk::{
     network::PodNetwork,
-    provider::{PodProviderBuilder, PodProviderExt},
+    provider::{PodProvider, PodProviderBuilder},
     Provider, ProviderBuilder, U256,
 };
 
@@ -37,36 +36,6 @@ use pod_optimistic_auction::podauctionconsumer::{
 use reqwest::Client;
 
 use std::{env, str::FromStr, thread::sleep, time::Duration};
-
-type PodProviderType = FillProvider<
-    JoinFill<
-        JoinFill<
-            alloy_provider::Identity,
-            JoinFill<GasFiller, JoinFill<NonceFiller, ChainIdFiller>>,
-        >,
-        WalletFiller<EthereumWallet>,
-    >,
-    RootProvider<PubSubFrontend, PodNetwork>,
-    PubSubFrontend,
-    PodNetwork,
->;
-
-type AuctionContractType = AuctionInstance<
-    PubSubFrontend,
-    FillProvider<
-        JoinFill<
-            JoinFill<
-                alloy_provider::Identity,
-                JoinFill<GasFiller, JoinFill<NonceFiller, ChainIdFiller>>,
-            >,
-            WalletFiller<EthereumWallet>,
-        >,
-        RootProvider<PubSubFrontend, PodNetwork>,
-        PubSubFrontend,
-        PodNetwork,
-    >,
-    PodNetwork,
->;
 
 type ConsumerProviderType = FillProvider<
     JoinFill<
@@ -98,8 +67,8 @@ type ConsumerContractType = PodAuctionConsumerInstance<
 >;
 
 struct AuctionClient {
-    pod_provider: PodProviderType,
-    auction_contract: AuctionContractType,
+    pod_provider: PodProvider<BoxTransport>,
+    auction_contract: AuctionInstance<BoxTransport, PodProvider<BoxTransport>, PodNetwork>,
     consumer_provider: ConsumerProviderType,
     consumer_contract: ConsumerContractType,
 }
@@ -137,12 +106,9 @@ impl AuctionClient {
     ) -> Result<Self> {
         let wallet = EthereumWallet::from(signer);
 
-        let ws_connect = WsConnect::new(pod_rpc_url);
-
-        let pod_provider = PodProviderBuilder::new()
-            .with_recommended_fillers()
+        let pod_provider = PodProviderBuilder::with_recommended_settings()
             .wallet(wallet.clone())
-            .on_ws(ws_connect)
+            .on_url(pod_rpc_url)
             .await?;
 
         let auction_contract = Auction::new(auction_contract_address, pod_provider.clone());
@@ -367,9 +333,23 @@ where
     Ok(())
 }
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    // The iteration number we're running to adjust the anvil timestamp
+    #[arg(short, long, default_value_t = 1)]
+    iteration: u64,
+}
+
+const WAITING_PERIOD: u64 = 600;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
+    let args = Args::parse();
+
     let pod_rpc_url = env::var("POD_RPC_URL").expect("POD_RPC_URL must be set");
     let consumer_rpc_url = env::var("CONSUMER_RPC_URL").expect("CONSUMER_RPC_URL must be set");
     let auction_contract_address_str =
@@ -385,15 +365,15 @@ async fn main() -> Result<()> {
     let private_key_2 = env::var("PRIVATE_KEY_2").expect("PRIVATE_KEY_2 must be set");
     let signer_2: PrivateKeySigner = private_key_2.parse()?;
 
-    let now = std::time::SystemTime::now()
+    let now = (std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs()
-        + 1400;
+        .as_secs())
+        + (4 * WAITING_PERIOD * args.iteration);
 
     let deadline = U256::from(now + 5);
 
-    let writing_period_ends = deadline + U256::from(601);
-    let dispute_period_ends = writing_period_ends + U256::from(601);
+    let writing_period_ends = deadline + U256::from(WAITING_PERIOD + 1);
+    let dispute_period_ends = writing_period_ends + U256::from(WAITING_PERIOD + 1);
 
     let data = vec![0x12, 0x34, 0x56];
 

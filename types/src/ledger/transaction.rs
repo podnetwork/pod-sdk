@@ -1,4 +1,4 @@
-use alloy_consensus::{transaction::RlpEcdsaTx, SignableTransaction, TxLegacy};
+use alloy_consensus::{SignableTransaction, TxLegacy, transaction::RlpEcdsaTx};
 use alloy_primitives::Address;
 use alloy_sol_types::SolValue;
 

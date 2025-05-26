@@ -1,7 +1,6 @@
-# pod SDK
+# pod sdk
 
-This repository contains the Software Development Kit for the pod Network. 
-It provides a simplified interface for interacting with the pod network.
+This repository contains the Software Development Kit for the pod Network. It provides a simplified interface for interacting with the pod network.
 
 ## Features
 
@@ -90,7 +89,6 @@ Add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
 pod-sdk = "0.1.0"
-```
 
 ## ⚠️ Warning
 
