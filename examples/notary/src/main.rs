@@ -4,7 +4,7 @@ use std::{
 };
 
 use alloy::{primitives::ruint::aliases::U256, sol_types::SolEvent};
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow, ensure};
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
 use pod_sdk::{Address, Hash, alloy_rpc_types::Filter, provider::PodProviderBuilder};
@@ -45,6 +45,10 @@ enum Commands {
         /// Document text to be timestamped.
         /// Will read from stdin if not provided
         document: Option<String>,
+
+        /// Timestamp value. Defaults to current time + 10s
+        #[arg(short, long)]
+        timestamp: Option<humantime::Timestamp>,
     },
     /// Watch timestamping events
     Watch {
@@ -63,7 +67,9 @@ async fn main() -> Result<()> {
             watch(cli.rpc_url, cli.contract_address, from_submitter).await?;
         }
         Commands::GetTimestamp { hash } => {
-            match get_timestamp(cli.rpc_url, cli.contract_address, hash).await? {
+            let hash_bytes = hex::decode(hash.trim_start_matches("0x"))?;
+            let hash = U256::try_from_be_slice(&hash_bytes).unwrap();
+            match get_timestamp(cli.rpc_url, cli.contract_address, hash.into()).await? {
                 Some(timestamp) => {
                     println!("{}", humantime::format_rfc3339(timestamp));
                 }
@@ -75,9 +81,21 @@ async fn main() -> Result<()> {
         Commands::Timestamp {
             private_key,
             document,
+            timestamp: ts,
         } => {
-            let (hash, ts) =
-                timestamp(cli.rpc_url, cli.contract_address, private_key, document).await?;
+            let ts = ts
+                .map(Into::into)
+                .unwrap_or_else(|| SystemTime::now() + Duration::from_secs(10));
+
+            let (hash, ts) = timestamp(
+                cli.rpc_url,
+                cli.contract_address,
+                private_key,
+                document,
+                ts.into(),
+            )
+            .await?;
+
             println!(
                 "timestamped document with hash: {} @ {}",
                 hex::encode(hash.as_slice()),
@@ -135,16 +153,17 @@ async fn timestamp(
     contract_address: Address,
     private_key: String,
     document: Option<String>,
+    timestamp: Timestamp,
 ) -> Result<(Hash, SystemTime)> {
     let pk_bytes = hex::decode(private_key)?;
     let pk = pod_sdk::SigningKey::from_slice(&pk_bytes)?;
 
     let pod_provider = PodProviderBuilder::with_recommended_settings()
         .with_private_key(pk)
-        .on_url(rpc_url)
+        .on_url(&rpc_url)
         .await?;
-    let notary = Notary::new(contract_address, pod_provider);
-    let timestamp = Timestamp::now() + Duration::from_secs(60);
+    let notary = Notary::new(contract_address, pod_provider.clone());
+
     let document_hash = match document {
         Some(doc) => keccak256(doc),
         None => {
@@ -162,13 +181,33 @@ async fn timestamp(
     let receipt = pendix_tx.get_receipt().await?;
     anyhow::ensure!(receipt.status(), "timestamping failed");
 
-    Ok((document_hash, timestamp.into()))
+    // Wait past perfect time to make sure document timestamp
+    // is settled forever.
+    pod_provider
+        .wait_past_perfect_time(timestamp)
+        .await
+        .context("waiting for timestamp settlement")?;
+
+    let got_ts = get_timestamp(rpc_url, contract_address, document_hash)
+        .await
+        .context("getting timestamp")?;
+
+    if let Some(got_ts) = got_ts {
+        ensure!(
+            got_ts == timestamp.into(),
+            "document has an earlier timestamp {} already",
+            humantime::format_rfc3339(got_ts)
+        );
+        Ok((document_hash, got_ts))
+    } else {
+        Err(anyhow!("failed to set timestamp"))
+    }
 }
 
 async fn get_timestamp(
     rpc_url: String,
     contract_address: Address,
-    hash: String,
+    hash: Hash,
 ) -> Result<Option<SystemTime>> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
         .on_url(rpc_url)
@@ -176,9 +215,7 @@ async fn get_timestamp(
 
     let notary = Notary::new(contract_address, pod_provider);
 
-    let hash_bytes = hex::decode(hash.trim_start_matches("0x"))?;
-    let hash = U256::try_from_be_slice(&hash_bytes).unwrap();
-    let timestamp = notary.timestamps(hash.into()).call().await?._0;
+    let timestamp = notary.timestamps(hash).call().await?._0;
     if timestamp.is_zero() {
         return Ok(None);
     }

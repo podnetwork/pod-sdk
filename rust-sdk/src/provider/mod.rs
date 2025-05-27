@@ -247,10 +247,10 @@ where
         self.websocket_subscribe("logs", filter).await
     }
 
-    pub async fn wait_past_perfect_time(&self, timestamp: u64) -> TransportResult<()> {
+    pub async fn wait_past_perfect_time(&self, timestamp: Timestamp) -> TransportResult<()> {
         loop {
             let subscription: Subscription<String> = self
-                .websocket_subscribe("pod_pastPerfectTime", timestamp)
+                .websocket_subscribe("pod_pastPerfectTime", timestamp.as_micros())
                 .await?;
             // returns None if connection closes before a notification was sent
             let first_notification = subscription.into_stream().next().await;
