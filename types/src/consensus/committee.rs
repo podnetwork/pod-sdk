@@ -68,10 +68,7 @@ impl Committee {
         // Recover and validate each signature
         for sig in signatures {
             // Recover the signer's address
-            let recovered_address = match sig.recover_signer(digest.as_slice()) {
-                Ok(addr) => addr,
-                Err(_) => continue, // Skip invalid signatures
-            };
+            let recovered_address = sig.recover_signer(digest.as_slice())?;
 
             // Skip if signer not in committee (treat as invalid signature)
             if !self.is_in_committee(&recovered_address) {
