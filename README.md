@@ -8,15 +8,13 @@ This repository contains the Software Development Kit for the pod Network. It pr
 - Transaction creation and submission
 - Receipt verification
 - Event subscription and verification
-- Committee-based consensus verification
+- Lightclient support for verifying transactions and events  
 
 ## Repository Structure
-
-The pod ecosystem is divided into several repositories:
-
-- **pod sdk** (this repository): Client-side tools for interacting with the pod network
-- **pod types**: The main implementation of the pod validator types
-- **pod contracts**: Smart contracts powering the pod ecosystem
+- **rust-sdk/**: Custom alloy provider to support pod-specific features.
+- **solidity-sdk/**: Solidity contracts to build a verifying pod client. 
+- **examples**: Example contracts and scripts to demonstrate the SDK usage. 
+- **types**: Common types.
 
 ## Key Types
 
@@ -41,7 +39,7 @@ async fn main() -> Result<()> {
     let wallet = EthereumWallet::new(PrivateKeySigner::random());
     let ws_url = "ws://127.0.0.1:8546".parse()?;
 
-    // Connect to a POD node
+    // Connect to a pod node
     let provider = PodProviderBuilder::new()
         .wallet(wallet)
         .on_ws(ws_url)
@@ -91,41 +89,6 @@ Add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
 pod-sdk = "0.1.0"
-```
-
-## Using with Contracts
-
-The SDK works seamlessly with contract bindings from the pod contracts repository:
-
-```rust
-use pod_sdk::PodProvider;
-use pod_contracts::auction::Auction;
-
-async fn interact_with_auction(provider: &PodProvider, auction_address: Address) -> Result<()> {
-    // Create a contract instance
-    let auction = Auction::new(auction_address, provider.clone());
-
-    // Call view functions
-    let highest_bid = auction.highest_bid().call().await?;
-    println!("Highest bid: {}", highest_bid);
-
-    // Submit transactions
-    let tx = auction.bid().value(amount).send().await?;
-    println!("Bid submitted with hash: {:?}", tx.tx_hash());
-
-    // Wait for receipt
-    let receipt = tx.get_receipt().await?;
-    println!("Transaction confirmed: {:?}", receipt);
-
-    // Listen for events
-    let events = auction.events().bid_submitted().query().await?;
-    for event in events {
-        println!("Bid submitted by: {:?}, amount: {}", event.bidder, event.amount);
-    }
-
-    Ok(())
-}
-```
 
 ## ⚠️ Warning
 

@@ -39,10 +39,7 @@ jobs:
       run: cargo test --verbose
 
   contracts:
-    strategy:
-      fail-fast: true
-
-    name: contracts 
+    name: examples-solidity 
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,13 +56,13 @@ jobs:
       - name: Run Forge fmt
         run: |
           forge fmt --check
-        working-directory: contracts
+        working-directory: examples/solidity 
         id: fmt
 
       - name: Run Forge build
         run: |
           forge build --sizes
-        working-directory: contracts
+        working-directory: examples/solidity
         id: build
 
       # Uncomment this once we have a test suite for contracts
@@ -77,7 +74,85 @@ jobs:
 
       - name: Check bindings
         run: |
-          forge bind --crate-name pod-contracts --bindings-path ./bindings --alloy-version 0.9.2 --force --no-metadata;
-        working-directory: contracts
+          forge bind --crate-name pod-examples-solidity --bindings-path ./bindings --alloy-version 0.9.2 --force --no-metadata
+        working-directory: examples/solidity
         id: bindings
       
+  solidity-sdk:
+    name: solidity-sdk 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: |
+          forge --version
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        id: fmt
+        working-directory: solidity-sdk
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        id: build
+        working-directory: solidity-sdk
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: solidity-sdk
+
+      - name: Check bindings
+        run: |
+          forge bind --crate-name pod-solidity-sdk --bindings-path ./bindings --alloy-version 0.9.2 --force --no-metadata
+        working-directory: solidity-sdk 
+        id: bindings
+
+
+  optimistic-auction:
+    name: optimistic-auction 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: |
+          forge --version
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        id: fmt
+        working-directory: examples/optimistic-auction 
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        id: build
+        working-directory: examples/optimistic-auction 
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: examples/optimistic-auction 
+
+      - name: Check bindings
+        run: |
+          forge bind --crate-name pod-optimistic-auction --bindings-path ./bindings --alloy-version 0.9.2 --force --no-metadata
+        working-directory: examples/optimistic-auction
+        id: bindings

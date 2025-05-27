@@ -1,1 +1,6 @@
-ignore = ["contracts/bindings"]
+ignore = [
+  "examples/solidity/bindings", 
+  "solidity-sdk/bindings", 
+  "examples/optimistic-auction/bindings"
+]
+
