@@ -15,10 +15,13 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: versions
+    - name: install fmt for nightly
+      run: rustup component add rustfmt --toolchain nightly
+
+    - name: Version
       run: |
-        cargo version
-        cargo fmt --version
+        cargo +nightly version
+        cargo +nightly fmt --version
 
     - name: rustfmt check
-      run: cargo fmt --check
+      run: cargo +nightly fmt --check
