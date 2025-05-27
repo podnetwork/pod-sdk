@@ -155,6 +155,7 @@ interface ProfileRegistry {
 pub mod ProfileRegistry {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `HandleUpdated(address,bytes32)` and selector `0x4b8df1bb0e16405b186540fc9d887fe0c5976286be87aea97c186956548c6efb`.
 ```solidity
@@ -270,6 +271,7 @@ event HandleUpdated(address indexed user, bytes32 indexed handle);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `PictureUpdated(address,bytes32)` and selector `0xacbf1b0770c0925c7d13c92ff79c115853d5faabd61509ce8aa766841bc348e4`.
 ```solidity
@@ -385,6 +387,7 @@ event PictureUpdated(address indexed user, bytes32 picture);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getProfile(address)` and selector `0x0f53a470`.
 ```solidity
@@ -396,6 +399,7 @@ function getProfile(address user) external view returns (bytes32 handle, bytes32
         #[allow(missing_docs)]
         pub user: alloy::sol_types::private::Address,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`getProfile(address)`](getProfileCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -527,6 +531,7 @@ function getProfile(address user) external view returns (bytes32 handle, bytes32
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `handles(bytes32)` and selector `0x9e087431`.
 ```solidity
@@ -538,6 +543,7 @@ function handles(bytes32) external view returns (address);
         #[allow(missing_docs)]
         pub _0: alloy::sol_types::private::FixedBytes<32>,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`handles(bytes32)`](handlesCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -655,6 +661,7 @@ function handles(bytes32) external view returns (address);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `resolveHandle(bytes32)` and selector `0x8d531c3d`.
 ```solidity
@@ -666,6 +673,7 @@ function resolveHandle(bytes32 handle) external view returns (address);
         #[allow(missing_docs)]
         pub handle: alloy::sol_types::private::FixedBytes<32>,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`resolveHandle(bytes32)`](resolveHandleCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -783,6 +791,7 @@ function resolveHandle(bytes32 handle) external view returns (address);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setHandle(bytes32)` and selector `0xfd8ff3a3`.
 ```solidity
@@ -907,6 +916,7 @@ function setHandle(bytes32 handle) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setPicture(bytes32)` and selector `0xc9a3b592`.
 ```solidity
@@ -1032,6 +1042,7 @@ function setPicture(bytes32 picture) external;
         }
     };
     ///Container for all the [`ProfileRegistry`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum ProfileRegistryCalls {
         #[allow(missing_docs)]
@@ -1235,6 +1246,7 @@ function setPicture(bytes32 picture) external;
         }
     }
     ///Container for all the [`ProfileRegistry`](self) events.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum ProfileRegistryEvents {
         #[allow(missing_docs)]

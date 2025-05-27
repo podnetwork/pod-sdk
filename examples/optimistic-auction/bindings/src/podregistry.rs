@@ -274,6 +274,7 @@ pub mod PodRegistry {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"`\x80`@R4\x80\x15a\0\x10W`\0\x80\xFD[P`\x046\x10a\0\x9EW`\x005`\xE0\x1C\x80c\x95\x03\xB7\x02\x11a\0fW\x80c\x95\x03\xB7\x02\x14a\x01!W\x80c\x96\x01\xDD\xF9\x14a\x01QW\x80c\xAC\xC1\x01\xBA\x14a\x01\x81W\x80c\xCCh\r\xBB\x14a\x01\x9FW\x80c\xF2\xFD\xE3\x8B\x14a\x01\xBDWa\0\x9EV[\x80c\x0FC\xA6w\x14a\0\xA3W\x80c@\xA1A\xFF\x14a\0\xC1W\x80cM#\x8C\x8E\x14a\0\xDDW\x80cqP\x18\xA6\x14a\0\xF9W\x80c\x8D\xA5\xCB[\x14a\x01\x03W[`\0\x80\xFD[a\0\xABa\x01\xD9V[`@Qa\0\xB8\x91\x90a\t(V[`@Q\x80\x91\x03\x90\xF3[a\0\xDB`\x04\x806\x03\x81\x01\x90a\0\xD6\x91\x90a\t\xB5V[a\x01\xECV[\0[a\0\xF7`\x04\x806\x03\x81\x01\x90a\0\xF2\x91\x90a\t\xB5V[a\x03SV[\0[a\x01\x01a\x05\xB8V[\0[a\x01\x0Ba\x05\xCCV[`@Qa\x01\x18\x91\x90a\t\xF1V[`@Q\x80\x91\x03\x90\xF3[a\x01;`\x04\x806\x03\x81\x01\x90a\x016\x91\x90a\x0BeV[a\x05\xF5V[`@Qa\x01H\x91\x90a\x0B\xC7V[`@Q\x80\x91\x03\x90\xF3[a\x01k`\x04\x806\x03\x81\x01\x90a\x01f\x91\x90a\t\xB5V[a\x06\xDDV[`@Qa\x01x\x91\x90a\t(V[`@Q\x80\x91\x03\x90\xF3[a\x01\x89a\x06\xFDV[`@Qa\x01\x96\x91\x90a\t(V[`@Q\x80\x91\x03\x90\xF3[a\x01\xA7a\x07 V[`@Qa\x01\xB4\x91\x90a\t(V[`@Q\x80\x91\x03\x90\xF3[a\x01\xD7`\x04\x806\x03\x81\x01\x90a\x01\xD2\x91\x90a\t\xB5V[a\x073V[\0[`\x02`\0\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x81V[a\x01\xF4a\x07\xB9V[`\0`\x01`\0\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0\x90T\x90a\x01\0\n\x90\x04`\xFF\x16`\xFF\x16\x03a\x02\x86W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x02}\x90a\x0C?V[`@Q\x80\x91\x03\x90\xFD[`\x01`\0\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0a\x01\0\n\x81T\x90`\xFF\x02\x19\x16\x90U`\x02`\0\x81\x81\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x80\x92\x91\x90a\x02\xF4\x90a\x0C\x8EV[\x91\x90a\x01\0\n\x81T\x81`\xFF\x02\x19\x16\x90\x83`\xFF\x16\x02\x17\x90UPP\x80s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x7F\xE1CN%\xD6a\x1E\r\xB9A\x96\x8F\xDC\x97\x81\x1C\x98*\xC1`.\x95\x167\xD2\x06\xF5\xFD\xDA\x9D\xD8\xF1`@Q`@Q\x80\x91\x03\x90\xA2PV[a\x03[a\x07\xB9V[`\0s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x03a\x03\xCAW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x03\xC1\x90a\r)V[`@Q\x80\x91\x03\x90\xFD[`\0`\x01`\0\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0\x90T\x90a\x01\0\n\x90\x04`\xFF\x16`\xFF\x16\x14a\x04\\W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x04S\x90a\r\x95V[`@Q\x80\x91\x03\x90\xFD[`\xFF`\x02`\x01\x90T\x90a\x01\0\n\x90\x04`\xFF\x16`\xFF\x16\x10a\x04\xB1W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x04\xA8\x90a\x0E\x01V[`@Q\x80\x91\x03\x90\xFD[`\x02`\x01\x81\x81\x90T\x90a\x01\0\n\x90\x04`\xFF\x16a\x04\xCC\x90a\x0E!V[\x91\x90a\x01\0\n\x81T\x81`\xFF\x02\x19\x16\x90\x83`\xFF\x16\x02\x17\x90U`\x01`\0\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0a\x01\0\n\x81T\x81`\xFF\x02\x19\x16\x90\x83`\xFF\x16\x02\x17\x90UP`\x02`\0\x81\x81\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x80\x92\x91\x90a\x05Y\x90a\x0E!V[\x91\x90a\x01\0\n\x81T\x81`\xFF\x02\x19\x16\x90\x83`\xFF\x16\x02\x17\x90UPP\x80s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x7F\xE3f\xC1\xC0E.\xD8\xEE\xC9ha\xE9\xE5AA\xEB\xFF#\xC9\xEC\x89\xFE'\xB9\x96\xB4_^\xC3\x88I\x87`@Q`@Q\x80\x91\x03\x90\xA2PV[a\x05\xC0a\x07\xB9V[a\x05\xCA`\0a\x08@V[V[`\0\x80`\0\x90T\x90a\x01\0\n\x90\x04s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x90P\x90V[`\0\x80`\0\x90P`\0[\x83Q\x81`\xFF\x16\x10\x15a\x06\xD6W`\0`\x01`\0\x86\x84`\xFF\x16\x81Q\x81\x10a\x06'Wa\x06&a\x0EJV[[` \x02` \x01\x01Qs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 `\0\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x90P`\0\x81`\xFF\x16\x03a\x06\x8AWPa\x06\xC3V[`\0`\x01\x82a\x06\x99\x91\x90a\x0EyV[`\xFF\x16`\x01\x90\x1B\x90P`\0\x81\x85\x16\x03a\x06\xC0W\x80\x84\x17\x93P\x84\x80a\x06\xBC\x90a\x0E\xAEV[\x95PP[PP[\x80\x80a\x06\xCE\x90a\x0E!V[\x91PPa\x05\xFFV[PP\x91\x90PV[`\x01` R\x80`\0R`@`\0 `\0\x91PT\x90a\x01\0\n\x90\x04`\xFF\x16\x81V[`\0`\x03`\x02`\0\x90T\x90a\x01\0\n\x90\x04`\xFF\x16a\x07\x1B\x91\x90a\x0F%V[\x90P\x90V[`\x02`\x01\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x81V[a\x07;a\x07\xB9V[`\0s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x03a\x07\xADW`\0`@Q\x7F\x1EO\xBD\xF7\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x07\xA4\x91\x90a\t\xF1V[`@Q\x80\x91\x03\x90\xFD[a\x07\xB6\x81a\x08@V[PV[a\x07\xC1a\t\x04V[s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\x07\xDFa\x05\xCCV[s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x08>Wa\x08\x02a\t\x04V[`@Q\x7F\x11\x8C\xDA\xA7\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x085\x91\x90a\t\xF1V[`@Q\x80\x91\x03\x90\xFD[V[`\0\x80`\0\x90T\x90a\x01\0\n\x90\x04s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x90P\x81`\0\x80a\x01\0\n\x81T\x81s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x02\x19\x16\x90\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x02\x17\x90UP\x81s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x7F\x8B\xE0\x07\x9CS\x16Y\x14\x13D\xCD\x1F\xD0\xA4\xF2\x84\x19I\x7F\x97\"\xA3\xDA\xAF\xE3\xB4\x18okdW\xE0`@Q`@Q\x80\x91\x03\x90\xA3PPV[`\x003\x90P\x90V[`\0`\xFF\x82\x16\x90P\x91\x90PV[a\t\"\x81a\t\x0CV[\x82RPPV[`\0` \x82\x01\x90Pa\t=`\0\x83\x01\x84a\t\x19V[\x92\x91PPV[`\0`@Q\x90P\x90V[`\0\x80\xFD[`\0\x80\xFD[`\0s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[`\0a\t\x82\x82a\tWV[\x90P\x91\x90PV[a\t\x92\x81a\twV[\x81\x14a\t\x9DW`\0\x80\xFD[PV[`\0\x815\x90Pa\t\xAF\x81a\t\x89V[\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\t\xCBWa\t\xCAa\tMV[[`\0a\t\xD9\x84\x82\x85\x01a\t\xA0V[\x91PP\x92\x91PPV[a\t\xEB\x81a\twV[\x82RPPV[`\0` \x82\x01\x90Pa\n\x06`\0\x83\x01\x84a\t\xE2V[\x92\x91PPV[`\0\x80\xFD[`\0`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0`\0R`A`\x04R`$`\0\xFD[a\nZ\x82a\n\x11V[\x81\x01\x81\x81\x10g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x11\x17\x15a\nyWa\nxa\n\"V[[\x80`@RPPPV[`\0a\n\x8Ca\tCV[\x90Pa\n\x98\x82\x82a\nQV[\x91\x90PV[`\0g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x11\x15a\n\xB8Wa\n\xB7a\n\"V[[` \x82\x02\x90P` \x81\x01\x90P\x91\x90PV[`\0\x80\xFD[`\0a\n\xE1a\n\xDC\x84a\n\x9DV[a\n\x82V[\x90P\x80\x83\x82R` \x82\x01\x90P` \x84\x02\x83\x01\x85\x81\x11\x15a\x0B\x04Wa\x0B\x03a\n\xC9V[[\x83[\x81\x81\x10\x15a\x0B-W\x80a\x0B\x19\x88\x82a\t\xA0V[\x84R` \x84\x01\x93PP` \x81\x01\x90Pa\x0B\x06V[PPP\x93\x92PPPV[`\0\x82`\x1F\x83\x01\x12a\x0BLWa\x0BKa\n\x0CV[[\x815a\x0B\\\x84\x82` \x86\x01a\n\xCEV[\x91PP\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\x0B{Wa\x0Bza\tMV[[`\0\x82\x015g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x0B\x99Wa\x0B\x98a\tRV[[a\x0B\xA5\x84\x82\x85\x01a\x0B7V[\x91PP\x92\x91PPV[`\0\x81\x90P\x91\x90PV[a\x0B\xC1\x81a\x0B\xAEV[\x82RPPV[`\0` \x82\x01\x90Pa\x0B\xDC`\0\x83\x01\x84a\x0B\xB8V[\x92\x91PPV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x7Fpod: validator does not exist\0\0\0`\0\x82\x01RPV[`\0a\x0C)`\x1D\x83a\x0B\xE2V[\x91Pa\x0C4\x82a\x0B\xF3V[` \x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x0CX\x81a\x0C\x1CV[\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0`\0R`\x11`\x04R`$`\0\xFD[`\0a\x0C\x99\x82a\t\x0CV[\x91P`\0\x82\x03a\x0C\xACWa\x0C\xABa\x0C_V[[`\x01\x82\x03\x90P\x91\x90PV[\x7Fpod: validator is the zero addre`\0\x82\x01R\x7Fss\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0` \x82\x01RPV[`\0a\r\x13`\"\x83a\x0B\xE2V[\x91Pa\r\x1E\x82a\x0C\xB7V[`@\x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\rB\x81a\r\x06V[\x90P\x91\x90PV[\x7Fpod: validator already exists\0\0\0`\0\x82\x01RPV[`\0a\r\x7F`\x1D\x83a\x0B\xE2V[\x91Pa\r\x8A\x82a\rIV[` \x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\r\xAE\x81a\rrV[\x90P\x91\x90PV[\x7Fpod: max validator count reached`\0\x82\x01RPV[`\0a\r\xEB` \x83a\x0B\xE2V[\x91Pa\r\xF6\x82a\r\xB5V[` \x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x0E\x1A\x81a\r\xDEV[\x90P\x91\x90PV[`\0a\x0E,\x82a\t\x0CV[\x91P`\xFF\x82\x03a\x0E?Wa\x0E>a\x0C_V[[`\x01\x82\x01\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0`\0R`2`\x04R`$`\0\xFD[`\0a\x0E\x84\x82a\t\x0CV[\x91Pa\x0E\x8F\x83a\t\x0CV[\x92P\x82\x82\x03\x90P`\xFF\x81\x11\x15a\x0E\xA8Wa\x0E\xA7a\x0C_V[[\x92\x91PPV[`\0a\x0E\xB9\x82a\x0B\xAEV[\x91P\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x03a\x0E\xEBWa\x0E\xEAa\x0C_V[[`\x01\x82\x01\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0`\0R`\x12`\x04R`$`\0\xFD[`\0a\x0F0\x82a\t\x0CV[\x91Pa\x0F;\x83a\t\x0CV[\x92P\x82a\x0FKWa\x0FJa\x0E\xF6V[[\x82\x82\x04\x90P\x92\x91PPV",
     );
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `OwnableInvalidOwner(address)` and selector `0x1e4fbdf7`.
 ```solidity
@@ -346,6 +347,7 @@ error OwnableInvalidOwner(address owner);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `OwnableUnauthorizedAccount(address)` and selector `0x118cdaa7`.
 ```solidity
@@ -420,6 +422,7 @@ error OwnableUnauthorizedAccount(address account);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `OwnershipTransferred(address,address)` and selector `0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0`.
 ```solidity
@@ -539,6 +542,7 @@ event OwnershipTransferred(address indexed previousOwner, address indexed newOwn
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `ValidatorAdded(address)` and selector `0xe366c1c0452ed8eec96861e9e54141ebff23c9ec89fe27b996b45f5ec3884987`.
 ```solidity
@@ -645,6 +649,7 @@ event ValidatorAdded(address indexed validator);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `ValidatorRemoved(address)` and selector `0xe1434e25d6611e0db941968fdc97811c982ac1602e951637d206f5fdda9dd8f1`.
 ```solidity
@@ -824,6 +829,7 @@ constructor(address[] initialValidators);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `addValidator(address)` and selector `0x4d238c8e`.
 ```solidity
@@ -948,6 +954,7 @@ function addValidator(address validator) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `computeWeight(address[])` and selector `0x9503b702`.
 ```solidity
@@ -959,6 +966,7 @@ function computeWeight(address[] memory subset) external view returns (uint256 w
         #[allow(missing_docs)]
         pub subset: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`computeWeight(address[])`](computeWeightCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -1084,6 +1092,7 @@ function computeWeight(address[] memory subset) external view returns (uint256 w
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getFaultTolerance()` and selector `0xacc101ba`.
 ```solidity
@@ -1092,6 +1101,7 @@ function getFaultTolerance() external view returns (uint8);
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct getFaultToleranceCall {}
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`getFaultTolerance()`](getFaultToleranceCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -1209,6 +1219,7 @@ function getFaultTolerance() external view returns (uint8);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `nextValidatorIndex()` and selector `0xcc680dbb`.
 ```solidity
@@ -1217,6 +1228,7 @@ function nextValidatorIndex() external view returns (uint8);
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct nextValidatorIndexCall {}
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`nextValidatorIndex()`](nextValidatorIndexCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -1334,6 +1346,7 @@ function nextValidatorIndex() external view returns (uint8);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `owner()` and selector `0x8da5cb5b`.
 ```solidity
@@ -1342,6 +1355,7 @@ function owner() external view returns (address);
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct ownerCall {}
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`owner()`](ownerCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -1455,6 +1469,7 @@ function owner() external view returns (address);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `removeValidator(address)` and selector `0x40a141ff`.
 ```solidity
@@ -1581,6 +1596,7 @@ function removeValidator(address validator) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `renounceOwnership()` and selector `0x715018a6`.
 ```solidity
@@ -1702,6 +1718,7 @@ function renounceOwnership() external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `transferOwnership(address)` and selector `0xf2fde38b`.
 ```solidity
@@ -1830,6 +1847,7 @@ function transferOwnership(address newOwner) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `validatorCount()` and selector `0x0f43a677`.
 ```solidity
@@ -1838,6 +1856,7 @@ function validatorCount() external view returns (uint8);
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct validatorCountCall {}
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`validatorCount()`](validatorCountCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -1953,6 +1972,7 @@ function validatorCount() external view returns (uint8);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `validatorIndex(address)` and selector `0x9601ddf9`.
 ```solidity
@@ -1964,6 +1984,7 @@ function validatorIndex(address) external view returns (uint8);
         #[allow(missing_docs)]
         pub _0: alloy::sol_types::private::Address,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`validatorIndex(address)`](validatorIndexCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -2084,6 +2105,7 @@ function validatorIndex(address) external view returns (uint8);
         }
     };
     ///Container for all the [`PodRegistry`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum PodRegistryCalls {
         #[allow(missing_docs)]
@@ -2443,6 +2465,7 @@ function validatorIndex(address) external view returns (uint8);
         }
     }
     ///Container for all the [`PodRegistry`](self) custom errors.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum PodRegistryErrors {
         #[allow(missing_docs)]
@@ -2569,6 +2592,7 @@ function validatorIndex(address) external view returns (uint8);
         }
     }
     ///Container for all the [`PodRegistry`](self) events.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum PodRegistryEvents {
         #[allow(missing_docs)]

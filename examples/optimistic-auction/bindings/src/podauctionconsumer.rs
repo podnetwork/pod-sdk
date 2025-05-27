@@ -16,6 +16,7 @@ library MerkleTree {
 pub mod MerkleTree {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct Proof { bytes32[] path; }
@@ -365,6 +366,7 @@ library PodECDSA {
 pub mod PodECDSA {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct Certificate { CertifiedReceipt certifiedReceipt; bytes32 leaf; MerkleTree.Proof proof; }
@@ -618,6 +620,7 @@ struct Certificate { CertifiedReceipt certifiedReceipt; bytes32 leaf; MerkleTree
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct CertifiedLog { Log log; uint256 logIndex; Certificate certificate; }
@@ -863,6 +866,7 @@ struct CertifiedLog { Log log; uint256 logIndex; Certificate certificate; }
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; }
@@ -1086,6 +1090,7 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; }
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct Log { address addr; bytes32[] topics; bytes data; }
@@ -2176,6 +2181,7 @@ interface PodAuctionConsumer {
 pub mod PodAuctionConsumer {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct Bid { address bidder; uint256 bid; }
@@ -2394,6 +2400,7 @@ struct Bid { address bidder; uint256 bid; }
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct State { Bid winner; Bid blamed; }
@@ -2601,6 +2608,7 @@ struct State { Bid winner; Bid blamed; }
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `OwnableInvalidOwner(address)` and selector `0x1e4fbdf7`.
 ```solidity
@@ -2673,6 +2681,7 @@ error OwnableInvalidOwner(address owner);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `OwnableUnauthorizedAccount(address)` and selector `0x118cdaa7`.
 ```solidity
@@ -2747,6 +2756,7 @@ error OwnableUnauthorizedAccount(address account);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `BidBlamed(bytes32,address,uint256)` and selector `0xef4b112cddcdb73bc2fe674d2e2b37a87eea6e924d87bc8f3e60852c7909441f`.
 ```solidity
@@ -2873,6 +2883,7 @@ event BidBlamed(bytes32 indexed auctionId, address indexed blamedBidder, uint256
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `BidWritten(bytes32,address,uint256)` and selector `0x8e2326f6044ce661c0d34e8973c0bff50b586ee824d30dfcd2185a4591d38da5`.
 ```solidity
@@ -2999,6 +3010,7 @@ event BidWritten(bytes32 indexed auctionId, address indexed bidder, uint256 bid)
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `Bonded(address)` and selector `0x79a5a033f5122bb9277906855b4d64a5b541e6516aa6984711f1915318f8deda`.
 ```solidity
@@ -3105,6 +3117,7 @@ event Bonded(address indexed validator);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `OwnershipTransferred(address,address)` and selector `0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0`.
 ```solidity
@@ -3224,6 +3237,7 @@ event OwnershipTransferred(address indexed previousOwner, address indexed newOwn
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `Slashed(address)` and selector `0x975ad74f3e1160b20a620ec57c636ffa56c6b6679a0e2fb5689b4f95e65a6946`.
 ```solidity
@@ -3330,6 +3344,7 @@ event Slashed(address indexed validator);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `Unbonded(address)` and selector `0x74a9d8e2c8099613a5a77daf73ef416945b2aacc9028a66b4d47cd101011694a`.
 ```solidity
@@ -3518,6 +3533,7 @@ constructor(address _podRegistry, uint256 _bondAmount);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `LOG_TOPIC_0()` and selector `0xe9751b37`.
 ```solidity
@@ -3526,6 +3542,7 @@ function LOG_TOPIC_0() external view returns (bytes32);
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct LOG_TOPIC_0Call {}
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`LOG_TOPIC_0()`](LOG_TOPIC_0Call) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -3639,6 +3656,7 @@ function LOG_TOPIC_0() external view returns (bytes32);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `U()` and selector `0x2688454a`.
 ```solidity
@@ -3647,6 +3665,7 @@ function U() external view returns (uint256);
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct UCall {}
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`U()`](UCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -3762,6 +3781,7 @@ function U() external view returns (uint256);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     /**Function with signature `blameIllAnnounced(((address,bytes32[],bytes),uint256,((bytes32,bytes),bytes32,(bytes32[]))))` and selector `0xf257b5ab`.
 ```solidity
@@ -3892,6 +3912,7 @@ function blameIllAnnounced(PodECDSA.CertifiedLog memory certifiedLog) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     /**Function with signature `blameNoShow(((address,bytes32[],bytes),uint256,((bytes32,bytes),bytes32,(bytes32[]))))` and selector `0x80814a88`.
 ```solidity
@@ -4018,6 +4039,7 @@ function blameNoShow(PodECDSA.CertifiedLog memory certifiedLog) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `bond()` and selector `0x64c9ec6f`.
 ```solidity
@@ -4135,6 +4157,7 @@ function bond() external payable;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `bondAmount()` and selector `0x80f323a7`.
 ```solidity
@@ -4143,6 +4166,7 @@ function bondAmount() external view returns (uint256);
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct bondAmountCall {}
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`bondAmount()`](bondAmountCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -4258,6 +4282,7 @@ function bondAmount() external view returns (uint256);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `isBonded(address)` and selector `0x4aa5e885`.
 ```solidity
@@ -4269,6 +4294,7 @@ function isBonded(address) external view returns (bool);
         #[allow(missing_docs)]
         pub _0: alloy::sol_types::private::Address,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`isBonded(address)`](isBondedCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -4386,6 +4412,7 @@ function isBonded(address) external view returns (bool);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `owner()` and selector `0x8da5cb5b`.
 ```solidity
@@ -4394,6 +4421,7 @@ function owner() external view returns (address);
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct ownerCall {}
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`owner()`](ownerCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -4507,6 +4535,7 @@ function owner() external view returns (address);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `podRegistry()` and selector `0x387233ec`.
 ```solidity
@@ -4515,6 +4544,7 @@ function podRegistry() external view returns (address);
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct podRegistryCall {}
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`podRegistry()`](podRegistryCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -4628,6 +4658,7 @@ function podRegistry() external view returns (address);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `read(uint256,uint256)` and selector `0x75080997`.
 ```solidity
@@ -4641,6 +4672,7 @@ function read(uint256 auctionId, uint256 deadline) external view returns (State 
         #[allow(missing_docs)]
         pub deadline: alloy::sol_types::private::primitives::aliases::U256,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`read(uint256,uint256)`](readCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -4775,6 +4807,7 @@ function read(uint256 auctionId, uint256 deadline) external view returns (State 
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `renounceOwnership()` and selector `0x715018a6`.
 ```solidity
@@ -4896,6 +4929,7 @@ function renounceOwnership() external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `state(bytes32)` and selector `0x61d585da`.
 ```solidity
@@ -4907,6 +4941,7 @@ function state(bytes32) external view returns (Bid memory winner, Bid memory bla
         #[allow(missing_docs)]
         pub _0: alloy::sol_types::private::FixedBytes<32>,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`state(bytes32)`](stateCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -5032,6 +5067,7 @@ function state(bytes32) external view returns (Bid memory winner, Bid memory bla
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `transferOwnership(address)` and selector `0xf2fde38b`.
 ```solidity
@@ -5160,6 +5196,7 @@ function transferOwnership(address newOwner) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `unbond()` and selector `0x5df6a6bc`.
 ```solidity
@@ -5277,6 +5314,7 @@ function unbond() external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `withdraw()` and selector `0x3ccfd60b`.
 ```solidity
@@ -5394,6 +5432,7 @@ function withdraw() external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     /**Function with signature `write(((address,bytes32[],bytes),uint256,((bytes32,bytes),bytes32,(bytes32[]))))` and selector `0x061a70ab`.
 ```solidity
@@ -5521,6 +5560,7 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         }
     };
     ///Container for all the [`PodAuctionConsumer`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum PodAuctionConsumerCalls {
         #[allow(missing_docs)]
@@ -6008,6 +6048,7 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         }
     }
     ///Container for all the [`PodAuctionConsumer`](self) custom errors.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum PodAuctionConsumerErrors {
         #[allow(missing_docs)]
@@ -6134,6 +6175,7 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         }
     }
     ///Container for all the [`PodAuctionConsumer`](self) events.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum PodAuctionConsumerEvents {
         #[allow(missing_docs)]

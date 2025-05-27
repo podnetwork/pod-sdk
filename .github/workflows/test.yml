@@ -56,7 +56,13 @@ jobs:
       - name: Run Forge fmt
         run: |
           forge fmt --check
-        working-directory: examples 
+        working-directory: examples/solidity/optimistic-auction 
+        id: fmt
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        working-directory: examples/solidity 
         id: fmt
 
       - name: Run Forge build

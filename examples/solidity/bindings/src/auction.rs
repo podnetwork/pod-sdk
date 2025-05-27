@@ -103,6 +103,7 @@ pub mod Auction {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"`\x80`@R4\x80\x15a\0\x10W`\0\x80\xFD[P`\x046\x10a\0+W`\x005`\xE0\x1C\x80c\x85,\xA6\x12\x14a\x000W[`\0\x80\xFD[a\0J`\x04\x806\x03\x81\x01\x90a\0E\x91\x90a\x01\x8BV[a\0LV[\0[\x83B\x11\x15a\0\x8FW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\0\x86\x90a\x02pV[`@Q\x80\x91\x03\x90\xFD[\x833s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x86\x7Fq\xA5gLD\xB8#\xBC\r\xF0\x82\x01\xDF\xEB.\x8B\xDFi\x8C\xD6\x84\xFD+\xBA\xA7\x9A\xDC\xF2\xC9\x9F\xC1\x86\x86`@Qa\0\xD7\x91\x90a\x02\x9FV[`@Q\x80\x91\x03\x90\xA4PPPPPV[`\0\x80\xFD[`\0\x80\xFD[`\0\x81\x90P\x91\x90PV[a\x01\x03\x81a\0\xF0V[\x81\x14a\x01\x0EW`\0\x80\xFD[PV[`\0\x815\x90Pa\x01 \x81a\0\xFAV[\x92\x91PPV[`\0\x80\xFD[`\0\x80\xFD[`\0\x80\xFD[`\0\x80\x83`\x1F\x84\x01\x12a\x01KWa\x01Ja\x01&V[[\x825\x90Pg\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x01hWa\x01ga\x01+V[[` \x83\x01\x91P\x83`\x01\x82\x02\x83\x01\x11\x15a\x01\x84Wa\x01\x83a\x010V[[\x92P\x92\x90PV[`\0\x80`\0\x80`\0`\x80\x86\x88\x03\x12\x15a\x01\xA7Wa\x01\xA6a\0\xE6V[[`\0a\x01\xB5\x88\x82\x89\x01a\x01\x11V[\x95PP` a\x01\xC6\x88\x82\x89\x01a\x01\x11V[\x94PP`@a\x01\xD7\x88\x82\x89\x01a\x01\x11V[\x93PP``\x86\x015g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x01\xF8Wa\x01\xF7a\0\xEBV[[a\x02\x04\x88\x82\x89\x01a\x015V[\x92P\x92PP\x92\x95P\x92\x95\x90\x93PV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x7FAuction deadline passed\0\0\0\0\0\0\0\0\0`\0\x82\x01RPV[`\0a\x02Z`\x17\x83a\x02\x13V[\x91Pa\x02e\x82a\x02$V[` \x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x02\x89\x81a\x02MV[\x90P\x91\x90PV[a\x02\x99\x81a\0\xF0V[\x82RPPV[`\0` \x82\x01\x90Pa\x02\xB4`\0\x83\x01\x84a\x02\x90V[\x92\x91PPV",
     );
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `BidSubmitted(uint256,address,uint256,uint256)` and selector `0x71a5674c44b823bc0df08201dfeb2e8bdf698cd684fd2bbaa79adcf2c99fc186`.
 ```solidity
@@ -237,6 +238,7 @@ event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 i
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `submitBid(uint256,uint256,uint256,bytes)` and selector `0x852ca612`.
 ```solidity
@@ -397,6 +399,7 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
         }
     };
     ///Container for all the [`Auction`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum AuctionCalls {
         #[allow(missing_docs)]
@@ -489,6 +492,7 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
         }
     }
     ///Container for all the [`Auction`](self) events.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum AuctionEvents {
         #[allow(missing_docs)]

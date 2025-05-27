@@ -47,6 +47,7 @@ pub mod MerkleProof {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"s\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x000\x14`\x80`@R`\0\x80\xFD",
     );
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `MerkleProofInvalidMultiproof()` and selector `0x35140492`.
 ```solidity
@@ -115,6 +116,7 @@ error MerkleProofInvalidMultiproof();
         }
     };
     ///Container for all the [`MerkleProof`](self) custom errors.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum MerkleProofErrors {
         #[allow(missing_docs)]

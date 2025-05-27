@@ -103,6 +103,7 @@ interface RankedFeed {
 pub mod RankedFeed {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `AlreadyVoted()` and selector `0x7c9a1cf9`.
 ```solidity
@@ -168,6 +169,7 @@ error AlreadyVoted();
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `PostCreated(bytes32,address,bytes)` and selector `0xed6e6fdf99cd5e97145c7e59ade93923be1979557a77e639ed95a203c7a8e861`.
 ```solidity
@@ -290,6 +292,7 @@ event PostCreated(bytes32 indexed post_id, address indexed poster, bytes post_da
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `PostVoted(bytes32,address)` and selector `0x98b6b180756c849b5bfbbd2bbd091f3fe64b0935ac195418c0b619b9b661c78d`.
 ```solidity
@@ -405,6 +408,7 @@ event PostVoted(bytes32 indexed post_id, address indexed voter);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `createPost(bytes)` and selector `0xdfbaa2fb`.
 ```solidity
@@ -529,6 +533,7 @@ function createPost(bytes memory post_data) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `votePost(bytes32)` and selector `0xa1981bf1`.
 ```solidity
@@ -654,6 +659,7 @@ function votePost(bytes32 post_id) external;
         }
     };
     ///Container for all the [`RankedFeed`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum RankedFeedCalls {
         #[allow(missing_docs)]
@@ -774,6 +780,7 @@ function votePost(bytes32 post_id) external;
         }
     }
     ///Container for all the [`RankedFeed`](self) custom errors.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum RankedFeedErrors {
         #[allow(missing_docs)]
@@ -866,6 +873,7 @@ function votePost(bytes32 post_id) external;
         }
     }
     ///Container for all the [`RankedFeed`](self) events.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum RankedFeedEvents {
         #[allow(missing_docs)]

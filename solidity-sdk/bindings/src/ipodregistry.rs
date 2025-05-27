@@ -75,6 +75,7 @@ pub mod IPodRegistry {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `computeWeight(address[])` and selector `0x9503b702`.
 ```solidity
@@ -86,6 +87,7 @@ function computeWeight(address[] memory subset) external view returns (uint256 w
         #[allow(missing_docs)]
         pub subset: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`computeWeight(address[])`](computeWeightCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -211,6 +213,7 @@ function computeWeight(address[] memory subset) external view returns (uint256 w
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getFaultTolerance()` and selector `0xacc101ba`.
 ```solidity
@@ -219,6 +222,7 @@ function getFaultTolerance() external view returns (uint8);
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct getFaultToleranceCall {}
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`getFaultTolerance()`](getFaultToleranceCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -337,6 +341,7 @@ function getFaultTolerance() external view returns (uint8);
         }
     };
     ///Container for all the [`IPodRegistry`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum IPodRegistryCalls {
         #[allow(missing_docs)]

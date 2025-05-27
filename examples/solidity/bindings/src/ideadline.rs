@@ -69,6 +69,7 @@ pub mod IDeadline {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `requireTimeGte(uint256)` and selector `0x4bb4a627`.
 ```solidity
@@ -197,6 +198,7 @@ function requireTimeGte(uint256 timestamp) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `requireTimeLte(uint256)` and selector `0x85f3c36a`.
 ```solidity
@@ -326,6 +328,7 @@ function requireTimeLte(uint256 timestamp) external;
         }
     };
     ///Container for all the [`IDeadline`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum IDeadlineCalls {
         #[allow(missing_docs)]

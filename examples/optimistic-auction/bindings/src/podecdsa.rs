@@ -17,6 +17,7 @@ library MerkleTree {
 pub mod MerkleTree {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct MultiProof { bytes32[] path; bool[] flags; }
@@ -244,6 +245,7 @@ struct MultiProof { bytes32[] path; bool[] flags; }
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct Proof { bytes32[] path; }
@@ -978,6 +980,7 @@ interface PodECDSA {
 pub mod PodECDSA {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct Certificate { CertifiedReceipt certifiedReceipt; bytes32 leaf; MerkleTree.Proof proof; }
@@ -1231,6 +1234,7 @@ struct Certificate { CertifiedReceipt certifiedReceipt; bytes32 leaf; MerkleTree
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct CertifiedLog { Log log; uint256 logIndex; Certificate certificate; }
@@ -1476,6 +1480,7 @@ struct CertifiedLog { Log log; uint256 logIndex; Certificate certificate; }
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; }
@@ -1699,6 +1704,7 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; }
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct Log { address addr; bytes32[] topics; bytes data; }
@@ -1945,6 +1951,7 @@ struct Log { address addr; bytes32[] topics; bytes data; }
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct MultiCertificate { CertifiedReceipt certifiedReceipt; bytes32[] leaves; MerkleTree.MultiProof proof; }
@@ -2204,6 +2211,7 @@ struct MultiCertificate { CertifiedReceipt certifiedReceipt; bytes32[] leaves; M
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct PodConfig { uint256 quorum; address registry; }
@@ -2427,6 +2435,7 @@ struct PodConfig { uint256 quorum; address registry; }
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `hashLog((address,bytes32[],bytes))` and selector `0x688b4d17`.
 ```solidity
@@ -2438,6 +2447,7 @@ function hashLog(Log memory log) external pure returns (bytes32);
         #[allow(missing_docs)]
         pub log: <Log as alloy::sol_types::SolType>::RustType,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`hashLog((address,bytes32[],bytes))`](hashLogCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -2553,6 +2563,7 @@ function hashLog(Log memory log) external pure returns (bytes32);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `verifyCertificate((uint256,address),((bytes32,bytes),bytes32,(bytes32[])))` and selector `0xe6aec340`.
 ```solidity
@@ -2566,6 +2577,7 @@ function verifyCertificate(PodConfig memory podConfig, Certificate memory certif
         #[allow(missing_docs)]
         pub certificate: <Certificate as alloy::sol_types::SolType>::RustType,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`verifyCertificate((uint256,address),((bytes32,bytes),bytes32,(bytes32[])))`](verifyCertificateCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -2694,6 +2706,7 @@ function verifyCertificate(PodConfig memory podConfig, Certificate memory certif
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `verifyCertifiedLog((uint256,address),((address,bytes32[],bytes),uint256,((bytes32,bytes),bytes32,(bytes32[]))))` and selector `0x67d25718`.
 ```solidity
@@ -2707,6 +2720,7 @@ function verifyCertifiedLog(PodConfig memory podConfig, CertifiedLog memory cert
         #[allow(missing_docs)]
         pub certifiedLog: <CertifiedLog as alloy::sol_types::SolType>::RustType,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`verifyCertifiedLog((uint256,address),((address,bytes32[],bytes),uint256,((bytes32,bytes),bytes32,(bytes32[]))))`](verifyCertifiedLogCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -2835,6 +2849,7 @@ function verifyCertifiedLog(PodConfig memory podConfig, CertifiedLog memory cert
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `verifyCertifiedReceipt((uint256,address),(bytes32,bytes))` and selector `0x48b5e2cf`.
 ```solidity
@@ -2848,6 +2863,7 @@ function verifyCertifiedReceipt(PodConfig memory podConfig, CertifiedReceipt mem
         #[allow(missing_docs)]
         pub certifiedReceipt: <CertifiedReceipt as alloy::sol_types::SolType>::RustType,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`verifyCertifiedReceipt((uint256,address),(bytes32,bytes))`](verifyCertifiedReceiptCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -2976,6 +2992,7 @@ function verifyCertifiedReceipt(PodConfig memory podConfig, CertifiedReceipt mem
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `verifyMultiCertificate((uint256,address),((bytes32,bytes),bytes32[],(bytes32[],bool[])))` and selector `0x6f7266e3`.
 ```solidity
@@ -2989,6 +3006,7 @@ function verifyMultiCertificate(PodConfig memory podConfig, MultiCertificate mem
         #[allow(missing_docs)]
         pub certificate: <MultiCertificate as alloy::sol_types::SolType>::RustType,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`verifyMultiCertificate((uint256,address),((bytes32,bytes),bytes32[],(bytes32[],bool[])))`](verifyMultiCertificateCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -3118,6 +3136,7 @@ function verifyMultiCertificate(PodConfig memory podConfig, MultiCertificate mem
         }
     };
     ///Container for all the [`PodECDSA`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum PodECDSACalls {
         #[allow(missing_docs)]

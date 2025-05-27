@@ -80,6 +80,7 @@ pub mod IConstant {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `create(bytes32,bytes32)` and selector `0x634bc7db`.
 ```solidity
@@ -221,6 +222,7 @@ function create(bytes32 key, bytes32 value) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `requireGet(bytes32)` and selector `0x5f55e928`.
 ```solidity
@@ -232,6 +234,7 @@ function requireGet(bytes32 key) external view returns (bytes32 value);
         #[allow(missing_docs)]
         pub key: alloy::sol_types::private::FixedBytes<32>,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`requireGet(bytes32)`](requireGetCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -350,6 +353,7 @@ function requireGet(bytes32 key) external view returns (bytes32 value);
         }
     };
     ///Container for all the [`IConstant`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum IConstantCalls {
         #[allow(missing_docs)]

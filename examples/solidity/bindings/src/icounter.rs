@@ -79,6 +79,7 @@ pub mod ICounter {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `increment(bytes32,uint256)` and selector `0x0affc437`.
 ```solidity
@@ -220,6 +221,7 @@ function increment(bytes32 key, uint256 value) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `requireGte(bytes32,uint256)` and selector `0xb14a2676`.
 ```solidity
@@ -362,6 +364,7 @@ function requireGte(bytes32 key, uint256 value) external view;
         }
     };
     ///Container for all the [`ICounter`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum ICounterCalls {
         #[allow(missing_docs)]

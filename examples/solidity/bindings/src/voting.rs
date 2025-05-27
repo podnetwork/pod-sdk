@@ -235,6 +235,7 @@ interface Voting {
 pub mod Voting {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address owner; }
@@ -502,6 +503,7 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `Voted(bytes32,address,uint256)` and selector `0xe4abc5380fa6939d1dc23b5e90b3a8a0e328f0f1a82a5f42bfb795bf9c717505`.
 ```solidity
@@ -629,6 +631,7 @@ event Voted(bytes32 indexed votingId, address indexed voter, uint256 indexed cho
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `Winner(bytes32,uint256)` and selector `0x269d3a24712436f77df15d63de7d2337a060c9102dee6f46c909fb0fa2d52f0c`.
 ```solidity
@@ -744,6 +747,7 @@ event Winner(bytes32 indexed votingId, uint256 indexed choice);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `register((uint256,uint256,uint256,address))` and selector `0x8f253c75`.
 ```solidity
@@ -866,6 +870,7 @@ function register(VotingInfo memory v) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setWinner((uint256,uint256,uint256,address),uint256)` and selector `0x9747a952`.
 ```solidity
@@ -1002,6 +1007,7 @@ function setWinner(VotingInfo memory v, uint256 choice) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `vote((uint256,uint256,uint256,address),uint256)` and selector `0x152d18c4`.
 ```solidity
@@ -1138,6 +1144,7 @@ function vote(VotingInfo memory v, uint256 choice) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `votingId((uint256,uint256,uint256,address))` and selector `0x39db6659`.
 ```solidity
@@ -1149,6 +1156,7 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
         #[allow(missing_docs)]
         pub v: <VotingInfo as alloy::sol_types::SolType>::RustType,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`votingId((uint256,uint256,uint256,address))`](votingIdCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -1265,6 +1273,7 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
         }
     };
     ///Container for all the [`Voting`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum VotingCalls {
         #[allow(missing_docs)]
@@ -1434,6 +1443,7 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
         }
     }
     ///Container for all the [`Voting`](self) events.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum VotingEvents {
         #[allow(missing_docs)]

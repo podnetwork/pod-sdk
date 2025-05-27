@@ -43,6 +43,7 @@ interface PodAuctionConsumerDeployer {
 pub mod PodAuctionConsumerDeployer {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `IS_SCRIPT()` and selector `0xf8ccbf47`.
 ```solidity
@@ -51,6 +52,7 @@ function IS_SCRIPT() external view returns (bool);
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct IS_SCRIPTCall {}
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`IS_SCRIPT()`](IS_SCRIPTCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -164,6 +166,7 @@ function IS_SCRIPT() external view returns (bool);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `run()` and selector `0xc0406226`.
 ```solidity
@@ -282,6 +285,7 @@ function run() external;
         }
     };
     ///Container for all the [`PodAuctionConsumerDeployer`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum PodAuctionConsumerDeployerCalls {
         #[allow(missing_docs)]

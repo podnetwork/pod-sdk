@@ -79,6 +79,7 @@ pub mod ISet {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `insert(bytes32,bytes32)` and selector `0xfeac36d7`.
 ```solidity
@@ -217,6 +218,7 @@ function insert(bytes32 key, bytes32 e) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `requireExist(bytes32,bytes32)` and selector `0x8635a591`.
 ```solidity
@@ -356,6 +358,7 @@ function requireExist(bytes32 key, bytes32 e) external view;
         }
     };
     ///Container for all the [`ISet`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum ISetCalls {
         #[allow(missing_docs)]
