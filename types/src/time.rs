@@ -75,6 +75,12 @@ impl Display for Timestamp {
     }
 }
 
+impl From<Timestamp> for SystemTime {
+    fn from(value: Timestamp) -> Self {
+        UNIX_EPOCH + Duration::from_micros(value.as_micros() as u64)
+    }
+}
+
 impl Sub<Duration> for Timestamp {
     type Output = Timestamp;
 

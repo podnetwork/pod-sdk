@@ -6,7 +6,7 @@ use anyhow::Context;
 
 use crate::network::{PodNetwork, PodTransactionRequest};
 use alloy_json_rpc::{RpcParam, RpcReturn};
-use alloy_network::{Network, TransactionBuilder};
+use alloy_network::{EthereumWallet, Network, TransactionBuilder};
 use alloy_provider::{
     fillers::{JoinFill, RecommendedFillers, TxFiller, WalletFiller},
     Identity, PendingTransactionBuilder, Provider, ProviderBuilder, ProviderLayer, RootProvider,
@@ -92,6 +92,15 @@ impl<L, F> PodProviderBuilder<L, F> {
         PodProviderBuilder::<_, _>(self.0.wallet(wallet))
     }
 
+    pub fn with_private_key(
+        self,
+        key: crate::SigningKey,
+    ) -> PodProviderBuilder<L, JoinFill<F, WalletFiller<EthereumWallet>>> {
+        let signer = crate::PrivateKeySigner::from_signing_key(key);
+
+        self.wallet(crate::EthereumWallet::new(signer))
+    }
+
     /// Create [PodProvider] by filling in signer key and RPC url from environment.
     ///
     /// The following env variables need to be configured:
@@ -114,13 +123,10 @@ impl<L, F> PodProviderBuilder<L, F> {
         let private_key = load_private_key()
             .with_context(|| format!("{PK_ENV} env should contain hex-encoded ECDSA signer key"))?;
 
-        let signer = crate::PrivateKeySigner::from_signing_key(private_key);
-
         let rpc_url = std::env::var("POD_RPC_URL").unwrap_or("ws://127.0.0.1:8545".to_string());
-        let wallet = crate::EthereumWallet::new(signer);
 
         let provider = self
-            .wallet(wallet)
+            .with_private_key(private_key)
             .on_url(rpc_url.clone())
             .await
             .with_context(|| format!("attaching provider to URL {rpc_url}"))?;
