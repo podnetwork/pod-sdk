@@ -28,6 +28,8 @@ menu:
     label: Transfers
   - href: /examples/auctions
     label: Auctions
+  - href: /examples/notary
+    label: Notary
   - href: /examples/ranked-feed
     label: Ranked Feed 
 
