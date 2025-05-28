@@ -1,6 +1,6 @@
 pragma solidity ^0.8.26;
 
-import {requireTimeBefore} from "../../../contracts/src/lib/Time.sol";
+import {requireTimeBefore} from "../../solidity-sdk/src/pod/Time.sol";
 
 function min(uint256 a, uint256 b) pure returns (uint256) {
     return a <= b ? a : b;
