@@ -1,11 +1,10 @@
 ! content id="pod-caveats"
 
-## 🧠 pod network caveats
+## 🧠 pod caveats
 
 ### Execution Model in pod network
 
-The pod network's execution environment does not guarantee a total order of transactions signed by different signers.
-Instead:
+The pod execution environment does not guarantee a total order of transactions signed by different signers. Instead:
 
 - Transactions signed by the same signer are strictly ordered via their nonce.
 - Transactions signed by different signers may be executed in different orders on different validators, leading to
@@ -20,7 +19,7 @@ This property can lead to the following behavior in the context of the `Notary` 
 
 ### Consistency Mechanism
 
-Despite this temporary divergence, pod network ensures eventual consistency:
+Despite this temporary divergence, pod ensures eventual consistency:
 
 - As all validators eventually process the same set of transactions, the state converges to a single consistent result.
 - The contract is designed to accommodate this by always applying the minimum timestamp, ensuring that final state
@@ -30,12 +29,11 @@ Despite this temporary divergence, pod network ensures eventual consistency:
 
 The `requireTimeBefore` function executes only during the attestation stage, not during execution:
 
-- **Attestation Stage** (first round): Ensures the timestamp is in the future at the time of submission. The transaction
-  is decided to be valid in the eyes of each validator separately and signed, making it eligible for execution in the
-  second stage.
-- **Execution Stage** (second round): The contract updates state without re-checking `requireTimeBefore`. This is
-  intentional so that all validators execute the transaction if the quorum attested its validity **no matter when the
-  transaction is actually executed**.
+- **Attestation Stage**: Ensures the timestamp is in the future at the time of submission. The transaction is decided to
+  be valid in the eyes of each validator separately and signed, making it eligible for execution in the second stage.
+- **Execution Stage**: The contract updates state without re-checking `requireTimeBefore`. This is intentional so that
+  all validators execute the transaction if the quorum attested its validity **no matter when the transaction is
+  actually executed**.
 
 ### Security Considerations
 

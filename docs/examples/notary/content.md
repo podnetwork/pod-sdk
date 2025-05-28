@@ -6,7 +6,7 @@ url: /examples/notary
 
 toc:
   notary-contract: Notary Contract
-  pod-caveats: pod network caveats
+  pod-caveats: pod caveats
   usage: Interacting with the contract
 ---
 
