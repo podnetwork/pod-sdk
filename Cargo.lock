@@ -933,6 +933,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "atomic-waker"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
+
+[[package]]
 name = "auto_impl"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2950,7 +2956,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "optimistic-auction"
+name = "auction-with-dispute"
 version = "0.1.0"
 dependencies = [
  "alloy-network",
@@ -2958,6 +2964,11 @@ dependencies = [
  "alloy-provider",
  "alloy-signer-local",
  "alloy-sol-types",
+ "alloy-rpc-types",
+ "alloy-signer-local",
+ "alloy-sol-types",
+ "alloy-transport",
+ "alloy-transport-http",
  "anyhow",
  "clap",
  "dotenv",
@@ -2965,6 +2976,7 @@ dependencies = [
  "pod-optimistic-auction",
  "pod-sdk",
  "pod-types",
+ "reqwest",
  "tokio",
 ]
 

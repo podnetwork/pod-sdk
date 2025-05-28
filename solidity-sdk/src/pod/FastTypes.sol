@@ -11,7 +11,10 @@ library FastTypes {
         c._values[key] += value;
     }
 
-    function requireGte(SharedCounter storage c, bytes32 key, uint256 value, string memory errorMessage) internal view {
+    function requireGte(SharedCounter storage c, bytes32 key, uint256 value, string memory errorMessage)
+        internal
+        view
+    {
         requireQuorum(c._values[key] >= value, errorMessage);
     }
 
@@ -44,7 +47,10 @@ library FastTypes {
         mapping(bytes32 => mapping(address => int256)) _values;
     }
 
-    function requireGte(Balance storage b, bytes32 key, address owner, uint256 value, string memory errorMessage) internal view {
+    function requireGte(Balance storage b, bytes32 key, address owner, uint256 value, string memory errorMessage)
+        internal
+        view
+    {
         requireQuorum(b._values[key][owner] >= int256(value), errorMessage);
     }
 
@@ -103,7 +109,7 @@ library FastTypes {
     }
 
     struct AddressSet {
-       Set _set;
+        Set _set;
     }
 
     function add(AddressSet storage s, address value) internal {

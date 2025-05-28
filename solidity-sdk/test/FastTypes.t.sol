@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import "forge-std/Test.sol";
-import "../src/lib/FastTypes.sol";
+import "../src/pod/FastTypes.sol";
 
 contract TestContract {
     using FastTypes for FastTypes.SharedCounter;
@@ -72,7 +72,7 @@ contract TestContract {
         _set.add(value);
     }
 
-    function requireSetExists(bytes32 value, string memory errorMessage) external view{
+    function requireSetExists(bytes32 value, string memory errorMessage) external view {
         _set.requireExists(value, errorMessage);
     }
 
@@ -141,11 +141,11 @@ contract FastTypesTest is Test {
     }
 
     function testMockRequireQuorum() public {
-        (bool success, ) = REQUIRE_QUORUM.staticcall(abi.encode(true));
+        (bool success,) = REQUIRE_QUORUM.staticcall(abi.encode(true));
         assertTrue(success, "True condition should succeed");
 
         vm.expectRevert("Quorum requirement not met");
-        (bool success2, ) = REQUIRE_QUORUM.staticcall(abi.encode(false));
+        (bool success2,) = REQUIRE_QUORUM.staticcall(abi.encode(false));
     }
 
     function testSharedCounter() public {

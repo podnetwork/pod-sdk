@@ -1,6 +1,6 @@
 pragma solidity ^0.8.25;
 
-import {FastTypes} from "./lib/FastTypes.sol";
+import {FastTypes} from "pod-sdk/pod/FastTypes.sol";
 
 contract RankedFeed {
     using FastTypes for FastTypes.SharedCounter;

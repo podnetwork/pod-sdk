@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {requireTimeAfter, requireTimeBefore} from "../lib/Time.sol";
+import {requireTimeAfter, requireTimeBefore} from "pod-sdk/pod/Time.sol";
 
 /**
  * @title HashChallenge
