@@ -4,11 +4,7 @@ contract RankedFeed {
     mapping(bytes32 => uint256) public votes;
     mapping(address => mapping(bytes32 => bool)) public voted;
 
-    event PostCreated(
-        bytes32 indexed post_id,
-        address indexed poster,
-        bytes post_data
-    );
+    event PostCreated(bytes32 indexed post_id, address indexed poster, bytes post_data);
     event PostVoted(bytes32 indexed post_id, address indexed voter);
 
     error AlreadyVoted();
