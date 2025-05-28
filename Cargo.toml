@@ -6,6 +6,7 @@ members = [
   "examples/notary",
   "examples/optimistic-auction",
   "examples/rust",
-  "solidity-sdk/bindings"
+  "solidity-sdk/bindings",
+  "examples/voting/client",
 ]
 resolver = "2"
