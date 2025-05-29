@@ -1,5 +1,6 @@
 use std::ops::Deref;
 
+use alloy_primitives::Bytes;
 pub use alloy_primitives::{Log, LogData};
 use alloy_rpc_types::Log as RPCLog;
 use alloy_sol_types::SolValue;
@@ -7,15 +8,14 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    consensus::attestation::HeadlessAttestation,
+    Certificate, Committee, Timestamp,
+    consensus::attestation::{HeadlessAttestation, Indexed},
     cryptography::{
-        hash::Hashable,
-        merkle_tree::{index_prefix, MerkleBuilder, MerkleProof, StandardMerkleTree},
         Hash, MerkleMultiProof, Merkleizable,
+        hash::Hashable,
+        merkle_tree::{MerkleBuilder, MerkleProof, StandardMerkleTree, index_prefix},
     },
     metadata::{MetadataWrappedItem, PodLogMetadata},
-    storage::Indexed,
-    Certificate, Committee, Timestamp,
 };
 
 use super::Receipt;
@@ -84,7 +84,6 @@ impl VerifiableLog {
             signatures: self
                 .pod_metadata
                 .attestations
-                .clone()
                 .iter()
                 .map(|att| att.signature)
                 .collect(),
@@ -105,14 +104,31 @@ impl VerifiableLog {
         })
     }
 
-    pub fn verify_proof(&self, receipt_root: Hash, log: Log, proof: MerkleProof) -> Result<bool> {
-        let log_hash =
-            StandardMerkleTree::hash_leaf(index_prefix("log_hashes", 0), log.hash_custom());
-        Ok(StandardMerkleTree::verify_proof(
-            receipt_root,
-            log_hash,
-            proof,
-        ))
+    pub fn get_leaf(&self) -> Hash {
+        let log_index = self.inner.log_index.unwrap_or(0) as usize;
+        StandardMerkleTree::hash_leaf(
+            index_prefix("log_hashes", log_index),
+            self.inner.inner.hash_custom(),
+        )
+    }
+
+    pub fn aggregate_signatures(&self) -> Result<Bytes> {
+        let aggregated = self
+            .pod_metadata
+            .attestations
+            .iter()
+            .map(|a| a.signature.to_bytes())
+            .reduce(|mut acc, sig| {
+                acc.extend_from_slice(&sig);
+                acc
+            })
+            .ok_or(anyhow::anyhow!("error aggregating signatures"))?;
+        Ok(Bytes::from(aggregated))
+    }
+
+    pub fn verify_proof(&self, receipt_root: Hash, proof: MerkleProof) -> bool {
+        let leaf = self.get_leaf();
+        StandardMerkleTree::verify_proof(receipt_root, leaf, proof)
     }
 }
 
@@ -221,9 +237,7 @@ mod test {
             .to_merkle_tree()
             .hash_custom();
 
-        assert!(verifiable_log
-            .verify_proof(receipt_root, log, proof)
-            .unwrap());
+        assert!(verifiable_log.verify_proof(receipt_root, proof));
         assert_eq!(verifiable_log.inner.log_index, Some(0));
     }
 }

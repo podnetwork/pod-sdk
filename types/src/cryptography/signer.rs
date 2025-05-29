@@ -4,15 +4,15 @@ use alloy_sol_types::SolValue;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{
+    Deserialize, Deserializer, Serialize, Serializer,
     de::{self, MapAccess, Visitor},
     ser::SerializeStruct,
-    Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::ops::Deref;
 
 use alloy_primitives::Address;
 
-use super::{merkle_tree::MerkleBuilder, Hashable, Merkleizable};
+use super::{Hashable, Merkleizable, merkle_tree::MerkleBuilder};
 use crate::Transaction;
 
 #[async_trait]
@@ -27,6 +27,26 @@ where
 {
     async fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>> {
         let signature = self.sign_hash(&tx.signature_hash()).await?;
+        Ok(Signed {
+            signed: tx.clone(),
+            signature,
+            signer: self.address(),
+            _private: (),
+        })
+    }
+}
+
+pub trait SignerSync {
+    fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>>;
+}
+
+impl<S> SignerSync for S
+where
+    S: alloy_signer::SignerSync<PrimitiveSignature> + Send + Sync,
+    S: alloy_signer::Signer<PrimitiveSignature> + Send + Sync,
+{
+    fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>> {
+        let signature = self.sign_hash_sync(&tx.signature_hash())?;
         Ok(Signed {
             signed: tx.clone(),
             signature,
