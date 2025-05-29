@@ -1,4 +1,4 @@
-## pod-examples-solidity 
+## pod-examples-solidity
 
 ## Usage
 
@@ -23,5 +23,6 @@ forge fmt
 ### Bind
 
 ```shell
-forge bind --crate-name pod-examples-solidity --bindings-path ./bindings --alloy-version 0.9.2 --force --no-metadata;
+make generate
 ```
+

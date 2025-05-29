@@ -1,7 +1,7 @@
 pragma solidity ^0.8.25;
 
 import {FastTypes} from "pod-sdk/pod/FastTypes.sol";
-import {Deadline} from "pod-sdk/pod/Deadline.sol";
+import {requireTimeAfter, requireTimeBefore} from "pod-sdk/pod/Time.sol";
 
 contract Voting {
     using FastTypes for FastTypes.Set;
@@ -31,7 +31,7 @@ contract Voting {
     }
 
     function vote(VotingInfo calldata v, uint256 choice) public {
-        Deadline.requireTimeLte(v.deadline);
+        requireTimeBefore(v.deadline, "can't vote after deadline");
 
         bytes32 vId = votingId(v);
         FastTypes.Set memory voters = FastTypes.Set(vId);
@@ -48,7 +48,7 @@ contract Voting {
     }
 
     function setWinner(VotingInfo calldata v, uint256 choice) public {
-        Deadline.requireTimeGte(v.deadline);
+        requireTimeAfter(v.deadline, "can't set winner before deadline");
 
         bytes32 vId = votingId(v);
         FastTypes.Counter memory voteCount = FastTypes.Counter(keccak256(abi.encode(vId, choice)));
