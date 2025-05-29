@@ -16,7 +16,7 @@ contract Voting {
         mapping(address => VoterState) voters;
         mapping(uint256 => uint256) voteCount;
         uint256 totalVotes;
-        uint256 totalVoters;  // Total number of registered voters
+        uint256 totalVoters; // Total number of registered voters
         uint256 winningChoice; // 0 means not set
     }
 
@@ -27,26 +27,19 @@ contract Voting {
     event Voted(bytes32 indexed pollId, address indexed voter, uint256 indexed choice);
     event Winner(bytes32 indexed pollId, uint256 indexed choice);
 
-    function getPollId(
-        uint256 deadline,
-        uint256 maxChoice,
-        address owner,
-        address[] calldata voters
-    ) public pure returns (bytes32) {
+    function getPollId(uint256 deadline, uint256 maxChoice, address owner, address[] calldata voters)
+        public
+        pure
+        returns (bytes32)
+    {
         // calculates an id (hash) based on the poll information and owner
-        return keccak256(abi.encode(
-            deadline,
-            maxChoice,
-            owner,
-            keccak256(abi.encodePacked(voters))
-        ));
+        return keccak256(abi.encode(deadline, maxChoice, owner, keccak256(abi.encodePacked(voters))));
     }
 
-    function createPoll(
-        uint256 deadline,
-        uint256 maxChoice,
-        address[] calldata voters
-    ) public returns (bytes32 pollId){
+    function createPoll(uint256 deadline, uint256 maxChoice, address[] calldata voters)
+        public
+        returns (bytes32 pollId)
+    {
         // Validation
         requireTimeBefore(deadline, "Deadline must be in the future");
         require(maxChoice > 0, "MaxChoice must be greater than zero");
@@ -92,7 +85,7 @@ contract Voting {
     }
 
     // anyone can call, but choice must be definitely the winning one
-    // a choice is definitely winning, if: 
+    // a choice is definitely winning, if:
     //   even if all remaining votes are given to second highest voted, this choice would still win
     function setWinningChoice(bytes32 pollId, uint256 choice) public {
         Poll storage poll = polls[pollId];
@@ -118,8 +111,10 @@ contract Voting {
         }
 
         // Verify this choice has enough votes that it cannot be overtaken
-        require(voteCount - secondHighestVotes > remainingVoters, 
-                "This choice could still be overtaken if remaining voters vote");
+        require(
+            voteCount - secondHighestVotes > remainingVoters,
+            "This choice could still be overtaken if remaining voters vote"
+        );
 
         // Update the winning choice
         poll.winningChoice = choice;
@@ -128,13 +123,13 @@ contract Voting {
         emit Winner(pollId, choice);
     }
 
-    function getVotes(bytes32 pollId) public view returns (uint participants, uint[] memory votes) {
+    function getVotes(bytes32 pollId) public view returns (uint256 participants, uint256[] memory votes) {
         Poll storage poll = polls[pollId];
         require(poll.maxChoice > 0, "poll doesn't exist");
 
-        uint[] memory votesPerChoice = new uint256[](poll.maxChoice);
-        for (uint i = 0; i < poll.maxChoice; i++) {
-            votesPerChoice[i] = poll.voteCount[i+1];
+        uint256[] memory votesPerChoice = new uint256[](poll.maxChoice);
+        for (uint256 i = 0; i < poll.maxChoice; i++) {
+            votesPerChoice[i] = poll.voteCount[i + 1];
         }
 
         return (poll.totalVoters, votesPerChoice);

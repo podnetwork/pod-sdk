@@ -27,22 +27,22 @@ contract VotingTest is Test {
         address[] memory users = new address[](userNum);
 
         for (uint256 i = 0; i < userNum; i++) {
-            users[i] = vm.addr(i+1);
+            users[i] = vm.addr(i + 1);
         }
         return users;
     }
 
     function test_createPoll() public {
         vm.expectEmit(false, true, false, true);
-        emit Voting.PollCreated(bytes32(0), block.timestamp+1);
+        emit Voting.PollCreated(bytes32(0), block.timestamp + 1);
 
-        bytes32 id = voting.createPoll(block.timestamp+1, 3, createUsers(1));
+        bytes32 id = voting.createPoll(block.timestamp + 1, 3, createUsers(1));
         console.log("created poll with id:");
         console.logBytes32(id);
     }
 
     function test_mustBeParticipantToVote() public {
-        bytes32 id = voting.createPoll(block.timestamp+1, 3, createUsers(10));
+        bytes32 id = voting.createPoll(block.timestamp + 1, 3, createUsers(10));
         vm.prank(vm.addr(999));
         vm.expectRevert("sender can't vote");
         voting.vote(id, 1);
@@ -50,7 +50,7 @@ contract VotingTest is Test {
 
     function test_checksChoiceBounds() public {
         address[] memory users = createUsers(10);
-        bytes32 id = voting.createPoll(block.timestamp+1, 3, users);
+        bytes32 id = voting.createPoll(block.timestamp + 1, 3, users);
 
         vm.startPrank(users[0]);
         vm.expectRevert("Choice must be between 1 and maxChoice");
@@ -61,7 +61,7 @@ contract VotingTest is Test {
 
     function test_cantVoteTwice() public {
         address[] memory users = createUsers(10);
-        bytes32 id = voting.createPoll(block.timestamp+1, 3, users);
+        bytes32 id = voting.createPoll(block.timestamp + 1, 3, users);
 
         vm.startPrank(users[0]);
         voting.vote(id, 1);
@@ -79,12 +79,11 @@ contract VotingTest is Test {
         address[] memory users = createUsers(10);
         bytes32 id = voting.createPoll(block.timestamp + 1, 3, users);
 
-        vm.warp(block.timestamp+1);
+        vm.warp(block.timestamp + 1);
         vm.startPrank(users[0]);
         vm.expectRevert("Poll deadline has passed or poll does not exist");
         voting.vote(id, 1);
     }
-
 
     function test_singleVoterPoll() public {
         address[] memory users = createUsers(1);
@@ -96,7 +95,7 @@ contract VotingTest is Test {
         voting.vote(id, 1);
 
         vm.warp(block.timestamp + 2);
-        vm.expectEmit(true,true,false,true);
+        vm.expectEmit(true, true, false, true);
         emit Voting.Winner(id, 1);
         voting.setWinningChoice(id, 1);
     }
@@ -113,11 +112,11 @@ contract VotingTest is Test {
             voting.vote(id, 1);
         }
 
-        (uint participants, uint[] memory votes) = voting.getVotes(id);
+        (uint256 participants, uint256[] memory votes) = voting.getVotes(id);
         require(participants == 10);
         console.log("collected votes:");
-        for (uint i = 0; i < votes.length; i++) {
-            uint choice = i+1;
+        for (uint256 i = 0; i < votes.length; i++) {
+            uint256 choice = i + 1;
             console.log("[%d]: %d", choice, votes[i]);
             require(votes[i] == (choice == 1 ? 10 : 0));
         }
@@ -142,7 +141,7 @@ contract VotingTest is Test {
         voting.setWinningChoice(id, 2);
 
         // success
-        vm.expectEmit(true,true,false,true);
+        vm.expectEmit(true, true, false, true);
         emit Voting.Winner(id, 1);
         voting.setWinningChoice(id, 1);
 
