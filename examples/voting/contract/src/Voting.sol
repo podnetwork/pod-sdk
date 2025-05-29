@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
 import {requireTimeBefore, requireTimeAfter} from "pod-sdk/pod/Time.sol";
@@ -27,15 +28,26 @@ contract Voting {
     event Voted(bytes32 indexed pollId, address indexed voter, uint256 indexed choice);
     event Winner(bytes32 indexed pollId, uint256 indexed choice);
 
+    /// @notice Calculate poll ID
+    /// @param deadline The poll deadline in seconds
+    /// @param maxChoice The maximum choice in a poll
+    /// @param owner The crator of the poll
+    /// @param voters The poll participants
+    /// @return pollId The unique poll ID derived from the input parameters
     function getPollId(uint256 deadline, uint256 maxChoice, address owner, address[] calldata voters)
         public
         pure
-        returns (bytes32)
+        returns (bytes32 pollId)
     {
         // calculates an id (hash) based on the poll information and owner
         return keccak256(abi.encode(deadline, maxChoice, owner, keccak256(abi.encodePacked(voters))));
     }
 
+    /// @notice Create a new poll
+    /// @param deadline The poll deadline in seconds
+    /// @param maxChoice The maximum choice in a poll
+    /// @param voters The poll participants
+    /// @return pollId The unique poll ID
     function createPoll(uint256 deadline, uint256 maxChoice, address[] calldata voters)
         public
         returns (bytes32 pollId)
@@ -65,6 +77,9 @@ contract Voting {
         return id;
     }
 
+    /// @notice Vote in a poll
+    /// @param pollId The poll ID to vote in
+    /// @param choice The choice to vote for. Must be between 1 and maxChoice
     function vote(bytes32 pollId, uint256 choice) public {
         // adds vote only if: deadline hasnt passed, voter is registered
         Poll storage poll = polls[pollId];
@@ -84,9 +99,12 @@ contract Voting {
         emit Voted(pollId, msg.sender, choice);
     }
 
-    // anyone can call, but choice must be definitely the winning one
-    // a choice is definitely winning, if:
-    //   even if all remaining votes are given to second highest voted, this choice would still win
+    /// @notice Close a poll, selecting the winning choice.
+    /// Anyone can call, but choice must be definitely the winning one.
+    /// A choice is definitely winning, when even if all remaining votes 
+    /// are given to second highest voted, this choice would still win.
+    /// @param pollId The poll ID to close
+    /// @param choice the selected winning choice
     function setWinningChoice(bytes32 pollId, uint256 choice) public {
         Poll storage poll = polls[pollId];
         requireTimeAfter(poll.deadline, "Poll deadline has not passed yet");
@@ -123,6 +141,11 @@ contract Voting {
         emit Winner(pollId, choice);
     }
 
+    /// @notice Get poll data
+    /// @param pollId The poll ID to retrieve
+    /// @return participants The total number of participants of the poll
+    /// @return votes A list containing number of votes per each choice.
+    /// The choice "1" is the first element in the list.
     function getVotes(bytes32 pollId) public view returns (uint256 participants, uint256[] memory votes) {
         Poll storage poll = polls[pollId];
         require(poll.maxChoice > 0, "poll doesn't exist");
