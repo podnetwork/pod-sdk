@@ -6,10 +6,10 @@ import {Voting} from "../src/Voting.sol";
 import {REQUIRE_QUORUM} from "pod-sdk/pod/Quorum.sol";
 
 contract MockRequireQuorum {
-    function check(bytes memory input) external pure returns (bool) {
-        bool condition = abi.decode(input, (bool));
-        console.log("mocking requireQuorum with %s", condition);
-        return condition;
+    fallback() external {
+        bool input = abi.decode(msg.data, (bool));
+        console.log("mock precompile received:", input);
+        require(input, "quorum not met");
     }
 }
 
@@ -86,19 +86,35 @@ contract VotingTest is Test {
     }
 
 
+    function test_singleVoterPoll() public {
+        address[] memory users = createUsers(1);
+        bytes32 id = voting.createPoll(block.timestamp + 1, 3, users);
+
+        vm.startPrank(users[0]);
+        vm.expectEmit();
+        emit Voting.Voted(id, users[0], 1);
+        voting.vote(id, 1);
+
+        vm.warp(block.timestamp + 2);
+        vm.expectEmit(true,true,false,true);
+        emit Voting.Winner(id, 1);
+        voting.setWinningChoice(id, 1);
+    }
+
     function test_voteAndPickWinner() public {
         address[] memory users = createUsers(10);
         bytes32 id = voting.createPoll(block.timestamp + 1, 3, users);
 
         for (uint256 i = 0; i < users.length; i++) {
             vm.startPrank(users[i]);
-            vm.expectEmit(true,true,true,true);
+            vm.expectEmit();
             emit Voting.Voted(id, users[i], 1);
 
             voting.vote(id, 1);
         }
 
-        uint[] memory votes = voting.getVotes(id);
+        (uint participants, uint[] memory votes) = voting.getVotes(id);
+        require(participants == 10);
         console.log("collected votes:");
         for (uint i = 0; i < votes.length; i++) {
             uint choice = i+1;

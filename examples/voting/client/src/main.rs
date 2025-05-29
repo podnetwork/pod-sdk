@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     str::FromStr,
     time::{Duration, SystemTime},
 };
@@ -19,7 +20,7 @@ use voting_bindings::voting::Voting;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Address of the Notary contract
+    /// Address of the Voting contract
     #[arg(long, default_value = "0x12296f2D128530a834460DF6c36a2895B793F26d")]
     contract_address: Address,
 
@@ -41,7 +42,7 @@ enum Commands {
         /// ID of the  poll to vote in
         #[arg(long)]
         poll_id: PollId,
-
+        /// Choice to vote for
         #[arg(long)]
         choice: usize,
     },
@@ -54,19 +55,18 @@ enum Commands {
         #[arg(short, long)]
         deadline: Option<humantime::Timestamp>,
 
+        /// Number of posssible choices
         #[arg(long)]
         max_choice: usize,
 
-        #[arg(long)]
+        /// List of poll participants
+        #[arg(short, long)]
         participants: Vec<Address>,
     },
-    PickWinner {
+    ClosePoll {
         /// Private key for signing the transaction
         #[arg(long)]
         private_key: Privatekey,
-
-        #[arg(long)]
-        choice: usize,
 
         #[arg(long)]
         poll_id: PollId,
@@ -106,20 +106,10 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::PickWinner {
-            choice,
+        Commands::ClosePoll {
             poll_id,
             private_key,
-        } => {
-            pick_winner(
-                cli.rpc_url,
-                cli.contract_address,
-                private_key,
-                poll_id,
-                choice,
-            )
-            .await?
-        }
+        } => close_poll(cli.rpc_url, cli.contract_address, private_key.0, poll_id).await?,
         Commands::Vote {
             private_key,
             poll_id,
@@ -146,7 +136,7 @@ async fn main() -> Result<()> {
             let poll_id = create_poll(
                 cli.rpc_url,
                 cli.contract_address,
-                private_key,
+                private_key.0,
                 participants,
                 max_choice,
                 deadline,
@@ -160,26 +150,55 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn pick_winner(
+/// Close selected poll.
+/// Will fetch votes from the contract to select the winner automatically.
+/// Note: it doesn't check if the poll has a definitively resolved
+/// (if any additional votes can still change the result) - the contract
+/// does it.
+async fn close_poll(
     rpc_url: String,
     contract_address: Address,
-    private_key: Privatekey,
+    private_key: SigningKey,
     poll_id: PollId,
-    choice: usize,
 ) -> Result<()> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
-        .with_private_key(private_key.0)
+        .with_private_key(private_key)
         .on_url(&rpc_url)
         .await?;
     let voting = Voting::new(contract_address, pod_provider);
 
+    // 1. Check if winner is clear
+    let votes = voting
+        .getVotes(poll_id.0)
+        .call()
+        .await
+        .context("querying existing votes")?;
+
+    let mut votes_to_choices = BTreeMap::<usize, Vec<usize>>::new();
+    for (choice, votes) in votes
+        .votes
+        .iter()
+        .enumerate()
+        .map(|(i, v)| (i + 1, usize::try_from(v).unwrap()))
+    {
+        votes_to_choices.entry(votes).or_default().push(choice);
+    }
+    let (votes, choices) = votes_to_choices.pop_last().ok_or(anyhow!("no votes yet"))?;
+    ensure!(
+        choices.len() == 1,
+        "choices {choices:?} ex aequo: can't select winner"
+    );
+    let choice = choices[0];
+    println!("selected {choice} with {votes} votes");
+
+    // 2. Close poll with selected winner
     let pending_tx = voting
         .setWinningChoice(poll_id.0, U256::from(choice))
         .send()
         .await?;
 
     let receipt = pending_tx.get_receipt().await?;
-    anyhow::ensure!(receipt.status(), "voting failed");
+    anyhow::ensure!(receipt.status(), "failed to select winner");
 
     Ok(())
 }
@@ -237,7 +256,13 @@ async fn watch(rpc_url: String, contract_address: Address) -> Result<()> {
                 println!("poll {}: winner selected: {}", winner.pollId, winner.choice);
             }
             Voting::VotingEvents::PollCreated(poll_created) => {
-                println!("poll {}: created", poll_created.pollId)
+                let deadline: u64 = poll_created.deadline.try_into()?;
+                let deadline = Timestamp::from_seconds(deadline);
+                println!(
+                    "poll {}: created with deadline: {}",
+                    poll_created.pollId,
+                    humantime::format_rfc3339(deadline.into())
+                );
             }
         }
     }
@@ -248,13 +273,13 @@ async fn watch(rpc_url: String, contract_address: Address) -> Result<()> {
 async fn create_poll(
     rpc_url: String,
     contract_address: Address,
-    private_key: Privatekey,
+    private_key: SigningKey,
     participants: Vec<Address>,
     max_choice: usize,
     deadline: SystemTime,
 ) -> Result<Hash> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
-        .with_private_key(private_key.0)
+        .with_private_key(private_key)
         .on_url(&rpc_url)
         .await?;
     let voting = Voting::new(contract_address, pod_provider.clone());
@@ -262,9 +287,9 @@ async fn create_poll(
     let deadline = Timestamp::from(deadline);
     let pendix_tx = voting
         .createPoll(
-            U256::from(deadline.as_micros()),
+            U256::from(deadline.as_seconds()),
             U256::from(max_choice),
-            participants,
+            participants.clone(),
         )
         .send()
         .await?;

@@ -128,15 +128,15 @@ contract Voting {
         emit Winner(pollId, choice);
     }
 
-    function getVotes(bytes32 pollId) public view returns (uint[] memory votes) {
+    function getVotes(bytes32 pollId) public view returns (uint participants, uint[] memory votes) {
         Poll storage poll = polls[pollId];
         require(poll.maxChoice > 0, "poll doesn't exist");
 
-        uint[] memory votes = new uint256[](poll.maxChoice);
+        uint[] memory votesPerChoice = new uint256[](poll.maxChoice);
         for (uint i = 0; i < poll.maxChoice; i++) {
-            votes[i] = poll.voteCount[i+1];
+            votesPerChoice[i] = poll.voteCount[i+1];
         }
 
-        return votes;
+        return (poll.totalVoters, votesPerChoice);
     }
 }
