@@ -10,4 +10,3 @@ function requireQuorum(bool input, string memory message) view {
     // however this check is required for testing purposes
     require(success, message);
 }
-
