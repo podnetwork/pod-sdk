@@ -927,29 +927,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
-name = "auction-with-dispute"
-version = "0.1.0"
-dependencies = [
- "alloy-network",
- "alloy-primitives",
- "alloy-provider",
- "alloy-rpc-types",
- "alloy-signer-local",
- "alloy-sol-types",
- "alloy-transport",
- "alloy-transport-http",
- "anyhow",
- "clap",
- "dotenv",
- "pod-auction-with-dispute",
- "pod-examples-solidity",
- "pod-sdk",
- "pod-types",
- "reqwest",
- "tokio",
-]
-
-[[package]]
 name = "auto_impl"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2594,6 +2571,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "optimistic-auction"
+version = "0.1.0"
+dependencies = [
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "alloy-signer-local",
+ "alloy-sol-types",
+ "alloy-transport",
+ "alloy-transport-http",
+ "anyhow",
+ "clap",
+ "dotenv",
+ "pod-examples-solidity",
+ "pod-optimistic-auction",
+ "pod-sdk",
+ "pod-types",
+ "reqwest",
+ "tokio",
+]
+
+[[package]]
 name = "parity-scale-codec"
 version = "3.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2734,7 +2734,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "953ec861398dccce10c670dfeaf3ec4911ca479e9c02154b3a215178c5f566f2"
 
 [[package]]
-name = "pod-auction-with-dispute"
+name = "pod-examples-solidity"
 version = "0.1.0"
 dependencies = [
  "alloy",
@@ -2742,7 +2742,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pod-examples-solidity"
+name = "pod-optimistic-auction"
 version = "0.1.0"
 dependencies = [
  "alloy",

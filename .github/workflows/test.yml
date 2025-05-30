@@ -39,7 +39,7 @@ jobs:
       run: cargo test --verbose
 
   contracts:
-    name: examples-solidity
+    name: examples-solidity 
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,7 +56,7 @@ jobs:
       - name: Run Forge fmt
         run: |
           forge fmt --check
-        working-directory: examples/solidity
+        working-directory: examples/solidity 
         id: fmt
 
       - name: Run Forge build
@@ -79,7 +79,7 @@ jobs:
         id: bindings
       
   solidity-sdk:
-    name: solidity-sdk
+    name: solidity-sdk 
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -111,8 +111,8 @@ jobs:
         id: test
         working-directory: solidity-sdk
 
-  auction-with-dispute:
-    name: auction-with-dispute
+  optimistic-auction:
+    name: optimistic-auction 
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -130,22 +130,22 @@ jobs:
         run: |
           forge fmt --check
         id: fmt
-        working-directory: examples/auction-with-dispute
+        working-directory: examples/optimistic-auction 
 
       - name: Run Forge build
         run: |
           forge build --sizes
         id: build
-        working-directory: examples/auction-with-dispute
+        working-directory: examples/optimistic-auction 
 
       - name: Run Forge tests
         run: |
           forge test -vvv
         id: test
-        working-directory: examples/auction-with-dispute
+        working-directory: examples/optimistic-auction 
 
       - name: Check bindings
         run: |
           make check
-        working-directory: examples/auction-with-dispute
+        working-directory: examples/optimistic-auction
         id: bindings
