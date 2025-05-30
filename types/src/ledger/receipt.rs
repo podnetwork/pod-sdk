@@ -118,7 +118,6 @@ impl From<Receipt> for TransactionReceipt {
             from: val.tx.signer,
             to: val.tx.signed.to.to().cloned(),
             contract_address: val.contract_address, // None if the transaction is not a contract creation.
-            authorization_list: None,
         }
     }
 }

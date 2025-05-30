@@ -1,5 +1,5 @@
 use alloy_consensus::{TxType, TypedTransaction};
-use alloy_eips::{eip2930::AccessList, eip7702::SignedAuthorization};
+use alloy_eips::eip2930::AccessList;
 use alloy_network::{
     BuildResult, Network, NetworkWallet, ReceiptResponse, TransactionBuilder,
     TransactionBuilderError,
@@ -270,11 +270,6 @@ impl ReceiptResponse for PodReceiptResponse {
 
     fn to(&self) -> Option<Address> {
         self.receipt.to()
-    }
-
-    fn authorization_list(&self) -> Option<&[SignedAuthorization]> {
-        // todo
-        None
     }
 
     fn cumulative_gas_used(&self) -> u64 {
