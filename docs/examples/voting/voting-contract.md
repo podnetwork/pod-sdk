@@ -37,7 +37,7 @@ A Poll includes:
 
 #### Poll ID
 
-Polls are uniquely identified by their IDs derived from input arguments used to create a poll. ID is used in all
+Polls are uniquely identified by their IDs, which are derived from the input arguments used to create them. ID is used in all
 contract functions to refer to a particular poll.
 
 ```solidity
@@ -54,7 +54,7 @@ bytes32 pollId = keccak256(abi.encode(
 
 #### State
 
-The contract has **no** publicly accessible state. Instead, it exposes method to query state of a poll.
+The contract has **no** publicly accessible state. Instead, it exposes a method to query the state of a poll.
 
 #### Events
 
@@ -63,8 +63,8 @@ The contract has **no** publicly accessible state. Instead, it exposes method to
 - `Winner(bytes32 pollId, uint256 choice)`
 
 These events allow external systems (e.g. client applications) to subscribe and respond to on-chain activity in
-real-time. For example, an application can learn the ID of just created poll by looking into `PollCreated` event in the
-transaction receipt.
+real-time. For example, an application can obtain the ID of the poll created by the transaction by reading the
+`PollCreated` event in its receipt.
 
 #### Functions
 
@@ -77,9 +77,9 @@ function createPoll(uint256 deadline, uint256 maxChoice, address[] calldata vote
 Used to create a new poll.
 
 - Validations:
-  - poll ID is unique,
-  - deadline is in the future,
-  - there is at least one voter and one choice.
+  - The poll ID is unique.
+  - The deadline is in the future.
+  - There is at least one voter and one choice.
 - Emits `PollCreated`, which contains the poll ID.
 
 ##### vote
@@ -89,12 +89,11 @@ function vote(bytes32 pollId, uint256 choice) public
 ```
 
 - Validations:
-
-  - The poll must exist and be open (deadline not passed).
+  - The poll must exist and be open (with the deadline not yet passed).
   - The sender must be a registered voter who hasn't yet voted.
   - The choice must be valid (1 through maxChoice).
 
-- Updates voter state and tallies vote.
+- Updates voter state and tallies the vote.
 - Emits `Voted(pollId, voter, choice)`.
 
 ##### setWinningChoice
@@ -106,12 +105,12 @@ function setWinningChoice(bytes32 pollId, uint256 choice) public
 - Validations:
   - The deadline must have passed.
   - The winning choice hasn’t already been set.
-  - The choice is definitive winner.
+  - The choice is the definitive winner.
 - Emits `Winner(pollId, choice)`.
 
-Note that it is not required that all participants have already voted. This is intentional to prevent a dishonest voter
-from blocking the poll. The contract asseses if the selected choice is definitely the winner no matter if more votes
-come (for another candidate).
+Note that it is not required that all participants have already cast their votes. This is intentional to prevent a dishonest voter
+from blocking the poll. The contract assesses if the selected choice is definitely the winner, no matter if more votes
+come in for another candidate.
 
 ##### getVotes
 
@@ -119,7 +118,7 @@ come (for another candidate).
 function getVotes(bytes32 pollId) public view returns (uint participants, uint[] memory votes)
 ```
 
-It's a helper function which can be called by applications to get insight into poll state and calculate the winner.
+It's a helper function that applications can call to gain insight into the poll state and calculate the winner.
 
 ! content end
 
@@ -205,7 +204,7 @@ contract Voting {
     }
 
     function vote(bytes32 pollId, uint256 choice) public {
-        // adds vote only if: deadline hasnt passed, voter is registered
+        // adds vote only if: deadline hasn't passed, voter is registered
         Poll storage poll = polls[pollId];
         requireTimeBefore(poll.deadline, "Poll deadline has passed or poll does not exist");
         require(choice > 0 && choice <= poll.maxChoice, "Choice must be between 1 and maxChoice");
@@ -223,9 +222,6 @@ contract Voting {
         emit Voted(pollId, msg.sender, choice);
     }
 
-    // anyone can call, but choice must be definitely the winning one
-    // a choice is definitely winning, if:
-    //   even if all remaining votes are given to second highest voted, this choice would still win
     function setWinningChoice(bytes32 pollId, uint256 choice) public {
         Poll storage poll = polls[pollId];
         requireTimeAfter(poll.deadline, "Poll deadline has not passed yet");
