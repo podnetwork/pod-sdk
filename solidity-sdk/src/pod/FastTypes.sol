@@ -1,85 +1,126 @@
 pragma solidity ^0.8.25;
 
-interface ICounter {
-    function increment(bytes32 key, uint256 value) external;
-    function requireGte(bytes32 key, uint256 value) external view;
-}
-
-interface IOwned {
-    function set(bytes32 key, bytes32 value) external;
-    function get(bytes32 key) external view returns (bytes32 value);
-}
-
-interface ISet {
-    function insert(bytes32 key, bytes32 e) external;
-    function requireExist(bytes32 key, bytes32 e) external view;
-}
-
-interface IConstant {
-    function create(bytes32 key, bytes32 value) external;
-    function requireGet(bytes32 key) external view returns (bytes32 value);
-}
+import {requireQuorum} from "./Quorum.sol";
 
 library FastTypes {
-    address constant counterPrecompile = address(uint160(uint256(keccak256("pod-counter"))));
-
-    struct Counter {
-        bytes32 key;
+    struct SharedCounter {
+        mapping(bytes32 => uint256) _values;
     }
 
-    function increment(Counter memory c, uint256 value) public {
-        ICounter(counterPrecompile).increment(c.key, value);
+    function increment(SharedCounter storage c, bytes32 key, uint256 value) internal {
+        c._values[key] += value;
     }
 
-    function requireGte(Counter memory c, uint256 value) public view {
-        ICounter(counterPrecompile).requireGte(c.key, value);
+    function requireGte(SharedCounter storage c, bytes32 key, uint256 value, string memory errorMessage)
+        internal
+        view
+    {
+        requireQuorum(c._values[key] >= value, errorMessage);
     }
 
-    address constant ownedPrecompile = address(uint160(uint256(keccak256("pod-owned"))));
-
-    struct Owned {
-        bytes32 key;
-        address owner;
+    struct OwnedCounter {
+        mapping(bytes32 => mapping(address => uint256)) _values;
     }
 
-    modifier isOwner(Owned memory owned) {
-        require(owned.owner == tx.origin, "Not the owner");
-        _;
+    function get(OwnedCounter storage c, bytes32 key, address owner) internal view returns (uint256) {
+        require(owner == tx.origin, "Cannot access OwnedCounter owned by another address");
+        return c._values[key][owner];
     }
 
-    function set(Owned memory o, bytes32 value) public isOwner(o) {
-        IOwned(ownedPrecompile).set(o.key, value);
+    function increment(OwnedCounter storage c, bytes32 key, address owner, uint256 value) internal {
+        require(owner == tx.origin, "Cannot access OwnedCounter owned by another address");
+        c._values[key][owner] += value;
     }
 
-    function get(Owned memory o) public view isOwner(o) returns (bytes32) {
-        return IOwned(ownedPrecompile).get(o.key);
+    function decrement(OwnedCounter storage c, bytes32 key, address owner, uint256 value) internal {
+        require(owner == tx.origin, "Cannot access OwnedCounter owned by another address");
+        require(c._values[key][owner] >= value, "Cannot decrement counter below 0");
+        c._values[key][owner] -= value;
     }
 
-    address constant setPrecompile = address(uint160(uint256(keccak256("pod-set"))));
+    function set(OwnedCounter storage c, bytes32 key, address owner, uint256 value) internal {
+        require(owner == tx.origin, "Cannot access OwnedCounter owned by another address");
+        c._values[key][owner] = value;
+    }
+
+    struct Balance {
+        mapping(bytes32 => mapping(address => int256)) _values;
+    }
+
+    function requireGte(Balance storage b, bytes32 key, address owner, uint256 value, string memory errorMessage)
+        internal
+        view
+    {
+        requireQuorum(b._values[key][owner] >= int256(value), errorMessage);
+    }
+
+    function increment(Balance storage b, bytes32 key, address owner, uint256 value) internal {
+        b._values[key][owner] += int256(value);
+    }
+
+    function decrement(Balance storage b, bytes32 key, address owner, uint256 value) internal {
+        requireGte(b, key, owner, value, "Cannot decrement balance below 0");
+        b._values[key][owner] -= int256(value);
+    }
 
     struct Set {
-        bytes32 key;
+        mapping(bytes32 => uint256) _index;
+        uint256 _length;
     }
 
-    function insert(Set memory s, bytes32 value) public {
-        ISet(setPrecompile).insert(s.key, value);
+    function add(Set storage s, bytes32 value) internal {
+        if (s._index[value] == 0) {
+            s._index[value] = s._length + 1;
+            s._length++;
+        }
     }
 
-    function requireExist(Set memory s, bytes32 value) public view {
-        ISet(setPrecompile).requireExist(s.key, value);
+    function requireExists(Set storage s, bytes32 value, string memory errorMessage) internal view {
+        requireQuorum(s._index[value] > 0, errorMessage);
     }
 
-    address constant constantPrecompile = address(uint160(uint256(keccak256("pod-constant"))));
-
-    struct Constant {
-        bytes32 key;
+    function requireLengthGte(Set storage s, uint256 value, string memory errorMessage) internal view {
+        requireQuorum(s._length >= value, errorMessage);
     }
 
-    function set(Constant memory c, bytes32 value) public {
-        IConstant(constantPrecompile).create(c.key, value);
+    struct Uint256Set {
+        Set _set;
+        uint256 _maxValue;
     }
 
-    function requireGet(Constant memory c) public view returns (bytes32) {
-        return IConstant(constantPrecompile).requireGet(c.key);
+    function add(Uint256Set storage s, uint256 value) internal {
+        if (value > s._maxValue) {
+            s._maxValue = value;
+        }
+
+        add(s._set, bytes32(value));
+    }
+
+    function requireExists(Uint256Set storage s, uint256 value, string memory errorMessage) internal view {
+        requireExists(s._set, bytes32(value), errorMessage);
+    }
+
+    function requireLengthGte(Uint256Set storage s, uint256 value, string memory errorMessage) internal view {
+        requireLengthGte(s._set, value, errorMessage);
+    }
+
+    function requireMaxValueGte(Uint256Set storage s, uint256 value, string memory errorMessage) internal view {
+        requireQuorum(s._maxValue >= value, errorMessage);
+    }
+
+    struct AddressSet {
+        Set _set;
+    }
+
+    function add(AddressSet storage s, address value) internal {
+        add(s._set, bytes32(uint256(uint160(value))));
+    }
+
+    function requireExists(AddressSet storage s, address value, string memory errorMessage) internal view {
+        requireExists(s._set, bytes32(uint256(uint160(value))), errorMessage);
+    }
+
+    function requireLengthGte(AddressSet storage s, uint256 value, string memory errorMessage) internal view {
+        requireLengthGte(s._set, value, errorMessage);
     }
 }
