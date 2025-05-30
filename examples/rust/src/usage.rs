@@ -9,6 +9,7 @@ use pod_sdk::{
 };
 
 use pod_examples_solidity::auction::Auction;
+use pod_types::Timestamp;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -57,12 +58,10 @@ async fn main() -> Result<()> {
         }
     }
 
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)?
-        .as_secs();
-
     println!("waiting for time to be past perfect");
-    pod_provider.wait_past_perfect_time(now).await?;
+    pod_provider
+        .wait_past_perfect_time(Timestamp::now())
+        .await?;
     println!("perfect time reached");
 
     let filter = Filter::new()
