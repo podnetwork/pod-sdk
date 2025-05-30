@@ -1,10 +1,10 @@
 [package]
-name = "optimistic-auction"
+name = "auction-with-dispute"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "optimistic_auction"
+name = "auction_with_dispute"
 path = "client/main.rs"
 
 [dependencies]
@@ -24,4 +24,4 @@ reqwest = { version = "0.12.15" }
 pod-types = { path = "../../types" }
 pod-sdk = { path = "../../rust-sdk" }
 pod-examples-solidity = { path = "../solidity/bindings" }
-pod-optimistic-auction = { path = "./bindings" }
+pod-auction-with-dispute = { path = "./bindings" }

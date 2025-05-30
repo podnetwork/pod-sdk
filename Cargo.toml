@@ -3,7 +3,7 @@ members = [
   "examples/solidity/bindings", 
   "types", 
   "rust-sdk", 
-  "examples/optimistic-auction", 
+  "examples/auction-with-dispute", 
   "examples/rust"
 ]
 resolver = "2"

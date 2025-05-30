@@ -1,4 +1,4 @@
-## pod-optimistic-auction
+## pod-auction-with-dispute
 
 ### Build
 
@@ -26,10 +26,10 @@ make generate
 
 ## Usage
 
-To run the optimistic auction example, first navigate to the `optimistic-auction` folder
+To run the auction with dispute example, first navigate to the `auction-with-dispute` folder
 
 ```shell
-cd examples/optimistic-auction
+cd examples/auction-with-dispute
 ```
 
 Then a local network is needed where the auction will be settled (for example anvil)

@@ -24,7 +24,7 @@ use pod_types::{
     consensus::attestation::TimestampedHeadlessAttestation, ledger::log::VerifiableLog, Hashable,
 };
 
-use pod_optimistic_auction::podauctionconsumer::{
+use pod_auction_with_dispute::podauctionconsumer::{
     MerkleTree::Proof,
     PodAuctionConsumer::{self, readReturn, PodAuctionConsumerInstance, State},
     PodECDSA::{
