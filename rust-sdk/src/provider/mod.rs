@@ -24,20 +24,9 @@ use pod_types::{
     pagination::{ApiPaginatedResult, CursorPaginationRequest},
 };
 
-use alloy_primitives::{Address, Log, B256 as Hash, U256};
+use alloy_primitives::{Address, U256};
 
 use pod_types::Timestamp;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CommitteeResponse(Committee);
-
-impl CommitteeResponse {
-    pub fn as_committee(self) -> Committee {
-        self.0
-    }
-}
 
 pub struct PodProviderBuilder<L, F>(ProviderBuilder<L, F, PodNetwork>);
 
@@ -173,27 +162,6 @@ where
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Notification {
-    pub event: (Log, Hash),
-    pub timestamp: Timestamp,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EventNotification(Log, Hash);
-
-#[allow(dead_code)]
-#[derive(Error, Debug)]
-pub enum LogVerificationError {
-    #[error("missing transaction hash")]
-    MissingTransactionHash,
-    #[error("rpc error: {0}")]
-    RPCError(#[from] alloy_json_rpc::RpcError<alloy_transport::TransportErrorKind>),
-    #[error("receipt not found: {0}")]
-    ReceiptNotFound(Hash),
-    #[error("invalid receipt response")]
-    InvalidReceiptResponse,
-}
 impl<T> PodProvider<T>
 where
     T: Transport + Clone,
