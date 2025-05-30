@@ -2,8 +2,7 @@ pub mod consensus;
 pub mod cryptography;
 pub mod ledger;
 pub mod metadata;
-// pub mod network;
-// pub mod system;
+pub mod rpc;
 pub mod time;
 
 pub mod pagination;
@@ -21,7 +20,3 @@ pub use crate::{
     ledger::{CallData, Receipt, Transaction},
     time::{Clock, Timestamp},
 };
-
-// pub use network::{
-//     AttestationMessage, ClientConnection, ClientNetwork, ValidatorNetwork, RequestPayload,
-// };

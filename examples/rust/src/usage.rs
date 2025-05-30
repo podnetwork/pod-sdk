@@ -3,12 +3,10 @@ use std::{str::FromStr, time::SystemTime};
 use anyhow::Result;
 
 use futures::StreamExt;
-use pod_sdk::{
-    Address, TxKind, U256, alloy_rpc_types::Filter, alloy_sol_types::SolEvent,
-    provider::PodProviderBuilder,
-};
+use pod_sdk::{Address, TxKind, U256, alloy_sol_types::SolEvent, provider::PodProviderBuilder};
 
 use pod_examples_solidity::auction::Auction;
+use pod_types::rpc::filter::LogFilterBuilder;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -65,10 +63,10 @@ async fn main() -> Result<()> {
     pod_provider.wait_past_perfect_time(now).await?;
     println!("perfect time reached");
 
-    let filter = Filter::new()
+    let filter = LogFilterBuilder::default()
         .address(Address::from_str("0x4CF3F1637bfEf1534e56352B6ebAae243aF464c3").unwrap())
         .event_signature(Auction::BidSubmitted::SIGNATURE_HASH)
-        .from_block(0);
+        .build();
 
     // read historical logs, verify them, then generate proof for light clients
     println!("fetching historical logs");

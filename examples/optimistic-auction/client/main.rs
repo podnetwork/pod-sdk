@@ -1,4 +1,3 @@
-use alloy_rpc_types::Filter;
 use alloy_sol_types::SolEvent;
 use dotenv::dotenv;
 
@@ -21,7 +20,8 @@ use pod_sdk::{
 };
 
 use pod_types::{
-    consensus::attestation::TimestampedHeadlessAttestation, ledger::log::VerifiableLog, Hashable,
+    consensus::attestation::TimestampedHeadlessAttestation, ledger::log::VerifiableLog,
+    rpc::filter::LogFilterBuilder, Hashable,
 };
 
 use pod_optimistic_auction::podauctionconsumer::{
@@ -262,12 +262,13 @@ impl AuctionClient {
     ) -> Result<CertifiedLog> {
         let bidder_filter = U256::from_str(&bidder_address.to_string())?;
 
-        let filter = Filter::new()
+        let filter = LogFilterBuilder::new()
             .address(Address::from(self.auction_contract.address().0))
             .event_signature(BidSubmitted::SIGNATURE_HASH)
             .topic1(auction_id)
             .topic2(bidder_filter)
-            .topic3(deadline);
+            .topic3(deadline)
+            .build();
 
         let logs = self.pod_provider.get_verifiable_logs(&filter).await?;
 
