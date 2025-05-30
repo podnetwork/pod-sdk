@@ -1,5 +1,6 @@
-## solidity-sdk 
-Solidity contracts to build on pod or verify pod transactions on other EVM chains. 
+## solidity-sdk
+
+Solidity contracts to build on pod or verify pod transactions on other EVM chains.
 
 ## Usage
 
@@ -24,6 +25,5 @@ $ forge fmt
 ### Bindings
 
 ```shell
-forge bind --crate-name pod-solidity-sdk --bindings-path ./bindings --alloy-version 0.9.2 --overwrite --force --no-metadata
+forge bind --crate-name pod-solidity-sdk --bindings-path ./bindings --alloy-version 0.12.1 --overwrite --force --no-metadata --overwrite
 ```
-

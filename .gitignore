@@ -3,3 +3,6 @@
 /cache
 /out
 rust-toolchain.toml
+
+**/soljson-latest.js
+

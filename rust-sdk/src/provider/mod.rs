@@ -5,8 +5,8 @@ use alloy_rpc_types::TransactionReceipt;
 use anyhow::Context;
 
 use crate::network::{PodNetwork, PodTransactionRequest};
-use alloy_json_rpc::{RpcParam, RpcReturn};
-use alloy_network::{EthereumWallet, Network, TransactionBuilder};
+use alloy_json_rpc::{RpcRecv, RpcSend};
+use alloy_network::{EthereumWallet, Network, NetworkWallet, TransactionBuilder};
 use alloy_provider::{
     fillers::{JoinFill, RecommendedFillers, TxFiller, WalletFiller},
     Identity, PendingTransactionBuilder, Provider, ProviderBuilder, ProviderLayer, RootProvider,
@@ -15,7 +15,7 @@ use alloy_provider::{
 use alloy_pubsub::Subscription;
 use async_trait::async_trait;
 
-use alloy_transport::{BoxTransport, Transport, TransportError, TransportResult};
+use alloy_transport::{TransportError, TransportResult};
 use futures::StreamExt;
 use pod_types::{
     consensus::Committee,
@@ -24,20 +24,9 @@ use pod_types::{
     pagination::{ApiPaginatedResult, CursorPaginationRequest},
 };
 
-use alloy_primitives::{Address, Log, B256 as Hash, U256};
+use alloy_primitives::{Address, U256};
 
 use pod_types::Timestamp;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CommitteeResponse(Committee);
-
-impl CommitteeResponse {
-    pub fn as_committee(self) -> Committee {
-        self.0
-    }
-}
 
 pub struct PodProviderBuilder<L, F>(ProviderBuilder<L, F, PodNetwork>);
 
@@ -60,13 +49,13 @@ impl
 
 impl Default for PodProviderBuilder<Identity, Identity> {
     fn default() -> Self {
-        Self(ProviderBuilder::new().network::<PodNetwork>())
+        Self(ProviderBuilder::<_, _, PodNetwork>::default())
     }
 }
 
 impl PodProviderBuilder<Identity, Identity> {
     pub fn new() -> Self {
-        PodProviderBuilder::<Identity, Identity>::default()
+        Self::default()
     }
 }
 
@@ -74,21 +63,21 @@ impl<L, F> PodProviderBuilder<L, F> {
     /// Finish the layer stack by providing a url for connection,
     /// outputting the final [`PodProvider`] type with all stack
     /// components.
-    pub async fn on_url<U: AsRef<str>>(
-        self,
-        url: U,
-    ) -> Result<PodProvider<BoxTransport>, TransportError>
+    pub async fn on_url<U: AsRef<str>>(self, url: U) -> Result<PodProvider, TransportError>
     where
-        L: ProviderLayer<RootProvider<BoxTransport, PodNetwork>, BoxTransport, PodNetwork>,
-        F: TxFiller<PodNetwork> + ProviderLayer<L::Provider, BoxTransport, PodNetwork>,
+        L: ProviderLayer<RootProvider<PodNetwork>, PodNetwork>,
+        F: TxFiller<PodNetwork> + ProviderLayer<L::Provider, PodNetwork>,
         F::Provider: 'static,
     {
-        let alloy_provider = self.0.on_builtin(url.as_ref()).await?;
+        let alloy_provider = self.0.connect(url.as_ref()).await?;
         Ok(PodProvider::new(alloy_provider))
     }
 
     /// Configure a wallet to be used for signing transactions and spending funds.
-    pub fn wallet<W>(self, wallet: W) -> PodProviderBuilder<L, JoinFill<F, WalletFiller<W>>> {
+    pub fn wallet<W>(self, wallet: W) -> PodProviderBuilder<L, JoinFill<F, WalletFiller<W>>>
+    where
+        W: NetworkWallet<PodNetwork>,
+    {
         PodProviderBuilder::<_, _>(self.0.wallet(wallet))
     }
 
@@ -107,10 +96,10 @@ impl<L, F> PodProviderBuilder<L, F> {
     /// - POD_PRIVATE_KEY: hex-encoded ECDSA private key of the wallet owner
     /// - POD_RPC_URL: URL for a pod RPC API (example: <https://rpc.dev.pod.network>)
     ///   (default: ws://127.0.0.1:8545)
-    pub async fn from_env(self) -> anyhow::Result<PodProvider<BoxTransport>>
+    pub async fn from_env(self) -> anyhow::Result<PodProvider>
     where
-        L: ProviderLayer<RootProvider<BoxTransport, PodNetwork>, BoxTransport, PodNetwork>,
-        F: TxFiller<PodNetwork> + ProviderLayer<L::Provider, BoxTransport, PodNetwork> + 'static,
+        L: ProviderLayer<RootProvider<PodNetwork>, PodNetwork>,
+        F: TxFiller<PodNetwork> + ProviderLayer<L::Provider, PodNetwork> + 'static,
         L::Provider: 'static,
     {
         const PK_ENV: &str = "POD_PRIVATE_KEY";
@@ -137,33 +126,22 @@ impl<L, F> PodProviderBuilder<L, F> {
 
 /// A provider tailored for pod, extending capabilities of alloy [Provider]
 /// with pod-specific features.
-pub struct PodProvider<T>
-where
-    T: Transport + Clone,
-{
-    inner: Arc<dyn Provider<T, PodNetwork>>,
-    transport: std::marker::PhantomData<T>,
+pub struct PodProvider {
+    inner: Arc<dyn Provider<PodNetwork>>,
 }
 
-impl<T> Clone for PodProvider<T>
-where
-    T: Transport + Clone,
-{
+impl Clone for PodProvider {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
-            transport: self.transport,
         }
     }
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl<T> Provider<T, PodNetwork> for PodProvider<T>
-where
-    T: Transport + Clone,
-{
-    fn root(&self) -> &RootProvider<T, PodNetwork> {
+impl Provider<PodNetwork> for PodProvider {
+    fn root(&self) -> &RootProvider<PodNetwork> {
         self.inner.root()
     }
 
@@ -174,41 +152,16 @@ where
     async fn send_transaction_internal(
         &self,
         tx: SendableTx<PodNetwork>,
-    ) -> TransportResult<PendingTransactionBuilder<T, PodNetwork>> {
+    ) -> TransportResult<PendingTransactionBuilder<PodNetwork>> {
         self.inner.send_transaction_internal(tx).await
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Notification {
-    pub event: (Log, Hash),
-    pub timestamp: Timestamp,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EventNotification(Log, Hash);
-
-#[allow(dead_code)]
-#[derive(Error, Debug)]
-pub enum LogVerificationError {
-    #[error("missing transaction hash")]
-    MissingTransactionHash,
-    #[error("rpc error: {0}")]
-    RPCError(#[from] alloy_json_rpc::RpcError<alloy_transport::TransportErrorKind>),
-    #[error("receipt not found: {0}")]
-    ReceiptNotFound(Hash),
-    #[error("invalid receipt response")]
-    InvalidReceiptResponse,
-}
-impl<T> PodProvider<T>
-where
-    T: Transport + Clone,
-{
+impl PodProvider {
     /// Create a new [PodProvider] using the underlying alloy [Provider].
-    pub fn new(provider: impl Provider<T, PodNetwork> + 'static) -> Self {
+    pub fn new(provider: impl Provider<PodNetwork> + 'static) -> Self {
         Self {
             inner: Arc::new(provider),
-            transport: std::marker::PhantomData::<T>,
         }
     }
 
@@ -230,8 +183,8 @@ where
         params: Params,
     ) -> TransportResult<Subscription<Resp>>
     where
-        Params: RpcParam,
-        Resp: RpcReturn,
+        Params: RpcSend,
+        Resp: RpcRecv,
     {
         let id = self
             .client()
