@@ -8,7 +8,7 @@ interface Voting {
     event Winner(bytes32 indexed pollId, uint256 indexed choice);
 
     function createPoll(uint256 deadline, uint256 maxChoice, address[] memory voters) external returns (bytes32 pollId);
-    function getPollId(uint256 deadline, uint256 maxChoice, address owner, address[] memory voters) external pure returns (bytes32);
+    function getPollId(uint256 deadline, uint256 maxChoice, address owner, address[] memory voters) external pure returns (bytes32 pollId);
     function getVotes(bytes32 pollId) external view returns (uint256 participants, uint256[] memory votes);
     function setWinningChoice(bytes32 pollId, uint256 choice) external;
     function vote(bytes32 pollId, uint256 choice) external;
@@ -74,7 +74,7 @@ interface Voting {
     ],
     "outputs": [
       {
-        "name": "",
+        "name": "pollId",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -756,7 +756,7 @@ function createPoll(uint256 deadline, uint256 maxChoice, address[] memory voters
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getPollId(uint256,uint256,address,address[])` and selector `0x5fe5c1ec`.
 ```solidity
-function getPollId(uint256 deadline, uint256 maxChoice, address owner, address[] memory voters) external pure returns (bytes32);
+function getPollId(uint256 deadline, uint256 maxChoice, address owner, address[] memory voters) external pure returns (bytes32 pollId);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -777,7 +777,7 @@ function getPollId(uint256 deadline, uint256 maxChoice, address owner, address[]
     #[derive(Clone)]
     pub struct getPollIdReturn {
         #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::FixedBytes<32>,
+        pub pollId: alloy::sol_types::private::FixedBytes<32>,
     }
     #[allow(
         non_camel_case_types,
@@ -853,14 +853,14 @@ function getPollId(uint256 deadline, uint256 maxChoice, address owner, address[]
             #[doc(hidden)]
             impl ::core::convert::From<getPollIdReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: getPollIdReturn) -> Self {
-                    (value._0,)
+                    (value.pollId,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for getPollIdReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
+                    Self { pollId: tuple.0 }
                 }
             }
         }

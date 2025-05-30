@@ -73,7 +73,7 @@ jobs:
 
       - name: Check bindings
         run: |
-          forge bind --crate-name pod-examples-solidity --bindings-path ./bindings --alloy-version 0.9.2 --force --no-metadata
+          make check
         working-directory: examples/solidity
         id: bindings
       
@@ -110,13 +110,6 @@ jobs:
         id: test
         working-directory: solidity-sdk
 
-      - name: Check bindings
-        run: |
-          forge bind --crate-name pod-solidity-sdk --bindings-path ./bindings --alloy-version 0.9.2 --force --no-metadata
-        working-directory: solidity-sdk 
-        id: bindings
-
-
   optimistic-auction:
     name: optimistic-auction 
     runs-on: ubuntu-latest
@@ -152,6 +145,6 @@ jobs:
 
       - name: Check bindings
         run: |
-          forge bind --crate-name pod-optimistic-auction --bindings-path ./bindings --alloy-version 0.9.2 --force --no-metadata
+          make check
         working-directory: examples/optimistic-auction
         id: bindings
