@@ -22,6 +22,7 @@ use pod_types::{
     ledger::log::VerifiableLog,
     metadata::{MetadataWrappedItem, RegularReceiptMetadata},
     pagination::{ApiPaginatedResult, CursorPaginationRequest},
+    rpc::filter::LogFilter,
 };
 
 use alloy_primitives::{Address, U256};
@@ -166,7 +167,7 @@ impl PodProvider {
 
     pub async fn get_verifiable_logs(
         &self,
-        filter: &alloy_rpc_types::Filter,
+        filter: &LogFilter,
     ) -> TransportResult<Vec<VerifiableLog>> {
         self.client().request("eth_getLogs", (filter,)).await
     }
@@ -189,7 +190,7 @@ impl PodProvider {
 
     pub async fn subscribe_verifiable_logs(
         &self,
-        filter: &alloy_rpc_types::Filter,
+        filter: &LogFilter,
     ) -> TransportResult<Subscription<VerifiableLog>> {
         self.websocket_subscribe("logs", filter).await
     }

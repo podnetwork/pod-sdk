@@ -32,3 +32,7 @@ async-trait = "0.1.83"
 tokio = { version = "1.43.1", features = ["rt", "macros"] }
 base64 = "0.22.1"
 utoipa = "5.3.1"
+
+
+[dev-dependencies]
+serde_json = "*"
