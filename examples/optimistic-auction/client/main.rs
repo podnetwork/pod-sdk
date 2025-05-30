@@ -1,6 +1,5 @@
 use alloy_rpc_types::Filter;
 use alloy_sol_types::SolEvent;
-use alloy_transport::{BoxTransport, Transport};
 use dotenv::dotenv;
 
 use alloy_network::{Ethereum, EthereumWallet, Network, ReceiptResponse};
@@ -12,7 +11,6 @@ use alloy_provider::{
     Identity, RootProvider,
 };
 use alloy_signer_local::PrivateKeySigner;
-use alloy_transport_http::Http;
 
 use anyhow::{anyhow, Result};
 use pod_examples_solidity::auction::Auction::{self, AuctionInstance, BidSubmitted};
@@ -33,7 +31,6 @@ use pod_optimistic_auction::podauctionconsumer::{
         Certificate as AuctionCertificate, CertifiedLog, CertifiedReceipt, Log as AuctionLog,
     },
 };
-use reqwest::Client;
 
 use std::{env, str::FromStr, thread::sleep, time::Duration};
 
@@ -45,13 +42,12 @@ type ConsumerProviderType = FillProvider<
         >,
         WalletFiller<EthereumWallet>,
     >,
-    RootProvider<Http<Client>>,
-    Http<Client>,
+    RootProvider,
     Ethereum,
 >;
 
 type ConsumerContractType = PodAuctionConsumerInstance<
-    Http<Client>,
+    (),
     FillProvider<
         JoinFill<
             JoinFill<
@@ -60,15 +56,14 @@ type ConsumerContractType = PodAuctionConsumerInstance<
             >,
             WalletFiller<EthereumWallet>,
         >,
-        RootProvider<Http<Client>>,
-        Http<Client>,
+        RootProvider,
         Ethereum,
     >,
 >;
 
 struct AuctionClient {
-    pod_provider: PodProvider<BoxTransport>,
-    auction_contract: AuctionInstance<BoxTransport, PodProvider<BoxTransport>, PodNetwork>,
+    pod_provider: PodProvider,
+    auction_contract: AuctionInstance<(), PodProvider, PodNetwork>,
     consumer_provider: ConsumerProviderType,
     consumer_contract: ConsumerContractType,
 }
@@ -114,7 +109,6 @@ impl AuctionClient {
         let auction_contract = Auction::new(auction_contract_address, pod_provider.clone());
 
         let consumer_provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet.clone())
             .on_http(consumer_rpc_url.parse()?);
 
@@ -148,7 +142,7 @@ impl AuctionClient {
         println!("Waiting for receipt... {:?}", tx.tx_hash());
         sleep(Duration::from_millis(100));
 
-        check_receipt_status::<_, _, PodNetwork>(self.pod_provider.clone(), *tx.tx_hash()).await?;
+        check_receipt_status::<_, PodNetwork>(self.pod_provider.clone(), *tx.tx_hash()).await?;
 
         Ok(())
     }
@@ -171,7 +165,7 @@ impl AuctionClient {
         println!("Waiting for receipt - BOND... {:?}", bond_tx.tx_hash());
         sleep(Duration::from_millis(100));
 
-        check_receipt_status::<_, _, Ethereum>(self.consumer_provider.clone(), *bond_tx.tx_hash())
+        check_receipt_status::<_, Ethereum>(self.consumer_provider.clone(), *bond_tx.tx_hash())
             .await?;
 
         Ok(())
@@ -189,7 +183,7 @@ impl AuctionClient {
         println!("Waiting for receipt - WRITE... {:?}", write_tx.tx_hash());
         sleep(Duration::from_millis(100));
 
-        check_receipt_status::<_, _, Ethereum>(self.consumer_provider.clone(), *write_tx.tx_hash())
+        check_receipt_status::<_, Ethereum>(self.consumer_provider.clone(), *write_tx.tx_hash())
             .await?;
 
         Ok(())
@@ -212,7 +206,7 @@ impl AuctionClient {
         println!("Waiting for receipt - BLAME... {:?}", blame_tx.tx_hash());
         sleep(Duration::from_millis(100));
 
-        check_receipt_status::<_, _, Ethereum>(self.consumer_provider.clone(), *blame_tx.tx_hash())
+        check_receipt_status::<_, Ethereum>(self.consumer_provider.clone(), *blame_tx.tx_hash())
             .await?;
 
         Ok(())
@@ -299,7 +293,7 @@ pub fn aggregate_signatures_from_attestations(
     Ok(Bytes::from(aggregated))
 }
 
-async fn advance_time<T: Provider<Http<Client>>>(provider: T, timestamp: U256) -> Result<()> {
+async fn advance_time<P: Provider>(provider: P, timestamp: U256) -> Result<()> {
     provider
         .raw_request::<_, ()>(
             std::borrow::Cow::Borrowed("evm_setNextBlockTimestamp"),
@@ -314,10 +308,9 @@ async fn advance_time<T: Provider<Http<Client>>>(provider: T, timestamp: U256) -
     Ok(())
 }
 
-async fn check_receipt_status<T, P, N>(provider: T, tx_hash: FixedBytes<32>) -> Result<()>
+async fn check_receipt_status<P, N>(provider: P, tx_hash: FixedBytes<32>) -> Result<()>
 where
-    T: Provider<P, N>,
-    P: Transport + Clone,
+    P: Provider<N>,
     N: Network,
 {
     let receipt = provider.get_transaction_receipt(tx_hash).await?.unwrap();

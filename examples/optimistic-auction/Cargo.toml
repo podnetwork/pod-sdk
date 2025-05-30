@@ -8,19 +8,19 @@ name = "optimistic_auction"
 path = "client/main.rs"
 
 [dependencies]
-alloy-rpc-types = "0.9.2"
-alloy-network = "0.9.2"
+alloy-rpc-types = "0.12.1"
+alloy-network = "0.12.1"
 alloy-sol-types = "0.8.24"
-alloy-primitives = { version = "^0.8.15", features = ["k256", "serde"] }
-alloy-transport = "0.9.2"
-alloy-transport-http = "0.9.2"
-alloy-signer-local = "0.9.2"
-alloy-provider = { version = "0.9.2", features = ["pubsub", "ws"] }
+alloy-primitives = { version = "^0.8.22", features = ["k256", "serde"] }
+alloy-transport = "0.12.1"
+alloy-transport-http = "0.12.1"
+alloy-signer-local = "0.12.1"
+alloy-provider = { version = "0.12.1", features = ["pubsub", "ws"] }
 anyhow = "1.0.98"
 clap = { version = "4.5.38", features = ["derive"] }
 dotenv = "0.15.0"
 tokio = { version = "1.44.2", features = ["full"] }
-reqwest = { version = "0.12.15" } 
+reqwest = { version = "0.12.15" }
 pod-types = { path = "../../types" }
 pod-sdk = { path = "../../rust-sdk" }
 pod-examples-solidity = { path = "../solidity/bindings" }
