@@ -14,9 +14,9 @@ toc:
 ! table style1
 | [Transfer](./transfers) | Simple native transfer |
 | --------- | ----- |
-| [Tokens](./tokens) | Create and transfer fungible tokens |
-| [NFTs](./nfts) | Create and transfer non fungible tokens |
-| [Ranked Feed](./ranked-feed) | A ranked feed (e.g. social feed) |
+| [Tokens](./examples/tokens) | Create and transfer fungible tokens |
+| [NFTs](./examples/nfts) | Create and transfer non fungible tokens |
+| [Ranked Feed](./examples/ranked-feed) | A ranked feed (e.g. social feed) |
 | [Notary](./examples/notary) | A notary service |
 | [Voting](./voting) | A voting system |
 | [Ethereum token balance](./eth-token-balance) | Read token balances (or arbitrary view function) on Ethereum |
