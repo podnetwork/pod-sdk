@@ -18,7 +18,7 @@ toc:
 | [NFTs](./examples/nfts) | Create and transfer non fungible tokens |
 | [Ranked Feed](./examples/ranked-feed) | A ranked feed (e.g. social feed) |
 | [Notary](./examples/notary) | A notary service |
-| [Voting](./voting) | A voting system |
+| [Voting](./examples/voting) | A voting system |
 | [Ethereum token balance](./eth-token-balance) | Read token balances (or arbitrary view function) on Ethereum |
 | [Name Registry](./name-registry) | A name service (e.g. ENS) |
 ! table end
