@@ -87,8 +87,7 @@ async fn main() -> Result<()> {
             );
         }
         Commands::GetTokenURI { token_id } => {
-            let uri =
-                token_uri(cli.rpc_url, cli.contract_address, token_id).await?;
+            let uri = token_uri(cli.rpc_url, cli.contract_address, token_id).await?;
 
             println!("ℹ️  tokenURI({}) → {}", token_id, uri);
         }
