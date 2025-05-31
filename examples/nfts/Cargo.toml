@@ -1,0 +1,16 @@
+[package]
+name = "tokens"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pod-sdk = { path = "../../rust-sdk" }
+pod-types = { path = "../../types" }
+
+alloy = { version = "0.12.1", features = ["sol-types", "contract"] }
+tokio = { version = "1.45.1", features = ["full"] }
+anyhow = "1.0.98"
+clap = { version = "4.5.38", features = ["derive"] }
+hex = "0.4.3"
+humantime = "2.2.0"
+futures = "0.3.31"
