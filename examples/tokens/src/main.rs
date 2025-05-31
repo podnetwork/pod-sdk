@@ -60,8 +60,9 @@ async fn main() -> Result<()> {
             watch(cli.rpc_url, cli.contract_address, from_submitter).await?;
         }
         Commands::TransferToken { amount, address } => {
-            let receipt = transfer_token(cli.rpc_url, cli.contract_address, amount, address).await?;
-            
+            let receipt =
+                transfer_token(cli.rpc_url, cli.contract_address, amount, address).await?;
+
             println!(
                 "✅ Sent {} token(s) to {} — tx 0x{}",
                 amount,
@@ -98,7 +99,10 @@ async fn watch(
         filter = filter.topic2(submitter.into_word());
     }
 
-    let mut stream = pod_provider.subscribe_verifiable_logs(&filter).await?.into_stream();
+    let mut stream = pod_provider
+        .subscribe_verifiable_logs(&filter)
+        .await?
+        .into_stream();
     let committee = pod_provider.get_committee().await?;
 
     while let Some(log) = stream.next().await {
@@ -106,10 +110,10 @@ async fn watch(
             eprintln!("⚠️  Received an unverifiable event – ignoring");
             continue;
         }
-        
+
         let event = Tokens::Transfer::decode_log(&log.inner.inner, true)
             .context("Failed to decode Transfer event – is the ABI up-to-date?")?;
-        
+
         println!(
             "🔔 Transfer {} → {} : {} token(s)",
             event.from, event.to, event.value
