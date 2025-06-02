@@ -2807,6 +2807,7 @@ dependencies = [
  "itertools 0.13.0",
  "k256",
  "serde",
+ "serde_json",
  "sha3 0.11.0-pre.4",
  "tokio",
  "utoipa",

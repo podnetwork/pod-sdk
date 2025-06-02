@@ -11,9 +11,9 @@ use alloy::{
 use anyhow::{Context, Result, anyhow, ensure};
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
-use pod_sdk::{Address, Hash, SigningKey, alloy_rpc_types::Filter, provider::PodProviderBuilder};
+use pod_sdk::{Address, Hash, SigningKey, provider::PodProviderBuilder};
 
-use pod_types::Timestamp;
+use pod_types::{Timestamp, rpc::filter::LogFilterBuilder};
 
 use voting_bindings::voting::Voting;
 
@@ -229,7 +229,7 @@ async fn watch(rpc_url: String, contract_address: Address) -> Result<()> {
         .on_url(rpc_url)
         .await?;
 
-    let filter = Filter::new().address(contract_address);
+    let filter = LogFilterBuilder::new().address(contract_address).build();
 
     let mut stream = pod_provider
         .subscribe_verifiable_logs(&filter)
