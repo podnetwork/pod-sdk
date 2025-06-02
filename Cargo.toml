@@ -1,11 +1,11 @@
 [workspace]
 members = [
-  "examples/solidity/bindings", 
-  "types", 
-  "rust-sdk", 
-  "examples/optimistic-auction", 
-  "examples/rust"
+  "examples/solidity/bindings",
+  "types",
+  "rust-sdk",
+  "examples/notary",
+  "examples/optimistic-auction",
+  "examples/rust",
+  "examples/voting/client",
 ]
 resolver = "2"
-
-

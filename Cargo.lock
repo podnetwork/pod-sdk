@@ -1123,9 +1123,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.38"
+version = "4.5.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed93b9805f8ba930df42c2590f05453d5ec36cbb85d018868a5b24d31f6ac000"
+checksum = "fd60e63e9be68e5fb56422e397cf9baddded06dae1d2e523401542383bc72a9f"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1133,9 +1133,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.38"
+version = "4.5.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "379026ff283facf611b0ea629334361c4211d1b12ee01024eec1591133b04120"
+checksum = "89cc6392a1f72bbeb820d71f32108f61fdaf18bc526e1d23954168a67759ef51"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2425,6 +2425,21 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "tempfile",
+]
+
+[[package]]
+name = "notary"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "clap",
+ "futures",
+ "hex",
+ "humantime",
+ "pod-sdk",
+ "pod-types",
+ "tokio",
 ]
 
 [[package]]
@@ -3791,9 +3806,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.45.0"
+version = "1.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2513ca694ef9ede0fb23fe71a4ee4107cb102b9dc1930f6d0fd77aae068ae165"
+checksum = "75ef51a33ef1da925cea3e4eb122833cb377c61439ca401b770f54902b806779"
 dependencies = [
  "backtrace",
  "bytes",
@@ -4127,6 +4142,30 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "voting"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "clap",
+ "futures",
+ "hex",
+ "humantime",
+ "pod-sdk",
+ "pod-types",
+ "tokio",
+ "voting-bindings",
+]
+
+[[package]]
+name = "voting-bindings"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "serde",
+]
 
 [[package]]
 name = "wait-timeout"

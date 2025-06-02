@@ -6,7 +6,7 @@ use futures::StreamExt;
 use pod_sdk::{Address, TxKind, U256, alloy_sol_types::SolEvent, provider::PodProviderBuilder};
 
 use pod_examples_solidity::auction::Auction;
-use pod_types::rpc::filter::LogFilterBuilder;
+use pod_types::{Timestamp, rpc::filter::LogFilterBuilder};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -55,12 +55,10 @@ async fn main() -> Result<()> {
         }
     }
 
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)?
-        .as_secs();
-
     println!("waiting for time to be past perfect");
-    pod_provider.wait_past_perfect_time(now).await?;
+    pod_provider
+        .wait_past_perfect_time(Timestamp::now())
+        .await?;
     println!("perfect time reached");
 
     let filter = LogFilterBuilder::default()
