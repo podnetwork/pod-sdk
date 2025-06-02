@@ -13,45 +13,55 @@ interface IERC721Receiver {
 }
 
 contract NFTs {
-    mapping(uint256 => address) public tokensOwners;   // tokenId → owner
-    mapping(uint256 => string)  private tokenURIs;     // tokenId → metadata URI
+    struct Token {
+        address owner;
+        string uri;
+        uint256 sequence;
+    }
+    mapping(uint256 => Token) public tokens;
 
     event Minted(uint256 indexed tokenId, address indexed owner, string  uri);
     event Transferred(uint256 indexed tokenId, address indexed from, address indexed to);
 
-    function mint(uint256 tokenId,string calldata uri) external {
-        requireQuorum(tokensOwners[tokenId] == address(0), "already minted");
-        tokensOwners[tokenId] = msg.sender;
-        tokenURIs[tokenId]   = uri;
+    function mint(uint256 tokenId, string calldata uri) external {
+        requireQuorum(tokens[tokenId].owner == address(0), "already minted");
+        tokens[tokenId] = msg.sender;
+        tokens[tokenId]   = uri;
         emit Minted(tokenId, msg.sender, uri);
     }
 
     function tokenURI(uint256 tokenId) external view returns (string memory) {
-        requireQuorum(tokensOwners[tokenId] != address(0), "non-existent token");
-        return tokenURIs[tokenId];
+        requireQuorum(tokens[tokenId].owner != address(0), "non-existent token");
+        return tokens[tokenId];
     }
 
-    function safeTransfer(uint256 id, address to) external {
-        safeTransfer(id, to, "");
+    function safeTransfer(uint256 id, address to, uint256 seq) external {
+        safeTransfer(id, to, seq, "");
     }
 
     function safeTransfer(
         uint256 id,
         address to,
+        uint256 seq,
         bytes memory data
     ) public {
-        _transfer(msg.sender, to, id);
+        _transfer(msg.sender, to, id, seq);
         require(
             _checkOnERC721Received(msg.sender, msg.sender, to, id, data),
             "receiver rejected NFT"
         );
     }
 
-    function _transfer(address from, address to, uint256 id) internal {
-        requireQuorum(tokensOwners[id] == from, "not owner");
+    function _transfer(address from, address to, uint256 id, uint256 seq) internal {
+        requireQuorum(tokens[id].owner == from, "not owner");
         require(to != address(0),         "zero-address");
-
-        tokensOwners[id] = to;
+        requireQuorum(tokens[id].sequence + 1 == seq, "missing transfer transactions");
+        if (seq <= tokens[id].sequence) {
+            // ineffective old transfer
+            return;
+        }
+        tokens[id].owner = to;
+        tokens[id].sequence = seq;
         emit Transferred(id, from, to);
     }
 

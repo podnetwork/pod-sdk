@@ -48,6 +48,8 @@ enum Commands {
         token_id: U256,
         /// Recipient account that will receive the token.
         address: Address,
+        /// Token sequence
+        sequence: U256,
     },
     /// Stream all `Minted` events emitted by the contract.
     Watch {
@@ -75,9 +77,19 @@ async fn main() -> Result<()> {
                 hex::encode(receipt.transaction_hash.as_slice())
             );
         }
-        Commands::TransferToken { token_id, address } => {
-            let receipt =
-                transfer_token(cli.rpc_url, cli.contract_address, token_id, address).await?;
+        Commands::TransferToken {
+            token_id,
+            address,
+            sequence,
+        } => {
+            let receipt = transfer_token(
+                cli.rpc_url,
+                cli.contract_address,
+                token_id,
+                address,
+                sequence,
+            )
+            .await?;
 
             println!(
                 "✅ Transferred token {} to {} in tx 0x{}",
@@ -167,6 +179,7 @@ async fn transfer_token(
     contract_address: Address,
     token_id: U256,
     destination_address: Address,
+    sequence: U256,
 ) -> Result<PodReceiptResponse> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
         .on_url(&rpc_url)
@@ -174,7 +187,7 @@ async fn transfer_token(
     let nfts = NFTs::new(contract_address, pod_provider.clone());
 
     let pending_tx = nfts
-        .safeTransfer_0(token_id, destination_address)
+        .safeTransfer_0(token_id, destination_address, sequence)
         .send()
         .await?;
     Ok(pending_tx.get_receipt().await?)
