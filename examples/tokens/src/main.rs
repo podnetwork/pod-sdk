@@ -2,9 +2,10 @@ use alloy::{primitives::ruint::aliases::U256, sol_types::SolEvent};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
-use pod_sdk::{Address, alloy_rpc_types::Filter, provider::PodProviderBuilder};
+use pod_sdk::{Address, provider::PodProviderBuilder};
 
 use pod_sdk::network::PodReceiptResponse;
+use pod_types::rpc::filter::LogFilterBuilder;
 
 alloy::sol!(
     #[sol(rpc)]
@@ -92,7 +93,7 @@ async fn watch(
         .await?;
 
     // Build a log filter for `Transfer(address indexed from, address indexed to, uint256 value)`.
-    let mut filter = Filter::new()
+    let mut filter = LogFilterBuilder::new()
         .address(contract_address)
         .event_signature(Tokens::Transfer::SIGNATURE_HASH);
     if let Some(submitter) = submitter {
@@ -100,7 +101,7 @@ async fn watch(
     }
 
     let mut stream = pod_provider
-        .subscribe_verifiable_logs(&filter)
+        .subscribe_verifiable_logs(&filter.build())
         .await?
         .into_stream();
     let committee = pod_provider.get_committee().await?;

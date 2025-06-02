@@ -2,9 +2,10 @@ use alloy::{primitives::ruint::aliases::U256, sol_types::SolEvent};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
-use pod_sdk::{Address, alloy_rpc_types::Filter, provider::PodProviderBuilder};
+use pod_sdk::{Address, provider::PodProviderBuilder};
 
 use pod_sdk::network::PodReceiptResponse;
+use pod_types::rpc::filter::{LogFilter, LogFilterBuilder};
 
 alloy::sol!(
     #[sol(rpc)]
@@ -117,7 +118,7 @@ async fn watch(
         .on_url(rpc_url)
         .await?;
 
-    let mut filter = Filter::new()
+    let mut filter = LogFilterBuilder::new()
         .address(contract_address)
         .event_signature(NFTs::Minted::SIGNATURE_HASH);
     if let Some(submitter) = submitter {
@@ -125,7 +126,7 @@ async fn watch(
     }
 
     let mut stream = pod_provider
-        .subscribe_verifiable_logs(&filter)
+        .subscribe_verifiable_logs(&filter.build())
         .await?
         .into_stream();
 
