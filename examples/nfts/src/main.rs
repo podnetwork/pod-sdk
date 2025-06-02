@@ -5,7 +5,7 @@ use futures::StreamExt;
 use pod_sdk::{Address, provider::PodProviderBuilder};
 
 use pod_sdk::network::PodReceiptResponse;
-use pod_types::rpc::filter::{LogFilter, LogFilterBuilder};
+use pod_types::rpc::filter::LogFilterBuilder;
 
 alloy::sol!(
     #[sol(rpc)]
