@@ -1,5 +1,5 @@
 use alloy_consensus::{SignableTransaction, TxLegacy};
-use alloy_primitives::PrimitiveSignature;
+use alloy_primitives::{PrimitiveSignature, TxHash};
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -8,7 +8,13 @@ use serde::{
     de::{self, MapAccess, Visitor},
     ser::SerializeStruct,
 };
-use std::ops::Deref;
+use std::{
+    collections::HashMap,
+    ops::Deref,
+    sync::{LazyLock, Mutex},
+    time::Instant,
+};
+use tracing::instrument;
 
 use alloy_primitives::Address;
 
@@ -97,6 +103,10 @@ impl Serialize for Signed<Transaction> {
         state.end()
     }
 }
+
+/// cache mapping (tx_hash, signature) to signer:
+static SIGNER_CACHE: LazyLock<Mutex<HashMap<(TxHash, PrimitiveSignature), Address>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 impl<'de> Deserialize<'de> for Signed<Transaction> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -211,9 +221,8 @@ impl<'de> Deserialize<'de> for Signed<Transaction> {
                 };
 
                 let tx_hash = tx.signature_hash();
-                let signer = alloy_consensus::Signed::new_unchecked(tx.clone(), signature, tx_hash)
-                    .recover_signer()
-                    .map_err(serde::de::Error::custom)?;
+                let signer =
+                    recover_signer(tx_hash, signature).map_err(serde::de::Error::custom)?;
 
                 Ok(Signed {
                     signed: tx,
@@ -271,9 +280,8 @@ impl<'de> Deserialize<'de> for Signed<Transaction> {
                 };
 
                 let tx_hash = tx.signature_hash();
-                let signer = alloy_consensus::Signed::new_unchecked(tx.clone(), signature, tx_hash)
-                    .recover_signer()
-                    .map_err(serde::de::Error::custom)?;
+                let signer =
+                    recover_signer(tx_hash, signature).map_err(serde::de::Error::custom)?;
 
                 Ok(Signed {
                     signed: tx,
@@ -296,11 +304,28 @@ impl<T: Hashable> Deref for Signed<T> {
     }
 }
 
+fn recover_signer(tx_hash: TxHash, signature: PrimitiveSignature) -> Result<Address> {
+    // TODO: consider upgradable RWLock (parking_lot::RwLock) for better performance
+    let mut signers_cache = SIGNER_CACHE.lock().unwrap();
+    if let Some(signer) = signers_cache.get(&(tx_hash, signature)) {
+        tracing::trace!(tx=%tx_hash, "Recovered signer {signer} from cache");
+        Ok(*signer)
+    } else {
+        let start = Instant::now();
+        let signer = signature.recover_address_from_prehash(&tx_hash)?;
+        tracing::debug!(tx=%tx_hash, "Recovered signer {signer} in {}us", start.elapsed().as_micros());
+        // Cache the recovered signer
+        signers_cache.insert((tx_hash, signature), signer);
+        Ok(signer)
+    }
+}
+
 impl TryFrom<alloy_consensus::Signed<TxLegacy, PrimitiveSignature>> for Signed<Transaction> {
     type Error = anyhow::Error;
 
+    #[instrument(skip_all, name = "Signed<TxLegacy>::try_from<alloy::Signed<TxLegacy>>")]
     fn try_from(value: alloy_consensus::Signed<TxLegacy>) -> Result<Self> {
-        let signer = value.recover_signer()?;
+        let signer = recover_signer(value.tx().signature_hash(), *value.signature())?;
 
         let tx: Transaction = value.tx().clone();
 
@@ -587,8 +612,12 @@ impl TryFrom<alloy_consensus::Signed<TxLegacy, PrimitiveSignature>>
 {
     type Error = anyhow::Error;
 
+    #[instrument(
+        skip_all,
+        name = "UncheckedSigned<TxLegacy>::try_from<alloy::Signed<TxLegacy>>"
+    )]
     fn try_from(value: alloy_consensus::Signed<TxLegacy>) -> Result<Self> {
-        let signer = value.recover_signer()?;
+        let signer = recover_signer(value.tx().signature_hash(), *value.signature())?;
 
         let tx: Transaction = value.tx().clone();
 
