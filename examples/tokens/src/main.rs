@@ -1,10 +1,10 @@
+use alloy::primitives::I256;
 use alloy::{primitives::ruint::aliases::U256, sol_types::SolEvent};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
-use pod_sdk::{Address, provider::PodProviderBuilder};
-
 use pod_sdk::network::PodReceiptResponse;
+use pod_sdk::{Address, provider::PodProviderBuilder};
 use pod_types::rpc::filter::LogFilterBuilder;
 
 alloy::sol!(
@@ -40,7 +40,7 @@ enum Commands {
     /// Call `transfer(to, amount)` to send tokens to another account.
     TransferToken {
         /// Amount of tokens to transfer (same decimals as on-chain).
-        amount: U256,
+        amount: I256,
         /// Recipient address that will receive the tokens.
         address: Address,
     },
@@ -129,7 +129,7 @@ async fn address_balance(
     rpc_url: String,
     contract_address: Address,
     address: Address,
-) -> Result<U256> {
+) -> Result<I256> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
         .on_url(&rpc_url)
         .await?;
@@ -142,7 +142,7 @@ async fn address_balance(
 async fn transfer_token(
     rpc_url: String,
     contract_address: Address,
-    amount: U256,
+    amount: I256,
     destination_address: Address,
 ) -> Result<PodReceiptResponse> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
