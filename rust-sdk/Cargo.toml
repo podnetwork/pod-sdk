@@ -35,6 +35,7 @@ futures = "0.3.31"
 hex = "0.4.3"
 anyhow = "1.0.95"
 async-trait = "0.1.88"
+tracing = { version = "0.1.41" }
 
 [dev-dependencies]
 tokio-test = "0.4.4"
