@@ -1,5 +1,5 @@
 use alloy::primitives::I256;
-use alloy::{primitives::ruint::aliases::U256, sol_types::SolEvent};
+use alloy::sol_types::SolEvent;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
