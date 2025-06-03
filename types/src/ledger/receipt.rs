@@ -2,14 +2,13 @@ use alloy_consensus::{Eip658Value, ReceiptWithBloom};
 use alloy_primitives::{Address, Bloom, Log};
 use alloy_rpc_types::TransactionReceipt;
 use alloy_sol_types::SolValue;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
-use std::convert::TryInto;
 
-use super::{log, Transaction};
+use super::{Transaction, log};
 use crate::cryptography::{
     hash::{Hash, Hashable},
-    merkle_tree::{index_prefix, MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable},
+    merkle_tree::{MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable, index_prefix},
     signer::{Signed, UncheckedSigned},
 };
 
@@ -93,36 +92,33 @@ impl Hashable for Receipt {
     }
 }
 
-impl TryInto<TransactionReceipt> for Receipt {
-    type Error = anyhow::Error;
-
-    fn try_into(self) -> Result<TransactionReceipt> {
-        Ok(TransactionReceipt {
+impl From<Receipt> for TransactionReceipt {
+    fn from(val: Receipt) -> Self {
+        TransactionReceipt {
             inner: alloy_consensus::ReceiptEnvelope::Legacy(ReceiptWithBloom {
+                logs_bloom: Bloom::from_iter(val.logs.iter()),
                 receipt: alloy_consensus::Receipt {
-                    status: Eip658Value::Eip658(self.status),
-                    cumulative_gas_used: self.actual_gas_used, // Gas used in the block up until this tx.
-                    logs: self
+                    status: Eip658Value::Eip658(val.status),
+                    cumulative_gas_used: val.actual_gas_used, // Gas used in the block up until this tx.
+                    logs: val
                         .logs
-                        .iter()
-                        .map(|l| log::to_rpc_format(l.clone(), self.tx.hash_custom()))
+                        .into_iter()
+                        .map(|l| log::to_rpc_format(l, val.tx.hash_custom()))
                         .collect(),
                 },
-                logs_bloom: Bloom::from_iter(self.logs.iter()),
             }),
-            transaction_hash: self.tx.hash_custom(),
+            transaction_hash: val.tx.hash_custom(),
             transaction_index: Some(0),
             block_hash: Some(Hash::default()), // Need hash for tx confirmation on Metamask
             block_number: Some(1),             // Need number of tx confirmation on Metamask
-            gas_used: self.actual_gas_used,    // Gas used by the transaction alone.
-            effective_gas_price: self.tx.gas_price,
+            gas_used: val.actual_gas_used,     // Gas used by the transaction alone.
+            effective_gas_price: val.tx.gas_price,
             blob_gas_used: None,  // This is none for non EIP-4844 transactions.
             blob_gas_price: None, // This is none for non EIP-4844 transactions.
-            from: self.tx.signer,
-            to: self.tx.signed.to.to().cloned(),
-            contract_address: self.contract_address, // None if the transaction is not a contract creation.
-            authorization_list: None,
-        })
+            from: val.tx.signer,
+            to: val.tx.signed.to.to().cloned(),
+            contract_address: val.contract_address, // None if the transaction is not a contract creation.
+        }
     }
 }
 
@@ -240,7 +236,7 @@ mod test {
     use alloy_signer_local::PrivateKeySigner;
 
     use crate::{
-        cryptography::merkle_tree::StandardMerkleTree, Hashable, Merkleizable, Transaction,
+        Hashable, Merkleizable, Transaction, cryptography::merkle_tree::StandardMerkleTree,
     };
 
     use super::Receipt;

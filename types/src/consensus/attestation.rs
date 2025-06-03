@@ -1,14 +1,14 @@
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use alloy_sol_types::SolValue;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
+    Receipt, Signed, Timestamp, Transaction,
     cryptography::{
         ecdsa::{AddressECDSA, SignatureECDSA},
-        hash::{hash, Hash, Hashable},
+        hash::{Hash, Hashable, hash},
         signer::UncheckedSigned,
     },
     ledger::receipt::UncheckedReceipt,
-    storage::Indexed,
-    Receipt, Signed, Timestamp, Transaction,
 };
 
 pub type TransactionAttestation = Attestation<Signed<Transaction>>;
@@ -18,7 +18,41 @@ pub type UncheckedReceiptAttestation = Attestation<UncheckedReceipt>;
 
 pub type UncheckedTransactionAttestation = Attestation<UncheckedSigned<Transaction>>;
 
-// An Attestation<T> is T signed by a replica using ECDSA
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Indexed<T> {
+    #[serde(rename = "timestamp")]
+    pub index: Timestamp, // TODO: consider sequential numbers
+    pub value: T,
+}
+
+impl<T> Indexed<T> {
+    pub fn new(index: Timestamp, value: T) -> Self {
+        Indexed { index, value }
+    }
+}
+
+impl<T> From<Indexed<Attestation<T>>> for Indexed<HeadlessAttestation> {
+    fn from(value: Indexed<Attestation<T>>) -> Self {
+        Indexed {
+            index: value.index,
+            value: value.value.into(),
+        }
+    }
+}
+
+impl<T: Hashable> Hashable for Indexed<T> {
+    fn hash_custom(&self) -> Hash {
+        alloy_primitives::keccak256(
+            [
+                self.index.as_micros().abi_encode(),
+                self.value.hash_custom().to_vec(),
+            ]
+            .concat(),
+        )
+    }
+}
+
+// An Attestation<T> is T signed by a validator using ECDSA
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "T: Hashable + Serialize + DeserializeOwned + Eq")]
 pub struct Attestation<T> {

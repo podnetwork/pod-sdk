@@ -4,7 +4,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{anyhow, Error};
+use anyhow::{Error, anyhow};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
@@ -75,6 +75,23 @@ impl Display for Timestamp {
     }
 }
 
+impl From<SystemTime> for Timestamp {
+    fn from(value: SystemTime) -> Self {
+        Timestamp::from_micros(
+            value
+                .duration_since(UNIX_EPOCH)
+                .expect("Time went backwards")
+                .as_micros(),
+        )
+    }
+}
+
+impl From<Timestamp> for SystemTime {
+    fn from(value: Timestamp) -> Self {
+        UNIX_EPOCH + Duration::from_micros(value.as_micros() as u64)
+    }
+}
+
 impl Sub<Duration> for Timestamp {
     type Output = Timestamp;
 
@@ -107,12 +124,7 @@ pub struct SystemClock;
 
 impl Clock for SystemClock {
     fn now(&self) -> Timestamp {
-        Timestamp::from_micros(
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("Time went backwards")
-                .as_micros(),
-        )
+        SystemTime::now().into()
     }
 }
 

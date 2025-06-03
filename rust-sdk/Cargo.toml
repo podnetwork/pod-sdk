@@ -1,0 +1,44 @@
+[package]
+name = "pod-sdk"
+version = "0.1.0"
+edition = "2021"
+description = "Software Development Kit for the pod Network"
+license = "MIT OR Apache-2.0"
+readme = "../README.md"
+homepage = "https://pod.network/"
+repository = "https://github.com/podnetwork/pod-sdk"
+keywords = ["web3", "sdk", "rust", "dapp", "crypto"]
+documentation = "https://docs.rs/pod-sdk"
+
+[lib]
+name = "pod_sdk"
+path = "src/lib.rs"
+
+[dependencies]
+pod-types = { path = "../types" }
+
+alloy-primitives = { version = "^0.8.22", features = ["k256", "serde"] }
+alloy-sol-types = "^0.8.22"
+alloy-eips = "0.12.1"
+alloy-rpc-types = "0.12.1"
+alloy-transport = "0.12.1"
+alloy-json-rpc = "0.12.1"
+alloy-signer = "0.12.1"
+alloy-signer-local = "0.12.1"
+alloy-network = "0.12.1"
+alloy-consensus = "0.12.1"
+alloy-provider = { version = "0.12.1", features = ["pubsub", "ws", "reqwest"] }
+alloy-pubsub = "0.12.1"
+
+serde = { version = "1.0.214", features = ["derive"] }
+futures = "0.3.31"
+hex = "0.4.3"
+anyhow = "1.0.95"
+async-trait = "0.1.88"
+
+[dev-dependencies]
+tokio-test = "0.4.4"
+
+[package.metadata.cargo-shear]
+# tokio-test is used in doctests
+ignored = ["tokio-test"]

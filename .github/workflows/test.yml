@@ -4,7 +4,6 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -37,3 +36,115 @@ jobs:
 
     - name: Run tests
       run: cargo test --verbose
+
+  contracts:
+    name: examples-solidity 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: |
+          forge --version
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        working-directory: examples/solidity 
+        id: fmt
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        working-directory: examples/solidity
+        id: build
+
+      # Uncomment this once we have a test suite for contracts
+      # - name: Run Forge tests
+      #   run: |
+      #     forge test -vvv
+      #   working-directory: contracts
+      #   id: test
+
+      - name: Check bindings
+        run: |
+          make check
+        working-directory: examples/solidity
+        id: bindings
+      
+  solidity-sdk:
+    name: solidity-sdk 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: |
+          forge --version
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        id: fmt
+        working-directory: solidity-sdk
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        id: build
+        working-directory: solidity-sdk
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: solidity-sdk
+
+  optimistic-auction:
+    name: optimistic-auction 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: |
+          forge --version
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        id: fmt
+        working-directory: examples/optimistic-auction 
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        id: build
+        working-directory: examples/optimistic-auction 
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: examples/optimistic-auction 
+
+      - name: Check bindings
+        run: |
+          make check
+        working-directory: examples/optimistic-auction
+        id: bindings

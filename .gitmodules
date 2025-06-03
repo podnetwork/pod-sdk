@@ -1,0 +1,18 @@
+[submodule "solidity-sdk/lib/forge-std"]
+	path = solidity-sdk/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "solidity-sdk/lib/openzeppelin-contracts"]
+	path = solidity-sdk/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "examples/optimistic-auction/lib/forge-std"]
+	path = examples/optimistic-auction/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "examples/optimistic-auction/lib/openzeppelin-contracts"]
+	path = examples/optimistic-auction/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "examples/solidity/lib/forge-std"]
+	path = examples/solidity/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "examples/voting/contract/lib/forge-std"]
+	path = examples/voting/contract/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
