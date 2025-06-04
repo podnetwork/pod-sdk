@@ -1,5 +1,4 @@
 mod config;
-mod server;
 
 use std::{fmt::Display, sync::Arc};
 
