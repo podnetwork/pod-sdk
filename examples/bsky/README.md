@@ -17,10 +17,11 @@ Using pod, we can relax both of these requirements without sacrifising latency a
 
 ## Technical Overview
 
-1. `PLCRegistry.sol` is the contract deployed on pod devnet at `0x5cAe4686E2E4445c866678f594C20f946f10D461`. The
-   contract is carefully designed to ensure that the state is consistent in the fastpath of pod.
-2. `server.py` is a thin http-service that interacts with the registry contract and serves as a drop-in replacement for
-   the current PLC service.
+1. [PLCRegistry.sol](contract/src/PLCRegistry.sol) is the contract deployed on pod devnet at
+   `0x5cAe4686E2E4445c866678f594C20f946f10D461`. The contract is carefully designed to ensure that the state is
+   consistent in the fastpath of pod.
+2. [`bsky-plc`](plc/src/main.rs) is a thin http-service that interacts with the registry contract and serves as a
+   drop-in replacement for the current PLC service.
 
 ## How to run
 
@@ -49,9 +50,6 @@ Using pod, we can relax both of these requirements without sacrifising latency a
    ```
 
 5. Use the custom PDS in the [bluesky app](https://bsky.app).
-
-   <img src="https://private-user-images.githubusercontent.com/3966964/438375521-db20bda0-a2e6-4300-8106-94d68a69891d.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDYwMTMyNjIsIm5iZiI6MTc0NjAxMjk2MiwicGF0aCI6Ii8zOTY2OTY0LzQzODM3NTUyMS1kYjIwYmRhMC1hMmU2LTQzMDAtODEwNi05NGQ2OGE2OTg5MWQucG5nP1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI1MDQzMCUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNTA0MzBUMTEzNjAyWiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9M2YzZDIwYzllMDg4MWVlMzljZTRhYzdlYTkyZjUxZjU4NDI3NWI4ZTA4OTUzOGJlZjlhZGNmYzI0OWYzNmVkYiZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.6hL1ngpECDMDmGjmb15BMIJlv4ykVgrso72I0GmTxt8" width="500">
-   <img src="https://private-user-images.githubusercontent.com/3966964/438377132-11729073-9cca-47a3-a327-23b6d538b5f6.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDYwMTU4MzMsIm5iZiI6MTc0NjAxNTUzMywicGF0aCI6Ii8zOTY2OTY0LzQzODM3NzEzMi0xMTcyOTA3My05Y2NhLTQ3YTMtYTMyNy0yM2I2ZDUzOGI1ZjYucG5nP1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI1MDQzMCUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNTA0MzBUMTIxODUzWiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9MjBhNDUyYWNkMDNhYTllNTQwZmMwOTZkMzg1ZGFiMjhlMDBlMjE4ZWViMTJiMDI3N2UxOTg1MjAwMjZmZGU4MiZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.fZKTxbrDyyJ4_YSZmZFiLf0uTa0jYVCSvrs-71v2xaw" width="500">
 
 ## Next Steps
 
