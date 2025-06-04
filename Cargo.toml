@@ -7,5 +7,6 @@ members = [
   "examples/optimistic-auction",
   "examples/rust",
   "examples/voting/client",
+  "examples/bsky/plc",
 ]
 resolver = "2"
