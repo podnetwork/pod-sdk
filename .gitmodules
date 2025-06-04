@@ -16,6 +16,9 @@
 [submodule "examples/voting/contract/lib/forge-std"]
 	path = examples/voting/contract/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "examples/tokens/contract/lib/forge-std"]
+	path = examples/tokens/contract/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
 [submodule "examples/bsky/contract/lib/forge-std"]
 	path = examples/bsky/contract/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std.git
