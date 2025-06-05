@@ -1,4 +1,5 @@
 mod config;
+mod plc;
 
 use std::{fmt::Display, sync::Arc};
 
@@ -10,7 +11,6 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
 };
-use did_method_plc::operation::{SignedOperation, SignedPLCOperation};
 use pod_sdk::{
     network::PodNetwork,
     provider::{PodProvider, PodProviderBuilder},
@@ -32,7 +32,7 @@ struct AppState {
 }
 
 impl AppState {
-    async fn get_last_operation(&self, did: Did) -> anyhow::Result<Option<SignedPLCOperation>> {
+    async fn get_last_operation(&self, did: Did) -> anyhow::Result<Option<plc::Operation>> {
         let contract = self.contract.lock().await;
         let last_op = contract.getLastOperation(did.0).call().await?;
 
@@ -121,7 +121,7 @@ async fn resolve(
     ];
     let mut methods = vec![];
 
-    for (id, key) in last_op.unsigned.verification_methods.iter() {
+    for (id, key) in last_op.verification_methods.iter() {
         let raw_key = key.trim_start_matches("did:key:");
         methods.push(json!({
             "id": format!("{did}#{id}"),
@@ -148,7 +148,6 @@ async fn resolve(
     }
 
     let services = last_op
-        .unsigned
         .services
         .iter()
         .map(|(id, svc)| {
@@ -163,7 +162,7 @@ async fn resolve(
     Ok(Json(json!({
         "@context": contexts,
         "id": did.to_string(),
-        "alsoKnownAs": last_op.unsigned.also_known_as,
+        "alsoKnownAs": last_op.also_known_as,
         "verificationMethod": methods,
         "service": services,
     })))
@@ -206,28 +205,26 @@ async fn get_last(
 async fn create_plc(
     State(state): State<Arc<AppState>>,
     Path(did): Path<Did>,
-    Json(op): Json<SignedPLCOperation>,
+    Json(op): Json<plc::Operation>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let cid = op
-        .to_cid()
+        .cid()
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
     let encoded_op = serde_json::to_string(&op).unwrap();
     tracing::info!("Creating PLC operation, CID: {cid}, op: {encoded_op}",);
     let contract = state.contract.lock().await;
     let keys = op
-        .unsigned
         .rotation_keys
         .clone()
         .into_iter()
         .map(|key| key.into_bytes().into())
         .collect();
     let signer = op
-        .unsigned
         .rotation_keys
         .first()
         .ok_or((StatusCode::BAD_REQUEST, "missing rotation keys".to_string()))?
         .clone();
-    let prev = op.unsigned.prev.clone().unwrap_or_default();
+    let prev = op.prev.clone().unwrap_or_default();
     let operation = PLCRegistry::Op {
         did: did.0,
         cid: cid.into_bytes().into(),
