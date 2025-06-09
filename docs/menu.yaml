@@ -4,10 +4,8 @@ menu:
     label: Welcome to pod
   - href: /devnet
     label: Devnet
-  - href: /faq
-    label: Frequently Asked Questions 
-  - href: /coming-from-ethereum 
-    label: Coming from Ethereum 
+  - href: /overview
+    label: Overview
 
   - heading: Build on pod 
   - href: /fastpath

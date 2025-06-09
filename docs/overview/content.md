@@ -1,8 +1,8 @@
 ---
-title: Coming from Ethereum?
+title: Overview
 layout: single
 
-url: /coming-from-ethereum
+url: /overview
 
 toc:
   execution-model: Execution Model
@@ -10,7 +10,8 @@ toc:
   json-rpc: JSON-RPC
   foundry-and-alloy: Foundry and Alloy
 ---
-# Coming from Ethereum?
+
+# Overview
 
 Those familiar with the Ethereum ecosystem will recognize the EVM environment and similar RPC interface, but pod rethinks core assumptions around execution and ordering.
 
@@ -26,7 +27,7 @@ Even if internal storage layouts or execution traces differ, these applications 
 ! anchor solidity-and-evm
 ## Solidity and EVM
 
-pod supports the EVM (specifically the **Berlin** version), but with important caveats:
+pod supports EVM (specifically the **Berlin** version), but with important caveats:
 
 1. Only **legacy transactions** are supported:
    - No support for EIP-1559: **no base fee**, **no priority fee**, **no access lists**, **no blob transactions**.
@@ -41,11 +42,8 @@ pod supports the EVM (specifically the **Berlin** version), but with important c
 
 pod supports most of the Ethereum JSON-RPC interface, but with critical deviations:
 
-- **All standard Ethereum RPCs are supported**, *except*:
-  - `eth_getCode` is currently **not supported**.
-- **Block-related queries** like `eth_getBlockByNumber` or `eth_getBlockByHash`:
-  - Respond with **empty block data**.
-  - These are compatibility stubs to satisfy tools like MetaMask and `cast`. They should not be used for application logic.
+- **All standard Ethereum RPCs are supported**, however
+- **Block-related queries** like `eth_getBlockByNumber` or `eth_getBlockByHash` respond with **empty block data** and should not be used in application logic.
 
 ### Special Metadata Field: `pod_metadata`
 
@@ -70,12 +68,6 @@ Applications should use these attestations to verify transaction finality instea
 
 You can continue to use **Foundry** and **Alloy** with pod. Transactions must be sent as legacy transactions.
 
-### Confirmation Strategy
+We recommend the use of [PodProviderBuilder](https://docs.rs/pod-sdk/latest/pod_sdk/provider/struct.PodProviderBuilder.html) and [PodTransactionRequest](https://docs.rs/pod-sdk/latest/pod_sdk/network/struct.PodTransactionRequest.html) provided by [pod-sdk](https://docs.rs/pod-sdk).
 
-There are **no blocks** in pod, so concepts like “waiting for 6 confirmations” do not apply. Instead:
-
-- After sending a transaction, **retry a few times** to fetch the receipt.
-- In most cases, the receipt becomes available **almost immediately**.
-- Check the `pod_metadata.attestations` field:
-  - If the number of attestations exceeds two-thirds of the validator set, the receipt is confirmed.
-- This enables fast, low-latency confirmation while allowing verifiability at the application level.
+See the [Examples](/examples) section for more detailed examples.

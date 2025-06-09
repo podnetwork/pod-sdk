@@ -3,10 +3,8 @@ title: Welcome to pod
 layout: single
 
 url: /
-
-toc:
-  welcome-to-pod: Welcome to pod
 ---
+
 ! anchor welcome-to-pod
 # Welcome to pod developer documentation
 pod is a novel programmable distributed ledger that prioritizes performance and 
