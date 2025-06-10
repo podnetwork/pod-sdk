@@ -21,29 +21,27 @@ Get started with the pod devnet. Add devnet
 to your wallet and get test tokens.  
 ! grid end
 
-! grid href="https://explorer.v1.pod.network"
+! grid href="./overview"
 ## Coming from Ethereum?
 Quick diff of RPC, Solidity, Foundry and Alloy.
 ! grid end
 
-! grid href="./fastpath"
-## Fastpath 
-Learn about the pod fastpath and how 
-you can build contracts that are safe on
-fastpath.
+! grid href="./examples"
+## Examples 
+Learn by projects and examples
 ! grid end
 
 ! gridstack end
 
 ! gridstack  
-! grid href="https://pod.network/how-it-works"
-## Design Principles 
-Architecture and design principles.
+! grid href="https://pod.network/smart-contract-development/introduction"
+## Writing Smart Contracts
+Learn how to write smart contracts for pod using Solidity.
 ! grid end  
 
-! grid href="./examples" 
+! grid href="./rust-sdk/overview" 
 ## Examples 
-Learn by projects and examples.
+Learn how to programmatically interact with pod.
 ! grid end
 
 ! grid href="https://explorer.v1.pod.network"

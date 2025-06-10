@@ -1,5 +1,5 @@
 ---
-title: SOLIDITY SDK
+title: Solidity SDK
 layout: simple
 
 url: /reference/solidity-sdk

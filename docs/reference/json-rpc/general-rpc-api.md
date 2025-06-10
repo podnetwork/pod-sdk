@@ -8,7 +8,7 @@ This documentation provides detailed information about the JSON-RPC methods supp
 
 ! anchor overview
 
-Pod implements a JSON-RPC API that allows interaction with the network. While many methods align with the Ethereum JSON-RPC specification (methods prefixed with "eth_"), pod includes additional metadata ("pod_metadata" attribute) and pod-specific functionality (methods prefixed with "pod_").
+Pod implements a JSON-RPC API that allows interaction with the network. While many methods align with the Ethereum JSON-RPC specification (methods prefixed with `eth_`), pod includes additional metadata (`pod_metadata` attribute) and pod-specific functionality (methods prefixed with `pod_`).
 
 ! content end
 

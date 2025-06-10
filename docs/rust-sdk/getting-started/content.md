@@ -1,3 +1,14 @@
+---
+title: Getting started with pod Rust SDK
+layout: simple
+
+url: /rust-sdk/getting-started
+
+toc:
+installation: Installation
+basic-usage: Basic Usage
+---
+
 ! content id="installation"
 
 ## Getting Started
@@ -16,53 +27,7 @@ To begin using the pod Rust SDK, add the following dependency to your project's 
 
 ```toml
 [dependencies]
-pod-client = "0.1.0"
-```
-
-! codeblock end
-
-! sticky end
-
-! content end
-
-! content
-
-### Building the pod provider
-
-! anchor building-provider
-
-Helper function for building pod provider can be seen.
-
-! content end
-
-! content
-
-! sticky
-
-! codeblock title="Example"
-
-```rust
-use alloy::providers::{Provider, WsConnect};
-use alloy_network::EthereumWallet;
-use pod_sdk::PrivateKeySigner;
-use eyre::Result;
-
-async fn build_pod_provider(ws_url: Url, private_key_hex: &str) -> Result<impl Provider> {
-    // Create a signer from the private key
-    let wallet = EthereumWallet::from_hex(private_key_hex)
-        .expect("Invalid private key format for PRIVATE_KEY");
-
-    // Initialize WebSocket
-    let ws = WsConnect::new(ws_url);
-
-    // Build the PodProvider
-    let pod_provider = provider::PodProviderBuilder::new()
-        .wallet(wallet)
-        .on_ws(ws)
-        .await?;
-
-    Ok(pod_provider)
-}
+pod-sdk = "0.1.0"
 ```
 
 ! codeblock end

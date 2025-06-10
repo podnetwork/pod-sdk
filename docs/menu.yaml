@@ -5,40 +5,44 @@ menu:
   - href: /devnet
     label: Devnet
   - href: /overview
-    label: Overview
-
-  - heading: Build on pod 
-  - href: /fastpath
-    label: Fastpath
-  - href: /fastpath/evmx
-    label: EVMx
-
-  - heading: reference
-  - href: /reference/read-write
-    label: Read & Write
-  - href: /reference/verify
-    label: Verify 
+    label: Coming from Ethereum?
 
   - heading: examples 
   - href: /examples/
     label: Overview
-  - href: /examples/transfers
-    label: Transfers
+  - href: /examples/tokens
+    label: Tokens
+  - href: /examples/nfts
+    label: NFTs
   - href: /examples/auctions
     label: Auctions
+  - href: /examples/voting
+    label: Voting
   - href: /examples/ranked-feed
-    label: Ranked Feed 
-
-  # - heading: architecture
-  # - href: /architecture/architecture-basics
-  #   label: Architecture Basics
-  # - href: /architecture/execution-model
-  #   label: Execution Model
-  # - href: /architecture/fast-path
-  #   label: Fast Path
-  # - href: /architecture/network
-  #   label: Network
-  # - href: /architecture/transaction-lifecycle
-  #   label: Transaction Lifecycle
-
+    label: Feed 
+  - href: /examples/name-registry
+    label: Name Registry
   
+
+  - heading: Writing Smart Contracts
+  - href: /smart-contract-development/overview
+    label: Introduction
+  - href: /smart-contract-development/tutorial
+    label: Tutorial
+  - href: /smart-contract-development/solidity-sdk-reference
+    label: Solidity SDK Reference
+  - href: /smart-contract-development/cross-chain
+    label: Cross-chain Applications
+
+
+  - heading: Interacting with pod
+  - href: /rust-sdk/overview
+    label: Getting started
+  - href: /rust-sdk/guides
+    label: Guides
+  - href: https://docs.rs/pod-sdk
+    label: Crate Documentation
+
+  - heading: JSON RPC
+  - href: /reference/json-rpc
+    label: Reference
