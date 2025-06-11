@@ -213,38 +213,30 @@ async fn create_plc(
     let encoded_op = serde_json::to_string(&op).unwrap();
     tracing::info!("Creating PLC operation, CID: {cid}, op: {encoded_op}",);
     let contract = state.contract.lock().await;
-    let keys = op
+    let rotation_keys = op
         .rotation_keys
         .clone()
         .into_iter()
         .map(|key| key.into_bytes().into())
         .collect();
-    let signer = op
-        .rotation_keys
-        .first()
-        .ok_or((StatusCode::BAD_REQUEST, "missing rotation keys".to_string()))?
-        .clone();
     let prev = op.prev.clone().unwrap_or_default();
-    let operation = PLCRegistry::Op {
-        did: did.0,
-        cid: cid.into_bytes().into(),
-        prev: prev.into_bytes().into(),
-        keys,
-        signer: signer.into_bytes().into(),
-        encodedOp: encoded_op.into(),
+    let operation = SignedOp {
+        op: Op {
+            did: did.0,
+            cid: cid.into_bytes().into(),
+            prev: prev.into_bytes().into(),
+            rotationKeys: rotation_keys,
+            encodedOp: encoded_op.into(),
+        },
+        signature: op.sig.into_bytes().into(),
     };
 
-    let sig = op.sig.into_bytes();
-    let pending_tx = contract
-        .add(operation.clone(), sig.clone().into())
-        .send()
-        .await
-        .unwrap();
+    let pending_tx = contract.add(operation.clone()).send().await.unwrap();
 
     let receipt = pending_tx.get_receipt().await.unwrap();
     if !receipt.status() {
         // replay with a CALL to get a revert reason
-        let result = contract.add(operation, sig.into()).call().await;
+        let result = contract.add(operation).call().await;
         match result {
             Ok(_) => {
                 tracing::error!("Transaction failed but call succeeded, this is unexpected.");
