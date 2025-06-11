@@ -43,7 +43,7 @@ contract Auction {
         bytes calldata data
     ) public {
         // Check that the auction deadline hasn't passed
-        require(block.timestamp <= deadline, "Auction deadline passed");
+        requireTimeBefore(deadline, "Auction deadline passed");
 
         // Emit the bid submission event
         emit BidSubmitted(auction_id, msg.sender, deadline, value);

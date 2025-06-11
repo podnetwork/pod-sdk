@@ -23,7 +23,7 @@ use std::error::Error;
 
 sol! {
     #[sol(rpc)]
-    contract Tokens {
+    contract Token {
         constructor(
             string  memory name_,
             string  memory symbol_,
@@ -37,12 +37,12 @@ async fn create_token(pod_provider: &PodProvider) -> Result<(), Box<dyn Error>> 
     let symbol = "DMT".to_string();
     let supply = U256::from(1_000_000u64);
 
-    let token_addr = Tokens::deploy_builder(&pod_provider, (name.clone(), symbol.clone(), supply))
+    let token_addr = Token::deploy_builder(&pod_provider, (name.clone(), symbol.clone(), supply))
         .from(alice)
         .deploy()
         .await?;
 
-    let token = Tokens::new(token_addr, &pod_provider);
+    let token = Token::new(token_addr, &pod_provider);
     Ok(())
 }
 ```

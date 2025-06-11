@@ -9,22 +9,45 @@ Each deployed copy of the contract corresponds to a single currency, defined by 
 
 ! content
 
-Below is the interface of the contract that implements this system:
-
 ! sticky
 
 ! codeblock
 
-```rust
-pragma solidity ^0.8.25;
+```solidity
+pragma solidity ^0.8.26;
 
-contract Tokens {
-    mapping(address => uint256) private balances;
+import "pod-sdk/pod/FastTypes.sol";
 
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    
-    function balanceOf(address account) external;
-    function transfer(address to, uint256 amount) external;
+contract Token {
+    using FastTypes for FastTypes.Balance;
+
+    string  public name;
+    string  public symbol;
+    int256 public totalSupply;
+
+    FastTypes.Balance internal _balances;
+
+    event Transfer(address indexed from, address indexed to, int256 value);
+
+    constructor(
+        string  memory tokenName,
+        string  memory tokenSymbol,
+        int256 initialSupply
+    ) {
+        name = tokenName;
+        symbol = tokenSymbol;
+        totalSupply = initialSupply;
+        _balances.increment(symbol, tx.origin, totalSupply);
+        emit Transfer(address(0), tx.origin, totalSupply);
+    }
+
+    function transfer(address to, int256 amount) external returns (bool) {
+	_balances.requireGte(symbol, tx.origin, amount);
+	_balances.decrement(symbol, tx.origin, amount);
+	_balances.increment(symbol, to, amount);
+        emit Transfer(tx.origin, to, amount);
+        return true;
+    }
 }
 ```
 
