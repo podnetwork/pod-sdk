@@ -40,7 +40,7 @@ Learn how to write smart contracts for pod using Solidity.
 ! grid end  
 
 ! grid href="./rust-sdk/overview" 
-## Examples 
+## Interacting with pod 
 Learn how to programmatically interact with pod.
 ! grid end
 

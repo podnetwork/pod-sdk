@@ -8,7 +8,6 @@ toc:
   general-rpc-api: RPC-API
   base-url: Base URL
   common-fields: Common Response Fields
-  coming-from-ethereum: Coming from Ethereum
   error-handling-rpc: Error Handling RPC
   eth_blockNumber: Ethereum-compatible
   pod_getCommittee: Pod-specific
@@ -19,8 +18,6 @@ toc:
 ! import ./general-rpc-api.md
 
 ! import ./common-fields.md
-
-! import ./coming-from-ethereum.md
 
 ! import ./error-handling-rpc.md
 

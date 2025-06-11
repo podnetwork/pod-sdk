@@ -31,8 +31,6 @@ menu:
     label: Tutorial
   - href: /smart-contract-development/solidity-sdk-reference
     label: Solidity SDK Reference
-  - href: /smart-contract-development/cross-chain
-    label: Cross-chain Applications
 
 
   - heading: Interacting with pod

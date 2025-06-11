@@ -10,7 +10,7 @@ toc:
 # Examples
 ### Simple examples to dip your toes into pod. 
 ! table style1
-| [Transfer](./transfers) | Simple native transfer |
+| Example | Description |
 | --------- | ----- |
 | [Tokens](./tokens) | Create and transfer fungible tokens |
 | [NFTs](./nfts) | Create and transfer non fungible tokens |
@@ -19,14 +19,6 @@ toc:
 | [Voting](./voting) | A voting system |
 | [Ethereum token balance](./eth-token-balance) | Read token balances (or arbitrary view function) on Ethereum | 
 | [Name Registry](./name-registry) | A name service (e.g. ENS) |
-! table end
-
-### Advanced projects to dive deeper into pod. 
-! table style1
-| [Batch Auction CLOB](./optimistic-auction) | ! snippet use batch_auction_description |
-| --------- | ----- |  
-| [DID PLC Registry](./did-plc-registry) | ! snippet use did_plc_description| 
-| [Shitpost](./shitpost) | Learn how shitpost works behind the schene. |
 ! table end
 
 ! snippet batch_auction_description 
