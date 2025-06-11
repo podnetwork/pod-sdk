@@ -21,7 +21,7 @@ use std::str::FromStr;
 #[tokio::main]
 async fn main() -> Result<()> {
     // 1) Set RPC URL and private key
-    let rpc_url = "https://rpc.dev.pod.network";
+    let rpc_url = "https://rpc.v2.pod.network";
     let private_key_hex = "your-private-key";
 
     // 2) Build the Pod provider (from the Rust SDK approach)

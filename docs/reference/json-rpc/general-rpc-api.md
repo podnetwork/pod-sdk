@@ -22,7 +22,7 @@ Pod implements a JSON-RPC API that allows interaction with the network. While ma
 
 ## Base URL
 
-The API endpoint is accessible at `https://rpc.dev.pod.network`.
+The API endpoint is accessible at `https://rpc.v2.pod.network`.
 
 ! content end
 
@@ -33,7 +33,7 @@ The API endpoint is accessible at `https://rpc.dev.pod.network`.
 ! codeblock title="API endpoint"
 
 ```bash
-https://rpc.dev.pod.network
+https://rpc.v2.pod.network
 ```
 
 ! codeblock end

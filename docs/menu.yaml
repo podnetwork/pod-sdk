@@ -8,8 +8,6 @@ menu:
     label: Coming from Ethereum?
 
   - heading: examples 
-  - href: /examples/
-    label: Overview
   - href: /examples/tokens
     label: Tokens
   - href: /examples/nfts
@@ -20,8 +18,6 @@ menu:
     label: Voting
   - href: /examples/ranked-feed
     label: Feed 
-  - href: /examples/name-registry
-    label: Name Registry
   
 
   - heading: Writing Smart Contracts
@@ -30,6 +26,7 @@ menu:
   - href: /smart-contract-development/tutorial
     label: Tutorial
   - href: /smart-contract-development/solidity-sdk-reference
+    external: true
     label: Solidity SDK Reference
 
 
@@ -40,6 +37,7 @@ menu:
     label: Guides
   - href: https://docs.rs/pod-sdk
     label: Crate Documentation
+    newTab: true
 
   - heading: JSON RPC
   - href: /reference/json-rpc

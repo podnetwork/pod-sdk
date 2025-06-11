@@ -20,7 +20,7 @@ use std::str::FromStr;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let rpc_url = "https://rpc.dev.pod.network";
+    let rpc_url = "https://rpc.v2.pod.network";
     let private_key_hex = "your-private-key";
 
     // ...

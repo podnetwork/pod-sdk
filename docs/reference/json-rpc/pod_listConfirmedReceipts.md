@@ -1,6 +1,6 @@
 <script>
     async function play() {
-        return fetch('https://rpc.dev.pod.network/', {
+        return fetch('https://rpc.v2.pod.network/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -57,10 +57,10 @@ Retrieves confirmed transaction receipts after a specified timestamp.
 
 ! sticky
 
-! codeblock title="POST rpc.dev.pod.network" runCode={play}
+! codeblock title="POST rpc.v2.pod.network" runCode={play}
 
 ```bash alias="curl"
-curl -X POST https://rpc.dev.pod.network \
+curl -X POST https://rpc.v2.pod.network \
     -H "Content-Type: application/json" \
     -d '{
         "jsonrpc": "2.0",
@@ -73,7 +73,7 @@ curl -X POST https://rpc.dev.pod.network \
 ```
 
 ```js alias="javascript"
-await fetch('https://rpc.dev.pod.network/', {
+await fetch('https://rpc.v2.pod.network/', {
 	method: 'POST',
 	headers: {
 		'Content-Type': 'application/json'
@@ -96,7 +96,7 @@ use serde_json::{json, Value};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
     let response = client
-        .post("https://rpc.dev.pod.network/")
+        .post("https://rpc.v2.pod.network/")
         .header("Content-Type", "application/json")
         .json(&json!({
             "jsonrpc": "2.0",

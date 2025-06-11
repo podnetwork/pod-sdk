@@ -25,7 +25,7 @@ use eyre::Result;
 /// Step 1: Load environment variables
 fn load_env() -> Result<(Url, String, Address)> {
     // Default to a known WS endpoint if POD_RPC is unset:
-    let rpc_ws = env::var("POD_RPC").unwrap_or_else(|_| "wss://rpc.dev.pod.network/ws".to_string());
+    let rpc_ws = env::var("POD_RPC").unwrap_or_else(|_| "wss://rpc.v2.pod.network/ws".to_string());
     // For example: wss://rpc.pod.network/ws or ws://127.0.0.1:8545
     let ws_url = Url::parse(&rpc_ws).expect("Invalid URL in POD_RPC");
 
