@@ -27,8 +27,6 @@ pod-sdk = "0.1.0"
 
 ! content
 
-! content
-
 ### Basic Usage
 
 ! anchor basic-usage
