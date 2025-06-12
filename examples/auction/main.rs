@@ -1,16 +1,16 @@
 use std::{collections::HashSet, str::FromStr, time::SystemTime};
 
-use alloy_network::ReceiptResponse;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
 use pod_sdk::{
-    alloy_primitives, alloy_rpc_types::Filter, alloy_sol_types::SolEvent,
-    provider::PodProviderBuilder, Address, Bytes, EthereumWallet, PrivateKeySigner, U256,
+    alloy_primitives, alloy_sol_types::SolEvent, provider::PodProviderBuilder, Address, Bytes,
+    EthereumWallet, PrivateKeySigner, U256,
 };
+use pod_types::{rpc::filter::LogFilterBuilder, Timestamp};
 use tokio::sync::mpsc;
 
-use auction_contracts::auction::Auction;
+use pod_examples_solidity::auction::Auction;
 
 const AUCTION_CONTRACT_ADDRESS: &str = "0x6145AC8fb73eB26588245c2afc454fC9629Ad5b3";
 const POD_EXPLORER_URL: &str = "https://explorer.dev.pod.network";
@@ -134,8 +134,8 @@ async fn vote(
             "Failed"
         }
     );
-    println!("Gas used: {}", receipt.gas_used());
-    println!("Effective gas price: {}", receipt.effective_gas_price());
+    println!("Gas used: {}", receipt.gas_used);
+    println!("Effective gas price: {}", receipt.effective_gas_price);
 
     // Get committee for verification
     let committee = pod_provider.get_committee().await?;
@@ -175,10 +175,11 @@ async fn watch(auction_id: U256, deadline: u64, rpc_url: String) -> Result<()> {
     // let _auction = Auction::new(auction_address, provider.clone());
 
     // Create filter for BidSubmitted events
-    let filter = Filter::new()
+    let filter = LogFilterBuilder::new()
         .address(auction_address)
         .event_signature(Auction::BidSubmitted::SIGNATURE_HASH)
-        .topic1(U256::from(auction_id));
+        .topic1(U256::from(auction_id))
+        .build();
 
     println!(
         "Watching auction {} until deadline {}...",
@@ -231,7 +232,7 @@ async fn watch(auction_id: U256, deadline: u64, rpc_url: String) -> Result<()> {
     let mut deadline_handle = tokio::spawn(async move {
         println!("\nWaiting for auction deadline...");
         provider_clone
-            .wait_past_perfect_time(deadline.checked_mul(1000000).unwrap()) // time in microseconds
+            .wait_past_perfect_time(Timestamp::from_seconds(deadline))
             .await?;
         println!("\n\n**Auction deadline reached!**\n\n");
         Ok::<_, anyhow::Error>(())
