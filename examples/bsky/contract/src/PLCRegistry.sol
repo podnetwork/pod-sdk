@@ -95,7 +95,7 @@ contract PLCRegistry {
                 break;
             }
         }
-        require(sigOk, "signature invalid (not allowed to fork)");
+        require(sigOk, "signature verification failed: signer not authorized to fork history");
 
         // TODO: check if the time of the uncleOp is not more than 72 hours old.
     }

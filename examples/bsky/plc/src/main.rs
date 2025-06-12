@@ -231,7 +231,11 @@ async fn create_plc(
         signature: op.sig.into_bytes().into(),
     };
 
-    let pending_tx = contract.add(operation.clone()).send().await.unwrap();
+    let pending_tx = contract
+        .add(operation.clone())
+        .send()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to send transaction: {e}")))?;
 
     let receipt = pending_tx.get_receipt().await.unwrap();
     if !receipt.status() {
