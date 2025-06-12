@@ -15,10 +15,7 @@ import {console} from "forge-std/console.sol";
 contract Deployer is Script {
     function run() public {
         bool testContracts = vm.envOr("TEST_CONTRACTS", false);
-        uint256 privateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        address deployer = vm.addr(privateKey);
-        console.log("deployer", deployer);
-        vm.startBroadcast(privateKey);
+        vm.startBroadcast();
 
         // Deploy Auction
         Auction auction = new Auction();
