@@ -16,7 +16,6 @@ contract HashChallenge {
         uint256 creationTime; // Timestamp when the challenge was created (local per validator)
         uint256 maxDelay; // Maximum delay to be eligible for reward
         uint256 rewardedAmount; // Amount rewarded to the responder
-        uint256 refundedAmount; // Amount refunded to the challenger
         uint256 sequenceNumber; // Sequence number of the challenge, allows for multiple challenges with the same options
     }
 
@@ -57,7 +56,6 @@ contract HashChallenge {
             creationTime: block.timestamp,
             maxDelay: maxDelay,
             rewardedAmount: 0,
-            refundedAmount: 0,
             sequenceNumber: sequenceNumber
         });
 
@@ -107,59 +105,6 @@ contract HashChallenge {
         require(success, "Transfer failed");
 
         emit ChallengeClaimed(challengeId, msg.sender, rewardAmount, claimedDelay);
-    }
-
-    /**
-     * @dev Refund the challenger. This can only be called after the max delay. Can be called multiple times.
-     * @param challengeId The ID of the challenge
-     */
-    function getRefund(uint256 challengeId, uint256 refundAmount) external {
-        require(msg.sender == challenges[challengeId].challenger, "Only challenger can refund");
-
-        Challenge storage challenge = challenges[challengeId];
-
-        requireTimeAfter(challenge.creationTime + challenge.maxDelay, "Cannot refund before max delay");
-        require(
-            challenge.reward - challenge.rewardedAmount >= refundAmount + challenge.refundedAmount,
-            "Cannot refund more than the amount remaining after claiming"
-        );
-        challenge.refundedAmount += refundAmount;
-
-        (bool refundSuccess,) = challenge.challenger.call{value: refundAmount}("");
-        require(refundSuccess, "Refund failed");
-
-        emit ChallengeRefunded(challengeId, refundAmount);
-    }
-
-    /**
-     * @dev Get challenge details
-     * @param challengeId The ID of the challenge
-     */
-    function getChallenge(uint256 challengeId)
-        external
-        view
-        returns (
-            bytes32 hash,
-            address challenger,
-            address responder,
-            uint256 reward,
-            uint256 creationTime,
-            uint256 maxDelay,
-            uint256 rewardedAmount,
-            uint256 refundedAmount
-        )
-    {
-        Challenge storage challenge = challenges[challengeId];
-        return (
-            challenge.hash,
-            challenge.challenger,
-            challenge.responder,
-            challenge.reward,
-            challenge.creationTime,
-            challenge.maxDelay,
-            challenge.rewardedAmount,
-            challenge.refundedAmount
-        );
     }
 
     /**

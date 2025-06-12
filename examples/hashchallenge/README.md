@@ -2,7 +2,7 @@
 
 A smart contract for creating and responding to hash challenges with time-dependent rewards.
 
-Responders must submit the correct preimage of a known hash within a time window. Rewards decay linearly over time. The challenger can reclaim unclaimed funds after a deadline.
+Responders must submit the correct preimage of a known hash within a time window. Rewards decay linearly over time.
 
 ## Overview
 
@@ -85,22 +85,6 @@ cast send 0x6145AC8fb73eB26588245c2afc454fC9629Ad5b3 \
 * `claimedDelay`: how many seconds since creation you *claim* have passed
 
 > This is verified via the `Deadline` library
-
----
-
-### 5. Get Refund (Post Timeout)
-
-After `maxDelay`, the challenger can refund unused ETH:
-
-```sh
-cast send 0x6145AC8fb73eB26588245c2afc454fC9629Ad5b3 \
-  "getRefund(uint256,uint256)" \
-  <CHALLENGE_ID> \
-  <AMOUNT_TO_REFUND> \
-  --private-key <PRIVATE_KEY> \
-  --legacy --gas-limit 1000000 \
-  --rpc-url https://rpc.dev.pod.network
-```
 
 ---
 
