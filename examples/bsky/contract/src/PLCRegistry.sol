@@ -4,37 +4,43 @@ pragma solidity ^0.8.25;
 address constant VERIFY_SIGNATURE = address(uint160(uint256(keccak256("POD_PLC_VERIFY_SIGNATURE"))));
 address constant DAG_CBOR = address(uint160(uint256(keccak256("POD_PLC_DAG_CBOR"))));
 
-function verifySignature(bytes memory key, bytes memory data, bytes memory signature) view returns (bool) {
-    (bool success,) = VERIFY_SIGNATURE.staticcall(abi.encode(key, data, signature));
-    return success;
+enum OperationType {
+    Uninitialized,
+    Operation,
+    Tombstone
 }
 
-function dagCbor(Op memory op) view returns (bytes memory) {
-    (bool success, bytes memory encoded) = DAG_CBOR.staticcall(abi.encode(op));
-    require(success, "failed DAG_CBOR precompile call");
-    return encoded;
+struct VerificationMethod {
+    bytes name;
+    bytes key;
 }
 
-// TODO: include all fields necesarry to encode with DAG-CBOR for signature verification
-// - type
-// - verification_methods
-// - also_know_as
-// - services
-// TODO: Remove encodedOp as it can be derived from other fields (?)
+struct Service {
+    bytes name;
+    bytes type_;
+    bytes endpoint;
+}
+
 struct Op {
-    bytes32 did;
-    bytes cid;
-    bytes prev;
+    OperationType type_;
     bytes[] rotationKeys;
-    bytes encodedOp;
+    VerificationMethod[] verificationMethods;
+    bytes[] alsoKnownAs;
+    Service[] services;
+    bytes prev;
 }
 
 struct SignedOp {
     Op op;
     bytes signature;
+    // metadata
+    bytes32 did;
+    bytes cid;
 }
 
 contract PLCRegistry {
+    bool internal isTestMode;
+
     address public owner;
 
     // CID to operation
@@ -42,7 +48,30 @@ contract PLCRegistry {
     // DID to its latest operation CID
     mapping(bytes32 => bytes) public latestOps;
 
-    event LatestOp(bytes32 indexed did, Op op);
+    event LatestOp(bytes32 indexed did, SignedOp op);
+
+    function verifySignature(bytes memory key, bytes memory data, bytes memory signature)
+        internal
+        view
+        returns (bool)
+    {
+        // NOTE: Precompiles aren't yet supported in production
+        if (isTestMode) {
+            (bool success,) = VERIFY_SIGNATURE.staticcall(abi.encode(key, data, signature));
+            return success;
+        }
+        return true;
+    }
+
+    function dagCbor(Op memory op) internal view returns (bytes memory) {
+        // NOTE: Precompiles aren't yet supported in production
+        if (isTestMode) {
+            (bool success, bytes memory encoded) = DAG_CBOR.staticcall(abi.encode(op));
+            require(success, "failed DAG_CBOR precompile call");
+            return encoded;
+        }
+        return "dummy_dag_cbor";
+    }
 
     function isEqual(bytes memory a, bytes memory b) internal pure returns (bool) {
         return keccak256(a) == keccak256(b);
@@ -51,18 +80,18 @@ contract PLCRegistry {
     function validateOp(SignedOp calldata signedOp) internal view {
         Op memory op = signedOp.op;
         require(op.prev.length != 0, "Previous operation CID must be provided");
-        Op memory lastOp = operations[op.prev].op;
+        SignedOp memory lastOp = operations[op.prev];
         require(lastOp.did != bytes32(0), "Previous operation does not exist");
-        require(lastOp.did == op.did, "Last operation did mismatch!");
+        require(lastOp.did == signedOp.did, "Last operation did mismatch!");
 
         bytes memory encoded = dagCbor(op);
 
         // Check if its a fork
-        bytes memory latestOpCID = latestOps[op.did];
+        bytes memory latestOpCID = latestOps[signedOp.did];
         if (isEqual(latestOpCID, op.prev)) {
             // Not forking history, just check the signature
-            for (uint256 i = 0; i < lastOp.rotationKeys.length; i++) {
-                if (verifySignature(lastOp.rotationKeys[i], encoded, signedOp.signature)) {
+            for (uint256 i = 0; i < lastOp.op.rotationKeys.length; i++) {
+                if (verifySignature(lastOp.op.rotationKeys[i], encoded, signedOp.signature)) {
                     return; // Valid signature found
                 }
             }
@@ -79,8 +108,8 @@ contract PLCRegistry {
         int256 indexOfDisputedSigner = -1;
         SignedOp memory firstNullified = operations[firstNullifiedCID];
         bytes memory firstNullifiedEncoded = dagCbor(firstNullified.op);
-        for (uint256 i = 0; i < lastOp.rotationKeys.length; i++) {
-            if (verifySignature(lastOp.rotationKeys[i], firstNullifiedEncoded, firstNullified.signature)) {
+        for (uint256 i = 0; i < lastOp.op.rotationKeys.length; i++) {
+            if (verifySignature(lastOp.op.rotationKeys[i], firstNullifiedEncoded, firstNullified.signature)) {
                 indexOfDisputedSigner = int256(i);
                 break;
             }
@@ -90,7 +119,7 @@ contract PLCRegistry {
         // Check signature using "more powerful" rotation keys of the last operation
         bool sigOk = false;
         for (uint256 i = 0; i < uint256(indexOfDisputedSigner); i++) {
-            sigOk = verifySignature(lastOp.rotationKeys[i], encoded, signedOp.signature);
+            sigOk = verifySignature(lastOp.op.rotationKeys[i], encoded, signedOp.signature);
             if (sigOk) {
                 break;
             }
@@ -121,22 +150,22 @@ contract PLCRegistry {
     }
 
     function add(SignedOp calldata op) external {
-        if (latestOps[op.op.did].length == 0) {
+        if (latestOps[op.did].length == 0) {
             validateCreationOp(op);
         } else {
             validateOp(op);
         }
 
         // Update the store
-        operations[op.op.cid] = op;
-        latestOps[op.op.did] = op.op.cid;
+        operations[op.cid] = op;
+        latestOps[op.did] = op.cid;
 
-        emit LatestOp(op.op.did, op.op);
+        emit LatestOp(op.did, op);
     }
 
-    function getLastOperation(bytes32 did) external view returns (bytes memory encodedOp) {
+    function getLastOperation(bytes32 did) external view returns (SignedOp memory operation) {
         bytes memory cid = latestOps[did];
         SignedOp memory latestOp = operations[cid];
-        return latestOp.op.encodedOp;
+        return latestOp;
     }
 }

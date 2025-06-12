@@ -1,15 +1,21 @@
 mod config;
-mod plc;
 
 use std::{fmt::Display, sync::Arc};
 
-use PLCRegistry::{LatestOp, PLCRegistryInstance};
 use alloy::{primitives::FixedBytes, sol_types::SolEvent};
 use axum::{
     Json, Router,
     extract::{Path, State},
     http::StatusCode,
     routing::{get, post},
+};
+use bsky_plc::{
+    bindings::{
+        Op,
+        PLCRegistry::{self, LatestOp, PLCRegistryInstance},
+        SignedOp,
+    },
+    plc,
 };
 use pod_sdk::{
     network::PodNetwork,
@@ -21,25 +27,26 @@ use tokio::sync::Mutex;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
-alloy::sol!(
-    #[sol(rpc)]
-    "../contract/src/PLCRegistry.sol"
-);
-
 struct AppState {
     provider: PodProvider,
     contract: Mutex<PLCRegistryInstance<(), PodProvider, PodNetwork>>,
 }
 
 impl AppState {
-    async fn get_last_operation(&self, did: Did) -> anyhow::Result<Option<plc::Operation>> {
+    async fn get_last_operation(
+        &self,
+        did: Did,
+    ) -> anyhow::Result<Option<bsky_plc::plc::Operation>> {
         let contract = self.contract.lock().await;
         let last_op = contract.getLastOperation(did.0).call().await?;
 
-        let last_op = if last_op.encodedOp.is_empty() {
+        let last_op = if matches!(
+            last_op.operation.op.type_,
+            bsky_plc::bindings::OperationType::Uninitialized
+        ) {
             None
         } else {
-            Some(serde_json::from_slice(&last_op.encodedOp)?)
+            Some(last_op.operation.op.try_into()?)
         };
         Ok(last_op)
     }
@@ -205,37 +212,27 @@ async fn get_last(
 async fn create_plc(
     State(state): State<Arc<AppState>>,
     Path(did): Path<Did>,
-    Json(op): Json<plc::Operation>,
+    Json(op): Json<plc::SignedOperation>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let cid = op
         .cid()
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-    let encoded_op = serde_json::to_string(&op).unwrap();
-    tracing::info!("Creating PLC operation, CID: {cid}, op: {encoded_op}",);
-    let contract = state.contract.lock().await;
-    let rotation_keys = op
-        .rotation_keys
-        .clone()
-        .into_iter()
-        .map(|key| key.into_bytes().into())
-        .collect();
-    let prev = op.prev.clone().unwrap_or_default();
+    tracing::info!("Creating PLC operation, DID: {did}, CID: {cid}, op: {op:?}",);
+
     let operation = SignedOp {
-        op: Op {
-            did: did.0,
-            cid: cid.into_bytes().into(),
-            prev: prev.into_bytes().into(),
-            rotationKeys: rotation_keys,
-            encodedOp: encoded_op.into(),
-        },
+        did: did.0,
+        cid: cid.into_bytes().into(),
         signature: op.sig.into_bytes().into(),
+        op: Op::from(op.op),
     };
 
-    let pending_tx = contract
-        .add(operation.clone())
-        .send()
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to send transaction: {e}")))?;
+    let contract = state.contract.lock().await;
+    let pending_tx = contract.add(operation.clone()).send().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to send transaction: {e}"),
+        )
+    })?;
 
     let receipt = pending_tx.get_receipt().await.unwrap();
     if !receipt.status() {
