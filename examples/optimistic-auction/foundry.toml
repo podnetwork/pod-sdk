@@ -8,6 +8,8 @@ bytecode_hash = "none"
 cbor_metadata = false
 remappings = [
     "pod-sdk/=../../solidity-sdk/src/",
+    "optimistic-auction/=contracts/"
+
 ]
 allow_paths = ["../../solidity-sdk"]
 
