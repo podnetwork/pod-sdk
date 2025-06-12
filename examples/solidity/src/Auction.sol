@@ -1,6 +1,6 @@
 pragma solidity ^0.8.26;
 
-import {requireTimeBefore} from "pod-sdk/pod/Time.sol";
+import {requireTimeBefore} from "pod-sdk/Time.sol";
 
 contract Auction {
     event BidSubmitted(

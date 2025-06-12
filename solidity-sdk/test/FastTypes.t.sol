@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import "forge-std/Test.sol";
-import "../src/pod/FastTypes.sol";
+import "../src/FastTypes.sol";
 
 contract TestContract {
     using FastTypes for FastTypes.SharedCounter;

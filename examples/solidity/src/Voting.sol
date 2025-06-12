@@ -1,7 +1,7 @@
 pragma solidity ^0.8.25;
 
-import {FastTypes} from "pod-sdk/pod/FastTypes.sol";
-import {requireTimeAfter, requireTimeBefore} from "pod-sdk/pod/Time.sol";
+import {FastTypes} from "pod-sdk/FastTypes.sol";
+import {requireTimeAfter, requireTimeBefore} from "pod-sdk/Time.sol";
 
 contract Voting {
     using FastTypes for FastTypes.AddressSet;
