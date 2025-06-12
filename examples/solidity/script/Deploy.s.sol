@@ -44,9 +44,15 @@ contract Deployer is Script {
             console.log("PodRegistry deployed at:", address(podRegistry));
 
             uint256 bondAmount = 1 ether;
-            PodAuctionConsumer auctionConsumer = new PodAuctionConsumer(address(podRegistry), bondAmount);
+            PodAuctionConsumer auctionConsumer = new PodAuctionConsumer(
+                address(podRegistry),
+                bondAmount
+            );
 
-            console.log("PodAuctionConsumer deployed at:", address(auctionConsumer));
+            console.log(
+                "PodAuctionConsumer deployed at:",
+                address(auctionConsumer)
+            );
         }
 
         vm.stopBroadcast();
