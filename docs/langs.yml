@@ -1,0 +1,6 @@
+langs:
+  - lang: js
+    label: JavaScript
+  - lang: rust
+    label: Rust
+    default: true

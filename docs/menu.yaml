@@ -1,0 +1,44 @@
+menu:
+  - heading: getting-started
+  - href: /
+    label: Welcome to pod
+  - href: /devnet
+    label: Devnet
+  - href: /overview
+    label: Coming from Ethereum?
+
+  - heading: examples 
+  - href: /examples/tokens
+    label: Tokens
+  - href: /examples/nfts
+    label: NFTs
+  - href: /examples/auctions
+    label: Auctions
+  - href: /examples/voting
+    label: Voting
+  - href: /examples/ranked-feed
+    label: Feed 
+  
+
+  - heading: Writing Smart Contracts
+  - href: /smart-contract-development/overview
+    label: Introduction
+  - href: /smart-contract-development/tutorial
+    label: Tutorial
+  - href: /smart-contract-development/solidity-sdk-reference
+    external: true
+    label: Solidity SDK Reference
+
+
+  - heading: Interacting with pod
+  - href: /rust-sdk/overview
+    label: Getting started
+  - href: /rust-sdk/guides
+    label: Guides
+  - href: https://docs.rs/pod-sdk
+    label: Crate Documentation
+    newTab: true
+
+  - heading: JSON RPC
+  - href: /reference/json-rpc
+    label: Reference
