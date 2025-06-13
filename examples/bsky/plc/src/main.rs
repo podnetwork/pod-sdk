@@ -2,7 +2,7 @@ mod config;
 
 use std::{fmt::Display, sync::Arc};
 
-use alloy::{primitives::FixedBytes, sol_types::SolEvent};
+use alloy::primitives::FixedBytes;
 use axum::{
     Json, Router,
     extract::{Path, State},
@@ -12,12 +12,12 @@ use axum::{
 use bsky_plc::{
     bindings::{
         Op,
-        PLCRegistry::{self, LatestOp, PLCRegistryInstance},
-        SignedOp,
+        PLCRegistry::{self, PLCRegistryInstance},
     },
     plc,
 };
 use pod_sdk::{
+    Bytes,
     network::PodNetwork,
     provider::{PodProvider, PodProviderBuilder},
 };
@@ -36,17 +36,17 @@ impl AppState {
     async fn get_last_operation(
         &self,
         did: Did,
-    ) -> anyhow::Result<Option<bsky_plc::plc::Operation>> {
+    ) -> anyhow::Result<Option<bsky_plc::plc::SignedOperation>> {
         let contract = self.contract.lock().await;
         let last_op = contract.getLastOperation(did.0).call().await?;
 
-        let last_op = if matches!(
-            last_op.operation.op.type_,
-            bsky_plc::bindings::OperationType::Uninitialized
-        ) {
+        let last_op = if last_op.signature.is_empty() {
             None
         } else {
-            Some(last_op.operation.op.try_into()?)
+            Some(plc::SignedOperation {
+                op: last_op.operation.try_into()?,
+                sig: String::from_utf8(last_op.signature.to_vec())?,
+            })
         };
         Ok(last_op)
     }
@@ -80,7 +80,7 @@ async fn main() {
         .layer(TraceLayer::new_for_http())
         .with_state(Arc::new(state));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:2582").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("[::]:2582").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -214,36 +214,52 @@ async fn create_plc(
     Path(did): Path<Did>,
     Json(op): Json<plc::SignedOperation>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
+    if op.prev.is_none() {
+        let expected_did = op.did().unwrap();
+        if expected_did != did.to_string() {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                format!("DID mismatch: expected {expected_did}, got {did}"),
+            ));
+        }
+    }
     let cid = op
         .cid()
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
     tracing::info!("Creating PLC operation, DID: {did}, CID: {cid}, op: {op:?}",);
 
-    let operation = SignedOp {
-        did: did.0,
-        cid: cid.into_bytes().into(),
-        signature: op.sig.into_bytes().into(),
-        op: Op::from(op.op),
-    };
+    let cid_b: Bytes = cid.clone().into_bytes().into();
+    let signature: Bytes = op.sig.clone().into_bytes().into();
+    let operation = Op::from(op.op);
 
     let contract = state.contract.lock().await;
-    let pending_tx = contract.add(operation.clone()).send().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to send transaction: {e}"),
-        )
-    })?;
+    let pending_tx = contract
+        .add(did.0, cid_b.clone(), operation.clone(), signature.clone())
+        .send()
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to send transaction: {e}"),
+            )
+        })?;
 
     let receipt = pending_tx.get_receipt().await.unwrap();
     if !receipt.status() {
         // replay with a CALL to get a revert reason
-        let result = contract.add(operation).call().await;
+        let result = contract
+            .add(did.0, cid_b, operation, signature)
+            .call()
+            .await;
         match result {
             Ok(_) => {
                 tracing::error!("Transaction failed but call succeeded, this is unexpected.");
             }
             Err(e) => {
-                tracing::error!("Call failed: {e:?}");
+                tracing::error!(
+                    "Call failed: {}",
+                    String::from_utf8_lossy(&e.as_revert_data().unwrap())
+                );
             }
         }
         return Err((StatusCode::BAD_REQUEST, "Transaction failed".to_string()));
@@ -253,14 +269,6 @@ async fn create_plc(
     assert!(
         receipt.verify(&committee).unwrap(),
         "receipt failed comittee validation"
-    );
-
-    let event = receipt.logs().first().expect("missing LatestOp event");
-    let event = LatestOp::decode_log_data(event.data(), true).unwrap();
-    tracing::info!(
-        "LatestOp event for {}: {}",
-        String::from_utf8(event.did.to_vec()).unwrap(),
-        String::from_utf8(event.op.cid.to_vec()).unwrap(),
     );
 
     Ok(Json(json!({

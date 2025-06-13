@@ -5,7 +5,6 @@ import {Test, console, Vm} from "forge-std/Test.sol";
 import {
     PLCRegistry,
     Op,
-    SignedOp,
     VERIFY_SIGNATURE,
     DAG_CBOR,
     VerificationMethod,
@@ -42,13 +41,17 @@ function dagCbor(Op memory op) pure returns (bytes memory) {
     return abi.encode(op);
 }
 
+function cid(Op memory op) pure returns (bytes memory) {
+    // Simulate a CID generation from the DAG-CBOR encoding.
+    return abi.encodePacked(keccak256(dagCbor(op)));
+}
+
 function equalBytes(bytes memory a, bytes memory b) pure returns (bool) {
     return keccak256(a) == keccak256(b);
 }
 
-function equalOperations(SignedOp memory a, SignedOp memory b) pure returns (bool) {
-    return equalBytes(a.cid, b.cid) && equalBytes(dagCbor(a.op), dagCbor(b.op)) && a.did == b.did
-        && equalBytes(a.signature, b.signature);
+function equalOperations(Op memory a, Op memory b) pure returns (bool) {
+    return equalBytes(dagCbor(a), dagCbor(b));
 }
 
 contract PLCRegistryUnderTest is PLCRegistry {
@@ -76,15 +79,6 @@ contract PLCRegistryTest is Test {
         return abi.encode(v, r, s);
     }
 
-    function createSignedOp(Vm.Wallet memory wallet, Op memory op) private returns (SignedOp memory sig) {
-        return SignedOp({
-            op: op,
-            did: bytes32("did:plc:abcdefghijklmnopqrstuvwz"),
-            cid: dagCbor(op),
-            signature: signOp(wallet, op)
-        });
-    }
-
     function newCreationOp(uint256 rotationKeyCount) private pure returns (Op memory) {
         return Op({
             type_: OperationType.Operation,
@@ -102,21 +96,75 @@ contract PLCRegistryTest is Test {
         return op;
     }
 
+    function checkLastOp(bytes32 did, Op memory expected) private view {
+        require(equalBytes(registry.latestOps(did), cid(expected)));
+        (Op memory last, ) = registry.getLastOperation(did);
+        require(equalOperations(last, expected));
+    }
+
     function test_createPLC() public {
-        Vm.Wallet memory wallet = vm.createWallet("alice");
+        Vm.Wallet memory alice = vm.createWallet("alice");
+        Vm.Wallet memory bob = vm.createWallet("bob");
 
-        Op memory op = newCreationOp(1);
-        op.rotationKeys[0] = abi.encode(wallet.addr);
+        Op memory op = newCreationOp(2);
+        op.rotationKeys[0] = abi.encode(alice.addr);
+        op.rotationKeys[1] = abi.encode(bob.addr);
+        bytes32 did = "did:plc:abcdefghijklmnopqrstuvwz";
 
-        SignedOp memory signedOp = createSignedOp(wallet, op);
+        registry.add(did, cid(op), op, signOp(bob, op));
 
-        vm.expectEmit(false, true, true, false);
-        emit PLCRegistry.LatestOp(signedOp.did, signedOp);
+        require(registry.signerIndices(cid(op)) == 0, "creation operation signer isn't persisted");
+        checkLastOp(did, op);
+    }
 
-        registry.add(signedOp);
+    // In pod, transactions signed by different keys aren't sequenced and can
+    // be executed in any order. Hence, we want to ensure that a creation operation
+    // is idempotent, and can be submitted many times.
+    // Scenario: [Create DID] -> [Create DID]
+    function test_createPLC_is_idempotent() public {
+        Vm.Wallet memory alice = vm.createWallet("alice");
+        Vm.Wallet memory bob = vm.createWallet("bob");
 
-        require(equalBytes(registry.latestOps(signedOp.did), signedOp.cid));
-        require(equalOperations(registry.getLastOperation(signedOp.did), signedOp));
+        Op memory op = newCreationOp(2);
+        op.rotationKeys[0] = abi.encode(alice.addr);
+        op.rotationKeys[1] = abi.encode(bob.addr);
+
+        bytes32 did = "did:plc:abcdefghijklmnopqrstuvwz";
+        registry.add(did, cid(op), op, signOp(alice, op));
+        registry.add(did, cid(op), op, signOp(bob, op));
+
+        require(registry.signerIndices(cid(op)) == 0, "creation operation signer isn't persisted");
+        checkLastOp(did, op);
+    }
+
+    // Scenario: [Create DID] -> [Update DID] -> [Create DID]
+    function test_createPLC_is_idempotent_even_after_update() public {
+        Vm.Wallet memory alice = vm.createWallet("alice");
+        Vm.Wallet memory bob = vm.createWallet("bob");
+
+        // Step 1: create new
+        Op memory op = newCreationOp(2);
+        op.rotationKeys[0] = abi.encode(alice.addr);
+        op.rotationKeys[1] = abi.encode(bob.addr);
+
+        bytes32 did = "did:plc:abcdefghijklmnopqrstuvwz";
+        registry.add(did, cid(op), op, signOp(alice, op));
+
+        // Step 2: update
+        // Persist only Alice's key
+        Op memory updateOp = newUpdateOp(cid(op), 1);
+        updateOp.rotationKeys[0] = abi.encode(alice.addr);
+
+        registry.add(did, cid(updateOp), updateOp, signOp(alice, updateOp));
+
+        require(registry.signerIndices(cid(updateOp)) == 0, "signer index should be for Alice's key");
+        checkLastOp(did, updateOp);
+
+        // Step 3: create again
+        registry.add(did, cid(op), op, signOp(alice, op));
+
+        require(registry.signerIndices(cid(updateOp)) == 0, "signer index should be for Alice's key");
+        checkLastOp(did, updateOp);
     }
 
     function test_createPLC_rejected_invalid_signature() public {
@@ -125,10 +173,10 @@ contract PLCRegistryTest is Test {
         Op memory op = newCreationOp(1);
         op.rotationKeys[0] = abi.encode(vm.addr(111));
 
-        vm.expectRevert("signature invalid");
+        bytes32 did = "did:plc:abcdefghijklmnopqrstuvwz";
 
-        SignedOp memory signedOp = createSignedOp(wallet, op);
-        registry.add(signedOp);
+        vm.expectRevert("signature invalid");
+        registry.add(did, cid(op), op, signOp(wallet, op));
     }
 
     function test_createPLC_second_key_signed() public {
@@ -139,14 +187,11 @@ contract PLCRegistryTest is Test {
         op.rotationKeys[0] = abi.encode(alice.addr);
         op.rotationKeys[1] = abi.encode(bob.addr);
 
-        SignedOp memory signedOp = createSignedOp(bob, op);
+        bytes32 did = "did:plc:abcdefghijklmnopqrstuvwz";
+        registry.add(did, cid(op), op, signOp(bob, op));
 
-        vm.expectEmit(false, true, true, false);
-        emit PLCRegistry.LatestOp(signedOp.did, signedOp);
-        registry.add(signedOp);
-
-        require(equalBytes(registry.latestOps(signedOp.did), signedOp.cid));
-        require(equalOperations(registry.getLastOperation(signedOp.did), signedOp));
+        require(registry.signerIndices(cid(op)) == 0, "creation operation signer isn't persisted");
+        checkLastOp(did, op);
     }
 
     function test_updateOperation() public {
@@ -159,29 +204,31 @@ contract PLCRegistryTest is Test {
         op.rotationKeys[0] = abi.encode(alice.addr);
         op.rotationKeys[1] = abi.encode(bob.addr);
 
-        SignedOp memory signedOp = createSignedOp(bob, op);
+        bytes32 did = "did:plc:abcdefghijklmnopqrstuvwz";
+        registry.add(did, cid(op), op, signOp(alice, op));
 
-        vm.expectEmit(false, true, true, false);
-        emit PLCRegistry.LatestOp(signedOp.did, signedOp);
-        registry.add(signedOp);
-
-        require(equalBytes(registry.latestOps(signedOp.did), signedOp.cid));
-        require(equalOperations(registry.getLastOperation(signedOp.did), signedOp));
+        require(registry.signerIndices(cid(op)) == 0, "signer index should be for Alice's key");
+        checkLastOp(did, op);
 
         // Step 2: update
         // Persist only Alice's key
-        Op memory updateOp = newUpdateOp(signedOp.cid, 1);
+        Op memory updateOp = newUpdateOp(cid(op), 1);
         updateOp.rotationKeys[0] = abi.encode(alice.addr);
-        SignedOp memory signedUpdateOp = createSignedOp(alice, updateOp);
 
-        vm.expectEmit(false, true, true, false);
-        emit PLCRegistry.LatestOp(signedOp.did, signedUpdateOp);
+        registry.add(did, cid(updateOp), updateOp, signOp(alice, updateOp));
 
-        registry.add(signedUpdateOp);
+        require(registry.signerIndices(cid(updateOp)) == 0, "signer index should be for Alice's key");
+        checkLastOp(did, updateOp);
 
-        require(equalBytes(registry.latestOps(signedOp.did), signedUpdateOp.cid));
-        require(equalOperations(registry.getLastOperation(signedOp.did), signedUpdateOp));
+        // Step 3: try update with invalid signature
+        Op memory updateOpInvalid = newUpdateOp(cid(updateOp), 1);
+
+        vm.expectRevert("signature invalid (not a fork)");
+        registry.add(did, cid(updateOpInvalid), updateOpInvalid, signOp(vm.createWallet("blackhat"), updateOpInvalid));
+        checkLastOp(did, updateOp);
     }
+
+
 
     function test_forking() public {
         Vm.Wallet memory alice = vm.createWallet("alice");
@@ -193,46 +240,34 @@ contract PLCRegistryTest is Test {
         op.rotationKeys[0] = abi.encode(alice.addr);
         op.rotationKeys[1] = abi.encode(bob.addr);
 
-        SignedOp memory signedOp = createSignedOp(bob, op);
+        bytes32 did = "did:plc:abcdefghijklmnopqrstuvwz";
+        registry.add(did, cid(op), op, signOp(alice, op));
 
-        vm.expectEmit(false, true, true, false);
-        emit PLCRegistry.LatestOp(signedOp.did, signedOp);
-
-        registry.add(signedOp);
-
-        require(equalBytes(registry.latestOps(signedOp.did), signedOp.cid));
+        require(registry.signerIndices(cid(op)) == 0, "signer index should be for Alice's key");
+        checkLastOp(did, op);
 
         // Step 2: update
         // Persist only Bob's key
-        Op memory updateOp = newUpdateOp(signedOp.cid, 1);
+        Op memory updateOp = newUpdateOp(cid(op), 1);
         updateOp.rotationKeys[0] = abi.encode(bob.addr);
-        SignedOp memory signedUpdateOp = createSignedOp(bob, updateOp);
+        registry.add(did, cid(updateOp), updateOp, signOp(bob, updateOp));
 
-        vm.expectEmit(false, true, true, false);
-        emit PLCRegistry.LatestOp(signedUpdateOp.did, signedUpdateOp);
-
-        registry.add(signedUpdateOp);
-
-        require(equalBytes(registry.latestOps(signedOp.did), signedUpdateOp.cid));
-        require(equalOperations(registry.getLastOperation(signedOp.did), signedUpdateOp));
+        require(registry.signerIndices(cid(updateOp)) == 1, "signer index should be for Bob's key");
+        checkLastOp(did, updateOp);
 
         // Step 3: Alice got mad: she forks removing step 2 update, and banning Bob
-        Op memory forkOp = newUpdateOp(signedOp.cid, 1);
+        Op memory forkOp = newUpdateOp(cid(op), 1);
         forkOp.rotationKeys[0] = abi.encode(alice.addr);
-        SignedOp memory signedForkOp = createSignedOp(alice, updateOp);
 
-        vm.expectEmit(false, true, true, false);
-        emit PLCRegistry.LatestOp(signedForkOp.did, signedForkOp);
+        registry.add(did, cid(forkOp), forkOp, signOp(alice, forkOp));
 
-        registry.add(signedForkOp);
+        require(registry.signerIndices(cid(forkOp)) == 0, "signer index should be for Alice's key");
+        checkLastOp(did, forkOp);
 
-        require(equalBytes(registry.latestOps(signedOp.did), signedForkOp.cid));
-        require(equalOperations(registry.getLastOperation(signedOp.did), signedForkOp));
-
-        // Step 4: Bob realizes his step 2 attempt failed, and tries undo Alice's fork.
-        // It fails as Alice has a more powerful key.
-        Op memory undoForkOp = newUpdateOp(signedOp.cid, 1);
-        vm.expectRevert("signature verification failed: signer not authorized to fork history");
-        registry.add(createSignedOp(bob, undoForkOp));
+        // Step 4: Bob realizes his step 2 attempt failed, and tries undo Alice's fork
+        // by re-applying his update operation from step 2.
+        // The call succeeds (as idempotent) but it doesn't update the state.
+        registry.add(did, cid(updateOp), updateOp, signOp(bob, updateOp));
+        checkLastOp(did, forkOp);
     }
 }

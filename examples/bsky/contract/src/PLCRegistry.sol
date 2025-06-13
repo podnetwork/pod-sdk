@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.25;
 
+import {requireQuorum} from "pod-sdk/pod/Quorum.sol";
+
 address constant VERIFY_SIGNATURE = address(uint160(uint256(keccak256("POD_PLC_VERIFY_SIGNATURE"))));
 address constant DAG_CBOR = address(uint160(uint256(keccak256("POD_PLC_DAG_CBOR"))));
 
 enum OperationType {
-    Uninitialized,
     Operation,
     Tombstone
 }
@@ -30,25 +31,23 @@ struct Op {
     bytes prev;
 }
 
-struct SignedOp {
+struct OpWithMetadata {
     Op op;
-    bytes signature;
-    // metadata
     bytes32 did;
-    bytes cid;
+    bytes signature;
 }
 
 contract PLCRegistry {
     bool internal isTestMode;
 
-    address public owner;
-
     // CID to operation
-    mapping(bytes => SignedOp) private operations;
+    mapping(bytes => OpWithMetadata) private operations;
     // DID to its latest operation CID
     mapping(bytes32 => bytes) public latestOps;
-
-    event LatestOp(bytes32 indexed did, SignedOp op);
+    // CID to index of rotation key that signed the operation.
+    // For creation operations, this is the index in this operation's rotationKeys.
+    // For update operations, this is the index in the last operation's rotationKeys.
+    mapping(bytes => uint256) public signerIndices;
 
     function verifySignature(bytes memory key, bytes memory data, bytes memory signature)
         internal
@@ -77,22 +76,19 @@ contract PLCRegistry {
         return keccak256(a) == keccak256(b);
     }
 
-    function validateOp(SignedOp calldata signedOp) internal view {
-        Op memory op = signedOp.op;
-        require(op.prev.length != 0, "Previous operation CID must be provided");
-        SignedOp memory lastOp = operations[op.prev];
-        require(lastOp.did != bytes32(0), "Previous operation does not exist");
-        require(lastOp.did == signedOp.did, "Last operation did mismatch!");
+    function validateOp(bytes32 did, Op calldata op, bytes calldata signature) internal view returns (bool, uint256) {
+        OpWithMetadata memory lastOp = operations[op.prev];
+        require(lastOp.did == did, "op.prev operation is for different DID");
 
         bytes memory encoded = dagCbor(op);
 
         // Check if its a fork
-        bytes memory latestOpCID = latestOps[signedOp.did];
+        bytes memory latestOpCID = latestOps[did];
         if (isEqual(latestOpCID, op.prev)) {
             // Not forking history, just check the signature
             for (uint256 i = 0; i < lastOp.op.rotationKeys.length; i++) {
-                if (verifySignature(lastOp.op.rotationKeys[i], encoded, signedOp.signature)) {
-                    return; // Valid signature found
+                if (verifySignature(lastOp.op.rotationKeys[i], encoded, signature)) {
+                    return (true, i); // Valid signature found
                 }
             }
             revert("signature invalid (not a fork)");
@@ -105,32 +101,48 @@ contract PLCRegistry {
             require(firstNullifiedCID.length != 0, "No ancestor found!");
         }
 
-        int256 indexOfDisputedSigner = -1;
-        SignedOp memory firstNullified = operations[firstNullifiedCID];
-        bytes memory firstNullifiedEncoded = dagCbor(firstNullified.op);
-        for (uint256 i = 0; i < lastOp.op.rotationKeys.length; i++) {
-            if (verifySignature(lastOp.op.rotationKeys[i], firstNullifiedEncoded, firstNullified.signature)) {
-                indexOfDisputedSigner = int256(i);
-                break;
-            }
-        }
-        require(indexOfDisputedSigner >= 0, "disputed signer not found in rotation keys");
+        uint256 indexOfDisputedSigner = signerIndices[firstNullifiedCID];
 
         // Check signature using "more powerful" rotation keys of the last operation
-        bool sigOk = false;
-        for (uint256 i = 0; i < uint256(indexOfDisputedSigner); i++) {
-            sigOk = verifySignature(lastOp.op.rotationKeys[i], encoded, signedOp.signature);
-            if (sigOk) {
+        int256 signerIndex = -1;
+        for (uint256 i = 0; i < indexOfDisputedSigner; i++) {
+            if (verifySignature(lastOp.op.rotationKeys[i], encoded, signature)) {
+                signerIndex = int256(i);
                 break;
             }
         }
-        require(sigOk, "signature verification failed: signer not authorized to fork history");
+        // NOTE: We require quorum here because in pod, update operations using the same `prev` might come
+        // in different order (transactions signed by different PLCs).
+        // We pass the TX if majority agreed it's fine but we don't update the state to prevent
+        // diverging the state.
+        // Consider the following two possible scenarios of execution. 
+        // A and B represent two different rotation keys, where A is stronger than B.
+        // The update operations are sent from different PLCs and hence - not sequenced
+        // (they can be executed in any order).
+        //   ┌──────┐   ┌────────┐
+        //   │CREATE│◄──┤UPDATE A│
+        //   └──────┘◄┐ └────────┘   ┌────────┐
+        //            └──────────────┤UPDATE B│
+        //                           └────────┘
+        //   ┌──────┐   ┌────────┐
+        //   │CREATE│◄──┤UPDATE B│
+        //   └──────┘◄┐ └────────┘   ┌────────┐
+        //            └──────────────┤UPDATE A│
+        //                           └────────┘
+        // We want both to pass, but the final state must be `UPDATE A` because it has stronger rotation key.
+        requireQuorum(signerIndex != -1, "signature verification failed: signer not authorized to fork history");
+        return (signerIndex != -1, uint256(signerIndex)); // Valid signature found
 
         // TODO: check if the time of the uncleOp is not more than 72 hours old.
     }
 
-    function validateCreationOp(SignedOp calldata op) internal view {
-        require(op.op.prev.length == 0, "Previous operation CID must be empty for creation operation");
+    function validateCreationOp(bytes32 did, Op calldata op, bytes calldata signature) internal view returns (bool) {
+        // We only require quorum here because it is possible that mutliple TXs create the same DID at the same time.
+        // In this case, we verify the correctness of the operation, but we DON'T update the state.
+        // Example of valid order of execution scenarios (TXs can be signed by different keys and therefore not sequenced):
+        // 1. [TX 1 creates DID] -> [TX 2 creates DID]
+        // 2. [TX 1 creates DID] -> [TX 2 updates DID] -> [TX 3 creates DID] // ! Important not to update the state in TX 3
+        requireQuorum(latestOps[did].length == 0, "An operation for this DID already exists");
 
         // TODO: calculate DID and check
         // DID = "did:plc:" + base32Encode(sha256(dagCbor(op))); // note: CBOR of SignedOp, not Op
@@ -140,32 +152,39 @@ contract PLCRegistry {
         // bytes24 op_did_bytes = bytes24(bytes32(uint256(op.did) << 64));
         // require(did_bytes == op_did_bytes, "DID mismatch!");
 
-        bytes memory encoded = dagCbor(op.op);
-        for (uint256 i = 0; i < op.op.rotationKeys.length; i++) {
-            if (verifySignature(op.op.rotationKeys[i], encoded, op.signature)) {
-                return;
+        bytes memory encoded = dagCbor(op);
+        for (uint256 i = 0; i < op.rotationKeys.length; i++) {
+            if (verifySignature(op.rotationKeys[i], encoded, signature)) {
+                return latestOps[did].length == 0; // return true if no operation exists for this DID
             }
         }
         revert("signature invalid");
     }
 
-    function add(SignedOp calldata op) external {
-        if (latestOps[op.did].length == 0) {
-            validateCreationOp(op);
+    // TODO: calculate CID internally
+    // CID = cid_v1(0x71, sha256(dagCbor(op)));
+    function add(bytes32 did, bytes calldata cid, Op calldata op, bytes calldata signature) external {
+        require(did != bytes32(0), "DID must not be empty");
+
+        (bool updateLast, uint256 signerIndex) = (false, 0);
+        if (op.prev.length == 0) {
+            updateLast = validateCreationOp(did, op, signature);
         } else {
-            validateOp(op);
+            (updateLast, signerIndex) = validateOp(did, op, signature);
         }
 
         // Update the store
-        operations[op.cid] = op;
-        latestOps[op.did] = op.cid;
+        if (updateLast) {
+            latestOps[did] = cid;
+        }
 
-        emit LatestOp(op.did, op);
+        signerIndices[cid] = signerIndex;
+        operations[cid] = OpWithMetadata({op: op, did: did, signature: signature});
     }
 
-    function getLastOperation(bytes32 did) external view returns (SignedOp memory operation) {
+    function getLastOperation(bytes32 did) external view returns (Op memory operation, bytes memory signature) {
         bytes memory cid = latestOps[did];
-        SignedOp memory latestOp = operations[cid];
-        return latestOp;
+        OpWithMetadata memory op = operations[cid];
+        return (op.op, op.signature);
     }
 }

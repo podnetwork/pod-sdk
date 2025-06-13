@@ -1,5 +1,6 @@
 use std::{collections::HashMap, ops::Deref, string::FromUtf8Error};
 
+use alloy::signers::k256::sha2::{Digest, Sha256};
 use anyhow::anyhow;
 use multihash_codetable::MultihashDigest;
 use serde::{Deserialize, Serialize};
@@ -16,7 +17,7 @@ pub struct Operation {
     pub prev: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignedOperation {
     #[serde(flatten)]
     pub op: Operation,
@@ -47,12 +48,23 @@ pub struct Service {
     pub endpoint: String,
 }
 
-impl Operation {
+impl SignedOperation {
     pub fn cid(&self) -> anyhow::Result<String> {
         let dag = serde_ipld_dagcbor::to_vec(&self)?;
         let result = multihash_codetable::Code::Sha2_256.digest(dag.as_slice());
         let cid = cid::Cid::new_v1(0x71, result);
         Ok(cid.to_string())
+    }
+
+    pub fn did(&self) -> anyhow::Result<String> {
+        let dag = serde_ipld_dagcbor::to_vec(&self)?;
+        let hashed = Sha256::digest(dag.as_slice());
+        let b32 = base32::encode(
+            base32::Alphabet::Rfc4648Lower { padding: false },
+            hashed.as_slice(),
+        );
+
+        Ok(format!("did:plc:{}", &b32[0..24]))
     }
 }
 
