@@ -2,8 +2,10 @@
 
 ## Smart Contract Definition
 
-The token layer transforms a basic smart contract into an independent ledger that tracks a fungible asset. 
-Each deployed copy of the contract corresponds to a single currency, defined by its own name, ticker symbol, and fixed total supply.
+Each contract instance corresponds to a single fungible token, 
+defined by its own name, ticker symbol, and fixed total supply.
+
+<explain the contract:   
 
 ! content end
 
@@ -25,6 +27,8 @@ contract Token {
     string  public symbol;
     int256 public totalSupply;
 
+    // This is a special type that is safe in the fast path of pod.
+    // Checkout more about the type at https://pod-sdk.github.io/pod-sdk/docs/fast-types
     FastTypes.Balance internal _balances;
 
     event Transfer(address indexed from, address indexed to, int256 value);
@@ -37,14 +41,14 @@ contract Token {
         name = tokenName;
         symbol = tokenSymbol;
         totalSupply = initialSupply;
-        _balances.increment(symbol, tx.origin, totalSupply);
-        emit Transfer(address(0), tx.origin, totalSupply);
+        _balances.increment(symbol, msg.sender, totalSupply);
+        emit Transfer(address(0), msg.sender, totalSupply);
     }
 
     function transfer(address to, int256 amount) external returns (bool) {
-	_balances.requireGte(symbol, tx.origin, amount);
-	_balances.decrement(symbol, tx.origin, amount);
-	_balances.increment(symbol, to, amount);
+        // The decrement function ensures that the sender has enough balance
+	    _balances.decrement(symbol, msg.sender, amount);
+        _balances.increment(symbol, to, amount);
         emit Transfer(tx.origin, to, amount);
         return true;
     }

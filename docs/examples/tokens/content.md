@@ -17,9 +17,9 @@ toc:
 
 # Tokens
 
-### How to use pod as a layer for creating a new ERC-20 compatible token 
+### Creating a fungible token 
 
-Pod supports creation of custom ERC-20 compatible tokens handled by a single instance of Tokens smart contract.
+pod supports creation of ERC-20 like tokens smart contracts.  
 
 ! content end
 
