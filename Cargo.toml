@@ -5,6 +5,7 @@ members = [
   "rust-sdk",
   "examples/notary",
   "examples/optimistic-auction",
+  "examples/auction",
   "examples/rust",
   "examples/voting/client",
   "examples/nfts",

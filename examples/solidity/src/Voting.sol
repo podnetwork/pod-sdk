@@ -1,13 +1,12 @@
 pragma solidity ^0.8.25;
 
-import {FastTypes} from "pod-sdk/pod/FastTypes.sol";
-import {requireTimeAfter, requireTimeBefore} from "pod-sdk/pod/Time.sol";
+import {FastTypes} from "pod-sdk/FastTypes.sol";
+import {requireTimeAfter, requireTimeBefore} from "pod-sdk/Time.sol";
 
 contract Voting {
-    using FastTypes for FastTypes.Set;
-    using FastTypes for FastTypes.Owned;
-    using FastTypes for FastTypes.Counter;
-    using FastTypes for FastTypes.Constant;
+    using FastTypes for FastTypes.AddressSet;
+    using FastTypes for FastTypes.OwnedCounter;
+    using FastTypes for FastTypes.SharedCounter;
 
     struct VotingInfo {
         uint256 threshold;
@@ -15,6 +14,10 @@ contract Voting {
         uint256 nonce;
         address owner;
     }
+
+    FastTypes.AddressSet _voters;
+    FastTypes.OwnedCounter _hasVoted;
+    FastTypes.SharedCounter _voteCounts;
 
     event Winner(bytes32 indexed votingId, uint256 indexed choice);
     event Voted(bytes32 indexed votingId, address indexed voter, uint256 indexed choice);
@@ -26,36 +29,31 @@ contract Voting {
     function register(VotingInfo calldata v) public {
         require(msg.sender == v.owner);
 
-        FastTypes.Set memory voters = FastTypes.Set(votingId(v));
-        voters.insert(bytes32(uint256(uint160(msg.sender))));
+        _voters.add(msg.sender);
     }
 
     function vote(VotingInfo calldata v, uint256 choice) public {
-        requireTimeBefore(v.deadline, "can't vote after deadline");
+        requireTimeBefore(v.deadline, "Cannot vote after deadline");
 
         bytes32 vId = votingId(v);
-        FastTypes.Set memory voters = FastTypes.Set(vId);
-        voters.requireExist(bytes32(uint256(uint160(msg.sender))));
+        _voters.requireExists(msg.sender, "Cannot vote if not registered");
 
-        FastTypes.Owned memory hasVoted = FastTypes.Owned(vId, msg.sender);
-        require(hasVoted.get() == bytes32(0));
-        hasVoted.set(bytes32(uint256(1)));
+        require(_hasVoted.get(vId, msg.sender) == 0);
+        _hasVoted.set(vId, msg.sender, 1);
 
-        FastTypes.Counter memory voteCount = FastTypes.Counter(keccak256(abi.encode(vId, choice)));
-        voteCount.increment(1);
+        bytes32 choiceId = keccak256(abi.encode(vId, choice));
+        _voteCounts.increment(choiceId, 1);
 
         emit Voted(vId, msg.sender, choice);
     }
 
     function setWinner(VotingInfo calldata v, uint256 choice) public {
-        requireTimeAfter(v.deadline, "can't set winner before deadline");
+        requireTimeAfter(v.deadline, "Cannot decide winner before deadline");
 
         bytes32 vId = votingId(v);
-        FastTypes.Counter memory voteCount = FastTypes.Counter(keccak256(abi.encode(vId, choice)));
-        voteCount.requireGte(v.threshold);
+        bytes32 choiceId = keccak256(abi.encode(vId, choice));
+        _voteCounts.requireGte(choiceId, v.threshold, "Cannot set winner with less votes than threshold");
 
-        FastTypes.Constant memory winner = FastTypes.Constant(vId);
-        winner.set(bytes32(choice));
         emit Winner(vId, choice);
     }
 }
