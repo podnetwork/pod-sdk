@@ -115,3 +115,13 @@ impl From<Indexed<Attestation<Receipt>>> for TimestampedHeadlessAttestation {
         }
     }
 }
+
+impl From<Indexed<Attestation<Signed<Transaction>>>> for TimestampedHeadlessAttestation {
+    fn from(indexed: Indexed<Attestation<Signed<Transaction>>>) -> Self {
+        Self {
+            timestamp: indexed.index,
+            public_key: indexed.value.public_key,
+            signature: indexed.value.signature,
+        }
+    }
+}
