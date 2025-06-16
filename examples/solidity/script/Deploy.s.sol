@@ -4,7 +4,6 @@ import {Script} from "forge-std/Script.sol";
 import "forge-std/console.sol";
 
 import {Auction} from "../src/Auction.sol";
-import {ProfileRegistry} from "../src/ProfileRegistry.sol";
 import {RankedFeed} from "../src/RankedFeed.sol";
 import {Voting} from "../src/Voting.sol";
 import {PodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
@@ -20,10 +19,6 @@ contract Deployer is Script {
         // Deploy Auction
         Auction auction = new Auction();
         console.log("Auction deployed at:", address(auction));
-
-        // Deploy ProfileRegistry
-        ProfileRegistry profileRegistry = new ProfileRegistry();
-        console.log("ProfileRegistry deployed at:", address(profileRegistry));
 
         // Deploy RankedFeed
         RankedFeed rankedFeed = new RankedFeed();
