@@ -1,8 +1,13 @@
 pragma solidity ^0.8.25;
 
+import {FastTypes} from "pod-sdk/FastTypes.sol";
+
 contract RankedFeed {
-    mapping(bytes32 => uint256) public votes;
-    mapping(address => mapping(bytes32 => bool)) public voted;
+    using FastTypes for FastTypes.SharedCounter;
+    using FastTypes for FastTypes.OwnedCounter;
+
+    FastTypes.SharedCounter _upvoteCounts;
+    FastTypes.OwnedCounter _postUpvoted;
 
     event PostCreated(bytes32 indexed post_id, address indexed poster, bytes post_data);
     event PostVoted(bytes32 indexed post_id, address indexed voter);
@@ -13,20 +18,24 @@ contract RankedFeed {
         // This doesn't really imply that it was already created,
         // but checking `voted` avoids having a separated `created` mapping
         bytes32 post_id = keccak256(abi.encodePacked(msg.sender, post_data));
-        if (voted[msg.sender][post_id]) {
+
+        if (_postUpvoted.get(post_id, msg.sender) != 0) {
             revert AlreadyVoted();
         }
-        votes[post_id] += 1;
-        voted[msg.sender][post_id] = true;
+        _postUpvoted.set(post_id, msg.sender, 1);
+
+        _upvoteCounts.increment(post_id, 1);
+
         emit PostCreated(post_id, msg.sender, post_data);
     }
 
     function votePost(bytes32 post_id) public {
-        if (voted[msg.sender][post_id]) {
+        if (_postUpvoted.get(post_id, msg.sender) != 0) {
             revert AlreadyVoted();
         }
-        voted[msg.sender][post_id] = true;
-        votes[post_id] += 1;
+        _postUpvoted.set(post_id, msg.sender, 1);
+
+        _upvoteCounts.increment(post_id, 1);
         emit PostVoted(post_id, msg.sender);
     }
 }

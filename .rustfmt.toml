@@ -1,6 +1,7 @@
 ignore = [
-  "examples/solidity/bindings",
-  "solidity-sdk/bindings",
+  "examples/solidity/bindings", 
+  "solidity-sdk/bindings", 
   "examples/optimistic-auction/bindings",
   "examples/voting/bindings",
+  "examples/auction/bindings"
 ]

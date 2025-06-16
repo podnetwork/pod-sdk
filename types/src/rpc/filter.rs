@@ -25,8 +25,9 @@ pub struct LogFilter {
         serialize_with = "serialize_block_timestamp_end"
     )]
     pub to: Option<Timestamp>,
-    #[serde(alias = "minimum_attestations")]
+    #[serde(alias = "minimum_attestations", default)]
     pub min_attestations: u32,
+    #[serde(default)]
     pub limit: usize,
 }
 

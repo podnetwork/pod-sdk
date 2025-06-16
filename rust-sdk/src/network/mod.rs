@@ -10,13 +10,13 @@ use alloy_provider::fillers::{
 };
 
 use anyhow::Result;
-use pod_types::ledger::Transaction;
+use pod_types::{ledger::Transaction, metadata::DetailedReceiptMetadata};
 
 use alloy_consensus::TxEnvelope;
 use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
 use pod_types::{
     ecdsa::{AddressECDSA, SignatureECDSA},
-    Committee, Hashable, Merkleizable, Receipt, Signed, Timestamp,
+    Committee, Hashable, Merkleizable, Receipt, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
@@ -285,22 +285,16 @@ impl ReceiptResponse for PodReceiptResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AttestationData {
-    public_key: AddressECDSA,
-    signature: SignatureECDSA,
-    timestamp: Timestamp,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PodMetadata {
-    pub attestations: Vec<AttestationData>,
-    pub transaction: Signed<Transaction>,
+    pub public_key: AddressECDSA,
+    pub signature: SignatureECDSA,
+    pub timestamp: Timestamp,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PodReceiptResponse {
     #[serde(flatten)]
     pub receipt: TransactionReceipt,
-    pub pod_metadata: PodMetadata,
+    pub pod_metadata: DetailedReceiptMetadata,
 }
 
 impl PodReceiptResponse {
@@ -326,7 +320,7 @@ impl PodReceiptResponse {
         };
 
         committee.verify_aggregate_attestation(
-            receipt.hash_custom(),
+            receipt.tx.hash_custom(),
             &self
                 .pod_metadata
                 .attestations

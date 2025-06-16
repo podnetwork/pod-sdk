@@ -108,12 +108,9 @@ contract Voting {
     function setWinningChoice(bytes32 pollId, uint256 choice) public {
         Poll storage poll = polls[pollId];
         requireTimeAfter(poll.deadline, "Poll deadline has not passed yet");
-        require(poll.totalVotes > 0, "No votes have been cast");
         require(choice > 0 && choice <= poll.maxChoice, "Choice must be between 1 and maxChoice");
-        require(poll.winningChoice == 0, "Winner has already been set");
 
         uint256 voteCount = poll.voteCount[choice];
-        require(voteCount > 0, "This choice has received no votes");
 
         // Calculate remaining voters
         uint256 remainingVoters = poll.totalVoters - poll.totalVotes;
@@ -129,7 +126,7 @@ contract Voting {
         }
 
         // Verify this choice has enough votes that it cannot be overtaken
-        require(
+        requireQuorum(
             voteCount - secondHighestVotes > remainingVoters,
             "This choice could still be overtaken if remaining voters vote"
         );

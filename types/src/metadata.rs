@@ -12,6 +12,7 @@ pub struct MetadataWrappedItem<T, M> {
 pub struct DetailedReceiptMetadata {
     pub attestations: Vec<TimestampedHeadlessAttestation>,
     pub transaction: Signed<Transaction>,
+    pub receipt_attestations: Vec<TimestampedHeadlessAttestation>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

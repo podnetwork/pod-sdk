@@ -9,6 +9,7 @@ pub mod r#context;
 pub mod r#deployer;
 pub mod r#ecdsa;
 pub mod r#fasttypes;
+<<<<<<< deploy-script
 pub mod r#iconstant;
 pub mod r#icounter;
 pub mod r#iowned;
@@ -25,6 +26,9 @@ pub mod r#podecdsa;
 pub mod r#ipodregistry;
 pub mod r#podregistry;
 pub mod r#profileregistry;
+=======
+pub mod r#pi2;
+>>>>>>> main
 pub mod r#rankedfeed;
 pub mod r#safecast;
 pub mod r#signedmath;
