@@ -14,14 +14,17 @@ toc:
 
 # Tokens
 
-### Creating a fungible token 
+### Creating a fungible token
 
-pod supports creation of ERC-20-like token smart contracts.  
+Unlike traditional blockchains where token logic runs over globally ordered blocks, pod allows token contracts to enforce safety (e.g. no overdrafts) even when transactions are confirmed independently and concurrently.
 
-To get started, clone podnetwork/pod-sdk github repository and go to `examples/tokens` directory:
+This guide shows how to create and use a simple fungible token using `FastTypes.Balance`, a type provided by `pod-sdk` that integrates directly with pod’s validator quorum logic.
+
+
+To get started, clone `podnetwork/pod-sdk` github repository and go to `examples/tokens` directory:
 
 ```bash
-$ git checkout github.com/podnetwork/ && cd examples/tokens
+$ git clone github.com/podnetwork/ && cd examples/tokens
 ```
 
 ! content end
@@ -34,37 +37,20 @@ $ git checkout github.com/podnetwork/ && cd examples/tokens
 
 ## Smart Contract Definition
 
-Each `Token` contract instance corresponds to a single fungible token, 
-defined by its own name, ticker symbol, and fixed total supply.
+As in the [ERC20 Token Standard](https://eips.ethereum.org/EIPS/eip-20), each `Token` contract instance corresponds to a single fungible token, 
+defined by its own name, ticker symbol, number of decimals, and fixed total supply.
 
-The contract makes use of the `FastTypes` library provided by `pod-sdk`.
+The contract makes use of the [`FastTypes`](http://localhost:5173/smart-contract-development/solidity-sdk-reference) library provided by `pod-sdk`.
 
-Specifically, an ERC20 token contract that is not optimised for pod would use
+The `FastTypes.Balances` type provides
 
-```solidity
-mapping(address => uint256) balance;
-```
+* `_balances.decrement(key, owner, value)`, a method that allows only the owner himself to decrease his balance,
+* `_balances.increment(key, owner, value)`, that allows anyone to increase the balance of an owner
 
-instead this contract uses the `FastTypes.Balances` type, which provides
+Unlike a plain Solidity mapping, when you call `decrement` method of a `FastTypes.Balance`, you're enforcing that a supermajority of validators agree the account has sufficient funds, up to the previous transaction by this account. That makes balance checks consistent across the network even without full consensus.
 
-* `decrement(key, owner, value)`, a method that allows only the owner himself to decrease his balance,
-* `increment(key, owner, value)`, that allows anyone to increase the balance of an owner
+The `key` parameter is a string that allows namespacing for multiple balances by the same owner, but in this example we always use the variable `symbol` as the key, as there is only a single balance for each address.
 
-The key is a string that allows namespacing for multiple balances by the same owner, but in this example we always use the variable `symbol` as the key, as there is only a single balance for each address.
-
-The `decrement` function makes sure that the owner has enough balance, according to the view of the supermajority of the validators.
-
-### Deployment
-
-When deploying the smart contract, don't forget to set the evm version to `berlin`:
-
-```bash
-$ forge create --rpc-url https://rpc.v2.pod.network \
-    --private-key $PRIVATE_KEY \
-    --evm-version berlin \
-    src/Token.sol:Token \
-    --constructor-args "token" "TKC" 9 1000000000000
-```
 
 ! content end
 
@@ -82,10 +68,10 @@ import "pod-sdk/pod/FastTypes.sol";
 contract Token {
     using FastTypes for FastTypes.Balance;
 
+    uint256 public totalSupply;
+    uint8 public decimals;
     string  public name;
     string  public symbol;
-    uint8 decimals
-    uint256 public totalSupply;
 
     // This is a special type that is safe in the fast path of pod.
     // Checkout more about the type at https://docs.v1.pod.network/smart-contract-development/solidity-sdk-reference#balance
@@ -96,7 +82,7 @@ contract Token {
     constructor(
         string  memory tokenName,
         string  memory tokenSymbol,
-	uint8 decimals,
+        uint8 decimals,
         uint256 initialSupply
     ) {
         name = tokenName;
@@ -111,7 +97,7 @@ contract Token {
         // The decrement function ensures that the sender has enough balance
         _balances.decrement(symbol, msg.sender, amount);
         _balances.increment(symbol, to, amount);
-        emit Transfer(tx.origin, to, amount);
+        emit Transfer(msg.sender, to, amount);
         return true;
     }
 }
@@ -125,6 +111,26 @@ contract Token {
 
 ---
 
+! content
+
+## Deployment
+
+When deploying the smart contract, don't forget to set the evm version to `berlin`.
+
+```bash
+$ forge create --rpc-url https://rpc.v2.pod.network \
+    --private-key $PRIVATE_KEY \
+    --evm-version berlin \
+    src/Token.sol:Token \
+    --constructor-args "token" "TKC" 9 1000000000000
+```
+
+! content end
+
+! content empty
+
+---
+
 ! content id="transfer"
 
 ## Transfer token programmatically
@@ -132,10 +138,6 @@ contract Token {
 This example demonstrates how to transfer tokens programmatically.
 
 For more information about `pod_sdk` read [Interacting with pod](./rust-sdk/overview).
-
-! content end
-
-! content
 
 ! sticky
 
@@ -171,6 +173,8 @@ async fn transfer_tokens(pod_provider: &PodProvider, contract_address: Address, 
 
 ! content end
 
+! content empty
+
 ---
 
 ! content id="events"
@@ -180,10 +184,6 @@ async fn transfer_tokens(pod_provider: &PodProvider, contract_address: Address, 
 `Transfer` events are emitted on every token transfer.
 
 Clients can request verifiable logs from the RPC full nodes. These proofs can be verified locally if the RPC node is not trusted, or submitted to light clients, ie smart contracts in other blockchains that verify that an event was emitted in pod.
-
-! content end
-
-! content
 
 ! sticky
 
@@ -217,3 +217,5 @@ async fn event_transfer(pod_provider: &PodProvider, committee: &Committee, desti
 ! sticky end
 
 ! content end
+
+! content empty
