@@ -21,8 +21,7 @@ their applications without the need for real assets or transactions.
 | --------- | ----- | -- |
 | RPC | https://rpc.v2.pod.network | ! copy value="https://rpc.v2.pod.network" |
 | Chain ID | 1293 | ! copy value="https://rpc.v2.pod.network" |
-| Explorer | https://explorer.dev.pod.network | ! copy value="https://explorer.dev.pod.network" |
-| Faucet | https://faucet.dev.pod.network | ! copy value="https://faucet.dev.pod.network" |
+| Explorer | https://explorer.v2.pod.network | ! copy value="https://explorer.v2.pod.network" |
 | EVM Version | Berlin (Ethereum block 12,244,000) | |
 ! table end   
 
