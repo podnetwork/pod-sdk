@@ -48,13 +48,12 @@ contract NFT {
     using FastTypes for FastTypes.Balance;
 
     FastTypes.Balance internal _balances;
-    // tokenId -> uri
     mapping(uint256 => string) public tokensUri;
 
-    address public _owner;
+    address public _minter;
 
-    constructor(address owner) {
-        _owner = owner; // the address that is allowed to mint
+    constructor(address minter) {
+        _minter = minter;
     }
 
     event Minted(uint256 indexed tokenId, address indexed owner, string  uri);
@@ -67,7 +66,7 @@ contract NFT {
     }
 
     function mint(uint256 tokenId, string uri) external {
-        require(msg.sender == _owner, "not allowed to mint");
+        require(msg.sender == _minter, "not allowed to mint");
 
 	_balances.increment(bytes32(tokenId), tx.origin, 1);
         tokensUri[tokenId] = uri;
@@ -92,7 +91,7 @@ contract NFT {
 
 ## Mint an NFT
 
-The owner of the NFT smart contract can mint an NFT given a Uniform Resource Identifier (URI).
+The minter is a permissioned account that can mint NFTs given a Uniform Resource Identifier (URI).
 
 Mints are tracked via the `Minted` event. 
 
