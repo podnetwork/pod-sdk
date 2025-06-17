@@ -8,7 +8,7 @@ import {AbsBonding} from "./AbsBonding.sol";
 
 contract PodAuctionConsumer is AbsBonding {
     uint256 public constant U = 10 minutes; // Waiting period for announcement or blaming
-    bytes32 public constant LOG_TOPIC_0 = 0x71a5674c44b823bc0df08201dfeb2e8bdf698cd684fd2bbaa79adcf2c99fc186;
+    bytes32 public constant LOG_TOPIC_0 = 0xaf2c4fdca8563d13e2f56ed3c7b48d3f86c61b037e7281617071a41d281a2204;
 
     struct Bid {
         address bidder;

@@ -67,8 +67,8 @@ contract PodAuctionConsumerTest is Test {
 
     function getReceiptRoot(uint256 index) public pure returns (bytes32) {
         bytes32[] memory receiptRoots = new bytes32[](2);
-        receiptRoots[0] = bytes32(0xfb653dbc9be0456daa371448ef33dc1e0f62d0a6d356a1040d666e352f0ac814);
-        receiptRoots[1] = bytes32(0x1fd355504a7c4cbb2fc6d3259e2eb144f26067cf81f77c92816dbd7b21ee3a33);
+        receiptRoots[0] = bytes32(0x7a7de453df4c8bc30bec5eb5948e6c7d9bfa4c625ca72835c6f847f0b2adef74);
+        receiptRoots[1] = bytes32(0xff1f0769c1f5f49d15679c58beffaa9c63627314c2965a2c3025b6012a6a93ab);
 
         return receiptRoots[index];
     }
@@ -307,12 +307,12 @@ contract PodAuctionConsumerTest is Test {
         bytes32[][] memory topics = new bytes32[][](2);
         topics[0] = new bytes32[](4);
         topics[1] = new bytes32[](4);
-        topics[0][0] = 0x71a5674c44b823bc0df08201dfeb2e8bdf698cd684fd2bbaa79adcf2c99fc186;
+        topics[0][0] = 0xaf2c4fdca8563d13e2f56ed3c7b48d3f86c61b037e7281617071a41d281a2204;
         topics[0][1] = 0x0000000000000000000000000000000000000000000000000000000000000001;
         topics[0][2] = 0x00000000000000000000000013791790bef192d14712d627f13a55c4abee52a4;
         topics[0][3] = 0x00000000000000000000000000000000000000000000000000000000cfc37719;
 
-        topics[1][0] = 0x71a5674c44b823bc0df08201dfeb2e8bdf698cd684fd2bbaa79adcf2c99fc186;
+        topics[1][0] = 0xaf2c4fdca8563d13e2f56ed3c7b48d3f86c61b037e7281617071a41d281a2204;
         topics[1][1] = 0x0000000000000000000000000000000000000000000000000000000000000001;
         topics[1][2] = 0x000000000000000000000000b8aa43999c2b3cbb10fbe2092432f98d8f35dcd7;
         topics[1][3] = 0x00000000000000000000000000000000000000000000000000000000cfc37719;
@@ -322,17 +322,18 @@ contract PodAuctionConsumerTest is Test {
 
     function getMerklePathForBid(uint256 index) public pure returns (bytes32[] memory) {
         bytes32[][] memory paths = new bytes32[][](2);
-        paths[0] = new bytes32[](4);
+        paths[0] = new bytes32[](5);
         paths[1] = new bytes32[](4);
-        paths[0][0] = 0xa2e1598bfba340380f9c4afd604bb90aa52177f20265fc51a545ed7afa8340c5;
-        paths[0][1] = 0xe379a641c974751f9a3a1f669375ad1afc98312bdc736c2b569bf8456e83912f;
-        paths[0][2] = 0x0661d69b9f70d66cb53973889fa688813f383dd3aacb414284c5fb7af87e3bdf;
-        paths[0][3] = 0x2347a5f5ee6e8143ad9c36ae4b18468af22887fd6e0461168123043fdd9f1451;
+        paths[0][0] = 0x0177fef4eb615dc3b054c47369eb6c0c0a3e63740da7cf01a1533b59fa7df56a;
+        paths[0][1] = 0xd9c74aa19994428cc9b9f72b363dfd58a156391e783e8cb1eebc64ff6387eb15;
+        paths[0][2] = 0x556284c9263c29665d5873357d4c33187f44f4fc2ce249d2d1c3863e6c2524a8;
+        paths[0][3] = 0xb20da9eaaf8eed5af276144f72c4e994d77d10d7305d40f2b50ea6a59fe1af39;
+        paths[0][4] = 0x991d66b8fba006fde490a120dcfd3d32ad74069d63a55a020dff94577f15e370;
 
-        paths[1][0] = 0xce79bd76031060b0998ee519056b313b6c72fb46e0b6ecbd1b2ada11b704a891;
-        paths[1][1] = 0xb619207d866dd4f3a963342beb2f3b27e1e9236f9ef5779a64e3423689a999b4;
-        paths[1][2] = 0x7840802a561656ee525f26d5558d5321064b82ad939a3a2e7f6c4b0fecd8f58c;
-        paths[1][3] = 0xd565b44d7287e02590e6fbe7addb4bf6d612f46b45683d2010eecf4dca0f4b5f;
+        paths[1][0] = 0xa826946064ba2696b1fec95e71239f315349b6b918d84119719797d3e1a2a5c6;
+        paths[1][1] = 0x806b5fec59ccb4b45a849aa355770e3235798253b5e4d95c0317b4b3bcd8de9b;
+        paths[1][2] = 0x1e4c1fbcb3c12597e0abeae10285c243fd477b094efd8e3a8c1e4aa4eebc164c;
+        paths[1][3] = 0xd956ed9b6b393a9e5079d484e41e61d7394bf8020d6ed2df9a9e2dc775bd14b8;
 
         return paths[index];
     }
