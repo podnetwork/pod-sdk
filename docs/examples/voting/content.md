@@ -1,12 +1,12 @@
 ---
 title: Voting
-layout: simple
+layout: blank
 
 url: /examples/voting
 
 toc:
   notary-contract: Voting Contract
-  usage: Interacting with the contract
+  interacting-with-the-contract: Interacting with the contract
 ---
 
 ! import ./intro.md
@@ -17,4 +17,20 @@ toc:
 
 ---
 
-! import ./usage.md
+! import ./interacting-with-the-contract.md
+
+---
+
+! import ./creating-poll.md
+
+---
+
+! import ./voting.md
+
+---
+
+! import ./closing-a-poll.md
+
+---
+
+! import ./watching-event.md

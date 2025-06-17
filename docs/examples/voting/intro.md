@@ -1,4 +1,6 @@
-! content
+---
+layout: single
+---
 
 # 🗳 Voting smart contract
 
@@ -15,7 +17,3 @@ Key properties include:
   - poll creation
   - voting
   - poll close (winner selection)
-
-! content end
-
-! content empty
