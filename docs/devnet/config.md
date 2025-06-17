@@ -5,8 +5,6 @@ layout: simple
 ! content
 ! anchor devnet-config
 
-## Configuration
-
 ! table style1 
 | Name | pod |    |
 | --------- | ----- | -- |
