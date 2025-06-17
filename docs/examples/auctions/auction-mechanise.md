@@ -1,4 +1,8 @@
-! content id="auction-mechanise"
+---
+layout: single
+---
+
+! anchor auction-mechanise
 
 ## Auction Mechanism
 
@@ -30,7 +34,3 @@ The Pod Auction is an optimistic, single-shot, first-price auction. It is optimi
 4. No-Show Handling:
 
    - If no bidder announces victory, bidders submit their local winning bids, and the consumer selects the highest valid bid.
-
-! content end
-
-! content empty

@@ -1,3 +1,7 @@
+---
+layout: simple
+---
+
 ! content id="auction-contract"
 
 ## Auction Contract

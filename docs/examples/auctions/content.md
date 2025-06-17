@@ -1,6 +1,6 @@
 ---
 title: Auctions
-layout: simple
+layout: blank
 
 url: /examples/auctions
 

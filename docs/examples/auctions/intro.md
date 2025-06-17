@@ -1,4 +1,6 @@
-! content
+---
+layout: single
+---
 
 # Auctions
 
@@ -16,7 +18,3 @@ Before participating in auctions, ensure you have:
 
 - A funded wallet on pod devnet
 - Pod SDK installed. How to build the pod provider can be seen in the [SDK](https://docs.pod.network/reference/sdk) section
-
-! content end
-
-! content empty

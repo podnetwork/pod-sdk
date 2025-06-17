@@ -1,3 +1,7 @@
+---
+layout: simple
+---
+
 ! content id="together"
 
 ## Putting it all together

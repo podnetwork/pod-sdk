@@ -1,3 +1,7 @@
+---
+layout: simple
+---
+
 ! content id="environment-setup"
 
 ### Environment setup
