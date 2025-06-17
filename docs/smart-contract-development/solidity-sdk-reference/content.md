@@ -13,12 +13,11 @@ toc:
   time-operations: Time Operations
 ---
 
-! content id="installation"
+! anchor installation
 
 # Solidity SDK Reference
-! content empty
 
-! content id="counter"
+! anchor counter
 
 ## Fast Types
 
@@ -74,11 +73,7 @@ Requires that the counter value is greater than or equal to the specified thresh
 - Reverts if counter value is less than the specified value
 - Read-only operation that doesn't modify state
 
-! content end
-
-! content empty
-
-! content id="owned"
+! anchor owned
 
 ### Owned
 
@@ -149,11 +144,7 @@ Retrieves the value from owned data.
 - Read-only operation
 - Reverts if caller is not the owner
 
-! content end
-
-! content empty
-
-! content id="set"
+! anchor set
 
 ### Set
 
@@ -205,11 +196,7 @@ Requires that an element exists in the set.
 - Reverts if the element is not in the set
 - Read-only operation that doesn't modify state
 
-! content end
-
-! content empty
-
-! content id="constant"
+! anchor constant
 
 ### Constant
 
@@ -264,11 +251,7 @@ Retrieves the constant value, requiring that it has been set.
 - Read-only operation
 - Guarantees the returned value is immutable
 
-! content end
-
-! content empty
-
-! content id="time-operations"
+! anchor time-operations
 
 ## Time Operations
 
@@ -313,5 +296,3 @@ Requires that the current timestamp is before the specified time.
 - Ensures a supermajority of validators saw the transaction before the required time
 - Reverts with the provided message if condition fails
 - Accounts for validator clock differences across the network
-
-! content end
