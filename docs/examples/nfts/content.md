@@ -1,6 +1,6 @@
 ---
 title: Tokens 
-layout: simple
+layout: single
 
 url: /examples/tokens
 
@@ -9,8 +9,6 @@ toc:
   mint: Token Creation
   transfer: Transfer
 ---
-
-! content
 
 # NFTs
 
@@ -22,15 +20,9 @@ To get started, git clone `podnetwork/pod-sdk` github git repository and go to `
  $ git clone https://github.com/podnetwork/pod-sdk.git && cd pod-sdk/examples/nfts
 ```
 
-! content end
-
-! content
-
-! content end
-
 ---
 
-! content id="smart-contract"
+! anchor smart-contract
 
 ## Smart Contract Definition
 
@@ -81,13 +73,9 @@ contract NFT {
 
 ! codeblock end
 
-! content end
-
-! content empty
-
 ---
 
-! content id="transfer"
+! anchor mint
 
 ## Mint an NFT
 
@@ -126,13 +114,9 @@ async fn mint_nft(pod_provider: &PodProvider, contract_address: Address, token_i
 
 ! codeblock end
 
-! content end
-
-! content empty
-
 ---
 
-! content id="transfer"
+! anchor transfer
 
 ## Transfer token
 
@@ -169,7 +153,3 @@ async fn transfer_nft(pod_provider: &PodProvider, contract_address: Address, des
 ```
 
 ! codeblock end
-
-! content end
-
-! content empty
