@@ -1,6 +1,6 @@
 ---
 title: Rust SDK Guides
-layout: simple
+layout: single
 
 url: /rust-sdk/guides
 
@@ -10,17 +10,11 @@ toc:
   retrieving-transaction-receipts: Retrieving Transaction Receipts
 ---
 
-! content id="sending-transactions"
+! anchor sending-transactions
 
 ### Sending Transactions
 
 In order to submit a fund transfer transaction to the network, please follow the script.
-
-! content end
-
-! content
-
-! sticky
 
 ! codeblock title="Example"
 
@@ -61,21 +55,13 @@ async fn main() -> Result<()> {
 
 ! codeblock end
 
-! sticky end
+---
 
-! content end
-
-! content id="retrieving-transactions"
+! anchor retrieving-transactions
 
 ### Retrieving Transactions
 
 As shown in the introductory section, the transaction can be retreived by hash as
-
-! content end
-
-! content
-
-! sticky
 
 ! codeblock title="Example"
 
@@ -105,21 +91,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 This method returns the transaction details along with pod-specific certificate information.
 
-! sticky end
+---
 
-! content end
-
-! content id="retrieving-transaction-receipts"
+! anchor retrieving-transaction-receipts
 
 ### Retrieving Transaction Receipts
 
 To obtain the transaction receipt with Pod-specific metadata and verify whether the signatures have passed the quorum threshold. For a pending transaction the receipt can be obtained as
-
-! content end
-
-! content
-
-! sticky
 
 ! codeblock title="Example"
 
@@ -149,7 +127,3 @@ match receipt {
 ```
 
 ! codeblock end
-
-! sticky end
-
-! content end
