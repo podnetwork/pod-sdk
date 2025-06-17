@@ -10,7 +10,7 @@ toc:
   deployment: Deployment and Testing
 ---
 
-! content id="setup"
+! anchor setup
 
 # Solidity SDK Tutorial
 
@@ -39,11 +39,7 @@ pod-sdk/=lib/pod-sdk/solidity-sdk/src/
 
 Now you're ready to start building with pod's fast types!
 
-! content end
-
-! content empty
-
-! content id="auction-example"
+! anchor reputation-example
 
 ## Reputation System Example
 
@@ -124,11 +120,7 @@ contract ReputationSystem {
 - Time validation ensures fair seasonal boundaries across validators
 - Minimum reputation checks are consistent across the network
 
-! content end
-
-! content empty
-
-! content id="deployment"
+! anchor deployment
 
 ## Deployment and Testing
 
@@ -176,5 +168,3 @@ cast call --rpc-url https://rpc.pod.network \
 ```
 
 This tutorial demonstrates how pod's fast types and time operations work together to create practical, order-independent smart contracts that maintain consistency across validators while handling time-sensitive logic.
-
-! content end
