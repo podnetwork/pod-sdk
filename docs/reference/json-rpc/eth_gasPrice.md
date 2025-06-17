@@ -1,3 +1,7 @@
+---
+layout: simple
+---
+
 <script>
     async function play() {
         return fetch('https://rpc.v2.pod.network/', {

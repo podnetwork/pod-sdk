@@ -1,3 +1,7 @@
+---
+layout: simple
+---
+
 ! content id="security-considerations"
 
 ## Security Considerations

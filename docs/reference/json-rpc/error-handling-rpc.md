@@ -1,3 +1,7 @@
+---
+layout: simple
+---
+
 ! content id="error-handling-rpc"
 
 ## Error Handling

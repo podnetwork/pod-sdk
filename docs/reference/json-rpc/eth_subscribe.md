@@ -1,3 +1,7 @@
+---
+layout: simple
+---
+
 ! content id="eth_subscribe"
 
 ## Subscribe

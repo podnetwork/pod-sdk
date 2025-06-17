@@ -1,3 +1,7 @@
+---
+layout: simple
+---
+
 ! content id="common-fields"
 
 ## Common Response Fields
