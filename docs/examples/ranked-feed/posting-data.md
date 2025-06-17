@@ -1,3 +1,7 @@
+---
+layout: simple
+---
+
 ! content id="posting-data"
 
 ## Posting Data

@@ -1,3 +1,7 @@
+---
+layout: simple
+---
+
 ! content id="voting-posts"
 
 ## Voting Posts
