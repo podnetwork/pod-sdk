@@ -22,7 +22,7 @@ First, we need to load the environment variables specified in the start of the d
 use std::env;
 use std::str::FromStr;
 
-use alloy::transports::http::reqwest::Url;
+use alloy_transport::http::reqwest::Url;
 use alloy_primitives::Address;
 use eyre::Result;
 

@@ -14,10 +14,6 @@ menu:
     label: NFTs
   - href: /examples/auctions
     label: Auctions
-  - href: /examples/voting
-    label: Voting
-  - href: /examples/ranked-feed
-    label: Feed 
   
 
   - heading: Writing Smart Contracts

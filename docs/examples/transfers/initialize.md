@@ -57,8 +57,8 @@ use alloy_signer::k256::ecdsa::SigningKey;
 use pod_sdk::PrivateKeySigner;
 use alloy_network::EthereumWallet;
 use alloy_primitives::Address;
-use alloy::transports::http::Http;
-use alloy::providers::{Provider, HttpProvider};
+use alloy_transport::http::Http;
+use alloy_provider::{Provider, HttpProvider};
 
 use crate::provider;
 

@@ -6,7 +6,7 @@ url: /examples/tokens
 
 toc:
   smart-contract: Smart Contract
-  mint: Token Creation
+  mint: Minting a token
   transfer: Transfer
 ---
 
@@ -29,12 +29,12 @@ To get started, git clone `podnetwork/pod-sdk` github git repository and go to `
 Each deployed instance represents one collection that maps every distinct token ID to its current owner while exposing a metadata URI that gives each asset its individual identity.
 
 
-! codeblock
+! codeblock title="NFT.sol"
 
-```rust
+```solidity
 pragma solidity ^0.8.26;
 
-import {FastTypes} from "pod-sdk/solidity-sdk/src/pod/FastTypes.sol";
+import {FastTypes} from "pod-sdk/FastTypes.sol";
 
 contract NFT {
     using FastTypes for FastTypes.Balance;
@@ -83,7 +83,7 @@ The minter is a permissioned account that can mint NFTs given a Uniform Resource
 
 Mints are tracked via the `Minted` event. 
 
-! codeblock
+! codeblock title="mint.rs"
 
 ```rust
 use pod_sdk::{PodProvider, Wallet};
@@ -124,7 +124,7 @@ Users can transfer an NFT from one address to another.
 
 Transfers are tracked via the `Transferred` event.
 
-! codeblock
+! codeblock title="transfer.rs"
 
 ```rust
 use pod_sdk::{PodProvider, Wallet};
