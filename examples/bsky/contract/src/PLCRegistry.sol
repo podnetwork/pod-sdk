@@ -95,6 +95,25 @@ contract PLCRegistry {
         }
 
         // Forking history, nullifying ops newer than po.prev
+        // TODO: Make sure that forking works correctly in all scenarios, even
+        // in case of more than 2 keys and different `prev`. E.g, consider the below
+        // scenario with 3 signers A, B and C where A > B > C.
+        // In this scenario, The `UPDATE B` should be the final state regardless
+        // of the order of execution of operations `UPDATE A` and `UPDATE B`.
+        // Reason: B > C and `UPDATE B` nullifies `UPDATE C` along with its chain.
+        // It doesn't matter that A > B - only the first nullified op is checked.
+        // ┌──────┐  ┌────────┐              ┌────────┐
+        // │      │◄─┤UPDATE C│◄─────────────┼UPDATE A│
+        // └──────┘◄┐└────────┘              └────────┘
+        //          │            ┌────────┐
+        //          └────────────┤UPDATE B│
+        //                       └────────┘
+        // ┌──────┐  ┌────────┐  ┌────────┐
+        // │      │◄─┤UPDATE C│◄─┼UPDATE A│
+        // └──────┘◄┐└────────┘  └────────┘
+        //          │                        ┌────────┐
+        //          └────────────────────────┤UPDATE B│
+        //                                   └────────┘
         bytes memory firstNullifiedCID = latestOpCID; // the first operation that is not part of the fork
         while (!isEqual(operations[firstNullifiedCID].op.prev, op.prev)) {
             firstNullifiedCID = operations[firstNullifiedCID].op.prev;
