@@ -11,7 +11,8 @@ toc:
   fast-types: Fast Types
   time-operations: Time Operations
 ---
-! content id="overview"
+
+! anchor overview
 
 # Writing Smart Contracts
 
@@ -21,11 +22,7 @@ Writing smart contracts for pod requires understanding its unique consensus mode
 
 This approach enables optimal performance and throughput, but requires developers to design contracts that can handle flexible transaction ordering correctly.
 
-! content end
-
-! content empty
-
-! content id="order-independence"
+! anchor order-independence
 
 ## Order Independence on pod
 
@@ -37,11 +34,7 @@ pod's consensus model allows transactions to be processed in slightly different 
 
 Contracts that depend on strict transaction ordering may produce inconsistent states across validators. To ensure correctness, developers should design contracts where the final state doesn't depend on the exact execution order of transactions.
 
-! content end
-
-! content empty
-
-! content id="solidity-sdk"
+! anchor solidity-sdk
 
 ## Solidity SDK
 
@@ -51,11 +44,7 @@ The pod Solidity SDK provides two main categories of utilities to help developer
 
 **Time Operations**: Utilities for working with pod's timestamp-based consensus model. Since pod doesn't use traditional blocks, time-sensitive operations need special handling to account for distributed timestamps and potential clock differences between validators.
 
-! content end
-
-! content empty
-
-! content id="installation"
+! anchor installation
 
 ## Installation
 
@@ -76,12 +65,7 @@ import {FastTypes} from "pod-sdk/FastTypes.sol";
 import {requireTimeBefore, requireTimeAfter} from "pod-sdk/Time.sol";
 ```
 
-! content end
-
-
-
-
-! content id="fast-types"
+! anchor fast-types
 
 ## Fast Types
 
@@ -97,16 +81,10 @@ A collection for managing unique elements. Sets support insertion and existence 
 ### Constant
 Write-once data storage for immutable values. Once set, the value cannot be changed, eliminating any ordering dependencies since there's only one write operation per key.
 
-! content end
-
-! content empty
-
-! content id="time-operations"
+! anchor time-operations
 
 ## Time Operations
 
 The time utilities help you work with pod's timestamp-based consensus model. These utilities ensure your time-sensitive operations work correctly across pod's validator network, handling the nuances of distributed timestamps while maintaining the performance benefits of pod's architecture.
 
 Time operations are essential when building contracts that depend on deadlines, time windows, or temporal ordering of events.
-
-! content end
