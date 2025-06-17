@@ -29,23 +29,29 @@ Returns the receipt of a transaction by transaction hash.
 
 ### Parameters
 
+! table style1
 | Parameter  | Type   | Description              |
 | ---------- | ------ | ------------------------ |
 | `string 1` | string | 32-byte transaction hash |
+! table end
 
 ### Response
 
+! table style1
 | Key                | Type    | Description                                                                               |
 | ------------------ | ------- | ----------------------------------------------------------------------------------------- |
 | `statusCode`       | integer | HTTP status code                                                                          |
 | `response.jsonrpc` | string  | same value as request                                                                     |
 | `response.id`      | integer | unique value as request                                                                   |
 | `response.result`  | object  | A transaction receipt object with pod-specific metadata, or null if no receipt was found. |
+! table end
 
+! table style1
 | Key               | Type   | Description                                       |
 | ----------------- | ------ | ------------------------------------------------- |
 |               | object | Standard Ethereum receipt fields                  |
 | `pod_metadata` | object | Contains pod-specific data including attestations |
+! table end
 
 ! content end
 

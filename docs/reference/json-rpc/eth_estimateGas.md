@@ -30,6 +30,7 @@ Estimates gas needed for a transaction.
 
 ### Parameters
 
+! table style1
 | Parameter  | Type   | Description                                            |
 | ---------- | ------ | ------------------------------------------------------ |
 | `object`   | object | Transaction call object with the following fields:     |
@@ -39,17 +40,20 @@ Estimates gas needed for a transaction.
 | `gasPrice` | string | (optional) Gas price in wei                            |
 | `value`    | string | (optional) Value in wei                                |
 | `data`     | string | (optional) Contract code or encoded function call data |
+! table end
 
 > Note: Only Legacy transactions are supported
 
 ### Response
 
+! table style1
 | Key                | Type    | Description                                    |
 | ------------------ | ------- | ---------------------------------------------- |
 | `statusCode`       | integer | HTTP status code                               |
 | `response.jsonrpc` | string  | same value as request                          |
 | `response.id`      | integer | unique value as request                        |
 | `response.result`  | string  | estimated gas in hexadecimal format |
+! table end
 
 ! content end
 

@@ -34,13 +34,16 @@ None
 
 ### Response
 
+! table style1
 | Key                | Type    | Description             |
 | ------------------ | ------- | ----------------------- |
 | `statusCode`       | integer | HTTP status code        |
 | `response.jsonrpc` | string  | same value as request   |
 | `response.id`      | integer | unique value as request |
 | `response.result`  | object  | Response object         |
+! table end
 
+! table style1
 | Key                   | Type    | Description                                               |
 | --------------------- | ------- | --------------------------------------------------------- |
 |                   | object  | Pagination Response Object                                |
@@ -48,6 +51,7 @@ None
 | `validator_uptime` | number  | Validator uptime percentage                               |
 | `latency`          | number  | Average latency in milliseconds                           |
 | `throughput`       | number  | Average throughput in transactions per second             |
+! table end
 
 ! content end
 

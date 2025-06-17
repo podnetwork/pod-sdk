@@ -27,21 +27,25 @@ Returns the number of transactions sent from an address.
 
 ### Parameters
 
+! table style1
 | Parameter | Type   | Description                                                                                                  |
 | --------- | ------ | ------------------------------------------------------------------------------------------------------------ |
 | `[1]`     | string | 20-byte address                                                                                              |
 | `[2]`     | string | Past perfect timestamp in seconds (hexadecimal format). Can also be the tags: earliest, finalized or latest. |
+! table end
 
 > Note: Currently returns the current transaction count regardless of timestamp
 
 ### Response
 
+! table style1
 | Key                | Type    | Description                                                 |
 | ------------------ | ------- | ----------------------------------------------------------- |
 | `statusCode`       | integer | HTTP status code                                            |
 | `response.jsonrpc` | string  | same value as request                                       |
 | `response.id`      | integer | unique value as request                                     |
 | `response.result`  | string  | Number of transactions sent by the sender prior to this one |
+! table end
 
 ! content end
 

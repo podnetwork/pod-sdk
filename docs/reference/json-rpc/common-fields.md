@@ -8,12 +8,14 @@ layout: simple
 
 All successful responses include:
 
+! table style1
 | Field          | Description                                                     |
 | -------------- | --------------------------------------------------------------- |
 | `jsonrpc`      | Always "2.0"                                                    |
 | `id`           | The request ID                                                  |
 | `result`       | The method-specific response data                               |
 | `pod_metadata` | Additional POD-specific information (location varies by method) |
+! table end
 
 ! content end
 

@@ -29,6 +29,7 @@ Retrieves confirmed transaction receipts after a specified timestamp.
 
 ### Parameters
 
+! table style1
 | Key                          | Type    | Description                                                                      |
 | ---------------------------- | ------- | -------------------------------------------------------------------------------- |
 |                          | object  |                                                                                  |
@@ -37,23 +38,28 @@ Retrieves confirmed transaction receipts after a specified timestamp.
 | `pagination.cursor`       | string  | (optional) Cursor to start the query from                                        |
 | `pagination.limit`        | integer | (optional) Maximum number of receipts to return                                  |
 | `pagination.newest_first` | boolean | (optional) Whether to start the query from the most recent receipts              |
+! table end
 
 > Note: If cursor is provided, newest_first must NOT be provided.
 
 ### Response
 
+! table style1
 | Key                | Type    | Description             |
 | ------------------ | ------- | ----------------------- |
 | `statusCode`       | integer | HTTP status code        |
 | `response.jsonrpc` | string  | same value as request   |
 | `response.id`      | integer | unique value as request |
 | `response.result`  | object  | Response object         |
+! table end
 
+! table style1
 | Key              | Type   | Description                                                                   |
 | ---------------- | ------ | ----------------------------------------------------------------------------- |
 |              | object | Pagination Response Object                                                    |
 | `items`       | array  | List of transaction receipts with metadata                                    |
 | `next_cursor` | string | Cursor to start the next query from. null if there are no more items to fetch |
+! table end
 
 ! content end
 

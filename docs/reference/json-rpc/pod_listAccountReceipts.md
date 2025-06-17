@@ -30,6 +30,7 @@ Retrieves transaction receipts originating from or directed to a specific addres
 
 ### Parameters
 
+! table style1
 | Key                | Type    | Description                                                                      |
 | ------------------ | ------- | -------------------------------------------------------------------------------- |
 | `[1]`              | string  | 20-byte address                                                                  |
@@ -38,23 +39,28 @@ Retrieves transaction receipts originating from or directed to a specific addres
 | `[3].cursor`       | string  | (optional) Cursor for pagination                                                 |
 | `[3].limit`        | integer | (optional) Number of results to return                                           |
 | `[3].newest_first` | boolean | (optional) Whether to start the query from the most recent receipts              |
+! table end
 
 > Note: If cursor is provided, newest_first must NOT be provided.
 
 ### Response
 
+! table style1
 | Key                | Type    | Description             |
 | ------------------ | ------- | ----------------------- |
 | `statusCode`       | integer | HTTP status code        |
 | `response.jsonrpc` | string  | same value as request   |
 | `response.id`      | integer | unique value as request |
 | `response.result`  | object  | Response object         |
+! table end
 
+! table style1
 | Key              | Type   | Description                                                                   |
 | ---------------- | ------ | ----------------------------------------------------------------------------- |
 |              | object | Pagination Response Object                                                    |
 | `items`       | array  | List of transaction receipts with metadata                                    |
 | `next_cursor` | string | Cursor to start the next query from. null if there are no more items to fetch |
+! table end
 
 ! content end
 

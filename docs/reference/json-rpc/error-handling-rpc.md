@@ -10,6 +10,7 @@ Error responses follow the JSON-RPC 2.0 specification.
 
 ## Error Codes
 
+! table style1
 | Code    |                        |
 | ------- | ---------------------- |
 | `32700` | Parse error            |
@@ -18,6 +19,7 @@ Error responses follow the JSON-RPC 2.0 specification.
 | `32602` | Invalid params         |
 | `32603` | Internal error         |
 | `32000` | Server error (various) |
+! table end
 
 ! content end
 

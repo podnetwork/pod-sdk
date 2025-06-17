@@ -27,20 +27,25 @@ Returns information about a block by its number. Returns an empty block structur
 
 ### Parameters
 
+! table style1
 | Parameter   | Type    | Description                                                                     |
 | ----------- | ------- | ------------------------------------------------------------------------------- |
 | `element 1` | string  | Block number in hexadecimal format                                              |
 | `element 2` | boolean | If true, returns full transaction objects; if false, returns transaction hashes |
+! table end
 
 ### Response
 
+! table style1
 | Key                | Type    | Description             |
 | ------------------ | ------- | ----------------------- |
 | `statusCode`       | integer | HTTP status code        |
 | `response.jsonrpc` | string  | same value as request   |
 | `response.id`      | integer | unique value as request |
 | `response.result`  | object  | block information       |
+! table end
 
+! table style1
 | Key                       | Type   | Description                                                          |
 | ------------------------- | ------ | -------------------------------------------------------------------- |
 | `result`                  | object | block information                                                    |
@@ -63,6 +68,7 @@ Returns information about a block by its number. Returns an empty block structur
 | `result.timestamp`        | string | `0x0`                                                                |
 | `result.transactions`     | array  | Empty array                                                          |
 | `result.uncles`           | array  | Empty array                                                          |
+! table end
 
 ! content end
 

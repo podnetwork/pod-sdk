@@ -29,19 +29,23 @@ Submits a pre-signed transaction for broadcast to the POD network.
 
 ### Parameters
 
+! table style1
 | Parameter | Type   | Description                                                                                                                                                                             |
 | --------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `[1]`     | string | Signed transaction data in hex format                                                                                                                                                   |
 | `[2]`     | u64    | (optional) Timeout in milliseconds. Default is 0 milliseconds. The timeout allows the client to wait for the confirmation of the transaction instead of returning the hash immediately. |
+! table end
 
 ### Response
 
+! table style1
 | Key                | Type    | Description                                                                 |
 | ------------------ | ------- | --------------------------------------------------------------------------- |
 | `statusCode`       | integer | HTTP status code                                                            |
 | `response.jsonrpc` | string  | same value as request                                                       |
 | `response.id`      | integer | unique value as request                                                     |
 | `response.result`  | string  | 32-byte transaction hash (or zero hash if transaction is not yet available) |
+! table end
 
 ! content end
 

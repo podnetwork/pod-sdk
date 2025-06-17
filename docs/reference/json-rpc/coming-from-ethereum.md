@@ -12,11 +12,13 @@ Currently, a core part of the standard [Ethereum RPC methods](https://ethereum.g
 
 Pod implements many of Ethereum's RPC methods but these methods below differ due to the lack of blocks in Pod.
 
+! table style1
 | RPC Method | Functionality on Ethereum | Functionality on Pod |
 |-------------------|-----------------------|-----------------------------|
 | **eth_blockNumber** | Returns the number of the most recent block. | Returns the latest past perfection pod timestamp in microseconds. |
 | **eth_getBlockByHash** | Returns information about a block by hash. | Returns an empty block structure. |
 | **eth_getBlockByNumber** | Returns information about a block by number. | Returns an empty block structure. |
+! table end
 
 ! content end
 

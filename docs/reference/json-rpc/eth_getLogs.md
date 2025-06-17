@@ -34,6 +34,7 @@ Returns an array of event logs matching the given filter criteria.
 
 ### Parameters
 
+! table style1
 | Parameter                 | Type   | Description                                                                                                                      |
 | ------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------- |
 | `fromBlock`            | string | (optional) From block timestamp specified in seconds in hexadecimal format. Can also be the tags: earliest, finalized or latest. |
@@ -44,16 +45,20 @@ Returns an array of event logs matching the given filter criteria.
 |                           |        | - Topics are ordered and must match in sequence                                                                                  |
 |                           |        | - Null values match any topic                                                                                                    |
 | `minimum_attestations` | number | (optional) Minimum number of attestations required for the log to be returned                                                    |
+! table end
 
 ### Response
 
+! table style1
 | Key                | Type    | Description             |
 | ------------------ | ------- | ----------------------- |
 | `statusCode`       | integer | HTTP status code        |
 | `response.jsonrpc` | string  | same value as request   |
 | `response.id`      | integer | unique value as request |
 | `response.result`  | array   | Array of log objects    |
+! table end
 
+! table style1
 | Key                   | Type   | Description                                                                                    |
 | --------------------- | ------ | ---------------------------------------------------------------------------------------------- |
 |                   | object | block information                                                                              |
@@ -66,6 +71,7 @@ Returns an array of event logs matching the given filter criteria.
 | `topics`           | array  | Array of indexed log parameters                                                                |
 | `data`             | string | Contains non-indexed log parameters                                                            |
 | `pod_metadata`     | object | Additional pod-specific information including attestations                                     |
+! table end
 
 ! content end
 

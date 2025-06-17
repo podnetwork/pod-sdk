@@ -10,10 +10,12 @@ Creates a subscription for specific events. This endpoint streams the new events
 
 ### Parameters
 
+! table style1
 | Parameter | Type   | Description                                                                                                 |
 | --------- | ------ | ----------------------------------------------------------------------------------------------------------- |
 | `[0]`     | string | Subscription type (required): `logs`, `pod_accountReceipts`, `pod_confirmedReceipts`, `pod_pastPerfectTime` |
 | `[1]`     | object | Parameters object (varies by subscription type)                                                             |
+! table end
 
 ### Subscription Types and Parameters:
 
@@ -62,9 +64,11 @@ Creates a subscription for specific events. This endpoint streams the new events
 
 ### Response
 
+! table style1
 | Type   | Description     |
 | ------ | --------------- |
 | string | Subscription ID |
+! table end
 
 ! content end
 
@@ -293,11 +297,13 @@ Each subscription type returns different data in its subscription messages.
 
 ### Error Handling
 
+! table style1
 | Error Code | Message                             | Description                                              |
 | ---------- | ----------------------------------- | -------------------------------------------------------- |
 | -32602     | Invalid subscription type           | The requested subscription type is not supported         |
 | -32602     | Invalid parameters for subscription | The parameters provided for the subscription are invalid |
 | -32602     | Missing required parameters         | Required parameters for the subscription are missing     |
+! table end
 
 ! content end
 

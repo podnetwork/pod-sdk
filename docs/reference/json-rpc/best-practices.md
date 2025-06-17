@@ -1,4 +1,8 @@
-! content id="best-practices"
+---
+layout: single
+---
+
+! anchor best-practices
 
 ## Best practices
 
@@ -8,7 +12,3 @@ For optimal client usage:
 2. Implement appropriate retry logic and timeouts for handling transient failures.
 3. Maintain a single client instance when possible to improve resource utilization.
 4. Check attestations when required by your application's security requirements.
-
-! content end
-
-! content empty

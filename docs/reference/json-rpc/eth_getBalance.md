@@ -30,21 +30,25 @@ Returns the balance of a given address.
 
 ### Parameters
 
+! table style1
 | Parameter  | Type   | Description                                                                                                                     |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | `string 1` | string | 20-byte address to check balance for                                                                                            |
 | `string 2` | string | Past perfect timestamp to query, specified in seconds(hexadecimal format). Can also be the tags: earliest, finalized or latest. |
+! table end
 
 > Note: Currently returns the current balance regardless of timestamp
 
 ### Response
 
+! table style1
 | Key                | Type    | Description                         |
 | ------------------ | ------- | ----------------------------------- |
 | `statusCode`       | integer | HTTP status code                    |
 | `response.jsonrpc` | string  | same value as request               |
 | `response.id`      | integer | unique value as request             |
 | `response.result`  | string  | balance in hexadecimal format |
+! table end
 
 ! content end
 

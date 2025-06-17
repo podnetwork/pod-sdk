@@ -29,19 +29,24 @@ Returns information about a transaction by its hash.
 
 ### Parameters
 
+! table style1
 | Parameter  | Type   | Description              |
 | ---------- | ------ | ------------------------ |
 | `string 1` | string | 32-byte transaction hash |
+! table end
 
 ### Response
 
+! table style1
 | Key                | Type    | Description                                              |
 | ------------------ | ------- | -------------------------------------------------------- |
 | `statusCode`       | integer | HTTP status code                                         |
 | `response.jsonrpc` | string  | same value as request                                    |
 | `response.id`      | integer | unique value as request                                  |
 | `response.result`  | object  | Transaction object, or null if no transaction was found  |
+! table end
 
+! table style1
 | Key                   | Type   | Description                                                                                    |
 | --------------------- | ------ | ---------------------------------------------------------------------------------------------- |
 |                    | object | block information                                                                              |
@@ -60,6 +65,7 @@ Returns information about a transaction by its hash.
 | `r`                | string | ECDSA signature r                                                                              |
 | `s`                | string | ECDSA signature s                                                                              |
 | `pod_metadata`     | object | Additional pod-specific information                                                            |
+! table end
 
 ! content end
 
