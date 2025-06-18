@@ -1,0 +1,63 @@
+name: Release All SDKs
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - 'feat/sdk-release'
+
+jobs:
+  package-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version and draft status
+        id: meta
+        run: |
+          ref="${GITHUB_REF}"
+          sha="${GITHUB_SHA}"
+
+          if [[ "$ref" == refs/tags/* ]]; then
+            draft=false
+            version="${ref#refs/tags/}"
+          elif [[ "$ref" == refs/heads/feat/sdk-release ]]; then
+            draft=true
+            version="test-${sha:0:7}"
+          else
+            echo "❌ Unsupported ref: $ref"
+            exit 1
+          fi
+
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "draft=$draft" >> $GITHUB_OUTPUT
+
+      - name: Package all SDKs
+        run: |
+          mkdir -p dist
+          for dir in *-sdk; do
+            if [ -d "$dir" ]; then
+              archive="dist/${dir}-${{ steps.meta.outputs.version }}.tar.gz"
+              echo "Packing $dir → $archive"
+              tar --exclude-vcs -czf "$archive" -C "$dir" .
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.version }}
+          name: "SDK Release ${{ steps.meta.outputs.version }}"
+          draft: ${{ steps.meta.outputs.draft }}
+          prerelease: ${{ steps.meta.outputs.draft }}
+          make_latest: ${{ steps.meta.outputs.draft == 'false' }}
+          overwrite: true
+          files: dist/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+
