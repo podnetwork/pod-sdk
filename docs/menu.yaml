@@ -16,25 +16,12 @@ menu:
     label: Auctions
   
 
-  - heading: Writing Smart Contracts
-  - href: /smart-contract-development/overview
-    label: Introduction
-  - href: /smart-contract-development/tutorial
-    label: Tutorial
+  - heading: Building on pod
+  - href: /reference/json-rpc
+    label: JSON-RPC
   - href: /smart-contract-development/solidity-sdk-reference
     external: true
-    label: Solidity SDK Reference
-
-
-  - heading: Interacting with pod
-  - href: /rust-sdk/overview
-    label: Getting started
-  - href: /rust-sdk/guides
-    label: Guides
+    label: Solidity SDK
   - href: https://docs.rs/pod-sdk
-    label: Crate Documentation
+    label: Rust SDK
     newTab: true
-
-  - heading: JSON RPC
-  - href: /reference/json-rpc
-    label: Reference
