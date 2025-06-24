@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
     let signer = PrivateKeySigner::from(signing_key);
     let wallet = EthereumWallet::new(signer);
 
-    let ws_url = Url::parse("ws://rpc.v2.pod.network:8545")?;
+    let ws_url = Url::parse("ws://rpc.v1.dev.pod.network:8545")?;
     let ws = WsConnect::new(ws_url);
     // Instantiate a provider
     // Use pod-specific Provider instead of use alloy::providers::ProviderBuilder

@@ -5,280 +5,133 @@ layout: single
 url: /solidity-sdk/reference
 
 toc:
-  installation: Installation
-  counter: Counter
-  owned: Owned
-  set: Set
-  constant: Constant
-  time-operations: Time Operations
+  shared-counter: SharedCounter
+  owned-counter: OwnedCounter
+  balance: Balance
+  uint256-set: Uint256Set
+  address-set: AddressSet
+  require-time-before: requireTimeBefore
+  require-time-after: requireTimeAfter
 ---
-
-! anchor installation
 
 # Solidity SDK Reference
 
-! anchor counter
+To install:
 
-## Fast Types
+```bash
+ $ forge soldeer install pod-sdk~0.1.3 --url https://github.com/podnetwork/pod-sdk/releases/download/v0.1.3/solidity-sdk-v0.1.3.zip
+```
+
+! anchor fast-types
+
+## Fast types
 
 The `FastTypes` library provides order-independent data structures through precompiled contracts. All operations are designed to be commutative and safe under pod's consensus model.
 
-### Counter
+A smart contract written for pod must not depend on the order of transactions arriving to a validator, otherwise there may be inconsistencies between validators, which may lead to safety issues or a correct transaction to not be approved by the validators. However, if a smart contract is written to use only types from `FastTypes` as storage, then it is guaranteed to be safe and not depend on the order of transaction execution.
 
-A monotonically increasing counter that supports increment and threshold checking operations.
-
-### Data Structure
+To use the library, import the necessary types from `pod-sdk/FastTypes.sol`:
 
 ```solidity
-struct Counter {
-    bytes32 key;
-}
+import {SharedCounter} from "pod-sdk/FastTypes.sol";
 ```
 
-**Fields:**
-- `key`: Unique identifier for this counter instance
+---
 
-### Functions
+! anchor shared-counter
 
-#### increment
+### SharedCounter
+
+Shared monotonically increasing values that support increment and threshold checking operations.
+
+**Functions**
+
+ * **increment(bytes32 key, uint256 value)**: Increase counter named `key` by `value`.
+ * **requireGte(bytes32 key, uint256 value, string errorMessage)**: Revert if counter named `key` is less than `value`.
+
+---
+
+! anchor owned-counter
+
+### OwnedCounter
+
+A collection of owned `uint256` values. Functions revert if a sender is trying to manipulate the value owned by another address.
+
+**Functions**
+
+ * **set(address owner, bytes32 key, uint256 value)**: Set counter to `value`. Ignores previous values.
+ * **increment(address owner, bytes32 key, uint256 value)**: Increment counter owned by `owner`, by `value`.
+ * **decrement(address owner, bytes32 key, uint256 value)**: Decrement counter owned by `owner` by `value`.
+ * **get(address owner, bytes32 key)**: Retrieve value of counter.
+
+All functions revert if `tx.origin` does not equal `owner`. The `key` allows for every owner to have multiple values. The same key on different owners refers to different values.
+
+---
+
+! anchor balance
+
+### Balance
+
+A collection of `uint256` values, where every sender can decrement (spend) his value, but anyone can increment (debit) anyone else's value. This is a basic building block for building any kind of token balances. It does *not* enforce that incrementing value of one address must decrement some amount from another address.
+
+**Functions**
+
+ * **increment(address owner, bytes32 key, uint256 value)** Increase the balance of `owner` for `key` by `value`. Anyone can call.
+ * **decrement(address owner, bytes32 key, uint256 value)** Decrease balance of `owner` for `key` by value. Only owner can call.
+ * **requireGte(adress owner, bytes32 key, string errorMessage)** Require that the balance of `owner` for `key` is at least `value`. Only owner can call.
+
+See [Tokens](/examples/tokens) or [NFTs](/examples/nfts) for examples using the `Balance` type.
+
+---
+
+! anchor uint256-set
+
+### Uint256Set
+
+Shared collection of uint256 values.
+
+**Functions**
+ 
+ * **add(uint256 value)** Add a value to the set.
+ * **requireExists(uint256 value, string error)** Revert if `value` not in the set.
+ * **requireLengthGte(uint256 length, string error)** Revert if size of set less than `length`.
+ * **requireMaxValueGte(uint256 value, string error)** Revert if maximum value in set less than `value`.
+
+---
+
+! anchor address-set
+
+### AddressSet
+
+Shared collection of addresses.
+
+**Functions**
+
+ * **add(address addr)** Add address to the set.
+ * **requireExists(address addr, string error)** Revert if address is not in the set.
+ * **requireLengthGte(uint256 length, string error)** Revert if set does not contain at least `length` addresses.
+
+---
+
+! anchor time
+
+## Time
+
+The `Time` package provides utilities for working with time on pod. These utilities work by accessing the local time on each validator, which depends on the time that they first see a transaction.
+
+They ensure that a supermajority of the validators agree on a statement (for example, that the transaction was sent before (or after) a certain time. They also ensure that even if some small minority of validators did not see the transaction in time but later (for example, due to connectivity issues), they will still accept the transaction and execute the same code as the supermajority.
+
+To use, import `requireTimeAfter` or `requireTimeBefore` from `pod-sdk/Time.sol`:
 
 ```solidity
-function increment(Counter memory c, uint256 value) public
+import {requireTimeAfter, requireTimeBefore} from "pod-sdk/Time.sol";
 ```
 
-Increments the counter by the specified value.
+---
 
-**Parameters:**
-- `c`: Counter instance to increment
-- `value`: Amount to add to the counter
+! anchor require-time-before
 
-**Behavior:**
-- Atomically increases the counter value
-- Operations are commutative - order of increments doesn't affect final result
-- Reverts if the operation fails
-
-#### requireGte
-
-```solidity
-function requireGte(Counter memory c, uint256 value) public view
-```
-
-Requires that the counter value is greater than or equal to the specified threshold.
-
-**Parameters:**
-- `c`: Counter instance to check
-- `value`: Minimum required value
-
-**Behavior:**
-- Reverts if counter value is less than the specified value
-- Read-only operation that doesn't modify state
-
-! anchor owned
-
-### Owned
-
-Data storage with ownership semantics, restricting access to the transaction originator.
-
-### Data Structure
-
-```solidity
-struct Owned {
-    bytes32 key;
-    address owner;
-}
-```
-
-**Fields:**
-- `key`: Unique identifier for this owned data instance
-- `owner`: Address that owns this data (must match `tx.origin`)
-
-### Modifier
-
-#### isOwner
-
-```solidity
-modifier isOwner(Owned memory owned)
-```
-
-Restricts function access to the owner of the data.
-
-**Behavior:**
-- Requires `owned.owner == tx.origin`
-- Reverts with "Not the owner" if condition fails
-
-### Functions
-
-#### set
-
-```solidity
-function set(Owned memory o, bytes32 value) public isOwner(o)
-```
-
-Sets the value for owned data.
-
-**Parameters:**
-- `o`: Owned instance to modify
-- `value`: Value to store
-
-**Behavior:**
-- Only callable by the owner
-- Overwrites any existing value
-- Reverts if caller is not the owner
-
-#### get
-
-```solidity
-function get(Owned memory o) public view isOwner(o) returns (bytes32)
-```
-
-Retrieves the value from owned data.
-
-**Parameters:**
-- `o`: Owned instance to read from
-
-**Returns:**
-- `bytes32`: The stored value
-
-**Behavior:**
-- Only callable by the owner
-- Read-only operation
-- Reverts if caller is not the owner
-
-! anchor set
-
-### Set
-
-A collection data structure for managing unique elements with insertion and existence checking.
-
-### Data Structure
-
-```solidity
-struct Set {
-    bytes32 key;
-}
-```
-
-**Fields:**
-- `key`: Unique identifier for this set instance
-
-### Functions
-
-#### insert
-
-```solidity
-function insert(Set memory s, bytes32 value) public
-```
-
-Inserts an element into the set.
-
-**Parameters:**
-- `s`: Set instance to modify
-- `value`: Element to insert
-
-**Behavior:**
-- Adds the element to the set if not already present
-- Idempotent - inserting the same element multiple times has no additional effect
-- Operations are commutative - order of insertions doesn't affect final set
-
-#### requireExist
-
-```solidity
-function requireExist(Set memory s, bytes32 value) public view
-```
-
-Requires that an element exists in the set.
-
-**Parameters:**
-- `s`: Set instance to check
-- `value`: Element to verify existence of
-
-**Behavior:**
-- Reverts if the element is not in the set
-- Read-only operation that doesn't modify state
-
-! anchor constant
-
-### Constant
-
-Write-once data storage for immutable values.
-
-### Data Structure
-
-```solidity
-struct Constant {
-    bytes32 key;
-}
-```
-
-**Fields:**
-- `key`: Unique identifier for this constant instance
-
-### Functions
-
-#### set
-
-```solidity
-function set(Constant memory c, bytes32 value) public
-```
-
-Sets the constant value (can only be called once per key).
-
-**Parameters:**
-- `c`: Constant instance to initialize
-- `value`: Value to store permanently
-
-**Behavior:**
-- Can only be called once per key
-- Subsequent calls with the same key will revert
-- Creates immutable storage
-
-#### requireGet
-
-```solidity
-function requireGet(Constant memory c) public view returns (bytes32)
-```
-
-Retrieves the constant value, requiring that it has been set.
-
-**Parameters:**
-- `c`: Constant instance to read from
-
-**Returns:**
-- `bytes32`: The stored constant value
-
-**Behavior:**
-- Reverts if the constant has not been set
-- Read-only operation
-- Guarantees the returned value is immutable
-
-! anchor time-operations
-
-## Time Operations
-
-Time-based utilities for working with pod's timestamp consensus model. These functions handle time validation across pod's distributed validator network.
-
-### Functions
-
-#### requireTimeAfter
-
-```solidity
-function requireTimeAfter(uint256 timestamp, string memory message) view
-```
-
-Requires that the current timestamp is after the specified time.
-
-**Parameters:**
-- `timestamp`: Unix timestamp that must be in the past
-- `message`: Error message if validation fails
-
-**Behavior:**
-- Validates that the current timestamp is greater than the specified timestamp
-- Uses validators' local timestamps - each validator has a different local time
-- Ensures a supermajority of validators saw the transaction after the required time
-- Reverts with the provided message if condition fails
-- Accounts for validator clock differences across the network
-
-#### requireTimeBefore
+### requireTimeBefore
 
 ```solidity
 function requireTimeBefore(uint256 timestamp, string memory message) view
@@ -294,5 +147,30 @@ Requires that the current timestamp is before the specified time.
 - Validates that the current timestamp is less than the specified timestamp
 - Uses validators' local timestamps - each validator has a different local time
 - Ensures a supermajority of validators saw the transaction before the required time
+- Reverts with the provided message if condition fails
+- Accounts for validator clock differences across the network
+
+See [Auctions](/examples/auctions) for an example that uses `requireTimeBefore`.mr kosmidis +302132128902/-03  dir.mp@migration.gov.gr / info.rp@migration.gov.gr
+
+---
+
+! anchor require-time-after
+
+### requireTimeAfter
+
+```solidity
+function requireTimeAfter(uint256 timestamp, string memory message) view
+```
+
+Requires that the current timestamp is after the specified time.
+
+**Parameters:**
+- `timestamp`: Unix timestamp that must be in the past
+- `message`: Error message if validation fails
+
+**Behavior:**
+- Validates that the current timestamp is greater than the specified timestamp
+- Uses validators' local timestamps - each validator has a different local time
+- Ensures a supermajority of validators saw the transaction after the required time
 - Reverts with the provided message if condition fails
 - Accounts for validator clock differences across the network

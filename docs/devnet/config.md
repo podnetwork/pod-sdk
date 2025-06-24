@@ -8,8 +8,8 @@ layout: simple
 ! table style1 
 | Name | pod |    |
 | --------- | ----- | -- |
-| RPC | https://rpc.v2.pod.network | ! copy value="https://rpc.v2.pod.network" |
-| Chain ID | 1293 | ! copy value="https://rpc.v2.pod.network" |
+| RPC | https://rpc.v1.dev.pod.network | ! copy value="https://rpc.v1.dev.pod.network" |
+| Chain ID | 1293 | ! copy value="https://rpc.v1.dev.pod.network" |
 | Explorer | https://explorer.v2.pod.network | ! copy value="https://explorer.v2.pod.network" |
 | EVM Version | Berlin (Ethereum block 12,244,000) | |
 ! table end   

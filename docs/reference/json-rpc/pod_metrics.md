@@ -4,7 +4,7 @@ layout: simple
 
 <script>
     async function play() {
-        return fetch('https://rpc.v2.pod.network/', {
+        return fetch('https://rpc.v1.dev.pod.network/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -59,10 +59,10 @@ None
 
 ! sticky
 
-! codeblock title="POST rpc.v2.pod.network" runCode={play}
+! codeblock title="POST rpc.v1.dev.pod.network" runCode={play}
 
 ```bash alias="curl"
-curl -X POST https://rpc.v2.pod.network \
+curl -X POST https://rpc.v1.dev.pod.network \
     -H "Content-Type: application/json" \
     -d '{
         "jsonrpc": "2.0",
@@ -73,7 +73,7 @@ curl -X POST https://rpc.v2.pod.network \
 ```
 
 ```js alias="javascript"
-await fetch('https://rpc.v2.pod.network/', {
+await fetch('https://rpc.v1.dev.pod.network/', {
 	method: 'POST',
 	headers: {
 		'Content-Type': 'application/json'
@@ -94,7 +94,7 @@ use serde_json::{json, Value};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
     let response = client
-        .post("https://rpc.v2.pod.network/")
+        .post("https://rpc.v1.dev.pod.network/")
         .header("Content-Type", "application/json")
         .json(&json!({
             "jsonrpc": "2.0",

@@ -79,7 +79,7 @@ Creates a subscription for specific events. This endpoint streams the new events
 ! codeblock title="Example request"
 
 ```bash alias="curl"
-wscat -c ws://rpc.v2.pod.network \
+wscat -c ws://rpc.v1.dev.pod.network \
     -H "Content-Type: application/json" \
     -d '{
         "jsonrpc": "2.0",
@@ -90,7 +90,7 @@ wscat -c ws://rpc.v2.pod.network \
 ```
 
 ```js alias="javascript"
-const socket = new WebSocket('ws://rpc.v2.pod.network');
+const socket = new WebSocket('ws://rpc.v1.dev.pod.network');
 
 socket.onopen = () => {
 	socket.send(
@@ -132,7 +132,7 @@ use futures_util::{StreamExt, SinkExt};
 use serde_json::json;
 
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (ws_stream, _) = connect_async("ws://rpc.v2.pod.network").await?;
+    let (ws_stream, _) = connect_async("ws://rpc.v1.dev.pod.network").await?;
     let (mut write, mut read) = ws_stream.split();
 
     // Subscribe to logs

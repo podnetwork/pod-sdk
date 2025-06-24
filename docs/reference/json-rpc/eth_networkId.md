@@ -4,7 +4,7 @@ layout: simple
 
 <script>
     async function play() {
-        return fetch('https://rpc.v2.pod.network/', {
+        return fetch('https://rpc.v1.dev.pod.network/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -19,7 +19,7 @@ layout: simple
     }
 
     async function play2() {
-        return fetch('https://rpc.v2.pod.network/', {
+        return fetch('https://rpc.v1.dev.pod.network/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -61,7 +61,7 @@ None
 
 ! sticky
 
-! codeblock title="POST rpc.v2.pod.network" runCode={play}
+! codeblock title="POST rpc.v1.dev.pod.network" runCode={play}
 
 ```rust alias="rust"
 use reqwest::Client;
@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```bash alias="curl"
 # Using eth_networkId
-curl -X POST https://rpc.v2.pod.network \
+curl -X POST https://rpc.v1.dev.pod.network \
     -H "Content-Type: application/json" \
     -d '{
         "jsonrpc": "2.0",
@@ -88,7 +88,7 @@ curl -X POST https://rpc.v2.pod.network \
 ```
 
 ```js alias="javascript"
-await fetch('https://rpc.v2.pod.network/', {
+await fetch('https://rpc.v1.dev.pod.network/', {
 	method: 'POST',
 	headers: {
 		'Content-Type': 'application/json'
@@ -104,14 +104,14 @@ await fetch('https://rpc.v2.pod.network/', {
 
 ! codeblock end
 
-! codeblock title="POST rpc.v2.pod.network" runCode={play2}
+! codeblock title="POST rpc.v1.dev.pod.network" runCode={play2}
 
 ```rust alias="rust"
 use reqwest::Client;
 use serde_json::{json, Value};
 
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let rpc_url = "ws://rpc.v2.pod.network:8545";
+    let rpc_url = "ws://rpc.v1.dev.pod.network:8545";
     let ws_url = Url::parse(&rpc_url)?;
     let ws = WsConnect::new(ws_url);
     let pod_provider = PodProviderBuilder::new()
@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```bash alias="curl"
 # Using net_version alias
-curl -X POST https://rpc.v2.pod.network \
+curl -X POST https://rpc.v1.dev.pod.network \
     -H "Content-Type: application/json" \
     -d '{
         "jsonrpc": "2.0",
@@ -139,7 +139,7 @@ curl -X POST https://rpc.v2.pod.network \
 ```
 
 ```js alias="javascript"
-await fetch('https://rpc.v2.pod.network/', {
+await fetch('https://rpc.v1.dev.pod.network/', {
 	method: 'POST',
 	headers: {
 		'Content-Type': 'application/json'
