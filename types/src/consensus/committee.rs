@@ -1,7 +1,7 @@
 use super::{Attestation, Certificate};
 use crate::{
+    cryptography::ecdsa::SignatureECDSA,
     cryptography::{ecdsa::AddressECDSA, hash::Hashable},
-    ecdsa::SignatureECDSA,
 };
 use alloy_primitives::B256;
 use anyhow::{Result, anyhow};

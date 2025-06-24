@@ -3,10 +3,10 @@ use std::{str::FromStr, time::SystemTime};
 use anyhow::Result;
 
 use futures::StreamExt;
-use pod_sdk::{Address, TxKind, U256, alloy_sol_types::SolEvent, provider::PodProviderBuilder};
+use pod_sdk::{alloy_sol_types::SolEvent, provider::PodProviderBuilder, Address, U256};
 
 use pod_examples_solidity::auction::Auction;
-use pod_types::{Timestamp, rpc::filter::LogFilterBuilder};
+use pod_types::{rpc::filter::LogFilterBuilder, Timestamp};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -35,7 +35,7 @@ async fn main() -> Result<()> {
     let receipts = pod_provider.get_receipts(None, start_time, None).await?;
 
     for receipt in receipts.items {
-        if receipt.transaction().to == TxKind::Call(recipient)
+        if receipt.transaction_to() == Some(recipient)
             && matches!(receipt.verify(&committee), Ok(true))
         {
             println!("found verified receipt {:?}", receipt);
@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
         .await?;
 
     for recipient_receipt in recipient_receipts.items {
-        if recipient_receipt.transaction().to == TxKind::Call(recipient)
+        if recipient_receipt.transaction_to() == Some(recipient)
             && matches!(recipient_receipt.verify(&committee), Ok(true))
         {
             println!("found verified receipt {:?}", recipient_receipt);

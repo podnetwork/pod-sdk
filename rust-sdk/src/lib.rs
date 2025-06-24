@@ -99,5 +99,5 @@ pub use alloy_sol_types;
 pub use pod_types::{
     consensus::attestation::HeadlessAttestation,
     cryptography::ecdsa::{AddressECDSA, SignatureECDSA},
-    Certificate, Receipt, Transaction,
+    Certificate, Receipt, TxEnvelope,
 };

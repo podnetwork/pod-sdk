@@ -10,12 +10,12 @@ use alloy_provider::fillers::{
 };
 
 use anyhow::Result;
-use pod_types::{ledger::Transaction, metadata::DetailedReceiptMetadata};
+use pod_types::{ledger::TxEnvelope, metadata::DetailedReceiptMetadata};
 
-use alloy_consensus::TxEnvelope;
+use alloy_consensus::TxEnvelope as ConsensusTxEnvelope;
 use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
 use pod_types::{
-    ecdsa::{AddressECDSA, SignatureECDSA},
+    cryptography::ecdsa::{AddressECDSA, SignatureECDSA},
     Committee, Hashable, Merkleizable, Receipt, Timestamp,
 };
 use serde::{Deserialize, Serialize};
@@ -60,8 +60,8 @@ impl From<TypedTransaction> for PodTransactionRequest {
     }
 }
 
-impl From<TxEnvelope> for PodTransactionRequest {
-    fn from(value: TxEnvelope) -> Self {
+impl From<ConsensusTxEnvelope> for PodTransactionRequest {
+    fn from(value: ConsensusTxEnvelope) -> Self {
         Self {
             inner: value.into(),
         }
@@ -317,6 +317,7 @@ impl PodReceiptResponse {
             logs_root,
             tx: self.pod_metadata.transaction.clone(),
             contract_address: self.receipt.contract_address,
+            inner: self.receipt.inner.clone(),
         };
 
         committee.verify_aggregate_attestation(
@@ -330,8 +331,34 @@ impl PodReceiptResponse {
         )
     }
 
-    pub fn transaction(&self) -> &pod_types::Signed<Transaction> {
+    pub fn transaction(&self) -> &TxEnvelope {
         &self.pod_metadata.transaction
+    }
+
+    // Helper method to get the 'to' field from the transaction
+    pub fn transaction_to(&self) -> Option<Address> {
+        match &self.pod_metadata.transaction {
+            TxEnvelope::Legacy(signed_tx) => match signed_tx.tx().to {
+                TxKind::Call(to) => Some(to),
+                TxKind::Create => None,
+            },
+            TxEnvelope::Eip2930(signed_tx) => match signed_tx.tx().to {
+                TxKind::Call(to) => Some(to),
+                TxKind::Create => None,
+            },
+            TxEnvelope::Eip1559(signed_tx) => match signed_tx.tx().to {
+                TxKind::Call(to) => Some(to),
+                TxKind::Create => None,
+            },
+            TxEnvelope::Eip4844(_) => {
+                // EIP-4844 transactions not yet supported
+                None
+            }
+            TxEnvelope::Eip7702(_) => {
+                // EIP-7702 transactions not yet supported
+                None
+            }
+        }
     }
 }
 

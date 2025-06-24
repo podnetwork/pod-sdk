@@ -146,7 +146,7 @@ mod test {
     use alloy_primitives::{Log, LogData, TxKind, U256};
     use alloy_signer_local::PrivateKeySigner;
 
-    use crate::{Hashable, Merkleizable, Transaction};
+    use crate::{Hashable, Merkleizable};
 
     #[tokio::test]
     async fn test_verifiable_log_hash_proof() {
@@ -175,7 +175,7 @@ mod test {
             ),
         };
 
-        let transaction = Transaction {
+        let tx_legacy = alloy_consensus::TxLegacy {
             chain_id: Some(1293),
             to: TxKind::Call(
                 "0x217f5658c6ecc27d439922263ad9bb8e992e0373"
@@ -198,7 +198,10 @@ mod test {
             ]
             .into(),
         };
+
+        // Create a signed transaction using the new API
         let signer = PrivateKeySigner::random();
+        let signed_tx = crate::Signer::sign_tx(&signer, &tx_legacy).await.unwrap();
 
         let logs = vec![log.clone()];
         let logs_tree = logs.to_merkle_tree();
@@ -209,7 +212,7 @@ mod test {
             block_hash: Some(Hash::default()),
             block_number: Some(0),
             block_timestamp: Some(1742493092),
-            transaction_hash: Some(transaction.hash_custom()),
+            transaction_hash: Some(signed_tx.hash_custom()),
             transaction_index: Some(0),
             log_index: Some(0),
             removed: false,
@@ -224,8 +227,18 @@ mod test {
                     actual_gas_used: 21784,
                     logs: logs.clone(),
                     logs_root,
-                    tx: crate::Signer::sign_tx(&signer, &transaction).await.unwrap(),
+                    tx: signed_tx,
                     contract_address: None,
+                    inner: alloy_consensus::ReceiptEnvelope::Legacy(
+                        alloy_consensus::ReceiptWithBloom {
+                            logs_bloom: alloy_primitives::Bloom::from_iter(logs.iter()),
+                            receipt: alloy_consensus::Receipt {
+                                status: alloy_consensus::Eip658Value::Eip658(true),
+                                cumulative_gas_used: 21784,
+                                logs: vec![],
+                            },
+                        },
+                    ),
                 },
             },
         };

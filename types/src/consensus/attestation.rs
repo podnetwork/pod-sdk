@@ -2,21 +2,21 @@ use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    Receipt, Signed, Timestamp, Transaction,
+    Hash, Hashable, Receipt, Timestamp, TxEnvelope,
     cryptography::{
         ecdsa::{AddressECDSA, SignatureECDSA},
-        hash::{Hash, Hashable, hash},
+        hash::hash,
         signer::UncheckedSigned,
     },
     ledger::receipt::UncheckedReceipt,
 };
 
-pub type TransactionAttestation = Attestation<Signed<Transaction>>;
+pub type TransactionAttestation = Attestation<TxEnvelope>;
 pub type ReceiptAttestation = Attestation<Receipt>;
 
 pub type UncheckedReceiptAttestation = Attestation<UncheckedReceipt>;
 
-pub type UncheckedTransactionAttestation = Attestation<UncheckedSigned<Transaction>>;
+pub type UncheckedTransactionAttestation = Attestation<UncheckedSigned>;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Indexed<T> {
@@ -116,8 +116,8 @@ impl From<Indexed<Attestation<Receipt>>> for TimestampedHeadlessAttestation {
     }
 }
 
-impl From<Indexed<Attestation<Signed<Transaction>>>> for TimestampedHeadlessAttestation {
-    fn from(indexed: Indexed<Attestation<Signed<Transaction>>>) -> Self {
+impl From<Indexed<Attestation<TxEnvelope>>> for TimestampedHeadlessAttestation {
+    fn from(indexed: Indexed<Attestation<TxEnvelope>>) -> Self {
         Self {
             timestamp: indexed.index,
             public_key: indexed.value.public_key,

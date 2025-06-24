@@ -1,4 +1,4 @@
-use crate::{Receipt, Signed, Transaction, consensus::attestation::TimestampedHeadlessAttestation};
+use crate::{Receipt, TxEnvelope, consensus::attestation::TimestampedHeadlessAttestation};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -11,7 +11,7 @@ pub struct MetadataWrappedItem<T, M> {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DetailedReceiptMetadata {
     pub attestations: Vec<TimestampedHeadlessAttestation>,
-    pub transaction: Signed<Transaction>,
+    pub transaction: TxEnvelope,
     pub receipt_attestations: Vec<TimestampedHeadlessAttestation>,
 }
 

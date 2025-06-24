@@ -114,6 +114,10 @@ impl AddressECDSA {
     pub fn from_bytes(bytes: &[u8]) -> Result<AddressECDSA> {
         Ok(AddressECDSA(Address::try_from(bytes)?))
     }
+
+    pub fn as_key(&self) -> &Address {
+        &self.0
+    }
 }
 
 #[derive(Clone, Debug)]

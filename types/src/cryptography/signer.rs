@@ -1,5 +1,8 @@
-use alloy_consensus::{SignableTransaction, TxLegacy};
-use alloy_primitives::PrimitiveSignature;
+use alloy_consensus::{
+    SignableTransaction, TxEip1559, TxEip2930, TxEnvelope, TxLegacy, TypedTransaction,
+};
+use alloy_primitives::{Address, PrimitiveSignature, TxKind};
+use alloy_rpc_types::AccessList;
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -8,16 +11,45 @@ use serde::{
     de::{self, MapAccess, Visitor},
     ser::SerializeStruct,
 };
-use std::ops::Deref;
 
-use alloy_primitives::Address;
-
-use super::{Hashable, Merkleizable, merkle_tree::MerkleBuilder};
-use crate::Transaction;
+use crate::cryptography::hash::{Hash, Hashable};
+use crate::cryptography::merkle_tree::{MerkleBuilder, Merkleizable};
+use alloy_consensus::Signed as ConsensusSigned;
 
 #[async_trait]
 pub trait Signer {
-    async fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>>;
+    async fn sign_tx<T: SignableTransaction<PrimitiveSignature> + Clone + IntoEnvelope>(
+        &self,
+        tx: &T,
+    ) -> Result<TxEnvelope>;
+}
+
+pub trait IntoEnvelope {
+    fn into_envelope(self, signature: PrimitiveSignature) -> Result<TxEnvelope>;
+}
+
+impl IntoEnvelope for TxLegacy {
+    fn into_envelope(self, signature: PrimitiveSignature) -> Result<TxEnvelope> {
+        let signature_hash = self.signature_hash();
+        let signed_tx = ConsensusSigned::new_unchecked(self, signature, signature_hash);
+        Ok(TxEnvelope::Legacy(signed_tx))
+    }
+}
+
+impl IntoEnvelope for TxEip1559 {
+    fn into_envelope(self, signature: PrimitiveSignature) -> Result<TxEnvelope> {
+        let signature_hash = self.signature_hash();
+        let signed_tx = ConsensusSigned::new_unchecked(self, signature, signature_hash);
+        Ok(TxEnvelope::Eip1559(signed_tx))
+    }
+}
+
+impl IntoEnvelope for TxEip2930 {
+    fn into_envelope(self, signature: PrimitiveSignature) -> Result<TxEnvelope> {
+        let signature_hash = self.signature_hash();
+        let signed_tx = ConsensusSigned::new_unchecked(self, signature, signature_hash);
+        Ok(TxEnvelope::Eip2930(signed_tx))
+    }
 }
 
 #[async_trait]
@@ -25,19 +57,21 @@ impl<S> Signer for S
 where
     S: alloy_signer::Signer<PrimitiveSignature> + Send + Sync,
 {
-    async fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>> {
-        let signature = self.sign_hash(&tx.signature_hash()).await?;
-        Ok(Signed {
-            signed: tx.clone(),
-            signature,
-            signer: self.address(),
-            _private: (),
-        })
+    async fn sign_tx<T: SignableTransaction<PrimitiveSignature> + Clone + IntoEnvelope>(
+        &self,
+        tx: &T,
+    ) -> Result<TxEnvelope> {
+        let signature_hash = tx.signature_hash();
+        let signature = self.sign_hash(&signature_hash).await?;
+        Ok(tx.clone().into_envelope(signature)?)
     }
 }
 
 pub trait SignerSync {
-    fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>>;
+    fn sign_tx_sync<T: SignableTransaction<PrimitiveSignature> + Clone + IntoEnvelope>(
+        &self,
+        tx: &T,
+    ) -> Result<TxEnvelope>;
 }
 
 impl<S> SignerSync for S
@@ -45,381 +79,315 @@ where
     S: alloy_signer::SignerSync<PrimitiveSignature> + Send + Sync,
     S: alloy_signer::Signer<PrimitiveSignature> + Send + Sync,
 {
-    fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>> {
-        let signature = self.sign_hash_sync(&tx.signature_hash())?;
-        Ok(Signed {
-            signed: tx.clone(),
-            signature,
-            signer: self.address(),
-            _private: (),
-        })
+    fn sign_tx_sync<T: SignableTransaction<PrimitiveSignature> + Clone + IntoEnvelope>(
+        &self,
+        tx: &T,
+    ) -> Result<TxEnvelope> {
+        let signature_hash = tx.signature_hash();
+        let signature = self.sign_hash_sync(&signature_hash)?;
+        Ok(tx.clone().into_envelope(signature)?)
     }
 }
 
-// Guarantees Signed<T>.signer == Signed<T>.signature.recover_address(T.hash())
-// by the fact that it can only be constructed by functions that guarantee the address.
-// Only works with ECDSA signatures for now
-#[allow(clippy::manual_non_exhaustive)]
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Signed<T: Hashable> {
-    pub signed: T,
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UncheckedSigned {
+    pub tx: TypedTransaction,
     pub signature: PrimitiveSignature,
     pub signer: Address,
-    _private: (), // to prevent construction outside of this module
 }
 
-// Custom serialization and deserialization for Signed<Transaction>
-// There are two complications for why this is needed:
-//   1. We want to recover signer instead of serializing it,
-//      in order to never have to assume the message was already sanitized
-//      e.g. avoid accidentally deserializing the signer from an insecure message (eg over network).
-//   2. TxLegacy::bytes does not actually allow for bincode serialization
-//      because of error that bincode cannot serialize sequences with unknown length.
-
-impl Serialize for Signed<Transaction> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("SignedTxLegacy", 8)?;
-
-        let tx = &self.signed;
-
-        state.serialize_field("chain_id", &tx.chain_id)?;
-        state.serialize_field("nonce", &tx.nonce)?;
-        state.serialize_field("gas_price", &tx.gas_price)?;
-        state.serialize_field("gas_limit", &tx.gas_limit)?;
-        state.serialize_field("to", &tx.to)?;
-        state.serialize_field("value", &tx.value)?;
-        state.serialize_field("input", &tx.input.to_vec())?;
-        state.serialize_field("signature", &self.signature)?;
-
-        state.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for Signed<Transaction> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        const FIELDS: &[&str] = &[
-            "chain_id",
-            "nonce",
-            "gas_price",
-            "gas_limit",
-            "to",
-            "value",
-            "input",
-            "signature",
-        ];
-
-        struct SignedTxLegacyVisitor;
-
-        impl<'de> Visitor<'de> for SignedTxLegacyVisitor {
-            type Value = Signed<Transaction>;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("struct SignedTxLegacy")
-            }
-
-            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
-            where
-                M: MapAccess<'de>,
-            {
-                let mut chain_id = None;
-                let mut nonce = None;
-                let mut gas_price = None;
-                let mut gas_limit = None;
-                let mut to = None;
-                let mut value = None;
-                let mut input = None;
-                let mut signature: Option<PrimitiveSignature> = None;
-
-                // Extract fields by name
-                while let Some(key) = map.next_key::<String>()? {
-                    match key.as_str() {
-                        "chain_id" => {
-                            if chain_id.is_some() {
-                                return Err(de::Error::duplicate_field("chain_id"));
-                            }
-                            chain_id = Some(map.next_value()?);
-                        }
-                        "nonce" => {
-                            if nonce.is_some() {
-                                return Err(de::Error::duplicate_field("nonce"));
-                            }
-                            nonce = Some(map.next_value()?);
-                        }
-                        "gas_price" => {
-                            if gas_price.is_some() {
-                                return Err(de::Error::duplicate_field("gas_price"));
-                            }
-                            gas_price = Some(map.next_value()?);
-                        }
-                        "gas_limit" => {
-                            if gas_limit.is_some() {
-                                return Err(de::Error::duplicate_field("gas_limit"));
-                            }
-                            gas_limit = Some(map.next_value()?);
-                        }
-                        "to" => {
-                            if to.is_some() {
-                                return Err(de::Error::duplicate_field("to"));
-                            }
-                            to = Some(map.next_value()?);
-                        }
-                        "value" => {
-                            if value.is_some() {
-                                return Err(de::Error::duplicate_field("value"));
-                            }
-                            value = Some(map.next_value()?);
-                        }
-                        "input" => {
-                            if input.is_some() {
-                                return Err(de::Error::duplicate_field("input"));
-                            }
-                            input = Some(map.next_value()?);
-                        }
-                        "signature" => {
-                            if signature.is_some() {
-                                return Err(de::Error::duplicate_field("signature"));
-                            }
-                            signature = Some(map.next_value()?);
-                        }
-                        _ => return Err(de::Error::unknown_field(&key, FIELDS)),
-                    }
-                }
-
-                let chain_id = chain_id.ok_or_else(|| de::Error::missing_field("chain_id"))?;
-                let nonce = nonce.ok_or_else(|| de::Error::missing_field("nonce"))?;
-                let gas_price = gas_price.ok_or_else(|| de::Error::missing_field("gas_price"))?;
-                let gas_limit = gas_limit.ok_or_else(|| de::Error::missing_field("gas_limit"))?;
-                let to = to.ok_or_else(|| de::Error::missing_field("to"))?;
-                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let input = input.ok_or_else(|| de::Error::missing_field("input"))?;
-                let signature = signature.ok_or_else(|| de::Error::missing_field("signature"))?;
-
-                let tx = Transaction {
-                    chain_id,
-                    nonce,
-                    gas_price,
-                    gas_limit,
-                    to,
-                    value,
-                    input,
-                };
-
-                let tx_hash = tx.signature_hash();
-                let signer = alloy_consensus::Signed::new_unchecked(tx.clone(), signature, tx_hash)
-                    .recover_signer()
-                    .map_err(serde::de::Error::custom)?;
-
-                Ok(Signed {
-                    signed: tx,
-                    signature,
-                    signer,
-                    _private: (),
-                })
-            }
-
-            fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
-            where
-                S: de::SeqAccess<'de>,
-            {
-                // Read values in order, matching the field order from FIELDS
-                let chain_id = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(0, &"chain_id field"))?;
-
-                let nonce = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(1, &"nonce field"))?;
-
-                let gas_price = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(2, &"gas_price field"))?;
-
-                let gas_limit = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(3, &"gas_limit field"))?;
-
-                let to = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(4, &"to field"))?;
-
-                let value = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(5, &"value field"))?;
-
-                let input = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(6, &"input field"))?;
-
-                let signature: PrimitiveSignature = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(7, &"signature field"))?;
-
-                let tx = Transaction {
-                    chain_id,
-                    nonce,
-                    gas_price,
-                    gas_limit,
-                    to,
-                    value,
-                    input,
-                };
-
-                let tx_hash = tx.signature_hash();
-                let signer = alloy_consensus::Signed::new_unchecked(tx.clone(), signature, tx_hash)
-                    .recover_signer()
-                    .map_err(serde::de::Error::custom)?;
-
-                Ok(Signed {
-                    signed: tx,
-                    signature,
-                    signer,
-                    _private: (),
-                })
-            }
-        }
-
-        deserializer.deserialize_struct("SignedTxLegacy", FIELDS, SignedTxLegacyVisitor)
-    }
-}
-
-impl<T: Hashable> Deref for Signed<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.signed
-    }
-}
-
-impl TryFrom<alloy_consensus::Signed<TxLegacy, PrimitiveSignature>> for Signed<Transaction> {
-    type Error = anyhow::Error;
-
-    fn try_from(value: alloy_consensus::Signed<TxLegacy>) -> Result<Self> {
-        let signer = value.recover_signer()?;
-
-        let tx: Transaction = value.tx().clone();
-
-        Ok(Signed {
-            signed: tx,
-            signature: *value.signature(),
-            signer,
-            _private: (),
-        })
-    }
-}
-
-impl<T: Merkleizable + Hashable> Merkleizable for Signed<T> {
-    fn append_leaves(&self, builder: &mut MerkleBuilder) {
-        builder.add_merkleizable("signed", &self.signed);
-        builder.add_field("signer", self.signer.abi_encode().hash_custom());
-    }
-}
-
-#[allow(clippy::manual_non_exhaustive)]
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct UncheckedSigned<T: Hashable> {
-    pub signed: T,
-    pub signature: PrimitiveSignature,
-    pub signer: Address,
-    _private: (), // to prevent construction outside of this module
-}
-
-impl From<Signed<Transaction>> for UncheckedSigned<Transaction> {
-    fn from(signed: Signed<Transaction>) -> Self {
+impl UncheckedSigned {
+    pub fn new(tx: TypedTransaction, signature: PrimitiveSignature, signer: Address) -> Self {
         Self {
-            signed: signed.signed,
-            signature: signed.signature,
-            signer: signed.signer,
-            _private: (),
+            tx,
+            signature,
+            signer,
+        }
+    }
+
+    /// Convert to a TxEnvelope (signed transaction)
+    pub fn into_envelope(self) -> TxEnvelope {
+        match self.tx {
+            TypedTransaction::Legacy(tx) => {
+                let tx_clone = tx.clone();
+                let signed = alloy_consensus::Signed::new_unchecked(
+                    tx,
+                    self.signature,
+                    tx_clone.signature_hash(),
+                );
+                TxEnvelope::Legacy(signed)
+            }
+            TypedTransaction::Eip2930(tx) => {
+                let tx_clone = tx.clone();
+                let signed = alloy_consensus::Signed::new_unchecked(
+                    tx,
+                    self.signature,
+                    tx_clone.signature_hash(),
+                );
+                TxEnvelope::Eip2930(signed)
+            }
+            TypedTransaction::Eip1559(tx) => {
+                let tx_clone = tx.clone();
+                let signed = alloy_consensus::Signed::new_unchecked(
+                    tx,
+                    self.signature,
+                    tx_clone.signature_hash(),
+                );
+                TxEnvelope::Eip1559(signed)
+            }
+            TypedTransaction::Eip4844(tx) => {
+                let tx_clone = tx.clone();
+                let signed = alloy_consensus::Signed::new_unchecked(
+                    tx,
+                    self.signature,
+                    tx_clone.signature_hash(),
+                );
+                TxEnvelope::Eip4844(signed)
+            }
+            TypedTransaction::Eip7702(tx) => {
+                let tx_clone = tx.clone();
+                let signed = alloy_consensus::Signed::new_unchecked(
+                    tx,
+                    self.signature,
+                    tx_clone.signature_hash(),
+                );
+                TxEnvelope::Eip7702(signed)
+            }
         }
     }
 }
 
-impl UncheckedSigned<Transaction> {
-    /// Convert from an `UncheckedSigned<Transaction>` to a fully fledged `Signed<Transaction>`
-    /// _without_ re-verifying.
-    pub fn into_signed_unchecked(self) -> Signed<Transaction> {
-        // Make a “blind” Signed structure that does *not* re-check
-        Signed {
-            signed: self.signed,
-            signature: self.signature,
-            signer: self.signer,
-            _private: (),
+impl From<TxEnvelope> for UncheckedSigned {
+    fn from(env: TxEnvelope) -> Self {
+        match env {
+            TxEnvelope::Legacy(signed) => Self {
+                tx: TypedTransaction::Legacy(signed.tx().clone()),
+                signature: signed.signature().clone(),
+                signer: signed.recover_signer().unwrap_or(Address::ZERO),
+            },
+            TxEnvelope::Eip2930(signed) => Self {
+                tx: TypedTransaction::Eip2930(signed.tx().clone()),
+                signature: signed.signature().clone(),
+                signer: signed.recover_signer().unwrap_or(Address::ZERO),
+            },
+            TxEnvelope::Eip1559(signed) => Self {
+                tx: TypedTransaction::Eip1559(signed.tx().clone()),
+                signature: signed.signature().clone(),
+                signer: signed.recover_signer().unwrap_or(Address::ZERO),
+            },
+            TxEnvelope::Eip4844(signed) => Self {
+                tx: TypedTransaction::Eip4844(signed.tx().clone()),
+                signature: signed.signature().clone(),
+                signer: signed.recover_signer().unwrap_or(Address::ZERO),
+            },
+            TxEnvelope::Eip7702(signed) => Self {
+                tx: TypedTransaction::Eip7702(signed.tx().clone()),
+                signature: signed.signature().clone(),
+                signer: signed.recover_signer().unwrap_or(Address::ZERO),
+            },
         }
     }
 }
 
-impl Serialize for UncheckedSigned<Transaction> {
+impl Hashable for UncheckedSigned {
+    fn hash_custom(&self) -> Hash {
+        self.clone().into_envelope().hash_custom()
+    }
+}
+
+impl Merkleizable for UncheckedSigned {
+    fn append_leaves(&self, builder: &mut MerkleBuilder) {
+        match &self.tx {
+            TypedTransaction::Legacy(tx) => {
+                match tx.to {
+                    TxKind::Call(to) => {
+                        builder.add_field("to", to.hash_custom());
+                    }
+                    TxKind::Create => {
+                        builder.add_field("to", Address::ZERO.hash_custom());
+                    }
+                }
+                builder.add_field("nonce", tx.nonce.abi_encode().hash_custom());
+                builder.add_field("value", tx.value.abi_encode().hash_custom());
+                builder.add_field("gas_limit", tx.gas_limit.abi_encode().hash_custom());
+                builder.add_field("gas_price", tx.gas_price.abi_encode().hash_custom());
+                builder.add_field("call_data", tx.input.hash_custom());
+            }
+            TypedTransaction::Eip2930(tx) => {
+                match tx.to {
+                    TxKind::Call(to) => {
+                        builder.add_field("to", to.hash_custom());
+                    }
+                    TxKind::Create => {
+                        builder.add_field("to", Address::ZERO.hash_custom());
+                    }
+                }
+                builder.add_field("nonce", tx.nonce.abi_encode().hash_custom());
+                builder.add_field("value", tx.value.abi_encode().hash_custom());
+                builder.add_field("gas_limit", tx.gas_limit.abi_encode().hash_custom());
+                builder.add_field("gas_price", tx.gas_price.abi_encode().hash_custom());
+                builder.add_field("call_data", tx.input.hash_custom());
+                // TODO: figure out how to handle access list
+            }
+            TypedTransaction::Eip1559(tx) => {
+                match tx.to {
+                    TxKind::Call(to) => {
+                        builder.add_field("to", to.hash_custom());
+                    }
+                    TxKind::Create => {
+                        builder.add_field("to", Address::ZERO.hash_custom());
+                    }
+                }
+                builder.add_field("nonce", tx.nonce.abi_encode().hash_custom());
+                builder.add_field("value", tx.value.abi_encode().hash_custom());
+                builder.add_field("gas_limit", tx.gas_limit.abi_encode().hash_custom());
+                builder.add_field("call_data", tx.input.hash_custom());
+                builder.add_field(
+                    "max_fee_per_gas",
+                    tx.max_fee_per_gas.abi_encode().hash_custom(),
+                );
+                builder.add_field(
+                    "max_priority_fee_per_gas",
+                    tx.max_priority_fee_per_gas.abi_encode().hash_custom(),
+                );
+                // TODO: figure out how to handle access list
+            }
+            TypedTransaction::Eip4844(_tx) => {
+                panic!("EIP-4844 transactions not yet supported")
+            }
+            TypedTransaction::Eip7702(_tx) => {
+                panic!("EIP-7702 transactions not yet supported")
+            }
+        }
+    }
+}
+
+// Wrapper struct for TxEnvelope serialization
+// This allows us to implement custom serde without touching the alloy type
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TxEnvelopeWrapper(pub TxEnvelope);
+
+impl From<TxEnvelope> for TxEnvelopeWrapper {
+    fn from(envelope: TxEnvelope) -> Self {
+        TxEnvelopeWrapper(envelope)
+    }
+}
+
+impl From<TxEnvelopeWrapper> for TxEnvelope {
+    fn from(wrapper: TxEnvelopeWrapper) -> Self {
+        wrapper.0
+    }
+}
+
+// Custom serialization for TxEnvelopeWrapper
+// We serialize transaction data and signature, but recover signer during deserialization
+impl Serialize for TxEnvelopeWrapper {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("UnsignedSignedTxLegacy", 9)?;
+        match &self.0 {
+            TxEnvelope::Legacy(signed_tx) => {
+                let mut state = serializer.serialize_struct("TxEnvelopeLegacy", 8)?;
+                let tx = signed_tx.tx();
 
-        let tx = &self.signed;
+                state.serialize_field("tx_type", "legacy")?;
+                state.serialize_field("chain_id", &tx.chain_id)?;
+                state.serialize_field("nonce", &tx.nonce)?;
+                state.serialize_field("gas_price", &tx.gas_price)?;
+                state.serialize_field("gas_limit", &tx.gas_limit)?;
+                state.serialize_field("to", &tx.to)?;
+                state.serialize_field("value", &tx.value)?;
+                state.serialize_field("input", &tx.input.to_vec())?;
+                state.serialize_field("signature", signed_tx.signature())?;
 
-        state.serialize_field("chain_id", &tx.chain_id)?;
-        state.serialize_field("nonce", &tx.nonce)?;
-        state.serialize_field("gas_price", &tx.gas_price)?;
-        state.serialize_field("gas_limit", &tx.gas_limit)?;
-        state.serialize_field("to", &tx.to)?;
-        state.serialize_field("value", &tx.value)?;
-        state.serialize_field("input", &tx.input.to_vec())?;
-        state.serialize_field("signature", &self.signature)?;
-        state.serialize_field("signer", &self.signer)?;
+                state.end()
+            }
+            TxEnvelope::Eip1559(signed_tx) => {
+                let mut state = serializer.serialize_struct("TxEnvelopeEip1559", 9)?;
+                let tx = signed_tx.tx();
 
-        state.end()
+                state.serialize_field("tx_type", "eip1559")?;
+                state.serialize_field("chain_id", &tx.chain_id)?;
+                state.serialize_field("nonce", &tx.nonce)?;
+                state.serialize_field("max_fee_per_gas", &tx.max_fee_per_gas)?;
+                state.serialize_field("max_priority_fee_per_gas", &tx.max_priority_fee_per_gas)?;
+                state.serialize_field("gas_limit", &tx.gas_limit)?;
+                state.serialize_field("to", &tx.to)?;
+                state.serialize_field("value", &tx.value)?;
+                state.serialize_field("input", &tx.input.to_vec())?;
+                state.serialize_field("signature", signed_tx.signature())?;
+
+                state.end()
+            }
+            TxEnvelope::Eip2930(signed_tx) => {
+                let mut state = serializer.serialize_struct("TxEnvelopeEip2930", 9)?;
+                let tx = signed_tx.tx();
+
+                state.serialize_field("tx_type", "eip2930")?;
+                state.serialize_field("chain_id", &tx.chain_id)?;
+                state.serialize_field("nonce", &tx.nonce)?;
+                state.serialize_field("gas_price", &tx.gas_price)?;
+                state.serialize_field("gas_limit", &tx.gas_limit)?;
+                state.serialize_field("to", &tx.to)?;
+                state.serialize_field("value", &tx.value)?;
+                state.serialize_field("input", &tx.input.to_vec())?;
+                state.serialize_field("signature", signed_tx.signature())?;
+
+                state.end()
+            }
+            TxEnvelope::Eip4844(_) => {
+                return Err(serde::ser::Error::custom(
+                    "EIP-4844 transactions not yet supported",
+                ));
+            }
+            TxEnvelope::Eip7702(_) => {
+                return Err(serde::ser::Error::custom(
+                    "EIP-7702 transactions not yet supported",
+                ));
+            }
+        }
     }
 }
 
-impl<'de> Deserialize<'de> for UncheckedSigned<Transaction> {
+impl<'de> Deserialize<'de> for TxEnvelopeWrapper {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        const FIELDS: &[&str] = &[
-            "chain_id",
-            "nonce",
-            "gas_price",
-            "gas_limit",
-            "to",
-            "value",
-            "input",
-            "signature",
-            "signer",
-        ];
+        struct TxEnvelopeVisitor;
 
-        struct UncheckedSignedTxLegacyVisitor;
-
-        impl<'de> Visitor<'de> for UncheckedSignedTxLegacyVisitor {
-            type Value = UncheckedSigned<Transaction>;
+        impl<'de> Visitor<'de> for TxEnvelopeVisitor {
+            type Value = TxEnvelopeWrapper;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("struct UnsignedSignedTxLegacy")
+                formatter.write_str("struct TxEnvelope")
             }
 
             fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
             where
                 M: MapAccess<'de>,
             {
-                let mut chain_id = None;
-                let mut nonce = None;
-                let mut gas_price = None;
-                let mut gas_limit = None;
-                let mut to = None;
-                let mut value = None;
-                let mut input = None;
+                let mut tx_type: Option<String> = None;
+                let mut chain_id: Option<u64> = None;
+                let mut nonce: Option<u64> = None;
+                let mut gas_price: Option<u128> = None;
+                let mut max_fee_per_gas: Option<u128> = None;
+                let mut max_priority_fee_per_gas: Option<u128> = None;
+                let mut gas_limit: Option<u128> = None;
+                let mut to: Option<TxKind> = None;
+                let mut value: Option<alloy_primitives::U256> = None;
+                let mut input: Option<Vec<u8>> = None;
                 let mut signature: Option<PrimitiveSignature> = None;
-                let mut signer = None;
 
-                // Extract fields by name
                 while let Some(key) = map.next_key::<String>()? {
                     match key.as_str() {
+                        "tx_type" => {
+                            if tx_type.is_some() {
+                                return Err(de::Error::duplicate_field("tx_type"));
+                            }
+                            tx_type = Some(map.next_value()?);
+                        }
                         "chain_id" => {
                             if chain_id.is_some() {
                                 return Err(de::Error::duplicate_field("chain_id"));
@@ -437,6 +405,18 @@ impl<'de> Deserialize<'de> for UncheckedSigned<Transaction> {
                                 return Err(de::Error::duplicate_field("gas_price"));
                             }
                             gas_price = Some(map.next_value()?);
+                        }
+                        "max_fee_per_gas" => {
+                            if max_fee_per_gas.is_some() {
+                                return Err(de::Error::duplicate_field("max_fee_per_gas"));
+                            }
+                            max_fee_per_gas = Some(map.next_value()?);
+                        }
+                        "max_priority_fee_per_gas" => {
+                            if max_priority_fee_per_gas.is_some() {
+                                return Err(de::Error::duplicate_field("max_priority_fee_per_gas"));
+                            }
+                            max_priority_fee_per_gas = Some(map.next_value()?);
                         }
                         "gas_limit" => {
                             if gas_limit.is_some() {
@@ -468,142 +448,88 @@ impl<'de> Deserialize<'de> for UncheckedSigned<Transaction> {
                             }
                             signature = Some(map.next_value()?);
                         }
-                        "signer" => {
-                            if signer.is_some() {
-                                return Err(de::Error::duplicate_field("signer"));
-                            }
-                            signer = Some(map.next_value()?);
-                        }
-                        _ => return Err(de::Error::unknown_field(&key, FIELDS)),
+                        _ => return Err(de::Error::unknown_field(&key, &[])),
                     }
                 }
 
+                let tx_type = tx_type.ok_or_else(|| de::Error::missing_field("tx_type"))?;
                 let chain_id = chain_id.ok_or_else(|| de::Error::missing_field("chain_id"))?;
                 let nonce = nonce.ok_or_else(|| de::Error::missing_field("nonce"))?;
-                let gas_price = gas_price.ok_or_else(|| de::Error::missing_field("gas_price"))?;
                 let gas_limit = gas_limit.ok_or_else(|| de::Error::missing_field("gas_limit"))?;
                 let to = to.ok_or_else(|| de::Error::missing_field("to"))?;
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
                 let input = input.ok_or_else(|| de::Error::missing_field("input"))?;
                 let signature = signature.ok_or_else(|| de::Error::missing_field("signature"))?;
-                let signer = signer.ok_or_else(|| de::Error::missing_field("signer"))?;
 
-                let tx = Transaction {
-                    chain_id,
-                    nonce,
-                    gas_price,
-                    gas_limit,
-                    to,
-                    value,
-                    input,
+                let envelope = match tx_type.as_str() {
+                    "legacy" => {
+                        let gas_price =
+                            gas_price.ok_or_else(|| de::Error::missing_field("gas_price"))?;
+                        let tx = TxLegacy {
+                            chain_id: Some(chain_id),
+                            nonce,
+                            gas_price,
+                            gas_limit: gas_limit as u64,
+                            to,
+                            value,
+                            input: input.into(),
+                        };
+                        let signature_hash = tx.signature_hash();
+                        let signed_tx =
+                            ConsensusSigned::new_unchecked(tx, signature, signature_hash);
+                        TxEnvelope::Legacy(signed_tx)
+                    }
+                    "eip1559" => {
+                        let max_fee_per_gas = max_fee_per_gas
+                            .ok_or_else(|| de::Error::missing_field("max_fee_per_gas"))?;
+                        let max_priority_fee_per_gas = max_priority_fee_per_gas
+                            .ok_or_else(|| de::Error::missing_field("max_priority_fee_per_gas"))?;
+                        let tx = TxEip1559 {
+                            chain_id,
+                            nonce,
+                            max_fee_per_gas,
+                            max_priority_fee_per_gas,
+                            gas_limit: gas_limit as u64,
+                            to,
+                            value,
+                            input: input.into(),
+                            access_list: AccessList::default(),
+                        };
+                        let signature_hash = tx.signature_hash();
+                        let signed_tx =
+                            ConsensusSigned::new_unchecked(tx, signature, signature_hash);
+                        TxEnvelope::Eip1559(signed_tx)
+                    }
+                    "eip2930" => {
+                        let gas_price =
+                            gas_price.ok_or_else(|| de::Error::missing_field("gas_price"))?;
+                        let tx = TxEip2930 {
+                            chain_id,
+                            nonce,
+                            gas_price,
+                            gas_limit: gas_limit as u64,
+                            to,
+                            value,
+                            input: input.into(),
+                            access_list: AccessList::default(),
+                        };
+                        let signature_hash = tx.signature_hash();
+                        let signed_tx =
+                            ConsensusSigned::new_unchecked(tx, signature, signature_hash);
+                        TxEnvelope::Eip2930(signed_tx)
+                    }
+                    _ => {
+                        return Err(de::Error::custom(format!(
+                            "Unsupported transaction type: {}",
+                            tx_type
+                        )));
+                    }
                 };
 
-                Ok(UncheckedSigned {
-                    signed: tx,
-                    signature,
-                    signer,
-                    _private: (),
-                })
-            }
-
-            fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
-            where
-                S: de::SeqAccess<'de>,
-            {
-                // Read values in order, matching the field order from FIELDS
-                let chain_id = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(0, &"chain_id field"))?;
-
-                let nonce = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(1, &"nonce field"))?;
-
-                let gas_price = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(2, &"gas_price field"))?;
-
-                let gas_limit = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(3, &"gas_limit field"))?;
-
-                let to = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(4, &"to field"))?;
-
-                let value = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(5, &"value field"))?;
-
-                let input = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(6, &"input field"))?;
-
-                let signature: PrimitiveSignature = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(7, &"signature field"))?;
-
-                let signer = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(8, &"signer field"))?;
-
-                let tx = Transaction {
-                    chain_id,
-                    nonce,
-                    gas_price,
-                    gas_limit,
-                    to,
-                    value,
-                    input,
-                };
-
-                Ok(UncheckedSigned {
-                    signed: tx,
-                    signature,
-                    signer,
-                    _private: (),
-                })
+                Ok(TxEnvelopeWrapper(envelope))
             }
         }
 
-        deserializer.deserialize_struct(
-            "UnsignedSignedTxLegacy",
-            FIELDS,
-            UncheckedSignedTxLegacyVisitor,
-        )
-    }
-}
-
-impl<T: Hashable> Deref for UncheckedSigned<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.signed
-    }
-}
-
-impl TryFrom<alloy_consensus::Signed<TxLegacy, PrimitiveSignature>>
-    for UncheckedSigned<Transaction>
-{
-    type Error = anyhow::Error;
-
-    fn try_from(value: alloy_consensus::Signed<TxLegacy>) -> Result<Self> {
-        let signer = value.recover_signer()?;
-
-        let tx: Transaction = value.tx().clone();
-
-        Ok(UncheckedSigned {
-            signed: tx,
-            signature: *value.signature(),
-            signer,
-            _private: (),
-        })
-    }
-}
-
-impl<T: Merkleizable + Hashable> Merkleizable for UncheckedSigned<T> {
-    fn append_leaves(&self, builder: &mut MerkleBuilder) {
-        builder.add_merkleizable("signed", &self.signed);
-        builder.add_field("signer", self.signer.abi_encode().hash_custom());
+        deserializer.deserialize_struct("TxEnvelope", &[], TxEnvelopeVisitor)
     }
 }
