@@ -452,14 +452,13 @@ struct Proof { bytes32[] path; }
 See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
     #[inline]
     pub const fn new<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         address: alloy_sol_types::private::Address,
         provider: P,
-    ) -> MerkleTreeInstance<T, P, N> {
-        MerkleTreeInstance::<T, P, N>::new(address, provider)
+    ) -> MerkleTreeInstance<P, N> {
+        MerkleTreeInstance::<P, N>::new(address, provider)
     }
     /**A [`MerkleTree`](self) instance.
 
@@ -473,13 +472,13 @@ be used to deploy a new instance of the contract.
 
 See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
-    pub struct MerkleTreeInstance<T, P, N = alloy_contract::private::Ethereum> {
+    pub struct MerkleTreeInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
         provider: P,
-        _network_transport: ::core::marker::PhantomData<(N, T)>,
+        _network: ::core::marker::PhantomData<N>,
     }
     #[automatically_derived]
-    impl<T, P, N> ::core::fmt::Debug for MerkleTreeInstance<T, P, N> {
+    impl<P, N> ::core::fmt::Debug for MerkleTreeInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
             f.debug_tuple("MerkleTreeInstance").field(&self.address).finish()
@@ -488,10 +487,9 @@ See the [module-level documentation](self) for all the available methods.*/
     /// Instantiation and getters/setters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > MerkleTreeInstance<T, P, N> {
+    > MerkleTreeInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`MerkleTree`](self) contract instance.
 
 See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
@@ -503,7 +501,7 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
             Self {
                 address,
                 provider,
-                _network_transport: ::core::marker::PhantomData,
+                _network: ::core::marker::PhantomData,
             }
         }
         /// Returns a reference to the address.
@@ -527,24 +525,23 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
             &self.provider
         }
     }
-    impl<T, P: ::core::clone::Clone, N> MerkleTreeInstance<T, &P, N> {
+    impl<P: ::core::clone::Clone, N> MerkleTreeInstance<&P, N> {
         /// Clones the provider and returns a new instance with the cloned provider.
         #[inline]
-        pub fn with_cloned_provider(self) -> MerkleTreeInstance<T, P, N> {
+        pub fn with_cloned_provider(self) -> MerkleTreeInstance<P, N> {
             MerkleTreeInstance {
                 address: self.address,
                 provider: ::core::clone::Clone::clone(&self.provider),
-                _network_transport: ::core::marker::PhantomData,
+                _network: ::core::marker::PhantomData,
             }
         }
     }
     /// Function calls.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > MerkleTreeInstance<T, P, N> {
+    > MerkleTreeInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -552,24 +549,23 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
         pub fn call_builder<C: alloy_sol_types::SolCall>(
             &self,
             call: &C,
-        ) -> alloy_contract::SolCallBuilder<T, &P, C, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, C, N> {
             alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
         }
     }
     /// Event filters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > MerkleTreeInstance<T, P, N> {
+    > MerkleTreeInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
         /// Prefer using the other methods for building type-safe event filters.
         pub fn event_filter<E: alloy_sol_types::SolEvent>(
             &self,
-        ) -> alloy_contract::Event<T, &P, E, N> {
+        ) -> alloy_contract::Event<&P, E, N> {
             alloy_contract::Event::new_sol(&self.provider, &self.address)
         }
     }
@@ -1136,7 +1132,7 @@ struct Certificate { CertifiedReceipt certifiedReceipt; bytes32 leaf; MerkleTree
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Certificate(CertifiedReceipt certifiedReceipt,bytes32 leaf,MerkleTree.Proof proof)",
+                    "Certificate(CertifiedReceipt certifiedReceipt,bytes32 leaf,Proof proof)",
                 )
             }
             #[inline]
@@ -2111,7 +2107,7 @@ struct MultiCertificate { CertifiedReceipt certifiedReceipt; bytes32[] leaves; M
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "MultiCertificate(CertifiedReceipt certifiedReceipt,bytes32[] leaves,MerkleTree.MultiProof proof)",
+                    "MultiCertificate(CertifiedReceipt certifiedReceipt,bytes32[] leaves,MultiProof proof)",
                 )
             }
             #[inline]
@@ -2534,7 +2530,7 @@ function hashLog(Log memory log) external pure returns (bytes32);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = hashLogReturn;
+            type Return = alloy::sol_types::private::FixedBytes<32>;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -2552,14 +2548,34 @@ function hashLog(Log memory log) external pure returns (bytes32);
                 (<Log as alloy_sol_types::SolType>::tokenize(&self.log),)
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: hashLogReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: hashLogReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -2672,7 +2688,7 @@ function verifyCertificate(PodConfig memory podConfig, Certificate memory certif
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = verifyCertificateReturn;
+            type Return = bool;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -2695,14 +2711,34 @@ function verifyCertificate(PodConfig memory podConfig, Certificate memory certif
                 )
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: verifyCertificateReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: verifyCertificateReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -2815,7 +2851,7 @@ function verifyCertifiedLog(PodConfig memory podConfig, CertifiedLog memory cert
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = verifyCertifiedLogReturn;
+            type Return = bool;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -2838,14 +2874,34 @@ function verifyCertifiedLog(PodConfig memory podConfig, CertifiedLog memory cert
                 )
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: verifyCertifiedLogReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: verifyCertifiedLogReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -2958,7 +3014,7 @@ function verifyCertifiedReceipt(PodConfig memory podConfig, CertifiedReceipt mem
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = verifyCertifiedReceiptReturn;
+            type Return = bool;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -2981,14 +3037,34 @@ function verifyCertifiedReceipt(PodConfig memory podConfig, CertifiedReceipt mem
                 )
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: verifyCertifiedReceiptReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: verifyCertifiedReceiptReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -3101,7 +3177,7 @@ function verifyMultiCertificate(PodConfig memory podConfig, MultiCertificate mem
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = verifyMultiCertificateReturn;
+            type Return = bool;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -3124,14 +3200,34 @@ function verifyMultiCertificate(PodConfig memory podConfig, MultiCertificate mem
                 )
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: verifyMultiCertificateReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: verifyMultiCertificateReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -3202,20 +3298,16 @@ function verifyMultiCertificate(PodConfig memory podConfig, MultiCertificate mem
         fn abi_decode_raw(
             selector: [u8; 4],
             data: &[u8],
-            validate: bool,
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_SHIMS: &[fn(
                 &[u8],
-                bool,
             ) -> alloy_sol_types::Result<PodECDSACalls>] = &[
                 {
                     fn verifyCertifiedReceipt(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodECDSACalls> {
                         <verifyCertifiedReceiptCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodECDSACalls::verifyCertifiedReceipt)
                     }
@@ -3224,25 +3316,17 @@ function verifyMultiCertificate(PodConfig memory podConfig, MultiCertificate mem
                 {
                     fn verifyCertifiedLog(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodECDSACalls> {
                         <verifyCertifiedLogCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodECDSACalls::verifyCertifiedLog)
                     }
                     verifyCertifiedLog
                 },
                 {
-                    fn hashLog(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<PodECDSACalls> {
-                        <hashLogCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                    fn hashLog(data: &[u8]) -> alloy_sol_types::Result<PodECDSACalls> {
+                        <hashLogCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(PodECDSACalls::hashLog)
                     }
                     hashLog
@@ -3250,11 +3334,9 @@ function verifyMultiCertificate(PodConfig memory podConfig, MultiCertificate mem
                 {
                     fn verifyMultiCertificate(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodECDSACalls> {
                         <verifyMultiCertificateCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodECDSACalls::verifyMultiCertificate)
                     }
@@ -3263,11 +3345,9 @@ function verifyMultiCertificate(PodConfig memory podConfig, MultiCertificate mem
                 {
                     fn verifyCertificate(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodECDSACalls> {
                         <verifyCertificateCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodECDSACalls::verifyCertificate)
                     }
@@ -3282,7 +3362,80 @@ function verifyMultiCertificate(PodConfig memory podConfig, MultiCertificate mem
                     ),
                 );
             };
-            DECODE_SHIMS[idx](data, validate)
+            DECODE_SHIMS[idx](data)
+        }
+        #[inline]
+        #[allow(non_snake_case)]
+        fn abi_decode_raw_validate(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_VALIDATE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<PodECDSACalls>] = &[
+                {
+                    fn verifyCertifiedReceipt(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodECDSACalls> {
+                        <verifyCertifiedReceiptCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodECDSACalls::verifyCertifiedReceipt)
+                    }
+                    verifyCertifiedReceipt
+                },
+                {
+                    fn verifyCertifiedLog(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodECDSACalls> {
+                        <verifyCertifiedLogCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodECDSACalls::verifyCertifiedLog)
+                    }
+                    verifyCertifiedLog
+                },
+                {
+                    fn hashLog(data: &[u8]) -> alloy_sol_types::Result<PodECDSACalls> {
+                        <hashLogCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodECDSACalls::hashLog)
+                    }
+                    hashLog
+                },
+                {
+                    fn verifyMultiCertificate(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodECDSACalls> {
+                        <verifyMultiCertificateCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodECDSACalls::verifyMultiCertificate)
+                    }
+                    verifyMultiCertificate
+                },
+                {
+                    fn verifyCertificate(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodECDSACalls> {
+                        <verifyCertificateCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodECDSACalls::verifyCertificate)
+                    }
+                    verifyCertificate
+                },
+            ];
+            let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
+            };
+            DECODE_VALIDATE_SHIMS[idx](data)
         }
         #[inline]
         fn abi_encoded_size(&self) -> usize {
@@ -3351,14 +3504,13 @@ function verifyMultiCertificate(PodConfig memory podConfig, MultiCertificate mem
 See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
     #[inline]
     pub const fn new<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         address: alloy_sol_types::private::Address,
         provider: P,
-    ) -> PodECDSAInstance<T, P, N> {
-        PodECDSAInstance::<T, P, N>::new(address, provider)
+    ) -> PodECDSAInstance<P, N> {
+        PodECDSAInstance::<P, N>::new(address, provider)
     }
     /**A [`PodECDSA`](self) instance.
 
@@ -3372,13 +3524,13 @@ be used to deploy a new instance of the contract.
 
 See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
-    pub struct PodECDSAInstance<T, P, N = alloy_contract::private::Ethereum> {
+    pub struct PodECDSAInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
         provider: P,
-        _network_transport: ::core::marker::PhantomData<(N, T)>,
+        _network: ::core::marker::PhantomData<N>,
     }
     #[automatically_derived]
-    impl<T, P, N> ::core::fmt::Debug for PodECDSAInstance<T, P, N> {
+    impl<P, N> ::core::fmt::Debug for PodECDSAInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
             f.debug_tuple("PodECDSAInstance").field(&self.address).finish()
@@ -3387,10 +3539,9 @@ See the [module-level documentation](self) for all the available methods.*/
     /// Instantiation and getters/setters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > PodECDSAInstance<T, P, N> {
+    > PodECDSAInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`PodECDSA`](self) contract instance.
 
 See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
@@ -3402,7 +3553,7 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
             Self {
                 address,
                 provider,
-                _network_transport: ::core::marker::PhantomData,
+                _network: ::core::marker::PhantomData,
             }
         }
         /// Returns a reference to the address.
@@ -3426,24 +3577,23 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
             &self.provider
         }
     }
-    impl<T, P: ::core::clone::Clone, N> PodECDSAInstance<T, &P, N> {
+    impl<P: ::core::clone::Clone, N> PodECDSAInstance<&P, N> {
         /// Clones the provider and returns a new instance with the cloned provider.
         #[inline]
-        pub fn with_cloned_provider(self) -> PodECDSAInstance<T, P, N> {
+        pub fn with_cloned_provider(self) -> PodECDSAInstance<P, N> {
             PodECDSAInstance {
                 address: self.address,
                 provider: ::core::clone::Clone::clone(&self.provider),
-                _network_transport: ::core::marker::PhantomData,
+                _network: ::core::marker::PhantomData,
             }
         }
     }
     /// Function calls.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > PodECDSAInstance<T, P, N> {
+    > PodECDSAInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -3451,14 +3601,14 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
         pub fn call_builder<C: alloy_sol_types::SolCall>(
             &self,
             call: &C,
-        ) -> alloy_contract::SolCallBuilder<T, &P, C, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, C, N> {
             alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
         }
         ///Creates a new call builder for the [`hashLog`] function.
         pub fn hashLog(
             &self,
             log: <Log as alloy::sol_types::SolType>::RustType,
-        ) -> alloy_contract::SolCallBuilder<T, &P, hashLogCall, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, hashLogCall, N> {
             self.call_builder(&hashLogCall { log })
         }
         ///Creates a new call builder for the [`verifyCertificate`] function.
@@ -3466,7 +3616,7 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
             &self,
             podConfig: <PodConfig as alloy::sol_types::SolType>::RustType,
             certificate: <Certificate as alloy::sol_types::SolType>::RustType,
-        ) -> alloy_contract::SolCallBuilder<T, &P, verifyCertificateCall, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, verifyCertificateCall, N> {
             self.call_builder(
                 &verifyCertificateCall {
                     podConfig,
@@ -3479,7 +3629,7 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
             &self,
             podConfig: <PodConfig as alloy::sol_types::SolType>::RustType,
             certifiedLog: <CertifiedLog as alloy::sol_types::SolType>::RustType,
-        ) -> alloy_contract::SolCallBuilder<T, &P, verifyCertifiedLogCall, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, verifyCertifiedLogCall, N> {
             self.call_builder(
                 &verifyCertifiedLogCall {
                     podConfig,
@@ -3492,7 +3642,7 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
             &self,
             podConfig: <PodConfig as alloy::sol_types::SolType>::RustType,
             certifiedReceipt: <CertifiedReceipt as alloy::sol_types::SolType>::RustType,
-        ) -> alloy_contract::SolCallBuilder<T, &P, verifyCertifiedReceiptCall, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, verifyCertifiedReceiptCall, N> {
             self.call_builder(
                 &verifyCertifiedReceiptCall {
                     podConfig,
@@ -3505,7 +3655,7 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
             &self,
             podConfig: <PodConfig as alloy::sol_types::SolType>::RustType,
             certificate: <MultiCertificate as alloy::sol_types::SolType>::RustType,
-        ) -> alloy_contract::SolCallBuilder<T, &P, verifyMultiCertificateCall, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, verifyMultiCertificateCall, N> {
             self.call_builder(
                 &verifyMultiCertificateCall {
                     podConfig,
@@ -3517,17 +3667,16 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
     /// Event filters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > PodECDSAInstance<T, P, N> {
+    > PodECDSAInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
         /// Prefer using the other methods for building type-safe event filters.
         pub fn event_filter<E: alloy_sol_types::SolEvent>(
             &self,
-        ) -> alloy_contract::Event<T, &P, E, N> {
+        ) -> alloy_contract::Event<&P, E, N> {
             alloy_contract::Event::new_sol(&self.provider, &self.address)
         }
     }

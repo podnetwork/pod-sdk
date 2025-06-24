@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import {requireTimeBefore, requireTimeAfter} from "pod-sdk/pod/Time.sol";
+import {requireTimeBefore, requireTimeAfter} from "pod-sdk/Time.sol";
+import {requireQuorum} from "pod-sdk/Quorum.sol";
 
 contract Voting {
     enum VoterState {

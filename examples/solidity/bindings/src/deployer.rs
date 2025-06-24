@@ -51,7 +51,7 @@ function IS_SCRIPT() external view returns (bool);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct IS_SCRIPTCall {}
+    pub struct IS_SCRIPTCall;
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`IS_SCRIPT()`](IS_SCRIPTCall) function.
@@ -96,7 +96,7 @@ function IS_SCRIPT() external view returns (bool);
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for IS_SCRIPTCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -137,7 +137,7 @@ function IS_SCRIPT() external view returns (bool);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = IS_SCRIPTReturn;
+            type Return = bool;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -155,14 +155,34 @@ function IS_SCRIPT() external view returns (bool);
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: IS_SCRIPTReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: IS_SCRIPTReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -174,7 +194,7 @@ function run() external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct runCall {}
+    pub struct runCall;
     ///Container type for the return parameters of the [`run()`](runCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -214,7 +234,7 @@ function run() external;
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for runCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -249,6 +269,13 @@ function run() external;
                 }
             }
         }
+        impl runReturn {
+            fn _tokenize(
+                &self,
+            ) -> <runCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for runCall {
             type Parameters<'a> = ();
@@ -273,13 +300,23 @@ function run() external;
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                runReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
             }
         }
@@ -333,33 +370,57 @@ function run() external;
         fn abi_decode_raw(
             selector: [u8; 4],
             data: &[u8],
-            validate: bool,
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_SHIMS: &[fn(
                 &[u8],
-                bool,
             ) -> alloy_sol_types::Result<DeployerCalls>] = &[
                 {
-                    fn run(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<DeployerCalls> {
-                        <runCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                    fn run(data: &[u8]) -> alloy_sol_types::Result<DeployerCalls> {
+                        <runCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(DeployerCalls::run)
+                    }
+                    run
+                },
+                {
+                    fn IS_SCRIPT(data: &[u8]) -> alloy_sol_types::Result<DeployerCalls> {
+                        <IS_SCRIPTCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(DeployerCalls::IS_SCRIPT)
+                    }
+                    IS_SCRIPT
+                },
+            ];
+            let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
+            };
+            DECODE_SHIMS[idx](data)
+        }
+        #[inline]
+        #[allow(non_snake_case)]
+        fn abi_decode_raw_validate(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_VALIDATE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<DeployerCalls>] = &[
+                {
+                    fn run(data: &[u8]) -> alloy_sol_types::Result<DeployerCalls> {
+                        <runCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
-                                validate,
                             )
                             .map(DeployerCalls::run)
                     }
                     run
                 },
                 {
-                    fn IS_SCRIPT(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<DeployerCalls> {
-                        <IS_SCRIPTCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                    fn IS_SCRIPT(data: &[u8]) -> alloy_sol_types::Result<DeployerCalls> {
+                        <IS_SCRIPTCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
-                                validate,
                             )
                             .map(DeployerCalls::IS_SCRIPT)
                     }
@@ -374,7 +435,7 @@ function run() external;
                     ),
                 );
             };
-            DECODE_SHIMS[idx](data, validate)
+            DECODE_VALIDATE_SHIMS[idx](data)
         }
         #[inline]
         fn abi_encoded_size(&self) -> usize {
@@ -408,14 +469,13 @@ function run() external;
 See the [wrapper's documentation](`DeployerInstance`) for more details.*/
     #[inline]
     pub const fn new<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         address: alloy_sol_types::private::Address,
         provider: P,
-    ) -> DeployerInstance<T, P, N> {
-        DeployerInstance::<T, P, N>::new(address, provider)
+    ) -> DeployerInstance<P, N> {
+        DeployerInstance::<P, N>::new(address, provider)
     }
     /**A [`Deployer`](self) instance.
 
@@ -429,13 +489,13 @@ be used to deploy a new instance of the contract.
 
 See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
-    pub struct DeployerInstance<T, P, N = alloy_contract::private::Ethereum> {
+    pub struct DeployerInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
         provider: P,
-        _network_transport: ::core::marker::PhantomData<(N, T)>,
+        _network: ::core::marker::PhantomData<N>,
     }
     #[automatically_derived]
-    impl<T, P, N> ::core::fmt::Debug for DeployerInstance<T, P, N> {
+    impl<P, N> ::core::fmt::Debug for DeployerInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
             f.debug_tuple("DeployerInstance").field(&self.address).finish()
@@ -444,10 +504,9 @@ See the [module-level documentation](self) for all the available methods.*/
     /// Instantiation and getters/setters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > DeployerInstance<T, P, N> {
+    > DeployerInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`Deployer`](self) contract instance.
 
 See the [wrapper's documentation](`DeployerInstance`) for more details.*/
@@ -459,7 +518,7 @@ See the [wrapper's documentation](`DeployerInstance`) for more details.*/
             Self {
                 address,
                 provider,
-                _network_transport: ::core::marker::PhantomData,
+                _network: ::core::marker::PhantomData,
             }
         }
         /// Returns a reference to the address.
@@ -483,24 +542,23 @@ See the [wrapper's documentation](`DeployerInstance`) for more details.*/
             &self.provider
         }
     }
-    impl<T, P: ::core::clone::Clone, N> DeployerInstance<T, &P, N> {
+    impl<P: ::core::clone::Clone, N> DeployerInstance<&P, N> {
         /// Clones the provider and returns a new instance with the cloned provider.
         #[inline]
-        pub fn with_cloned_provider(self) -> DeployerInstance<T, P, N> {
+        pub fn with_cloned_provider(self) -> DeployerInstance<P, N> {
             DeployerInstance {
                 address: self.address,
                 provider: ::core::clone::Clone::clone(&self.provider),
-                _network_transport: ::core::marker::PhantomData,
+                _network: ::core::marker::PhantomData,
             }
         }
     }
     /// Function calls.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > DeployerInstance<T, P, N> {
+    > DeployerInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -508,34 +566,31 @@ See the [wrapper's documentation](`DeployerInstance`) for more details.*/
         pub fn call_builder<C: alloy_sol_types::SolCall>(
             &self,
             call: &C,
-        ) -> alloy_contract::SolCallBuilder<T, &P, C, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, C, N> {
             alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
         }
         ///Creates a new call builder for the [`IS_SCRIPT`] function.
-        pub fn IS_SCRIPT(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<T, &P, IS_SCRIPTCall, N> {
-            self.call_builder(&IS_SCRIPTCall {})
+        pub fn IS_SCRIPT(&self) -> alloy_contract::SolCallBuilder<&P, IS_SCRIPTCall, N> {
+            self.call_builder(&IS_SCRIPTCall)
         }
         ///Creates a new call builder for the [`run`] function.
-        pub fn run(&self) -> alloy_contract::SolCallBuilder<T, &P, runCall, N> {
-            self.call_builder(&runCall {})
+        pub fn run(&self) -> alloy_contract::SolCallBuilder<&P, runCall, N> {
+            self.call_builder(&runCall)
         }
     }
     /// Event filters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > DeployerInstance<T, P, N> {
+    > DeployerInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
         /// Prefer using the other methods for building type-safe event filters.
         pub fn event_filter<E: alloy_sol_types::SolEvent>(
             &self,
-        ) -> alloy_contract::Event<T, &P, E, N> {
+        ) -> alloy_contract::Event<&P, E, N> {
             alloy_contract::Event::new_sol(&self.provider, &self.address)
         }
     }

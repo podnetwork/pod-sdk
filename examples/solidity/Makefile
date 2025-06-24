@@ -1,8 +1,7 @@
 generate:
-	forge bind --crate-name pod-examples-solidity --bindings-path ./bindings --alloy-version 0.12.1 --force --no-metadata --overwrite
-	@printf '\nserde = { version = "1.0.214", features = ["derive"] }' >> ./bindings/Cargo.toml
+	forge bind --crate-name pod-examples-solidity --bindings-path ./bindings --alloy-version 1.0.9 --force --no-metadata --overwrite
 
 check:
-	forge bind --crate-name pod-examples-solidity --bindings-path ./bindings --alloy-version 0.12.1 --force --no-metadata
+	forge bind --crate-name pod-examples-solidity --bindings-path ./bindings --alloy-version 1.0.9 --force --no-metadata
 .PHONY: generate
 .PHONY: check

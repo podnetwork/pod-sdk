@@ -8,11 +8,11 @@ name = "optimistic_auction"
 path = "client/main.rs"
 
 [dependencies]
-alloy-network = "0.12.1"
-alloy-sol-types = "0.8.24"
-alloy-primitives = { version = "^0.8.22", features = ["k256", "serde"] }
-alloy-signer-local = "0.12.1"
-alloy-provider = { version = "0.12.1", features = ["pubsub", "ws"] }
+alloy-network = "1.0.9"
+alloy-sol-types = "1.1.0"
+alloy-primitives = { version = "1.1.0", features = ["k256", "serde"] }
+alloy-signer-local = "1.0.9"
+alloy-provider = { version = "1.0.9", features = ["pubsub", "ws"] }
 anyhow = "1.0.98"
 clap = { version = "4.5.38", features = ["derive"] }
 dotenv = "0.15.0"

@@ -294,6 +294,13 @@ error OwnableInvalidOwner(address owner);
                     ),
                 )
             }
+            #[inline]
+            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
+                <Self::Parameters<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Self::new)
+            }
         }
     };
     #[derive(serde::Serialize, serde::Deserialize)]
@@ -368,6 +375,13 @@ error OwnableUnauthorizedAccount(address account);
                         &self.account,
                     ),
                 )
+            }
+            #[inline]
+            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
+                <Self::Parameters<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Self::new)
             }
         }
     };
@@ -820,7 +834,7 @@ function bond() external payable;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct bondCall {}
+    pub struct bondCall;
     ///Container type for the return parameters of the [`bond()`](bondCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -860,7 +874,7 @@ function bond() external payable;
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for bondCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -895,6 +909,13 @@ function bond() external payable;
                 }
             }
         }
+        impl bondReturn {
+            fn _tokenize(
+                &self,
+            ) -> <bondCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for bondCall {
             type Parameters<'a> = ();
@@ -919,13 +940,23 @@ function bond() external payable;
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                bondReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
             }
         }
@@ -938,7 +969,7 @@ function bondAmount() external view returns (uint256);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct bondAmountCall {}
+    pub struct bondAmountCall;
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`bondAmount()`](bondAmountCall) function.
@@ -983,7 +1014,7 @@ function bondAmount() external view returns (uint256);
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for bondAmountCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -1026,7 +1057,7 @@ function bondAmount() external view returns (uint256);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = bondAmountReturn;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -1044,14 +1075,34 @@ function bondAmount() external view returns (uint256);
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: bondAmountReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: bondAmountReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -1063,10 +1114,7 @@ function isBonded(address) external view returns (bool);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct isBondedCall {
-        #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::Address,
-    }
+    pub struct isBondedCall(pub alloy::sol_types::private::Address);
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`isBonded(address)`](isBondedCall) function.
@@ -1104,14 +1152,14 @@ function isBonded(address) external view returns (bool);
             #[doc(hidden)]
             impl ::core::convert::From<isBondedCall> for UnderlyingRustTuple<'_> {
                 fn from(value: isBondedCall) -> Self {
-                    (value._0,)
+                    (value.0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for isBondedCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
+                    Self(tuple.0)
                 }
             }
         }
@@ -1152,7 +1200,7 @@ function isBonded(address) external view returns (bool);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = isBondedReturn;
+            type Return = bool;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -1169,19 +1217,39 @@ function isBonded(address) external view returns (bool);
             fn tokenize(&self) -> Self::Token<'_> {
                 (
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self._0,
+                        &self.0,
                     ),
                 )
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: isBondedReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: isBondedReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -1193,7 +1261,7 @@ function owner() external view returns (address);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct ownerCall {}
+    pub struct ownerCall;
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`owner()`](ownerCall) function.
@@ -1238,7 +1306,7 @@ function owner() external view returns (address);
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for ownerCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -1279,7 +1347,7 @@ function owner() external view returns (address);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = ownerReturn;
+            type Return = alloy::sol_types::private::Address;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -1297,14 +1365,34 @@ function owner() external view returns (address);
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: ownerReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: ownerReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -1316,7 +1404,7 @@ function renounceOwnership() external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct renounceOwnershipCall {}
+    pub struct renounceOwnershipCall;
     ///Container type for the return parameters of the [`renounceOwnership()`](renounceOwnershipCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1358,7 +1446,7 @@ function renounceOwnership() external;
             impl ::core::convert::From<UnderlyingRustTuple<'_>>
             for renounceOwnershipCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -1395,6 +1483,13 @@ function renounceOwnership() external;
                 }
             }
         }
+        impl renounceOwnershipReturn {
+            fn _tokenize(
+                &self,
+            ) -> <renounceOwnershipCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for renounceOwnershipCall {
             type Parameters<'a> = ();
@@ -1419,13 +1514,23 @@ function renounceOwnership() external;
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                renounceOwnershipReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
             }
         }
@@ -1520,6 +1625,13 @@ function transferOwnership(address newOwner) external;
                 }
             }
         }
+        impl transferOwnershipReturn {
+            fn _tokenize(
+                &self,
+            ) -> <transferOwnershipCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for transferOwnershipCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
@@ -1548,13 +1660,23 @@ function transferOwnership(address newOwner) external;
                 )
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                transferOwnershipReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
             }
         }
@@ -1567,7 +1689,7 @@ function unbond() external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct unbondCall {}
+    pub struct unbondCall;
     ///Container type for the return parameters of the [`unbond()`](unbondCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1607,7 +1729,7 @@ function unbond() external;
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for unbondCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -1642,6 +1764,13 @@ function unbond() external;
                 }
             }
         }
+        impl unbondReturn {
+            fn _tokenize(
+                &self,
+            ) -> <unbondCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for unbondCall {
             type Parameters<'a> = ();
@@ -1666,13 +1795,23 @@ function unbond() external;
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                unbondReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
             }
         }
@@ -1685,7 +1824,7 @@ function withdraw() external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct withdrawCall {}
+    pub struct withdrawCall;
     ///Container type for the return parameters of the [`withdraw()`](withdrawCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1725,7 +1864,7 @@ function withdraw() external;
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for withdrawCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -1760,6 +1899,13 @@ function withdraw() external;
                 }
             }
         }
+        impl withdrawReturn {
+            fn _tokenize(
+                &self,
+            ) -> <withdrawCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for withdrawCall {
             type Parameters<'a> = ();
@@ -1784,13 +1930,23 @@ function withdraw() external;
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                withdrawReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
             }
         }
@@ -1872,21 +2028,15 @@ function withdraw() external;
         fn abi_decode_raw(
             selector: [u8; 4],
             data: &[u8],
-            validate: bool,
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_SHIMS: &[fn(
                 &[u8],
-                bool,
             ) -> alloy_sol_types::Result<AbsBondingCalls>] = &[
                 {
                     fn withdraw(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<AbsBondingCalls> {
-                        <withdrawCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                        <withdrawCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(AbsBondingCalls::withdraw)
                     }
                     withdraw
@@ -1894,38 +2044,22 @@ function withdraw() external;
                 {
                     fn isBonded(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<AbsBondingCalls> {
-                        <isBondedCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                        <isBondedCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(AbsBondingCalls::isBonded)
                     }
                     isBonded
                 },
                 {
-                    fn unbond(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<AbsBondingCalls> {
-                        <unbondCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                    fn unbond(data: &[u8]) -> alloy_sol_types::Result<AbsBondingCalls> {
+                        <unbondCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(AbsBondingCalls::unbond)
                     }
                     unbond
                 },
                 {
-                    fn bond(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<AbsBondingCalls> {
-                        <bondCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                    fn bond(data: &[u8]) -> alloy_sol_types::Result<AbsBondingCalls> {
+                        <bondCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(AbsBondingCalls::bond)
                     }
                     bond
@@ -1933,11 +2067,9 @@ function withdraw() external;
                 {
                     fn renounceOwnership(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<AbsBondingCalls> {
                         <renounceOwnershipCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(AbsBondingCalls::renounceOwnership)
                     }
@@ -1946,25 +2078,17 @@ function withdraw() external;
                 {
                     fn bondAmount(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<AbsBondingCalls> {
                         <bondAmountCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(AbsBondingCalls::bondAmount)
                     }
                     bondAmount
                 },
                 {
-                    fn owner(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<AbsBondingCalls> {
-                        <ownerCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                    fn owner(data: &[u8]) -> alloy_sol_types::Result<AbsBondingCalls> {
+                        <ownerCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(AbsBondingCalls::owner)
                     }
                     owner
@@ -1972,11 +2096,9 @@ function withdraw() external;
                 {
                     fn transferOwnership(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<AbsBondingCalls> {
                         <transferOwnershipCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(AbsBondingCalls::transferOwnership)
                     }
@@ -1991,7 +2113,109 @@ function withdraw() external;
                     ),
                 );
             };
-            DECODE_SHIMS[idx](data, validate)
+            DECODE_SHIMS[idx](data)
+        }
+        #[inline]
+        #[allow(non_snake_case)]
+        fn abi_decode_raw_validate(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_VALIDATE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<AbsBondingCalls>] = &[
+                {
+                    fn withdraw(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<AbsBondingCalls> {
+                        <withdrawCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(AbsBondingCalls::withdraw)
+                    }
+                    withdraw
+                },
+                {
+                    fn isBonded(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<AbsBondingCalls> {
+                        <isBondedCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(AbsBondingCalls::isBonded)
+                    }
+                    isBonded
+                },
+                {
+                    fn unbond(data: &[u8]) -> alloy_sol_types::Result<AbsBondingCalls> {
+                        <unbondCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(AbsBondingCalls::unbond)
+                    }
+                    unbond
+                },
+                {
+                    fn bond(data: &[u8]) -> alloy_sol_types::Result<AbsBondingCalls> {
+                        <bondCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(AbsBondingCalls::bond)
+                    }
+                    bond
+                },
+                {
+                    fn renounceOwnership(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<AbsBondingCalls> {
+                        <renounceOwnershipCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(AbsBondingCalls::renounceOwnership)
+                    }
+                    renounceOwnership
+                },
+                {
+                    fn bondAmount(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<AbsBondingCalls> {
+                        <bondAmountCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(AbsBondingCalls::bondAmount)
+                    }
+                    bondAmount
+                },
+                {
+                    fn owner(data: &[u8]) -> alloy_sol_types::Result<AbsBondingCalls> {
+                        <ownerCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(AbsBondingCalls::owner)
+                    }
+                    owner
+                },
+                {
+                    fn transferOwnership(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<AbsBondingCalls> {
+                        <transferOwnershipCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(AbsBondingCalls::transferOwnership)
+                    }
+                    transferOwnership
+                },
+            ];
+            let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
+            };
+            DECODE_VALIDATE_SHIMS[idx](data)
         }
         #[inline]
         fn abi_encoded_size(&self) -> usize {
@@ -2122,20 +2346,16 @@ function withdraw() external;
         fn abi_decode_raw(
             selector: [u8; 4],
             data: &[u8],
-            validate: bool,
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_SHIMS: &[fn(
                 &[u8],
-                bool,
             ) -> alloy_sol_types::Result<AbsBondingErrors>] = &[
                 {
                     fn OwnableUnauthorizedAccount(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<AbsBondingErrors> {
                         <OwnableUnauthorizedAccount as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(AbsBondingErrors::OwnableUnauthorizedAccount)
                     }
@@ -2144,11 +2364,9 @@ function withdraw() external;
                 {
                     fn OwnableInvalidOwner(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<AbsBondingErrors> {
                         <OwnableInvalidOwner as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(AbsBondingErrors::OwnableInvalidOwner)
                     }
@@ -2163,7 +2381,49 @@ function withdraw() external;
                     ),
                 );
             };
-            DECODE_SHIMS[idx](data, validate)
+            DECODE_SHIMS[idx](data)
+        }
+        #[inline]
+        #[allow(non_snake_case)]
+        fn abi_decode_raw_validate(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_VALIDATE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<AbsBondingErrors>] = &[
+                {
+                    fn OwnableUnauthorizedAccount(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<AbsBondingErrors> {
+                        <OwnableUnauthorizedAccount as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(AbsBondingErrors::OwnableUnauthorizedAccount)
+                    }
+                    OwnableUnauthorizedAccount
+                },
+                {
+                    fn OwnableInvalidOwner(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<AbsBondingErrors> {
+                        <OwnableInvalidOwner as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(AbsBondingErrors::OwnableInvalidOwner)
+                    }
+                    OwnableInvalidOwner
+                },
+            ];
+            let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
+            };
+            DECODE_VALIDATE_SHIMS[idx](data)
         }
         #[inline]
         fn abi_encoded_size(&self) -> usize {
@@ -2249,15 +2509,10 @@ function withdraw() external;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
-            validate: bool,
         ) -> alloy_sol_types::Result<Self> {
             match topics.first().copied() {
                 Some(<Bonded as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <Bonded as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                            validate,
-                        )
+                    <Bonded as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
                         .map(Self::Bonded)
                 }
                 Some(
@@ -2266,24 +2521,15 @@ function withdraw() external;
                     <OwnershipTransferred as alloy_sol_types::SolEvent>::decode_raw_log(
                             topics,
                             data,
-                            validate,
                         )
                         .map(Self::OwnershipTransferred)
                 }
                 Some(<Slashed as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <Slashed as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                            validate,
-                        )
+                    <Slashed as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
                         .map(Self::Slashed)
                 }
                 Some(<Unbonded as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <Unbonded as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                            validate,
-                        )
+                    <Unbonded as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
                         .map(Self::Unbonded)
                 }
                 _ => {
@@ -2341,14 +2587,13 @@ function withdraw() external;
 See the [wrapper's documentation](`AbsBondingInstance`) for more details.*/
     #[inline]
     pub const fn new<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         address: alloy_sol_types::private::Address,
         provider: P,
-    ) -> AbsBondingInstance<T, P, N> {
-        AbsBondingInstance::<T, P, N>::new(address, provider)
+    ) -> AbsBondingInstance<P, N> {
+        AbsBondingInstance::<P, N>::new(address, provider)
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
@@ -2357,15 +2602,14 @@ Returns a new instance of the contract, if the deployment was successful.
 For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
     pub fn deploy<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         provider: P,
     ) -> impl ::core::future::Future<
-        Output = alloy_contract::Result<AbsBondingInstance<T, P, N>>,
+        Output = alloy_contract::Result<AbsBondingInstance<P, N>>,
     > {
-        AbsBondingInstance::<T, P, N>::deploy(provider)
+        AbsBondingInstance::<P, N>::deploy(provider)
     }
     /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
 and constructor arguments, if any.
@@ -2374,11 +2618,10 @@ This is a simple wrapper around creating a `RawCallBuilder` with the data set to
 the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     #[inline]
     pub fn deploy_builder<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(provider: P) -> alloy_contract::RawCallBuilder<T, P, N> {
-        AbsBondingInstance::<T, P, N>::deploy_builder(provider)
+    >(provider: P) -> alloy_contract::RawCallBuilder<P, N> {
+        AbsBondingInstance::<P, N>::deploy_builder(provider)
     }
     /**A [`AbsBonding`](self) instance.
 
@@ -2392,13 +2635,13 @@ be used to deploy a new instance of the contract.
 
 See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
-    pub struct AbsBondingInstance<T, P, N = alloy_contract::private::Ethereum> {
+    pub struct AbsBondingInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
         provider: P,
-        _network_transport: ::core::marker::PhantomData<(N, T)>,
+        _network: ::core::marker::PhantomData<N>,
     }
     #[automatically_derived]
-    impl<T, P, N> ::core::fmt::Debug for AbsBondingInstance<T, P, N> {
+    impl<P, N> ::core::fmt::Debug for AbsBondingInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
             f.debug_tuple("AbsBondingInstance").field(&self.address).finish()
@@ -2407,10 +2650,9 @@ See the [module-level documentation](self) for all the available methods.*/
     /// Instantiation and getters/setters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > AbsBondingInstance<T, P, N> {
+    > AbsBondingInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`AbsBonding`](self) contract instance.
 
 See the [wrapper's documentation](`AbsBondingInstance`) for more details.*/
@@ -2422,7 +2664,7 @@ See the [wrapper's documentation](`AbsBondingInstance`) for more details.*/
             Self {
                 address,
                 provider,
-                _network_transport: ::core::marker::PhantomData,
+                _network: ::core::marker::PhantomData,
             }
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
@@ -2433,7 +2675,7 @@ For more fine-grained control over the deployment process, use [`deploy_builder`
         #[inline]
         pub async fn deploy(
             provider: P,
-        ) -> alloy_contract::Result<AbsBondingInstance<T, P, N>> {
+        ) -> alloy_contract::Result<AbsBondingInstance<P, N>> {
             let call_builder = Self::deploy_builder(provider);
             let contract_address = call_builder.deploy().await?;
             Ok(Self::new(contract_address, call_builder.provider))
@@ -2444,7 +2686,7 @@ and constructor arguments, if any.
 This is a simple wrapper around creating a `RawCallBuilder` with the data set to
 the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
-        pub fn deploy_builder(provider: P) -> alloy_contract::RawCallBuilder<T, P, N> {
+        pub fn deploy_builder(provider: P) -> alloy_contract::RawCallBuilder<P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
                 provider,
                 ::core::clone::Clone::clone(&BYTECODE),
@@ -2471,24 +2713,23 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self.provider
         }
     }
-    impl<T, P: ::core::clone::Clone, N> AbsBondingInstance<T, &P, N> {
+    impl<P: ::core::clone::Clone, N> AbsBondingInstance<&P, N> {
         /// Clones the provider and returns a new instance with the cloned provider.
         #[inline]
-        pub fn with_cloned_provider(self) -> AbsBondingInstance<T, P, N> {
+        pub fn with_cloned_provider(self) -> AbsBondingInstance<P, N> {
             AbsBondingInstance {
                 address: self.address,
                 provider: ::core::clone::Clone::clone(&self.provider),
-                _network_transport: ::core::marker::PhantomData,
+                _network: ::core::marker::PhantomData,
             }
         }
     }
     /// Function calls.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > AbsBondingInstance<T, P, N> {
+    > AbsBondingInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -2496,86 +2737,83 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         pub fn call_builder<C: alloy_sol_types::SolCall>(
             &self,
             call: &C,
-        ) -> alloy_contract::SolCallBuilder<T, &P, C, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, C, N> {
             alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
         }
         ///Creates a new call builder for the [`bond`] function.
-        pub fn bond(&self) -> alloy_contract::SolCallBuilder<T, &P, bondCall, N> {
-            self.call_builder(&bondCall {})
+        pub fn bond(&self) -> alloy_contract::SolCallBuilder<&P, bondCall, N> {
+            self.call_builder(&bondCall)
         }
         ///Creates a new call builder for the [`bondAmount`] function.
         pub fn bondAmount(
             &self,
-        ) -> alloy_contract::SolCallBuilder<T, &P, bondAmountCall, N> {
-            self.call_builder(&bondAmountCall {})
+        ) -> alloy_contract::SolCallBuilder<&P, bondAmountCall, N> {
+            self.call_builder(&bondAmountCall)
         }
         ///Creates a new call builder for the [`isBonded`] function.
         pub fn isBonded(
             &self,
             _0: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<T, &P, isBondedCall, N> {
-            self.call_builder(&isBondedCall { _0 })
+        ) -> alloy_contract::SolCallBuilder<&P, isBondedCall, N> {
+            self.call_builder(&isBondedCall(_0))
         }
         ///Creates a new call builder for the [`owner`] function.
-        pub fn owner(&self) -> alloy_contract::SolCallBuilder<T, &P, ownerCall, N> {
-            self.call_builder(&ownerCall {})
+        pub fn owner(&self) -> alloy_contract::SolCallBuilder<&P, ownerCall, N> {
+            self.call_builder(&ownerCall)
         }
         ///Creates a new call builder for the [`renounceOwnership`] function.
         pub fn renounceOwnership(
             &self,
-        ) -> alloy_contract::SolCallBuilder<T, &P, renounceOwnershipCall, N> {
-            self.call_builder(&renounceOwnershipCall {})
+        ) -> alloy_contract::SolCallBuilder<&P, renounceOwnershipCall, N> {
+            self.call_builder(&renounceOwnershipCall)
         }
         ///Creates a new call builder for the [`transferOwnership`] function.
         pub fn transferOwnership(
             &self,
             newOwner: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<T, &P, transferOwnershipCall, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, transferOwnershipCall, N> {
             self.call_builder(&transferOwnershipCall { newOwner })
         }
         ///Creates a new call builder for the [`unbond`] function.
-        pub fn unbond(&self) -> alloy_contract::SolCallBuilder<T, &P, unbondCall, N> {
-            self.call_builder(&unbondCall {})
+        pub fn unbond(&self) -> alloy_contract::SolCallBuilder<&P, unbondCall, N> {
+            self.call_builder(&unbondCall)
         }
         ///Creates a new call builder for the [`withdraw`] function.
-        pub fn withdraw(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<T, &P, withdrawCall, N> {
-            self.call_builder(&withdrawCall {})
+        pub fn withdraw(&self) -> alloy_contract::SolCallBuilder<&P, withdrawCall, N> {
+            self.call_builder(&withdrawCall)
         }
     }
     /// Event filters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > AbsBondingInstance<T, P, N> {
+    > AbsBondingInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
         /// Prefer using the other methods for building type-safe event filters.
         pub fn event_filter<E: alloy_sol_types::SolEvent>(
             &self,
-        ) -> alloy_contract::Event<T, &P, E, N> {
+        ) -> alloy_contract::Event<&P, E, N> {
             alloy_contract::Event::new_sol(&self.provider, &self.address)
         }
         ///Creates a new event filter for the [`Bonded`] event.
-        pub fn Bonded_filter(&self) -> alloy_contract::Event<T, &P, Bonded, N> {
+        pub fn Bonded_filter(&self) -> alloy_contract::Event<&P, Bonded, N> {
             self.event_filter::<Bonded>()
         }
         ///Creates a new event filter for the [`OwnershipTransferred`] event.
         pub fn OwnershipTransferred_filter(
             &self,
-        ) -> alloy_contract::Event<T, &P, OwnershipTransferred, N> {
+        ) -> alloy_contract::Event<&P, OwnershipTransferred, N> {
             self.event_filter::<OwnershipTransferred>()
         }
         ///Creates a new event filter for the [`Slashed`] event.
-        pub fn Slashed_filter(&self) -> alloy_contract::Event<T, &P, Slashed, N> {
+        pub fn Slashed_filter(&self) -> alloy_contract::Event<&P, Slashed, N> {
             self.event_filter::<Slashed>()
         }
         ///Creates a new event filter for the [`Unbonded`] event.
-        pub fn Unbonded_filter(&self) -> alloy_contract::Event<T, &P, Unbonded, N> {
+        pub fn Unbonded_filter(&self) -> alloy_contract::Event<&P, Unbonded, N> {
             self.event_filter::<Unbonded>()
         }
     }

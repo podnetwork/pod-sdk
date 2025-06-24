@@ -126,7 +126,7 @@ async fn watch(
             continue;
         }
 
-        let event = NFTs::Minted::decode_log(&log.inner.inner, true)
+        let event = NFTs::Minted::decode_log(&log.inner.inner)
             .context("decoding event failed – the deployed contract interface may differ")?;
 
         println!(
@@ -160,7 +160,7 @@ async fn token_uri(rpc_url: String, contract_address: Address, token_id: U256) -
         .await?;
     let nfts = NFTs::new(contract_address, pod_provider.clone());
 
-    Ok(nfts.tokenURI(token_id).call().await?._0)
+    Ok(nfts.tokenURI(token_id).call().await?)
 }
 
 async fn transfer_token(

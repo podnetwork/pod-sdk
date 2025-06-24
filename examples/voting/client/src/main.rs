@@ -243,7 +243,7 @@ async fn watch(rpc_url: String, contract_address: Address) -> Result<()> {
             eprintln!(" got invalid event!");
             continue;
         }
-        let event = Voting::VotingEvents::decode_log(&log.inner.inner, true)
+        let event = Voting::VotingEvents::decode_log(&log.inner.inner)
             .context("decoding event failed. deployed contract version might not match")?;
         match event.data {
             Voting::VotingEvents::Voted(voted) => {
@@ -308,6 +308,6 @@ async fn create_poll(
         .first()
         .ok_or(anyhow!("missing PollCreated event"))?;
 
-    let poll_created = Voting::PollCreated::decode_log_data(event.data(), true)?;
+    let poll_created = Voting::PollCreated::decode_log_data(event.data())?;
     Ok(poll_created.pollId)
 }

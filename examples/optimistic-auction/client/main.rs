@@ -24,9 +24,9 @@ use pod_types::{
     rpc::filter::LogFilterBuilder, Hashable,
 };
 
-use pod_optimistic_auction::podauctionconsumer::{
+use pod_optimistic_auction::pod_auction_consumer::{
     MerkleTree::Proof,
-    PodAuctionConsumer::{self, readReturn, PodAuctionConsumerInstance, State},
+    PodAuctionConsumer::{self, PodAuctionConsumerInstance},
     PodECDSA::{
         Certificate as AuctionCertificate, CertifiedLog, CertifiedReceipt, Log as AuctionLog,
     },
@@ -47,7 +47,6 @@ type ConsumerProviderType = FillProvider<
 >;
 
 type ConsumerContractType = PodAuctionConsumerInstance<
-    (),
     FillProvider<
         JoinFill<
             JoinFill<
@@ -63,7 +62,7 @@ type ConsumerContractType = PodAuctionConsumerInstance<
 
 struct AuctionClient {
     pod_provider: PodProvider,
-    auction_contract: AuctionInstance<(), PodProvider, PodNetwork>,
+    auction_contract: AuctionInstance<PodProvider, PodNetwork>,
     consumer_provider: ConsumerProviderType,
     consumer_contract: ConsumerContractType,
 }
@@ -110,7 +109,7 @@ impl AuctionClient {
 
         let consumer_provider = ProviderBuilder::new()
             .wallet(wallet.clone())
-            .on_http(consumer_rpc_url.parse()?);
+            .connect_http(consumer_rpc_url.parse()?);
 
         let consumer_contract =
             PodAuctionConsumer::new(consumer_contract_address, consumer_provider.clone());
@@ -240,13 +239,11 @@ impl AuctionClient {
     // }
 
     pub async fn read_state(&self, auction_id: U256, deadline: U256) -> Result<()> {
-        let state: readReturn = self
+        let result = self
             .consumer_contract
             .read(auction_id, deadline)
             .call()
             .await?;
-
-        let result: State = state._0;
 
         println!("WINNER: {:?}", result.winner);
         println!("BLAMED: {:?}", result.blamed);
