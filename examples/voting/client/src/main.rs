@@ -252,7 +252,7 @@ async fn get_votes(
 
     let mut votes = Vec::with_capacity(logs.len());
     for log in logs {
-        let vote = Voting::VoteCast::decode_log_data(log.data(), true)?;
+        let vote = Voting::VoteCast::decode_log_data(log.data())?;
         votes.push(vote);
     }
 
@@ -303,7 +303,7 @@ async fn create_proposal(
         .first()
         .ok_or(anyhow!("missing ProposalCreated event"))?;
 
-    let proposal_created = Voting::ProposalCreated::decode_log_data(event.data(), true)?;
+    let proposal_created = Voting::ProposalCreated::decode_log_data(event.data())?;
     Ok(ProposalId(proposal_created.proposalId))
 }
 
@@ -330,7 +330,7 @@ async fn watch(rpc_url: String, contract_address: Address, proposal_id: Proposal
             eprintln!(" got invalid event!");
             continue;
         }
-        let event = Voting::VotingEvents::decode_log(&log.inner.inner, true)
+        let event = Voting::VotingEvents::decode_log(&log.inner.inner)
             .context("decoding event failed. deployed contract version might not match")?;
         if let Voting::VotingEvents::VoteCast(vote) = event.data {
             println!(

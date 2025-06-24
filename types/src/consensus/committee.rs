@@ -1,6 +1,6 @@
 use super::{Attestation, Certificate};
 use crate::cryptography::hash::{Hash, Hashable};
-use alloy_primitives::{Address, PrimitiveSignature};
+use alloy_primitives::{Address, Signature};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -65,7 +65,7 @@ impl Committee {
     pub fn verify_aggregate_attestation(
         &self,
         digest: Hash,
-        signatures: &Vec<PrimitiveSignature>,
+        signatures: &Vec<Signature>,
     ) -> Result<(), CommitteeError> {
         if signatures.len() < self.quorum_size {
             return Err(CommitteeError::InsufficientQuorum {
