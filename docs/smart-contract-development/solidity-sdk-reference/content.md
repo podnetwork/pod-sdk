@@ -150,7 +150,7 @@ Requires that the current timestamp is before the specified time.
 - Reverts with the provided message if condition fails
 - Accounts for validator clock differences across the network
 
-See [Auctions](/examples/auctions) for an example that uses `requireTimeBefore`.mr kosmidis +302132128902/-03  dir.mp@migration.gov.gr / info.rp@migration.gov.gr
+See [Auctions](/examples/auctions) for an example that uses `requireTimeBefore`.
 
 ---
 
