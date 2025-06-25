@@ -1,5 +1,5 @@
 use alloy_consensus::{SignableTransaction, TxLegacy};
-use alloy_primitives::PrimitiveSignature;
+use alloy_primitives::Signature;
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -23,7 +23,7 @@ pub trait Signer {
 #[async_trait]
 impl<S> Signer for S
 where
-    S: alloy_signer::Signer<PrimitiveSignature> + Send + Sync,
+    S: alloy_signer::Signer<Signature> + Send + Sync,
 {
     async fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>> {
         let signature = self.sign_hash(&tx.signature_hash()).await?;
@@ -42,8 +42,8 @@ pub trait SignerSync {
 
 impl<S> SignerSync for S
 where
-    S: alloy_signer::SignerSync<PrimitiveSignature> + Send + Sync,
-    S: alloy_signer::Signer<PrimitiveSignature> + Send + Sync,
+    S: alloy_signer::SignerSync<Signature> + Send + Sync,
+    S: alloy_signer::Signer<Signature> + Send + Sync,
 {
     fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>> {
         let signature = self.sign_hash_sync(&tx.signature_hash())?;
@@ -63,7 +63,7 @@ where
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signed<T: Hashable> {
     pub signed: T,
-    pub signature: PrimitiveSignature,
+    pub signature: Signature,
     pub signer: Address,
     _private: (), // to prevent construction outside of this module
 }
@@ -134,7 +134,7 @@ impl<'de> Deserialize<'de> for Signed<Transaction> {
                 let mut to = None;
                 let mut value = None;
                 let mut input = None;
-                let mut signature: Option<PrimitiveSignature> = None;
+                let mut signature: Option<Signature> = None;
 
                 // Extract fields by name
                 while let Some(key) = map.next_key::<String>()? {
@@ -256,7 +256,7 @@ impl<'de> Deserialize<'de> for Signed<Transaction> {
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(6, &"input field"))?;
 
-                let signature: PrimitiveSignature = seq
+                let signature: Signature = seq
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(7, &"signature field"))?;
 
@@ -296,7 +296,7 @@ impl<T: Hashable> Deref for Signed<T> {
     }
 }
 
-impl TryFrom<alloy_consensus::Signed<TxLegacy, PrimitiveSignature>> for Signed<Transaction> {
+impl TryFrom<alloy_consensus::Signed<TxLegacy, Signature>> for Signed<Transaction> {
     type Error = anyhow::Error;
 
     fn try_from(value: alloy_consensus::Signed<TxLegacy>) -> Result<Self> {
@@ -324,7 +324,7 @@ impl<T: Merkleizable + Hashable> Merkleizable for Signed<T> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UncheckedSigned<T: Hashable> {
     pub signed: T,
-    pub signature: PrimitiveSignature,
+    pub signature: Signature,
     pub signer: Address,
     _private: (), // to prevent construction outside of this module
 }
@@ -414,7 +414,7 @@ impl<'de> Deserialize<'de> for UncheckedSigned<Transaction> {
                 let mut to = None;
                 let mut value = None;
                 let mut input = None;
-                let mut signature: Option<PrimitiveSignature> = None;
+                let mut signature: Option<Signature> = None;
                 let mut signer = None;
 
                 // Extract fields by name
@@ -539,7 +539,7 @@ impl<'de> Deserialize<'de> for UncheckedSigned<Transaction> {
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(6, &"input field"))?;
 
-                let signature: PrimitiveSignature = seq
+                let signature: Signature = seq
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(7, &"signature field"))?;
 
@@ -582,9 +582,7 @@ impl<T: Hashable> Deref for UncheckedSigned<T> {
     }
 }
 
-impl TryFrom<alloy_consensus::Signed<TxLegacy, PrimitiveSignature>>
-    for UncheckedSigned<Transaction>
-{
+impl TryFrom<alloy_consensus::Signed<TxLegacy, Signature>> for UncheckedSigned<Transaction> {
     type Error = anyhow::Error;
 
     fn try_from(value: alloy_consensus::Signed<TxLegacy>) -> Result<Self> {

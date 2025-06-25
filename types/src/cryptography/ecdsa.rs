@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, B256, PrimitiveSignature as Signature};
+use alloy_primitives::{Address, B256, Signature};
 use alloy_signer::SignerSync;
 use alloy_signer_local::LocalSigner;
 
