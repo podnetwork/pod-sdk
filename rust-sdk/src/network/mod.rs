@@ -33,7 +33,8 @@ pub struct PodTransactionRequest {
 impl Default for PodTransactionRequest {
     fn default() -> Self {
         let mut inner = TransactionRequest::default();
-        inner.set_gas_price(1_000_000_000);
+        inner.set_max_fee_per_gas(1_000_000_000);
+        inner.set_max_priority_fee_per_gas(1_000_000_000);
         Self { inner }
     }
 }
@@ -163,8 +164,8 @@ impl TransactionBuilder<PodNetwork> for PodTransactionRequest {
 
     fn complete_type(&self, ty: TxType) -> Result<(), Vec<&'static str>> {
         match ty {
-            TxType::Legacy => self.complete_legacy(),
-            _ => unimplemented!(), // Preventing usage of any other except Legacy Tx
+            TxType::Eip1559 => self.complete_1559(),
+            _ => unimplemented!(), // Preventing usage of any other except EIP-1559 Tx
         }
     }
 
@@ -176,13 +177,13 @@ impl TransactionBuilder<PodNetwork> for PodTransactionRequest {
     }
 
     fn can_build(&self) -> bool {
-        // Only supporting Legacy Transactions
-        self.gas_price.is_some()
+        // Only supporting EIP-1559 Transactions
+        self.max_fee_per_gas.is_some() && self.max_priority_fee_per_gas.is_some()
     }
 
     #[doc(alias = "output_transaction_type")]
     fn output_tx_type(&self) -> TxType {
-        TxType::Legacy
+        TxType::Eip1559
     }
 
     #[doc(alias = "output_transaction_type_checked")]

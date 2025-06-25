@@ -176,7 +176,7 @@ mod test {
         };
 
         let transaction = Transaction {
-            chain_id: Some(1293),
+            chain_id: 0x50d,
             to: TxKind::Call(
                 "0x217f5658c6ecc27d439922263ad9bb8e992e0373"
                     .parse()
@@ -184,7 +184,9 @@ mod test {
             ),
             nonce: 0,
             gas_limit: 22048,
-            gas_price: 1000000000,
+            max_fee_per_gas: 1000000000,
+            max_priority_fee_per_gas: 1000000000,
+            access_list: Default::default(),
             value: U256::ZERO,
             input: vec![
                 133, 44, 166, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
