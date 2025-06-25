@@ -38,7 +38,7 @@ impl AuctionClient {
             .await?;
 
         // TODO: wait for past perfect deadline?
-        // It's problematic right now because PPT is hardocded to 5 seconds after requested
+        // It's problematic right now because PPT is hardcoded to 5 seconds after requested
         // timestamps on fullnode side.
 
         let filter = LogFilterBuilder::new()
@@ -48,10 +48,10 @@ impl AuctionClient {
             .build();
 
         let logs = provider.get_verifiable_logs(&filter).await?;
-        let comittee = provider.get_committee().await?;
+        let committee = provider.get_committee().await?;
         logs.into_iter()
             .map(|log| {
-                log.verify(&comittee)
+                log.verify(&committee)
                     .context("obtained bid log is not valid")?;
 
                 let event = BidSubmitted::decode_log(&log.inner.inner)
