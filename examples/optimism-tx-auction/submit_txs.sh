@@ -1,30 +1,27 @@
 #!/bin/bash
 
 if [ "$#" -lt 3 ]; then
-    echo "Usage: $0 <destination_address> --to <to_address> --amount <amount>"
+    echo "Usage: $0 --to <to_address> --amount <amount>"
     exit 1
 fi
-DESTINATION_ADDRESS=$1
 TO_ADDRESS=""
 AMOUNT=""
 
 while [[ "$#" -gt 0 ]]; do
-  key="$1"
-  case $key in
-    --to)
-      TO_ADDRESS="$2"
-      shift
-      shift
-      ;;
-    --amount)
-      AMOUNT="$2"
-      shift
-      shift
-      ;;
-    *)
-      shift
-      ;;
-  esac
+    key="$1"
+    case $key in
+        --to)
+            TO_ADDRESS="$2"
+            shift 2
+            ;;
+        --amount)
+            AMOUNT="$2"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
 done
 
 if [[ -z "$TO_ADDRESS" || -z "$AMOUNT" ]]; then
@@ -42,18 +39,15 @@ declare -a PRIVATE_KEYS=(
 )
 # Loop through each private key and submit a transaction
 for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
-    echo "Submitting transaction with private key: $PRIVATE_KEY to destination: $DESTINATION_ADDRESS"
+    echo "Submitting transaction sending $AMOUNT to $TO_ADDRESS"
 
-    if ! cargo run --bin send_tx -- \
+    if ! cargo run -q --bin send_tx -- \
 	--private-key "$PRIVATE_KEY" \
 	--to "$TO_ADDRESS" \
 	--amount "$AMOUNT"; then
 	echo "Failed to submit transaction with private key: $PRIVATE_KEY"
 	exit 1
     fi
-    echo "Transaction submitted successfully with private key: $PRIVATE_KEY"
+    echo "Transaction submitted successfully"
 done
-
-echo "All transactions submitted successfully."
-
 
