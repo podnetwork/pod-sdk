@@ -1,11 +1,64 @@
 #!/bin/bash
 
 if [ "$#" -lt 3 ]; then
-    echo "Usage: $0 --to <to_address> --amount <amount>"
+    echo "Usage: $0 --to <to_address> --amount <amount> [--deadline <timestamp>]"
     exit 1
 fi
 TO_ADDRESS=""
 AMOUNT=""
+DEADLINE=""
+
+while [[ "$#" -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --to)
+            TO_ADDRESS="$2"
+            shift 2
+            ;;
+        --amount)
+            AMOUNT="$2"
+            shift 2
+            ;;
+        --deadline)
+            DEADLINE="$2"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$TO_ADDRESS" || -z "$AMOUNT" ]]; then
+    echo "Both --to and --amount arguments must be provided"
+    exit 1
+fi
+
+while [[ "$#" -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --to)
+            TO_ADDRESS="$2"
+            shift 2
+            ;;
+        --amount)
+            AMOUNT="$2"
+            shift 2
+            ;;
+        --deadline)
+            DEADLINE="$2"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$TO_ADDRESS" || -z "$AMOUNT" ]]; then
+    echo "Both --to and --amount arguments must be provided"
+    exit 1
+fi
 
 while [[ "$#" -gt 0 ]]; do
     key="$1"
@@ -37,17 +90,27 @@ declare -a PRIVATE_KEYS=(
     "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
     "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6"
 )
+# Initialize bid counter
+BID=1
+
 # Loop through each private key and submit a transaction
 for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
-    echo "Submitting transaction sending $AMOUNT to $TO_ADDRESS"
+    echo "Submitting transaction sending $AMOUNT to $TO_ADDRESS with bid $BID"
 
-    if ! cargo run -q --bin send_tx -- \
-	--private-key "$PRIVATE_KEY" \
-	--to "$TO_ADDRESS" \
-	--amount "$AMOUNT"; then
+    CMD="cargo run -q --bin send_tx -- \
+	--private-key \"$PRIVATE_KEY\" \
+	--to \"$TO_ADDRESS\" \
+	--amount \"$AMOUNT\" \
+	--bid \"$BID\""
+    if [[ -n "$DEADLINE" ]]; then
+        CMD="$CMD \\
+	--deadline \"$DEADLINE\""
+    fi
+    if ! eval "$CMD"; then
 	echo "Failed to submit transaction with private key: $PRIVATE_KEY"
 	exit 1
     fi
     echo "Transaction submitted successfully"
+    BID=$((BID + 1))
 done
 
