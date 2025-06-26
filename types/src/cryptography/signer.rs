@@ -3,7 +3,7 @@ use alloy_primitives::PrimitiveSignature;
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use async_trait::async_trait;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::ops::Deref;
 
 use alloy_primitives::Address;
@@ -27,7 +27,6 @@ where
             signed: tx.clone(),
             signature,
             signer: self.address(),
-            _private: (),
         })
     }
 }
@@ -47,7 +46,6 @@ where
             signed: tx.clone(),
             signature,
             signer: self.address(),
-            _private: (),
         })
     }
 }
@@ -55,43 +53,58 @@ where
 // Guarantees Signed<T>.signer == Signed<T>.signature.recover_address(T.hash())
 // by the fact that it can only be constructed by functions that guarantee the address.
 // Only works with ECDSA signatures for now
-#[allow(clippy::manual_non_exhaustive)]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[non_exhaustive]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signed<T: Hashable> {
     pub signed: T,
     pub signature: PrimitiveSignature,
-    #[serde(skip_serializing)]
     pub signer: Address,
-    _private: (), // to prevent construction outside of this module
 }
 
-impl<'de, T> Deserialize<'de> for Signed<T>
-where
-    T: Hashable + Deserialize<'de> + Clone,
-    T: SignableTransaction<PrimitiveSignature>,
-{
+impl Serialize for Signed<TxLegacy> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[serde_as]
+        #[derive(Serialize)]
+        struct Helper<'a> {
+            #[serde_as(as = "serde_bincode_compat::transaction::TxLegacy")]
+            signed: &'a TxLegacy,
+            signature: &'a PrimitiveSignature,
+        }
+
+        Helper {
+            signed: &self.signed,
+            signature: &self.signature,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Signed<TxLegacy> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
+        #[serde_as]
         #[derive(Deserialize)]
-        struct Helper<T> {
-            signed: T,
+        struct Helper {
+            #[serde_as(as = "serde_bincode_compat::transaction::TxLegacy")]
+            signed: TxLegacy,
             signature: PrimitiveSignature,
         }
+        let Helper { signed, signature } = Helper::deserialize(deserializer)?;
 
-        let Helper::<T> { signed, signature } = Helper::deserialize(deserializer)?;
-        let tx_hash = signed.hash_custom();
-
-        let signer = alloy_consensus::Signed::new_unchecked(signed.clone(), signature, tx_hash)
-            .recover_signer()
-            .map_err(serde::de::Error::custom)?;
+        let signer =
+            alloy_consensus::Signed::new_unchecked(signed.clone(), signature, signed.hash_custom())
+                .recover_signer()
+                .map_err(serde::de::Error::custom)?;
 
         Ok(Signed {
             signed,
             signature,
             signer,
-            _private: (),
         })
     }
 }
@@ -116,7 +129,6 @@ impl TryFrom<alloy_consensus::Signed<TxLegacy, PrimitiveSignature>> for Signed<T
             signed: tx,
             signature: *value.signature(),
             signer,
-            _private: (),
         })
     }
 }
@@ -128,13 +140,60 @@ impl<T: Merkleizable + Hashable> Merkleizable for Signed<T> {
     }
 }
 
-#[allow(clippy::manual_non_exhaustive)]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct UncheckedSigned<T: Hashable> {
     pub signed: T,
     pub signature: PrimitiveSignature,
     pub signer: Address,
-    _private: (), // to prevent construction outside of this module
+}
+
+use alloy_consensus::serde_bincode_compat;
+use serde_with::serde_as;
+
+impl Serialize for UncheckedSigned<TxLegacy> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[serde_as]
+        #[derive(Serialize)]
+        struct Helper<'a> {
+            #[serde_as(as = "serde_bincode_compat::transaction::TxLegacy")]
+            signed: &'a TxLegacy,
+            signature: &'a PrimitiveSignature,
+            signer: &'a Address,
+        }
+
+        Helper {
+            signed: &self.signed,
+            signature: &self.signature,
+            signer: &self.signer,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for UncheckedSigned<TxLegacy> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[serde_as]
+        #[derive(Deserialize)]
+        struct Helper {
+            #[serde_as(as = "serde_bincode_compat::transaction::TxLegacy")]
+            signed: TxLegacy,
+            signature: PrimitiveSignature,
+            signer: Address,
+        }
+        let helper = Helper::deserialize(deserializer)?;
+        Ok(UncheckedSigned {
+            signed: helper.signed,
+            signature: helper.signature,
+            signer: helper.signer,
+        })
+    }
 }
 
 impl From<Signed<Transaction>> for UncheckedSigned<Transaction> {
@@ -143,7 +202,6 @@ impl From<Signed<Transaction>> for UncheckedSigned<Transaction> {
             signed: signed.signed,
             signature: signed.signature,
             signer: signed.signer,
-            _private: (),
         }
     }
 }
@@ -157,7 +215,6 @@ impl UncheckedSigned<Transaction> {
             signed: self.signed,
             signature: self.signature,
             signer: self.signer,
-            _private: (),
         }
     }
 }
@@ -184,7 +241,6 @@ impl TryFrom<alloy_consensus::Signed<TxLegacy, PrimitiveSignature>>
             signed: tx,
             signature: *value.signature(),
             signer,
-            _private: (),
         })
     }
 }
@@ -199,50 +255,65 @@ impl<T: Merkleizable + Hashable> Merkleizable for UncheckedSigned<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::U256;
     use alloy_signer_local::PrivateKeySigner;
+    use arbitrary::Arbitrary;
+    use bincode::config::standard;
+    use rand::Rng;
+
+    fn arbitrary_signed_tx() -> Signed<TxLegacy> {
+        let mut bytes = [0u8; 1024];
+        rand::rng().fill(bytes.as_mut_slice());
+        let tx = TxLegacy::arbitrary(&mut arbitrary::Unstructured::new(&bytes)).unwrap();
+
+        let signer = PrivateKeySigner::random();
+        SignerSync::sign_tx(&signer, &tx).unwrap()
+    }
 
     #[test]
     fn signed_serialization() {
-        let tx = Transaction {
-            chain_id: Some(2137),
-            nonce: 123986,
-            gas_price: 1_000_000_000,
-            gas_limit: 21_000,
-            to: alloy_primitives::TxKind::Create,
-            value: U256::from(1_000),
-            input: [1, 2, 3, 4].into(),
-        };
-        let signer = PrivateKeySigner::random();
-        let mut signed = SignerSync::sign_tx(&signer, &tx).unwrap();
+        let mut signed = arbitrary_signed_tx();
+        let signer = signed.signer;
         signed.signer = Default::default(); // Clear signer to test serialization without it
 
         let serialized = serde_json::to_string(&signed).unwrap();
         let deserialized: Signed<Transaction> = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(signed.signed, deserialized.signed);
-        assert_eq!(signer.address(), deserialized.signer);
+        assert_eq!(signer, deserialized.signer);
+        assert_eq!(signed.signature, deserialized.signature);
+    }
+
+    #[test]
+    fn signed_serialization_with_bincode() {
+        let mut signed = arbitrary_signed_tx();
+        let signer = signed.signer;
+        signed.signer = Default::default(); // Clear signer to test serialization without it
+
+        let serialized = bincode::serde::encode_to_vec(&signed, standard()).unwrap();
+        let (deserialized, _): (Signed<TxLegacy>, _) =
+            bincode::serde::decode_from_slice(&serialized, standard()).unwrap();
+
+        assert_eq!(signed.signed, deserialized.signed);
+        assert_eq!(signer, deserialized.signer);
         assert_eq!(signed.signature, deserialized.signature);
     }
 
     #[test]
     fn unchecked_signed_serialization() {
-        let tx = Transaction {
-            chain_id: Some(2137),
-            nonce: 123986,
-            gas_price: 1_000_000_000,
-            gas_limit: 21_000,
-            to: alloy_primitives::TxKind::Create,
-            value: U256::from(1_000),
-            input: [1, 2, 3, 4].into(),
-        };
-
-        let signer = PrivateKeySigner::random();
-        let unchecked_signed: UncheckedSigned<_> =
-            SignerSync::sign_tx(&signer, &tx).unwrap().into();
+        let unchecked_signed: UncheckedSigned<_> = arbitrary_signed_tx().into();
 
         let serialized = serde_json::to_string(&unchecked_signed).unwrap();
         let deserialized: UncheckedSigned<Transaction> = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(unchecked_signed, deserialized);
+    }
+
+    #[test]
+    fn serialize_with_bincode() {
+        let unchecked_signed: UncheckedSigned<_> = arbitrary_signed_tx().into();
+
+        let serialized = bincode::serde::encode_to_vec(&unchecked_signed, standard()).unwrap();
+        let (deserialized, _) = bincode::serde::decode_from_slice(&serialized, standard()).unwrap();
 
         assert_eq!(unchecked_signed, deserialized);
     }
