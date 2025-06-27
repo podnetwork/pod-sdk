@@ -8,8 +8,6 @@ layout: single
 
 This example demonstrates how to transfer tokens programmatically.
 
-For more information about `pod_sdk` read [Interacting with pod](./rust-sdk/overview).
-
 ! codeblock
 
 ```rust
