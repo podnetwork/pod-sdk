@@ -125,8 +125,6 @@ $ forge create --rpc-url https://rpc.v1.dev.pod.network \
 
 This example demonstrates how to transfer tokens programmatically.
 
-For more information about `pod_sdk` read [Interacting with pod](./rust-sdk/overview).
-
 ! codeblock title="Token transfer"
 
 ```rust
