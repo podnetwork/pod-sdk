@@ -34,7 +34,7 @@ Learn by projects and examples
 ! gridstack end
 
 ! gridstack  
-! grid href="https://pod.network/smart-contract-development/introduction"
+! grid href="https://pod.network/smart-contract-development/solidity-sdk-reference"
 ## Solidity SDK
 Learn how to write smart contracts for pod using Solidity.
 ! grid end  
