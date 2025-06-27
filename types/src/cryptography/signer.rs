@@ -276,7 +276,7 @@ mod tests {
         signed.signer = Default::default(); // Clear signer to test serialization without it
 
         let serialized = serde_json::to_string(&signed).unwrap();
-        let deserialized: Signed<Transaction> = serde_json::from_str(&serialized).unwrap();
+        let deserialized: Signed<TxLegacy> = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(signed.signed, deserialized.signed);
         assert_eq!(signer, deserialized.signer);
