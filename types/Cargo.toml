@@ -15,7 +15,11 @@ name = "pod_types"
 path = "src/lib.rs"
 
 [dependencies]
-alloy-consensus = { version = "0.12.1", features = ["serde", "k256"] }
+alloy-consensus = { version = "0.12.1", features = [
+  "serde",
+  "k256",
+  "serde-bincode-compat",
+] }
 alloy-primitives = { version = "^0.8.22", features = ["k256", "serde"] }
 alloy-sol-types = "^0.8.22"
 alloy-signer = "0.12.1"
@@ -32,7 +36,12 @@ async-trait = "0.1.83"
 tokio = { version = "1.43.1", features = ["rt", "macros"] }
 base64 = "0.22.1"
 utoipa = "5.3.1"
+serde_with = "3.13.0"
 
 
 [dev-dependencies]
+arbitrary = "1.4.1"
+alloy-consensus = { version = "0.12.1", features = ["arbitrary"] }
+bincode = { version = "2.0.1", features = ["serde"] }
+rand = "0.9.1"
 serde_json = "*"
