@@ -38,7 +38,7 @@ $ git clone github.com/podnetwork/ && cd examples/tokens
 As in the [ERC20 Token Standard](https://eips.ethereum.org/EIPS/eip-20), each `Token` contract instance corresponds to a single fungible token, 
 defined by its own name, ticker symbol, number of decimals, and fixed total supply.
 
-The contract makes use of the [`FastTypes`](http://localhost:5173/smart-contract-development/solidity-sdk-reference) library provided by `pod-sdk`.
+The contract makes use of the [`FastTypes`](/smart-contract-development/solidity-sdk-reference) library provided by `pod-sdk`.
 
 The `FastTypes.Balances` type provides
 
@@ -104,14 +104,11 @@ contract Token {
 
 ## Deployment
 
-When deploying the smart contract, don't forget to set the evm version to `berlin`.
-
 ! codeblock title="Deploying with forge"
 
 ```bash
 $ forge create --rpc-url https://rpc.v1.dev.pod.network \
     --private-key $PRIVATE_KEY \
-    --evm-version berlin \
     src/Token.sol:Token \
     --constructor-args "token" "TKC" 9 1000000000000
 ```

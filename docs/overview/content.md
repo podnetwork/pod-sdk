@@ -41,13 +41,11 @@ Even if internal storage layouts or execution traces differ, these applications 
 ! anchor solidity-and-evm
 ## Solidity and EVM
 
-pod supports EVM (specifically the **Berlin** version), but with important caveats:
+pod supports EVM (specifically the **Prague** version), but with important caveats:
 
-1. Only **legacy transactions** are supported:
-   - No support for EIP-1559: **no base fee**, **no priority fee**, **no access lists**, **no blob transactions**.
-2. `block.timestamp` is the **local validator's time**, not a globally agreed timestamp.
-3. `block.number`, `block.coinbase`, `block.difficulty`, and `block.basefee` are **all set to 0**.
-4. Smart contracts must be written to tolerate the absence of global context and ordering.
+1. `block.timestamp` is the **local validator's time**, not a globally agreed timestamp.
+2. `block.number`, `block.coinbase`, `block.difficulty`, and `block.basefee` are **all set to 0**.
+3. Smart contracts must be written to tolerate the absence of global context and ordering.
    - Any time-sensitive logic must treat timestamps as advisory and potentially inconsistent.
 
 ! content end
@@ -102,6 +100,6 @@ You can continue to use **Foundry** and **Alloy** with pod. Transactions must be
 
 We recommend the use of [PodProviderBuilder](https://docs.rs/pod-sdk/latest/pod_sdk/provider/struct.PodProviderBuilder.html) and [PodTransactionRequest](https://docs.rs/pod-sdk/latest/pod_sdk/network/struct.PodTransactionRequest.html) provided by [pod-sdk](https://docs.rs/pod-sdk).
 
-See the [Examples](/examples) section for more detailed examples.
+See the [Examples](/examples/tokens) section for more detailed examples.
 
 ! content end

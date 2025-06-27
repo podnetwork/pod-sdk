@@ -10,8 +10,8 @@ layout: simple
 | --------- | ----- | -- |
 | RPC | https://rpc.v1.dev.pod.network | ! copy value="https://rpc.v1.dev.pod.network" |
 | Chain ID | 1293 | ! copy value="https://rpc.v1.dev.pod.network" |
-| Explorer | https://explorer.v2.pod.network | ! copy value="https://explorer.v2.pod.network" |
-| EVM Version | Berlin (Ethereum block 12,244,000) | |
+| Explorer | https://explorer.v1.pod.network | ! copy value="https://explorer.v1.pod.network" |
+| EVM Version | Prague (Ethereum block 22,431,084, Released May 7th, 2025) | |
 ! table end   
 ! content end
 

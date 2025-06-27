@@ -26,7 +26,7 @@ to your wallet and get test tokens.
 Quick diff of RPC, Solidity, Foundry and Alloy.
 ! grid end
 
-! grid href="./examples"
+! grid href="./examples/tokens"
 ## Examples 
 Learn by projects and examples
 ! grid end
@@ -35,13 +35,13 @@ Learn by projects and examples
 
 ! gridstack  
 ! grid href="https://pod.network/smart-contract-development/introduction"
-## Writing Smart Contracts
+## Solidity SDK
 Learn how to write smart contracts for pod using Solidity.
 ! grid end  
 
-! grid href="./rust-sdk/overview" 
-## Interacting with pod 
-Learn how to programmatically interact with pod.
+! grid href="./reference/json-rpc" 
+## JSON-RPC
+Learn about pod's JSON-RPC interface.
 ! grid end
 
 ! grid href="https://explorer.v1.pod.network"
