@@ -1,4 +1,4 @@
-use alloy_consensus::{SignableTransaction, TxLegacy};
+use alloy_consensus::{SignableTransaction, TxEip1559};
 use alloy_primitives::PrimitiveSignature;
 use alloy_sol_types::SolValue;
 use anyhow::Result;
@@ -61,7 +61,7 @@ pub struct Signed<T: Hashable> {
     pub signer: Address,
 }
 
-impl Serialize for Signed<TxLegacy> {
+impl Serialize for Signed<Transaction> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -69,8 +69,8 @@ impl Serialize for Signed<TxLegacy> {
         #[serde_as]
         #[derive(Serialize)]
         struct Helper<'a> {
-            #[serde_as(as = "serde_bincode_compat::transaction::TxLegacy")]
-            signed: &'a TxLegacy,
+            #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
+            signed: &'a Transaction,
             signature: &'a PrimitiveSignature,
         }
 
@@ -82,7 +82,7 @@ impl Serialize for Signed<TxLegacy> {
     }
 }
 
-impl<'de> Deserialize<'de> for Signed<TxLegacy> {
+impl<'de> Deserialize<'de> for Signed<Transaction> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -90,8 +90,8 @@ impl<'de> Deserialize<'de> for Signed<TxLegacy> {
         #[serde_as]
         #[derive(Deserialize)]
         struct Helper {
-            #[serde_as(as = "serde_bincode_compat::transaction::TxLegacy")]
-            signed: TxLegacy,
+            #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
+            signed: Transaction,
             signature: PrimitiveSignature,
         }
         let Helper { signed, signature } = Helper::deserialize(deserializer)?;
@@ -117,10 +117,10 @@ impl<T: Hashable> Deref for Signed<T> {
     }
 }
 
-impl TryFrom<alloy_consensus::Signed<TxLegacy, PrimitiveSignature>> for Signed<Transaction> {
+impl TryFrom<alloy_consensus::Signed<TxEip1559, PrimitiveSignature>> for Signed<Transaction> {
     type Error = anyhow::Error;
 
-    fn try_from(value: alloy_consensus::Signed<TxLegacy>) -> Result<Self> {
+    fn try_from(value: alloy_consensus::Signed<TxEip1559>) -> Result<Self> {
         let signer = value.recover_signer()?;
 
         let tx: Transaction = value.tx().clone();
@@ -151,7 +151,7 @@ pub struct UncheckedSigned<T: Hashable> {
 use alloy_consensus::serde_bincode_compat;
 use serde_with::serde_as;
 
-impl Serialize for UncheckedSigned<TxLegacy> {
+impl Serialize for UncheckedSigned<Transaction> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -159,8 +159,8 @@ impl Serialize for UncheckedSigned<TxLegacy> {
         #[serde_as]
         #[derive(Serialize)]
         struct Helper<'a> {
-            #[serde_as(as = "serde_bincode_compat::transaction::TxLegacy")]
-            signed: &'a TxLegacy,
+            #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
+            signed: &'a Transaction,
             signature: &'a PrimitiveSignature,
             signer: &'a Address,
         }
@@ -174,7 +174,7 @@ impl Serialize for UncheckedSigned<TxLegacy> {
     }
 }
 
-impl<'de> Deserialize<'de> for UncheckedSigned<TxLegacy> {
+impl<'de> Deserialize<'de> for UncheckedSigned<Transaction> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -182,8 +182,8 @@ impl<'de> Deserialize<'de> for UncheckedSigned<TxLegacy> {
         #[serde_as]
         #[derive(Deserialize)]
         struct Helper {
-            #[serde_as(as = "serde_bincode_compat::transaction::TxLegacy")]
-            signed: TxLegacy,
+            #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
+            signed: Transaction,
             signature: PrimitiveSignature,
             signer: Address,
         }
@@ -198,7 +198,7 @@ impl<'de> Deserialize<'de> for UncheckedSigned<TxLegacy> {
 
 impl From<Signed<Transaction>> for UncheckedSigned<Transaction> {
     fn from(signed: Signed<Transaction>) -> Self {
-        Self {
+        UncheckedSigned {
             signed: signed.signed,
             signature: signed.signature,
             signer: signed.signer,
@@ -210,7 +210,7 @@ impl UncheckedSigned<Transaction> {
     /// Convert from an `UncheckedSigned<Transaction>` to a fully fledged `Signed<Transaction>`
     /// _without_ re-verifying.
     pub fn into_signed_unchecked(self) -> Signed<Transaction> {
-        // Make a “blind” Signed structure that does *not* re-check
+        // Make a "blind" Signed structure that does *not* re-check
         Signed {
             signed: self.signed,
             signature: self.signature,
@@ -227,12 +227,12 @@ impl<T: Hashable> Deref for UncheckedSigned<T> {
     }
 }
 
-impl TryFrom<alloy_consensus::Signed<TxLegacy, PrimitiveSignature>>
+impl TryFrom<alloy_consensus::Signed<TxEip1559, PrimitiveSignature>>
     for UncheckedSigned<Transaction>
 {
     type Error = anyhow::Error;
 
-    fn try_from(value: alloy_consensus::Signed<TxLegacy>) -> Result<Self> {
+    fn try_from(value: alloy_consensus::Signed<TxEip1559>) -> Result<Self> {
         let signer = value.recover_signer()?;
 
         let tx: Transaction = value.tx().clone();
@@ -260,10 +260,10 @@ mod tests {
     use bincode::config::standard;
     use rand::Rng;
 
-    fn arbitrary_signed_tx() -> Signed<TxLegacy> {
+    fn arbitrary_signed_tx() -> Signed<Transaction> {
         let mut bytes = [0u8; 1024];
         rand::rng().fill(bytes.as_mut_slice());
-        let tx = TxLegacy::arbitrary(&mut arbitrary::Unstructured::new(&bytes)).unwrap();
+        let tx = Transaction::arbitrary(&mut arbitrary::Unstructured::new(&bytes)).unwrap();
 
         let signer = PrivateKeySigner::random();
         SignerSync::sign_tx(&signer, &tx).unwrap()
@@ -276,7 +276,7 @@ mod tests {
         signed.signer = Default::default(); // Clear signer to test serialization without it
 
         let serialized = serde_json::to_string(&signed).unwrap();
-        let deserialized: Signed<TxLegacy> = serde_json::from_str(&serialized).unwrap();
+        let deserialized: Signed<Transaction> = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(signed.signed, deserialized.signed);
         assert_eq!(signer, deserialized.signer);
@@ -290,7 +290,7 @@ mod tests {
         signed.signer = Default::default(); // Clear signer to test serialization without it
 
         let serialized = bincode::serde::encode_to_vec(&signed, standard()).unwrap();
-        let (deserialized, _): (Signed<TxLegacy>, _) =
+        let (deserialized, _): (Signed<Transaction>, _) =
             bincode::serde::decode_from_slice(&serialized, standard()).unwrap();
 
         assert_eq!(signed.signed, deserialized.signed);
