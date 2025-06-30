@@ -249,7 +249,8 @@ contract Voting {
             }
         }
 
-        // Verify this choice has enough votes that it cannot be overtaken
+        // Verify this choice has enough votes such that even if all remaining voters vote the second highest
+        // still the top choice remains the same.
         require(voteCount - secondHighestVotes > remainingVoters,
                 "This choice could still be overtaken if remaining voters vote");
 

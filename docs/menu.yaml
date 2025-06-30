@@ -14,6 +14,8 @@ menu:
     label: NFTs
   - href: /examples/auctions
     label: Auctions
+  - href: /examples/voting
+    label: Voting
   
 
   - heading: Building on pod
