@@ -112,7 +112,7 @@ impl From<Receipt> for TransactionReceipt {
             block_hash: Some(Hash::default()), // Need hash for tx confirmation on Metamask
             block_number: Some(1),             // Need number of tx confirmation on Metamask
             gas_used: val.actual_gas_used,     // Gas used by the transaction alone.
-            effective_gas_price: val.tx.gas_price,
+            effective_gas_price: val.tx.max_fee_per_gas, // Use max_fee_per_gas for EIP-1559 transactions
             blob_gas_used: None,  // This is none for non EIP-4844 transactions.
             blob_gas_price: None, // This is none for non EIP-4844 transactions.
             from: val.tx.signer,
@@ -244,12 +244,14 @@ mod test {
     #[tokio::test]
     async fn test_provable_receipt() {
         let transaction = Transaction {
-            chain_id: Some(0x50d),
+            chain_id: 0x50d,
             to: TxKind::Call("217f5658c6ecc27d439922263ad9bb8e992e0373".parse().unwrap()),
             nonce: 1337,
             gas_limit: 25_000,
-            gas_price: 20_000_000_000,
+            max_fee_per_gas: 20_000_000_000,
+            max_priority_fee_per_gas: 1_000_000_000,
             value: U256::ZERO,
+            access_list: Default::default(),
             input: Default::default(),
         };
 
