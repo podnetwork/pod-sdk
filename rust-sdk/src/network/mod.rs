@@ -82,6 +82,10 @@ impl TransactionBuilder<PodNetwork> for PodTransactionRequest {
         self.nonce
     }
 
+    fn take_nonce(&mut self) -> Option<u64> {
+        self.nonce.take()
+    }
+
     fn set_nonce(&mut self, nonce: u64) {
         self.nonce = Some(nonce);
     }

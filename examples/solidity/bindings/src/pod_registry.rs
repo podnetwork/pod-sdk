@@ -345,6 +345,13 @@ error OwnableInvalidOwner(address owner);
                     ),
                 )
             }
+            #[inline]
+            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
+                <Self::Parameters<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Self::new)
+            }
         }
     };
     #[derive(serde::Serialize, serde::Deserialize)]
@@ -419,6 +426,13 @@ error OwnableUnauthorizedAccount(address account);
                         &self.account,
                     ),
                 )
+            }
+            #[inline]
+            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
+                <Self::Parameters<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Self::new)
             }
         }
     };
@@ -915,6 +929,13 @@ function addValidator(address validator) external;
                 }
             }
         }
+        impl addValidatorReturn {
+            fn _tokenize(
+                &self,
+            ) -> <addValidatorCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for addValidatorCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
@@ -943,13 +964,23 @@ function addValidator(address validator) external;
                 )
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                addValidatorReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
             }
         }
@@ -1059,7 +1090,7 @@ function computeWeight(address[] memory subset) external view returns (uint256 w
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = computeWeightReturn;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -1081,14 +1112,34 @@ function computeWeight(address[] memory subset) external view returns (uint256 w
                 )
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: computeWeightReturn = r.into();
+                        r.weight
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: computeWeightReturn = r.into();
+                        r.weight
+                    })
             }
         }
     };
@@ -1100,7 +1151,7 @@ function getFaultTolerance() external view returns (uint8);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct getFaultToleranceCall {}
+    pub struct getFaultToleranceCall;
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`getFaultTolerance()`](getFaultToleranceCall) function.
@@ -1147,7 +1198,7 @@ function getFaultTolerance() external view returns (uint8);
             impl ::core::convert::From<UnderlyingRustTuple<'_>>
             for getFaultToleranceCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -1190,7 +1241,7 @@ function getFaultTolerance() external view returns (uint8);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = getFaultToleranceReturn;
+            type Return = u8;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<8>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -1208,14 +1259,34 @@ function getFaultTolerance() external view returns (uint8);
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getFaultToleranceReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getFaultToleranceReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -1227,7 +1298,7 @@ function nextValidatorIndex() external view returns (uint8);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct nextValidatorIndexCall {}
+    pub struct nextValidatorIndexCall;
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`nextValidatorIndex()`](nextValidatorIndexCall) function.
@@ -1274,7 +1345,7 @@ function nextValidatorIndex() external view returns (uint8);
             impl ::core::convert::From<UnderlyingRustTuple<'_>>
             for nextValidatorIndexCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -1317,7 +1388,7 @@ function nextValidatorIndex() external view returns (uint8);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = nextValidatorIndexReturn;
+            type Return = u8;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<8>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -1335,14 +1406,34 @@ function nextValidatorIndex() external view returns (uint8);
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: nextValidatorIndexReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: nextValidatorIndexReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -1354,7 +1445,7 @@ function owner() external view returns (address);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct ownerCall {}
+    pub struct ownerCall;
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`owner()`](ownerCall) function.
@@ -1399,7 +1490,7 @@ function owner() external view returns (address);
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for ownerCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -1440,7 +1531,7 @@ function owner() external view returns (address);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = ownerReturn;
+            type Return = alloy::sol_types::private::Address;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -1458,14 +1549,34 @@ function owner() external view returns (address);
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: ownerReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: ownerReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -1557,6 +1668,13 @@ function removeValidator(address validator) external;
                 }
             }
         }
+        impl removeValidatorReturn {
+            fn _tokenize(
+                &self,
+            ) -> <removeValidatorCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for removeValidatorCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
@@ -1585,13 +1703,23 @@ function removeValidator(address validator) external;
                 )
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                removeValidatorReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
             }
         }
@@ -1604,7 +1732,7 @@ function renounceOwnership() external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct renounceOwnershipCall {}
+    pub struct renounceOwnershipCall;
     ///Container type for the return parameters of the [`renounceOwnership()`](renounceOwnershipCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1646,7 +1774,7 @@ function renounceOwnership() external;
             impl ::core::convert::From<UnderlyingRustTuple<'_>>
             for renounceOwnershipCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -1683,6 +1811,13 @@ function renounceOwnership() external;
                 }
             }
         }
+        impl renounceOwnershipReturn {
+            fn _tokenize(
+                &self,
+            ) -> <renounceOwnershipCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for renounceOwnershipCall {
             type Parameters<'a> = ();
@@ -1707,13 +1842,23 @@ function renounceOwnership() external;
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                renounceOwnershipReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
             }
         }
@@ -1808,6 +1953,13 @@ function transferOwnership(address newOwner) external;
                 }
             }
         }
+        impl transferOwnershipReturn {
+            fn _tokenize(
+                &self,
+            ) -> <transferOwnershipCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for transferOwnershipCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
@@ -1836,13 +1988,23 @@ function transferOwnership(address newOwner) external;
                 )
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                transferOwnershipReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
             }
         }
@@ -1855,7 +2017,7 @@ function validatorCount() external view returns (uint8);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct validatorCountCall {}
+    pub struct validatorCountCall;
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`validatorCount()`](validatorCountCall) function.
@@ -1900,7 +2062,7 @@ function validatorCount() external view returns (uint8);
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for validatorCountCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self
                 }
             }
         }
@@ -1943,7 +2105,7 @@ function validatorCount() external view returns (uint8);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = validatorCountReturn;
+            type Return = u8;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<8>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -1961,14 +2123,34 @@ function validatorCount() external view returns (uint8);
                 ()
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: validatorCountReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: validatorCountReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -1980,10 +2162,7 @@ function validatorIndex(address) external view returns (uint8);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct validatorIndexCall {
-        #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::Address,
-    }
+    pub struct validatorIndexCall(pub alloy::sol_types::private::Address);
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`validatorIndex(address)`](validatorIndexCall) function.
@@ -2021,14 +2200,14 @@ function validatorIndex(address) external view returns (uint8);
             #[doc(hidden)]
             impl ::core::convert::From<validatorIndexCall> for UnderlyingRustTuple<'_> {
                 fn from(value: validatorIndexCall) -> Self {
-                    (value._0,)
+                    (value.0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for validatorIndexCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
+                    Self(tuple.0)
                 }
             }
         }
@@ -2071,7 +2250,7 @@ function validatorIndex(address) external view returns (uint8);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = validatorIndexReturn;
+            type Return = u8;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<8>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -2088,19 +2267,39 @@ function validatorIndex(address) external view returns (uint8);
             fn tokenize(&self) -> Self::Token<'_> {
                 (
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self._0,
+                        &self.0,
                     ),
                 )
             }
             #[inline]
-            fn abi_decode_returns(
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: validatorIndexReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
                 data: &[u8],
-                validate: bool,
             ) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data, validate)
-                    .map(Into::into)
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: validatorIndexReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -2201,20 +2400,16 @@ function validatorIndex(address) external view returns (uint8);
         fn abi_decode_raw(
             selector: [u8; 4],
             data: &[u8],
-            validate: bool,
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_SHIMS: &[fn(
                 &[u8],
-                bool,
             ) -> alloy_sol_types::Result<PodRegistryCalls>] = &[
                 {
                     fn validatorCount(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodRegistryCalls> {
                         <validatorCountCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodRegistryCalls::validatorCount)
                     }
@@ -2223,11 +2418,9 @@ function validatorIndex(address) external view returns (uint8);
                 {
                     fn removeValidator(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodRegistryCalls> {
                         <removeValidatorCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodRegistryCalls::removeValidator)
                     }
@@ -2236,11 +2429,9 @@ function validatorIndex(address) external view returns (uint8);
                 {
                     fn addValidator(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodRegistryCalls> {
                         <addValidatorCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodRegistryCalls::addValidator)
                     }
@@ -2249,25 +2440,17 @@ function validatorIndex(address) external view returns (uint8);
                 {
                     fn renounceOwnership(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodRegistryCalls> {
                         <renounceOwnershipCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodRegistryCalls::renounceOwnership)
                     }
                     renounceOwnership
                 },
                 {
-                    fn owner(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<PodRegistryCalls> {
-                        <ownerCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
+                    fn owner(data: &[u8]) -> alloy_sol_types::Result<PodRegistryCalls> {
+                        <ownerCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(PodRegistryCalls::owner)
                     }
                     owner
@@ -2275,11 +2458,9 @@ function validatorIndex(address) external view returns (uint8);
                 {
                     fn computeWeight(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodRegistryCalls> {
                         <computeWeightCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodRegistryCalls::computeWeight)
                     }
@@ -2288,11 +2469,9 @@ function validatorIndex(address) external view returns (uint8);
                 {
                     fn validatorIndex(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodRegistryCalls> {
                         <validatorIndexCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodRegistryCalls::validatorIndex)
                     }
@@ -2301,11 +2480,9 @@ function validatorIndex(address) external view returns (uint8);
                 {
                     fn getFaultTolerance(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodRegistryCalls> {
                         <getFaultToleranceCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodRegistryCalls::getFaultTolerance)
                     }
@@ -2314,11 +2491,9 @@ function validatorIndex(address) external view returns (uint8);
                 {
                     fn nextValidatorIndex(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodRegistryCalls> {
                         <nextValidatorIndexCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodRegistryCalls::nextValidatorIndex)
                     }
@@ -2327,11 +2502,9 @@ function validatorIndex(address) external view returns (uint8);
                 {
                     fn transferOwnership(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodRegistryCalls> {
                         <transferOwnershipCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodRegistryCalls::transferOwnership)
                     }
@@ -2346,7 +2519,135 @@ function validatorIndex(address) external view returns (uint8);
                     ),
                 );
             };
-            DECODE_SHIMS[idx](data, validate)
+            DECODE_SHIMS[idx](data)
+        }
+        #[inline]
+        #[allow(non_snake_case)]
+        fn abi_decode_raw_validate(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_VALIDATE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<PodRegistryCalls>] = &[
+                {
+                    fn validatorCount(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodRegistryCalls> {
+                        <validatorCountCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryCalls::validatorCount)
+                    }
+                    validatorCount
+                },
+                {
+                    fn removeValidator(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodRegistryCalls> {
+                        <removeValidatorCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryCalls::removeValidator)
+                    }
+                    removeValidator
+                },
+                {
+                    fn addValidator(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodRegistryCalls> {
+                        <addValidatorCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryCalls::addValidator)
+                    }
+                    addValidator
+                },
+                {
+                    fn renounceOwnership(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodRegistryCalls> {
+                        <renounceOwnershipCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryCalls::renounceOwnership)
+                    }
+                    renounceOwnership
+                },
+                {
+                    fn owner(data: &[u8]) -> alloy_sol_types::Result<PodRegistryCalls> {
+                        <ownerCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryCalls::owner)
+                    }
+                    owner
+                },
+                {
+                    fn computeWeight(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodRegistryCalls> {
+                        <computeWeightCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryCalls::computeWeight)
+                    }
+                    computeWeight
+                },
+                {
+                    fn validatorIndex(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodRegistryCalls> {
+                        <validatorIndexCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryCalls::validatorIndex)
+                    }
+                    validatorIndex
+                },
+                {
+                    fn getFaultTolerance(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodRegistryCalls> {
+                        <getFaultToleranceCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryCalls::getFaultTolerance)
+                    }
+                    getFaultTolerance
+                },
+                {
+                    fn nextValidatorIndex(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodRegistryCalls> {
+                        <nextValidatorIndexCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryCalls::nextValidatorIndex)
+                    }
+                    nextValidatorIndex
+                },
+                {
+                    fn transferOwnership(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodRegistryCalls> {
+                        <transferOwnershipCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryCalls::transferOwnership)
+                    }
+                    transferOwnership
+                },
+            ];
+            let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
+            };
+            DECODE_VALIDATE_SHIMS[idx](data)
         }
         #[inline]
         fn abi_encoded_size(&self) -> usize {
@@ -2515,20 +2816,16 @@ function validatorIndex(address) external view returns (uint8);
         fn abi_decode_raw(
             selector: [u8; 4],
             data: &[u8],
-            validate: bool,
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_SHIMS: &[fn(
                 &[u8],
-                bool,
             ) -> alloy_sol_types::Result<PodRegistryErrors>] = &[
                 {
                     fn OwnableUnauthorizedAccount(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodRegistryErrors> {
                         <OwnableUnauthorizedAccount as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodRegistryErrors::OwnableUnauthorizedAccount)
                     }
@@ -2537,11 +2834,9 @@ function validatorIndex(address) external view returns (uint8);
                 {
                     fn OwnableInvalidOwner(
                         data: &[u8],
-                        validate: bool,
                     ) -> alloy_sol_types::Result<PodRegistryErrors> {
                         <OwnableInvalidOwner as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
-                                validate,
                             )
                             .map(PodRegistryErrors::OwnableInvalidOwner)
                     }
@@ -2556,7 +2851,49 @@ function validatorIndex(address) external view returns (uint8);
                     ),
                 );
             };
-            DECODE_SHIMS[idx](data, validate)
+            DECODE_SHIMS[idx](data)
+        }
+        #[inline]
+        #[allow(non_snake_case)]
+        fn abi_decode_raw_validate(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_VALIDATE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<PodRegistryErrors>] = &[
+                {
+                    fn OwnableUnauthorizedAccount(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodRegistryErrors> {
+                        <OwnableUnauthorizedAccount as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryErrors::OwnableUnauthorizedAccount)
+                    }
+                    OwnableUnauthorizedAccount
+                },
+                {
+                    fn OwnableInvalidOwner(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodRegistryErrors> {
+                        <OwnableInvalidOwner as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodRegistryErrors::OwnableInvalidOwner)
+                    }
+                    OwnableInvalidOwner
+                },
+            ];
+            let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
+            };
+            DECODE_VALIDATE_SHIMS[idx](data)
         }
         #[inline]
         fn abi_encoded_size(&self) -> usize {
@@ -2635,7 +2972,6 @@ function validatorIndex(address) external view returns (uint8);
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
-            validate: bool,
         ) -> alloy_sol_types::Result<Self> {
             match topics.first().copied() {
                 Some(
@@ -2644,7 +2980,6 @@ function validatorIndex(address) external view returns (uint8);
                     <OwnershipTransferred as alloy_sol_types::SolEvent>::decode_raw_log(
                             topics,
                             data,
-                            validate,
                         )
                         .map(Self::OwnershipTransferred)
                 }
@@ -2652,7 +2987,6 @@ function validatorIndex(address) external view returns (uint8);
                     <ValidatorAdded as alloy_sol_types::SolEvent>::decode_raw_log(
                             topics,
                             data,
-                            validate,
                         )
                         .map(Self::ValidatorAdded)
                 }
@@ -2660,7 +2994,6 @@ function validatorIndex(address) external view returns (uint8);
                     <ValidatorRemoved as alloy_sol_types::SolEvent>::decode_raw_log(
                             topics,
                             data,
-                            validate,
                         )
                         .map(Self::ValidatorRemoved)
                 }
@@ -2713,14 +3046,13 @@ function validatorIndex(address) external view returns (uint8);
 See the [wrapper's documentation](`PodRegistryInstance`) for more details.*/
     #[inline]
     pub const fn new<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         address: alloy_sol_types::private::Address,
         provider: P,
-    ) -> PodRegistryInstance<T, P, N> {
-        PodRegistryInstance::<T, P, N>::new(address, provider)
+    ) -> PodRegistryInstance<P, N> {
+        PodRegistryInstance::<P, N>::new(address, provider)
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
@@ -2729,8 +3061,7 @@ Returns a new instance of the contract, if the deployment was successful.
 For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
     pub fn deploy<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         provider: P,
@@ -2738,9 +3069,9 @@ For more fine-grained control over the deployment process, use [`deploy_builder`
             alloy::sol_types::private::Address,
         >,
     ) -> impl ::core::future::Future<
-        Output = alloy_contract::Result<PodRegistryInstance<T, P, N>>,
+        Output = alloy_contract::Result<PodRegistryInstance<P, N>>,
     > {
-        PodRegistryInstance::<T, P, N>::deploy(provider, initialValidators)
+        PodRegistryInstance::<P, N>::deploy(provider, initialValidators)
     }
     /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
 and constructor arguments, if any.
@@ -2749,16 +3080,15 @@ This is a simple wrapper around creating a `RawCallBuilder` with the data set to
 the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     #[inline]
     pub fn deploy_builder<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         provider: P,
         initialValidators: alloy::sol_types::private::Vec<
             alloy::sol_types::private::Address,
         >,
-    ) -> alloy_contract::RawCallBuilder<T, P, N> {
-        PodRegistryInstance::<T, P, N>::deploy_builder(provider, initialValidators)
+    ) -> alloy_contract::RawCallBuilder<P, N> {
+        PodRegistryInstance::<P, N>::deploy_builder(provider, initialValidators)
     }
     /**A [`PodRegistry`](self) instance.
 
@@ -2772,13 +3102,13 @@ be used to deploy a new instance of the contract.
 
 See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
-    pub struct PodRegistryInstance<T, P, N = alloy_contract::private::Ethereum> {
+    pub struct PodRegistryInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
         provider: P,
-        _network_transport: ::core::marker::PhantomData<(N, T)>,
+        _network: ::core::marker::PhantomData<N>,
     }
     #[automatically_derived]
-    impl<T, P, N> ::core::fmt::Debug for PodRegistryInstance<T, P, N> {
+    impl<P, N> ::core::fmt::Debug for PodRegistryInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
             f.debug_tuple("PodRegistryInstance").field(&self.address).finish()
@@ -2787,10 +3117,9 @@ See the [module-level documentation](self) for all the available methods.*/
     /// Instantiation and getters/setters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > PodRegistryInstance<T, P, N> {
+    > PodRegistryInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`PodRegistry`](self) contract instance.
 
 See the [wrapper's documentation](`PodRegistryInstance`) for more details.*/
@@ -2802,7 +3131,7 @@ See the [wrapper's documentation](`PodRegistryInstance`) for more details.*/
             Self {
                 address,
                 provider,
-                _network_transport: ::core::marker::PhantomData,
+                _network: ::core::marker::PhantomData,
             }
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
@@ -2816,7 +3145,7 @@ For more fine-grained control over the deployment process, use [`deploy_builder`
             initialValidators: alloy::sol_types::private::Vec<
                 alloy::sol_types::private::Address,
             >,
-        ) -> alloy_contract::Result<PodRegistryInstance<T, P, N>> {
+        ) -> alloy_contract::Result<PodRegistryInstance<P, N>> {
             let call_builder = Self::deploy_builder(provider, initialValidators);
             let contract_address = call_builder.deploy().await?;
             Ok(Self::new(contract_address, call_builder.provider))
@@ -2832,7 +3161,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             initialValidators: alloy::sol_types::private::Vec<
                 alloy::sol_types::private::Address,
             >,
-        ) -> alloy_contract::RawCallBuilder<T, P, N> {
+        ) -> alloy_contract::RawCallBuilder<P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
                 provider,
                 [
@@ -2868,24 +3197,23 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self.provider
         }
     }
-    impl<T, P: ::core::clone::Clone, N> PodRegistryInstance<T, &P, N> {
+    impl<P: ::core::clone::Clone, N> PodRegistryInstance<&P, N> {
         /// Clones the provider and returns a new instance with the cloned provider.
         #[inline]
-        pub fn with_cloned_provider(self) -> PodRegistryInstance<T, P, N> {
+        pub fn with_cloned_provider(self) -> PodRegistryInstance<P, N> {
             PodRegistryInstance {
                 address: self.address,
                 provider: ::core::clone::Clone::clone(&self.provider),
-                _network_transport: ::core::marker::PhantomData,
+                _network: ::core::marker::PhantomData,
             }
         }
     }
     /// Function calls.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > PodRegistryInstance<T, P, N> {
+    > PodRegistryInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -2893,105 +3221,104 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         pub fn call_builder<C: alloy_sol_types::SolCall>(
             &self,
             call: &C,
-        ) -> alloy_contract::SolCallBuilder<T, &P, C, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, C, N> {
             alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
         }
         ///Creates a new call builder for the [`addValidator`] function.
         pub fn addValidator(
             &self,
             validator: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<T, &P, addValidatorCall, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, addValidatorCall, N> {
             self.call_builder(&addValidatorCall { validator })
         }
         ///Creates a new call builder for the [`computeWeight`] function.
         pub fn computeWeight(
             &self,
             subset: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
-        ) -> alloy_contract::SolCallBuilder<T, &P, computeWeightCall, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, computeWeightCall, N> {
             self.call_builder(&computeWeightCall { subset })
         }
         ///Creates a new call builder for the [`getFaultTolerance`] function.
         pub fn getFaultTolerance(
             &self,
-        ) -> alloy_contract::SolCallBuilder<T, &P, getFaultToleranceCall, N> {
-            self.call_builder(&getFaultToleranceCall {})
+        ) -> alloy_contract::SolCallBuilder<&P, getFaultToleranceCall, N> {
+            self.call_builder(&getFaultToleranceCall)
         }
         ///Creates a new call builder for the [`nextValidatorIndex`] function.
         pub fn nextValidatorIndex(
             &self,
-        ) -> alloy_contract::SolCallBuilder<T, &P, nextValidatorIndexCall, N> {
-            self.call_builder(&nextValidatorIndexCall {})
+        ) -> alloy_contract::SolCallBuilder<&P, nextValidatorIndexCall, N> {
+            self.call_builder(&nextValidatorIndexCall)
         }
         ///Creates a new call builder for the [`owner`] function.
-        pub fn owner(&self) -> alloy_contract::SolCallBuilder<T, &P, ownerCall, N> {
-            self.call_builder(&ownerCall {})
+        pub fn owner(&self) -> alloy_contract::SolCallBuilder<&P, ownerCall, N> {
+            self.call_builder(&ownerCall)
         }
         ///Creates a new call builder for the [`removeValidator`] function.
         pub fn removeValidator(
             &self,
             validator: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<T, &P, removeValidatorCall, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, removeValidatorCall, N> {
             self.call_builder(&removeValidatorCall { validator })
         }
         ///Creates a new call builder for the [`renounceOwnership`] function.
         pub fn renounceOwnership(
             &self,
-        ) -> alloy_contract::SolCallBuilder<T, &P, renounceOwnershipCall, N> {
-            self.call_builder(&renounceOwnershipCall {})
+        ) -> alloy_contract::SolCallBuilder<&P, renounceOwnershipCall, N> {
+            self.call_builder(&renounceOwnershipCall)
         }
         ///Creates a new call builder for the [`transferOwnership`] function.
         pub fn transferOwnership(
             &self,
             newOwner: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<T, &P, transferOwnershipCall, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, transferOwnershipCall, N> {
             self.call_builder(&transferOwnershipCall { newOwner })
         }
         ///Creates a new call builder for the [`validatorCount`] function.
         pub fn validatorCount(
             &self,
-        ) -> alloy_contract::SolCallBuilder<T, &P, validatorCountCall, N> {
-            self.call_builder(&validatorCountCall {})
+        ) -> alloy_contract::SolCallBuilder<&P, validatorCountCall, N> {
+            self.call_builder(&validatorCountCall)
         }
         ///Creates a new call builder for the [`validatorIndex`] function.
         pub fn validatorIndex(
             &self,
             _0: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<T, &P, validatorIndexCall, N> {
-            self.call_builder(&validatorIndexCall { _0 })
+        ) -> alloy_contract::SolCallBuilder<&P, validatorIndexCall, N> {
+            self.call_builder(&validatorIndexCall(_0))
         }
     }
     /// Event filters.
     #[automatically_derived]
     impl<
-        T: alloy_contract::private::Transport + ::core::clone::Clone,
-        P: alloy_contract::private::Provider<T, N>,
+        P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > PodRegistryInstance<T, P, N> {
+    > PodRegistryInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
         /// Prefer using the other methods for building type-safe event filters.
         pub fn event_filter<E: alloy_sol_types::SolEvent>(
             &self,
-        ) -> alloy_contract::Event<T, &P, E, N> {
+        ) -> alloy_contract::Event<&P, E, N> {
             alloy_contract::Event::new_sol(&self.provider, &self.address)
         }
         ///Creates a new event filter for the [`OwnershipTransferred`] event.
         pub fn OwnershipTransferred_filter(
             &self,
-        ) -> alloy_contract::Event<T, &P, OwnershipTransferred, N> {
+        ) -> alloy_contract::Event<&P, OwnershipTransferred, N> {
             self.event_filter::<OwnershipTransferred>()
         }
         ///Creates a new event filter for the [`ValidatorAdded`] event.
         pub fn ValidatorAdded_filter(
             &self,
-        ) -> alloy_contract::Event<T, &P, ValidatorAdded, N> {
+        ) -> alloy_contract::Event<&P, ValidatorAdded, N> {
             self.event_filter::<ValidatorAdded>()
         }
         ///Creates a new event filter for the [`ValidatorRemoved`] event.
         pub fn ValidatorRemoved_filter(
             &self,
-        ) -> alloy_contract::Event<T, &P, ValidatorRemoved, N> {
+        ) -> alloy_contract::Event<&P, ValidatorRemoved, N> {
             self.event_filter::<ValidatorRemoved>()
         }
     }

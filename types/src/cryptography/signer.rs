@@ -1,5 +1,5 @@
 use alloy_consensus::{SignableTransaction, TxEip1559};
-use alloy_primitives::PrimitiveSignature;
+use alloy_primitives::Signature;
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -19,7 +19,7 @@ pub trait Signer {
 #[async_trait]
 impl<S> Signer for S
 where
-    S: alloy_signer::Signer<PrimitiveSignature> + Send + Sync,
+    S: alloy_signer::Signer<Signature> + Send + Sync,
 {
     async fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>> {
         let signature = self.sign_hash(&tx.signature_hash()).await?;
@@ -37,8 +37,8 @@ pub trait SignerSync {
 
 impl<S> SignerSync for S
 where
-    S: alloy_signer::SignerSync<PrimitiveSignature> + Send + Sync,
-    S: alloy_signer::Signer<PrimitiveSignature> + Send + Sync,
+    S: alloy_signer::SignerSync<Signature> + Send + Sync,
+    S: alloy_signer::Signer<Signature> + Send + Sync,
 {
     fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>> {
         let signature = self.sign_hash_sync(&tx.signature_hash())?;
@@ -57,7 +57,7 @@ where
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signed<T: Hashable> {
     pub signed: T,
-    pub signature: PrimitiveSignature,
+    pub signature: Signature,
     pub signer: Address,
 }
 
@@ -71,7 +71,7 @@ impl Serialize for Signed<Transaction> {
         struct Helper<'a> {
             #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
             signed: &'a Transaction,
-            signature: &'a PrimitiveSignature,
+            signature: &'a Signature,
         }
 
         Helper {
@@ -92,7 +92,7 @@ impl<'de> Deserialize<'de> for Signed<Transaction> {
         struct Helper {
             #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
             signed: Transaction,
-            signature: PrimitiveSignature,
+            signature: Signature,
         }
         let Helper { signed, signature } = Helper::deserialize(deserializer)?;
 
@@ -117,7 +117,7 @@ impl<T: Hashable> Deref for Signed<T> {
     }
 }
 
-impl TryFrom<alloy_consensus::Signed<TxEip1559, PrimitiveSignature>> for Signed<Transaction> {
+impl TryFrom<alloy_consensus::Signed<TxEip1559, Signature>> for Signed<Transaction> {
     type Error = anyhow::Error;
 
     fn try_from(value: alloy_consensus::Signed<TxEip1559>) -> Result<Self> {
@@ -144,7 +144,7 @@ impl<T: Merkleizable + Hashable> Merkleizable for Signed<T> {
 #[non_exhaustive]
 pub struct UncheckedSigned<T: Hashable> {
     pub signed: T,
-    pub signature: PrimitiveSignature,
+    pub signature: Signature,
     pub signer: Address,
 }
 
@@ -161,7 +161,7 @@ impl Serialize for UncheckedSigned<Transaction> {
         struct Helper<'a> {
             #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
             signed: &'a Transaction,
-            signature: &'a PrimitiveSignature,
+            signature: &'a Signature,
             signer: &'a Address,
         }
 
@@ -184,7 +184,7 @@ impl<'de> Deserialize<'de> for UncheckedSigned<Transaction> {
         struct Helper {
             #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
             signed: Transaction,
-            signature: PrimitiveSignature,
+            signature: Signature,
             signer: Address,
         }
         let helper = Helper::deserialize(deserializer)?;
@@ -227,9 +227,7 @@ impl<T: Hashable> Deref for UncheckedSigned<T> {
     }
 }
 
-impl TryFrom<alloy_consensus::Signed<TxEip1559, PrimitiveSignature>>
-    for UncheckedSigned<Transaction>
-{
+impl TryFrom<alloy_consensus::Signed<TxEip1559, Signature>> for UncheckedSigned<Transaction> {
     type Error = anyhow::Error;
 
     fn try_from(value: alloy_consensus::Signed<TxEip1559>) -> Result<Self> {
