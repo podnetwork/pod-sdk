@@ -13,7 +13,7 @@ pub use crate::{
         attestation::{ReceiptAttestation, TransactionAttestation},
     },
     cryptography::{
-        Hashable, MerkleTree, Merkleizable, ecdsa,
+        Hashable, MerkleTree, Merkleizable,
         hash::std_hash,
         signer::{Signed, Signer},
     },

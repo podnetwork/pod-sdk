@@ -1,11 +1,11 @@
+use alloy_primitives::{Address, PrimitiveSignature};
 use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
     Receipt, Signed, Timestamp, Transaction,
     cryptography::{
-        ecdsa::{AddressECDSA, SignatureECDSA},
-        hash::{Hash, Hashable, hash},
+        hash::{Hash, Hashable},
         signer::UncheckedSigned,
     },
     ledger::receipt::UncheckedReceipt,
@@ -56,35 +56,32 @@ impl<T: Hashable> Hashable for Indexed<T> {
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "T: Hashable + Serialize + DeserializeOwned + Eq")]
 pub struct Attestation<T> {
-    pub public_key: AddressECDSA,
-    pub signature: SignatureECDSA,
+    pub public_key: Address,
+    pub signature: PrimitiveSignature,
     pub attested: T,
 }
 
 impl<T: Hashable> Hashable for Attestation<T> {
     fn hash_custom(&self) -> Hash {
-        hash(
-            [
-                self.public_key.to_bytes(),
-                self.signature.to_bytes(),
-                self.attested.hash_custom().to_vec(),
-            ]
-            .concat(),
-        )
+        let mut hasher = alloy_primitives::Keccak256::default();
+        hasher.update(self.public_key.as_slice());
+        hasher.update(self.signature.as_bytes());
+        hasher.update(self.attested.hash_custom().as_slice());
+        hasher.finalize()
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TimestampedHeadlessAttestation {
     pub timestamp: Timestamp,
-    pub public_key: AddressECDSA,
-    pub signature: SignatureECDSA,
+    pub public_key: Address,
+    pub signature: PrimitiveSignature,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HeadlessAttestation {
-    pub public_key: AddressECDSA,
-    pub signature: SignatureECDSA,
+    pub public_key: Address,
+    pub signature: PrimitiveSignature,
 }
 
 impl<T> From<Attestation<T>> for HeadlessAttestation {

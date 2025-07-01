@@ -1,10 +1,12 @@
-use alloy_consensus::{TxType, TypedTransaction};
+use alloy_consensus::{TxEnvelope, TxType, TypedTransaction};
 use alloy_eips::eip2930::AccessList;
 use alloy_network::{
     BuildResult, Network, NetworkWallet, ReceiptResponse, TransactionBuilder,
     TransactionBuilderError,
 };
-use alloy_primitives::{Address, BlockHash, Bytes, ChainId, Log, TxHash, TxKind, B256, U256};
+use alloy_primitives::{
+    Address, BlockHash, Bytes, ChainId, Log, PrimitiveSignature, TxHash, TxKind, B256, U256,
+};
 use alloy_provider::fillers::{
     ChainIdFiller, GasFiller, JoinFill, NonceFiller, RecommendedFillers,
 };
@@ -12,12 +14,8 @@ use alloy_provider::fillers::{
 use anyhow::Result;
 use pod_types::{ledger::Transaction, metadata::DetailedReceiptMetadata};
 
-use alloy_consensus::TxEnvelope;
 use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
-use pod_types::{
-    ecdsa::{AddressECDSA, SignatureECDSA},
-    Committee, Hashable, Merkleizable, Receipt, Timestamp,
-};
+use pod_types::{Committee, Hashable, Merkleizable, Receipt, Timestamp};
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
@@ -286,8 +284,8 @@ impl ReceiptResponse for PodReceiptResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AttestationData {
-    pub public_key: AddressECDSA,
-    pub signature: SignatureECDSA,
+    pub public_key: Address,
+    pub signature: PrimitiveSignature,
     pub timestamp: Timestamp,
 }
 
@@ -300,7 +298,7 @@ pub struct PodReceiptResponse {
 
 impl PodReceiptResponse {
     // todo: add error handling
-    pub fn verify(&self, committee: &Committee) -> Result<bool> {
+    pub fn verify(&self, committee: &Committee) -> Result<()> {
         let logs = self
             .receipt
             .inner

@@ -107,7 +107,7 @@ async fn watch(
     let committee = pod_provider.get_committee().await?;
 
     while let Some(log) = stream.next().await {
-        if !log.verify(&committee)? {
+        if log.verify(&committee).is_err() {
             eprintln!("⚠️  Received an unverifiable event – ignoring");
             continue;
         }

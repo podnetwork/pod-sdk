@@ -266,10 +266,9 @@ async fn create_plc(
     }
 
     let committee = state.provider.get_committee().await.unwrap();
-    assert!(
-        receipt.verify(&committee).unwrap(),
-        "receipt failed comittee validation"
-    );
+    receipt
+        .verify(&committee)
+        .expect("Receipt verification failed");
 
     Ok(Json(json!({
             "status": "success",

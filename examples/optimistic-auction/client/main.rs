@@ -2,7 +2,7 @@ use alloy_sol_types::SolEvent;
 use dotenv::dotenv;
 
 use alloy_network::{Ethereum, EthereumWallet, Network, ReceiptResponse};
-use alloy_primitives::{Address, Bytes, FixedBytes};
+use alloy_primitives::{Address, FixedBytes};
 use alloy_provider::{
     fillers::{
         BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
@@ -11,7 +11,7 @@ use alloy_provider::{
 };
 use alloy_signer_local::PrivateKeySigner;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use pod_examples_solidity::auction::Auction::{self, AuctionInstance, BidSubmitted};
 use pod_sdk::{
     network::PodNetwork,
@@ -19,10 +19,7 @@ use pod_sdk::{
     Provider, ProviderBuilder, U256,
 };
 
-use pod_types::{
-    consensus::attestation::TimestampedHeadlessAttestation, ledger::log::VerifiableLog,
-    rpc::filter::LogFilterBuilder, Hashable,
-};
+use pod_types::{ledger::log::VerifiableLog, rpc::filter::LogFilterBuilder, Hashable};
 
 use pod_optimistic_auction::podauctionconsumer::{
     MerkleTree::Proof,
@@ -68,10 +65,9 @@ struct AuctionClient {
     consumer_contract: ConsumerContractType,
 }
 
-fn get_certifierd_log(log: &VerifiableLog) -> Result<CertifiedLog> {
+fn get_certified_log(log: &VerifiableLog) -> Result<CertifiedLog> {
     let proof = log.generate_proof().unwrap();
     let leaf = log.get_leaf();
-    let aggregate_signature = log.aggregate_signatures()?;
 
     Ok(CertifiedLog {
         log: AuctionLog {
@@ -83,7 +79,7 @@ fn get_certifierd_log(log: &VerifiableLog) -> Result<CertifiedLog> {
         certificate: AuctionCertificate {
             certifiedReceipt: CertifiedReceipt {
                 receiptRoot: log.pod_metadata.receipt.hash_custom(),
-                aggregateSignature: aggregate_signature,
+                aggregateSignature: log.aggregate_signatures().into(),
             },
             leaf,
             proof: Proof { path: proof.path },
@@ -275,23 +271,8 @@ impl AuctionClient {
         assert_eq!(logs.len(), 1);
         let log = &logs[0];
 
-        get_certifierd_log(log)
+        get_certified_log(log)
     }
-}
-
-pub fn aggregate_signatures_from_attestations(
-    attestations: &[TimestampedHeadlessAttestation],
-) -> Result<Bytes> {
-    let aggregated = attestations
-        .iter()
-        .map(|a| a.signature.to_bytes())
-        .reduce(|mut acc, sig| {
-            acc.extend_from_slice(&sig);
-            acc
-        })
-        .ok_or_else(|| anyhow!("error aggregating signatures"))?;
-
-    Ok(Bytes::from(aggregated))
 }
 
 async fn advance_time<P: Provider>(provider: P, timestamp: U256) -> Result<()> {
