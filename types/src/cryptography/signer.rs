@@ -1,14 +1,14 @@
-use alloy_consensus::{SignableTransaction, TxEip1559};
+use alloy_consensus::{SignableTransaction, TxEip1559, transaction::RlpEcdsaEncodableTx};
 use alloy_primitives::PrimitiveSignature;
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::ops::Deref;
+use std::{ops::Deref, sync::OnceLock};
 
 use alloy_primitives::Address;
 
-use super::{Hashable, Merkleizable, merkle_tree::MerkleBuilder};
+use super::{Hash, Hashable, Merkleizable, merkle_tree::MerkleBuilder};
 use crate::Transaction;
 
 #[async_trait]
@@ -27,6 +27,7 @@ where
             signed: tx.clone(),
             signature,
             signer: self.address(),
+            hash: OnceLock::new(),
         })
     }
 }
@@ -46,6 +47,7 @@ where
             signed: tx.clone(),
             signature,
             signer: self.address(),
+            hash: OnceLock::new(),
         })
     }
 }
@@ -55,10 +57,11 @@ where
 // Only works with ECDSA signatures for now
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Signed<T: Hashable> {
+pub struct Signed<T> {
     pub signed: T,
     pub signature: PrimitiveSignature,
     pub signer: Address,
+    hash: OnceLock<Hash>,
 }
 
 impl Serialize for Signed<Transaction> {
@@ -105,6 +108,7 @@ impl<'de> Deserialize<'de> for Signed<Transaction> {
             signed,
             signature,
             signer,
+            hash: OnceLock::new(),
         })
     }
 }
@@ -114,6 +118,15 @@ impl<T: Hashable> Deref for Signed<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.signed
+    }
+}
+
+// the actual hash used for identifying a transaction
+impl<T: RlpEcdsaEncodableTx> Hashable for Signed<T> {
+    fn hash_custom(&self) -> Hash {
+        *self
+            .hash
+            .get_or_init(|| self.signed.tx_hash(&self.signature))
     }
 }
 
@@ -129,6 +142,7 @@ impl TryFrom<alloy_consensus::Signed<TxEip1559, PrimitiveSignature>> for Signed<
             signed: tx,
             signature: *value.signature(),
             signer,
+            hash: OnceLock::new(),
         })
     }
 }
@@ -142,10 +156,11 @@ impl<T: Merkleizable + Hashable> Merkleizable for Signed<T> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
-pub struct UncheckedSigned<T: Hashable> {
+pub struct UncheckedSigned<T> {
     pub signed: T,
     pub signature: PrimitiveSignature,
     pub signer: Address,
+    hash: OnceLock<Hash>,
 }
 
 use alloy_consensus::serde_bincode_compat;
@@ -192,7 +207,16 @@ impl<'de> Deserialize<'de> for UncheckedSigned<Transaction> {
             signed: helper.signed,
             signature: helper.signature,
             signer: helper.signer,
+            hash: OnceLock::new(),
         })
+    }
+}
+
+impl<T: RlpEcdsaEncodableTx> Hashable for UncheckedSigned<T> {
+    fn hash_custom(&self) -> Hash {
+        *self
+            .hash
+            .get_or_init(|| self.signed.tx_hash(&self.signature))
     }
 }
 
@@ -202,6 +226,7 @@ impl From<Signed<Transaction>> for UncheckedSigned<Transaction> {
             signed: signed.signed,
             signature: signed.signature,
             signer: signed.signer,
+            hash: signed.hash,
         }
     }
 }
@@ -215,6 +240,7 @@ impl UncheckedSigned<Transaction> {
             signed: self.signed,
             signature: self.signature,
             signer: self.signer,
+            hash: self.hash,
         }
     }
 }
@@ -235,12 +261,11 @@ impl TryFrom<alloy_consensus::Signed<TxEip1559, PrimitiveSignature>>
     fn try_from(value: alloy_consensus::Signed<TxEip1559>) -> Result<Self> {
         let signer = value.recover_signer()?;
 
-        let tx: Transaction = value.tx().clone();
-
         Ok(UncheckedSigned {
-            signed: tx,
             signature: *value.signature(),
+            signed: value.strip_signature(),
             signer,
+            hash: OnceLock::new(),
         })
     }
 }
@@ -255,10 +280,16 @@ impl<T: Merkleizable + Hashable> Merkleizable for UncheckedSigned<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        Hashable,
+        cryptography::signer::{SignerSync, UncheckedSigned},
+    };
     use alloy_signer_local::PrivateKeySigner;
     use arbitrary::Arbitrary;
     use bincode::config::standard;
     use rand::Rng;
+
+    use super::Transaction;
 
     fn arbitrary_signed_tx() -> Signed<Transaction> {
         let mut bytes = [0u8; 1024];
@@ -316,5 +347,21 @@ mod tests {
         let (deserialized, _) = bincode::serde::decode_from_slice(&serialized, standard()).unwrap();
 
         assert_eq!(unchecked_signed, deserialized);
+    }
+
+    #[test]
+    fn consistent_hashing() {
+        let signed = arbitrary_signed_tx();
+        let unchecked_signed: UncheckedSigned<Transaction> = signed.clone().into();
+        assert_eq!(unchecked_signed.hash_custom(), signed.hash_custom());
+    }
+
+    #[test]
+    fn signed_unchecked_roundtrip() {
+        let signed = arbitrary_signed_tx();
+        let unchecked: UncheckedSigned<Transaction> = signed.clone().into();
+        let back_to_signed = unchecked.into_signed_unchecked();
+
+        assert_eq!(signed, back_to_signed);
     }
 }

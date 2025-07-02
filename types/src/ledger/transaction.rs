@@ -1,11 +1,10 @@
-use alloy_consensus::{SignableTransaction, TxEip1559, transaction::RlpEcdsaEncodableTx};
+use alloy_consensus::{SignableTransaction, TxEip1559};
 use alloy_primitives::Address;
 use alloy_sol_types::SolValue;
 
 use crate::cryptography::{
     hash::{Hash, Hashable},
     merkle_tree::{MerkleBuilder, Merkleizable},
-    signer::{Signed, UncheckedSigned},
 };
 
 pub type Transaction = TxEip1559;
@@ -32,18 +31,5 @@ impl Merkleizable for Transaction {
 impl Hashable for Transaction {
     fn hash_custom(&self) -> Hash {
         self.signature_hash()
-    }
-}
-
-// the actual hash used for identifying a transaction
-impl Hashable for Signed<Transaction> {
-    fn hash_custom(&self) -> Hash {
-        self.signed.tx_hash(&self.signature)
-    }
-}
-
-impl<T: Hashable + Clone> Hashable for UncheckedSigned<T> {
-    fn hash_custom(&self) -> Hash {
-        self.signed.hash_custom()
     }
 }
