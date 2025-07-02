@@ -30,7 +30,6 @@ bytes = "1.8.0"
 hex = { version = "0.4.3", features = ["serde"] }
 serde = { version = "1.0.214", features = ["derive"] }
 itertools = "0.13.0"
-async-trait = "0.1.83"
 tokio = { version = "1.43.1", features = ["rt", "macros"] }
 base64 = "0.22.1"
 utoipa = "5.3.1"

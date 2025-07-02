@@ -2,7 +2,6 @@ use alloy_consensus::{SignableTransaction, TxEip1559};
 use alloy_primitives::PrimitiveSignature;
 use alloy_sol_types::SolValue;
 use anyhow::Result;
-use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::ops::Deref;
 
@@ -11,39 +10,19 @@ use alloy_primitives::Address;
 use super::{Hashable, Merkleizable, merkle_tree::MerkleBuilder};
 use crate::Transaction;
 
-#[async_trait]
-pub trait Signer {
-    async fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>>;
+pub trait TxSigner {
+    fn sign_tx(&self, tx: Transaction) -> Result<Signed<Transaction>>;
 }
 
-#[async_trait]
-impl<S> Signer for S
+impl<S> TxSigner for S
 where
-    S: alloy_signer::Signer<PrimitiveSignature> + Send + Sync,
+    S: alloy_signer::SignerSync<PrimitiveSignature>,
+    S: alloy_signer::Signer<PrimitiveSignature>,
 {
-    async fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>> {
-        let signature = self.sign_hash(&tx.signature_hash()).await?;
-        Ok(Signed {
-            signed: tx.clone(),
-            signature,
-            signer: self.address(),
-        })
-    }
-}
-
-pub trait SignerSync {
-    fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>>;
-}
-
-impl<S> SignerSync for S
-where
-    S: alloy_signer::SignerSync<PrimitiveSignature> + Send + Sync,
-    S: alloy_signer::Signer<PrimitiveSignature> + Send + Sync,
-{
-    fn sign_tx(&self, tx: &Transaction) -> Result<Signed<Transaction>> {
+    fn sign_tx(&self, tx: Transaction) -> Result<Signed<Transaction>> {
         let signature = self.sign_hash_sync(&tx.signature_hash())?;
         Ok(Signed {
-            signed: tx.clone(),
+            signed: tx,
             signature,
             signer: self.address(),
         })
@@ -266,7 +245,7 @@ mod tests {
         let tx = Transaction::arbitrary(&mut arbitrary::Unstructured::new(&bytes)).unwrap();
 
         let signer = PrivateKeySigner::random();
-        SignerSync::sign_tx(&signer, &tx).unwrap()
+        TxSigner::sign_tx(&signer, tx).unwrap()
     }
 
     #[test]

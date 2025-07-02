@@ -236,7 +236,8 @@ mod test {
     use alloy_signer_local::PrivateKeySigner;
 
     use crate::{
-        Hashable, Merkleizable, Transaction, cryptography::merkle_tree::StandardMerkleTree,
+        Hashable, Merkleizable, Transaction, TxSigner,
+        cryptography::merkle_tree::StandardMerkleTree,
     };
 
     use super::Receipt;
@@ -279,7 +280,7 @@ mod test {
             actual_gas_used: 23_112,
             logs: logs.clone(),
             logs_root,
-            tx: crate::Signer::sign_tx(&signer, &transaction).await.unwrap(),
+            tx: signer.sign_tx(transaction).unwrap(),
             contract_address: None,
         };
 
