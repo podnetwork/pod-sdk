@@ -15,7 +15,7 @@ pub use crate::{
     cryptography::{
         Hashable, MerkleTree, Merkleizable,
         hash::std_hash,
-        signer::{Signed, Signer},
+        signer::{Signed, TxSigner},
     },
     ledger::{CallData, Receipt, Transaction},
     time::{Clock, Timestamp},
