@@ -1,22 +1,19 @@
 use super::{Attestation, Certificate};
-use crate::{
-    cryptography::{ecdsa::AddressECDSA, hash::Hashable},
-    ecdsa::SignatureECDSA,
-};
-use alloy_primitives::B256;
+use crate::cryptography::hash::Hashable;
+use alloy_primitives::{Address, B256, PrimitiveSignature};
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Committee {
-    pub validators: Vec<AddressECDSA>,
-    validator_set: HashMap<AddressECDSA, bool>,
+    pub validators: Vec<Address>,
+    validator_set: HashMap<Address, bool>,
     pub quorum_size: usize,
 }
 
 impl Committee {
-    pub fn new(mut validators: Vec<AddressECDSA>, quorum_size: usize) -> Self {
+    pub fn new(mut validators: Vec<Address>, quorum_size: usize) -> Self {
         validators.sort();
         let validator_set = validators.iter().map(|r| (*r, true)).collect();
         Committee {
@@ -38,7 +35,7 @@ impl Committee {
         self.fault_tolerance() + 1
     }
 
-    pub fn is_in_committee(&self, address: &AddressECDSA) -> bool {
+    pub fn is_in_committee(&self, address: &Address) -> bool {
         self.validator_set.contains_key(address)
     }
 
@@ -47,18 +44,18 @@ impl Committee {
             return Err(anyhow!("Validator not in committee"));
         }
 
-        attestation.public_key.verify(
-            attestation.attested.hash_custom().as_slice(),
-            &attestation.signature,
-        )
+        let signer = attestation
+            .signature
+            .recover_address_from_prehash(&attestation.attested.hash_custom())?;
+        Ok(signer == attestation.public_key)
     }
 
     // utility function that does aggregate verification over an arbitrary hash
     pub fn verify_aggregate_attestation(
         &self,
         digest: B256,
-        signatures: &Vec<SignatureECDSA>,
-    ) -> Result<bool> {
+        signatures: &Vec<PrimitiveSignature>,
+    ) -> Result<()> {
         if signatures.len() < self.quorum_size {
             return Err(anyhow!("Insufficient quorum"));
         }
@@ -67,18 +64,14 @@ impl Committee {
 
         // Recover and validate each signature
         for sig in signatures {
-            // Recover the signer's address
-            let recovered_address = sig.recover_signer(digest.as_slice())?;
+            let recovered_address = sig.recover_address_from_prehash(&digest)?;
 
             // Skip if signer not in committee (treat as invalid signature)
             if !self.is_in_committee(&recovered_address) {
                 continue;
             }
 
-            // Check for duplicate signers
-            if !recovered_signers.insert(recovered_address) {
-                continue;
-            }
+            recovered_signers.insert(recovered_address);
         }
 
         // Verify we have enough unique valid signatures from committee members
@@ -88,10 +81,10 @@ impl Committee {
             ));
         }
 
-        Ok(true)
+        Ok(())
     }
 
-    pub fn verify_certificate<C: Hashable>(&self, certificate: &Certificate<C>) -> Result<bool> {
+    pub fn verify_certificate<C: Hashable>(&self, certificate: &Certificate<C>) -> Result<()> {
         self.verify_aggregate_attestation(
             certificate.certified.hash_custom(),
             &certificate.signatures,

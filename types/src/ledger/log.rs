@@ -1,6 +1,5 @@
 use std::ops::Deref;
 
-use alloy_primitives::Bytes;
 pub use alloy_primitives::{Log, LogData};
 use alloy_rpc_types::Log as RPCLog;
 use alloy_sol_types::SolValue;
@@ -79,7 +78,7 @@ impl VerifiableLog {
                 .generate_multi_proof_for_log(i.try_into().unwrap())
         })
     }
-    pub fn verify(&self, committee: &Committee) -> Result<bool> {
+    pub fn verify(&self, committee: &Committee) -> Result<()> {
         committee.verify_certificate(&Certificate {
             signatures: self
                 .pod_metadata
@@ -112,18 +111,15 @@ impl VerifiableLog {
         )
     }
 
-    pub fn aggregate_signatures(&self) -> Result<Bytes> {
-        let aggregated = self
-            .pod_metadata
+    pub fn aggregate_signatures(&self) -> Vec<u8> {
+        self.pod_metadata
             .attestations
             .iter()
-            .map(|a| a.signature.to_bytes())
-            .reduce(|mut acc, sig| {
+            .map(|a| a.signature.as_bytes())
+            .fold(Vec::new(), |mut acc, sig| {
                 acc.extend_from_slice(&sig);
                 acc
             })
-            .ok_or(anyhow::anyhow!("error aggregating signatures"))?;
-        Ok(Bytes::from(aggregated))
     }
 
     pub fn verify_proof(&self, receipt_root: Hash, proof: MerkleProof) -> bool {

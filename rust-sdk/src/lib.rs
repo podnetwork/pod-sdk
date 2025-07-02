@@ -97,7 +97,5 @@ pub use alloy_sol_types;
 
 // Re-export types types used in public API
 pub use pod_types::{
-    consensus::attestation::HeadlessAttestation,
-    cryptography::ecdsa::{AddressECDSA, SignatureECDSA},
-    Certificate, Receipt, Transaction,
+    consensus::attestation::HeadlessAttestation, Certificate, Receipt, Transaction,
 };

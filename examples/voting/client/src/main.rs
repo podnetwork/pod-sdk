@@ -239,7 +239,7 @@ async fn watch(rpc_url: String, contract_address: Address) -> Result<()> {
     let committee = pod_provider.get_committee().await?;
 
     while let Some(log) = stream.next().await {
-        if !log.verify(&committee)? {
+        if log.verify(&committee).is_err() {
             eprintln!(" got invalid event!");
             continue;
         }
@@ -297,10 +297,7 @@ async fn create_poll(
     let receipt = pendix_tx.get_receipt().await?;
     anyhow::ensure!(receipt.status(), "creating vote failed");
     let committee = pod_provider.get_committee().await?;
-    ensure!(
-        receipt.verify(&committee)?,
-        "receipt failed comittee validation"
-    );
+    receipt.verify(&committee)?;
 
     let event = receipt
         .as_ref()

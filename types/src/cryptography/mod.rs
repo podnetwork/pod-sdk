@@ -1,4 +1,3 @@
-pub mod ecdsa;
 pub mod hash;
 pub mod merkle_tree;
 pub mod signer;
