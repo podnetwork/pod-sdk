@@ -1,6 +1,6 @@
 use alloy_primitives::{Address, PrimitiveSignature};
 use alloy_sol_types::SolValue;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     Receipt, Signed, Timestamp, Transaction,
@@ -54,7 +54,6 @@ impl<T: Hashable> Hashable for Indexed<T> {
 
 // An Attestation<T> is T signed by a validator using ECDSA
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(bound = "T: Hashable + Serialize + DeserializeOwned + Eq")]
 pub struct Attestation<T> {
     pub public_key: Address,
     pub signature: PrimitiveSignature,

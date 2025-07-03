@@ -11,8 +11,9 @@ use alloy_provider::fillers::{
     ChainIdFiller, GasFiller, JoinFill, NonceFiller, RecommendedFillers,
 };
 
-use anyhow::Result;
-use pod_types::{ledger::Transaction, metadata::DetailedReceiptMetadata};
+use pod_types::{
+    consensus::committee::CommitteeError, ledger::Transaction, metadata::DetailedReceiptMetadata,
+};
 
 use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
 use pod_types::{Committee, Hashable, Merkleizable, Receipt, Timestamp};
@@ -297,8 +298,7 @@ pub struct PodReceiptResponse {
 }
 
 impl PodReceiptResponse {
-    // todo: add error handling
-    pub fn verify(&self, committee: &Committee) -> Result<()> {
+    pub fn verify(&self, committee: &Committee) -> Result<(), CommitteeError> {
         let logs = self
             .receipt
             .inner

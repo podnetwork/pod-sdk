@@ -1,24 +1,30 @@
 use super::{Attestation, Certificate};
-use crate::cryptography::hash::Hashable;
-use alloy_primitives::{Address, B256, PrimitiveSignature};
-use anyhow::{Result, anyhow};
+use crate::cryptography::hash::{Hash, Hashable};
+use alloy_primitives::{Address, PrimitiveSignature};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::BTreeSet;
+
+#[derive(Debug, thiserror::Error)]
+pub enum CommitteeError {
+    #[error("verification failed due to insufficient quorum ({got} < {required})")]
+    InsufficientQuorum { got: usize, required: usize },
+    #[error("validator {0} not in committee")]
+    ValidatorNotInCommittee(Address),
+    #[error(transparent)]
+    SignatureError(#[from] alloy_primitives::SignatureError),
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Committee {
-    pub validators: Vec<Address>,
-    validator_set: HashMap<Address, bool>,
+    pub validators: BTreeSet<Address>,
     pub quorum_size: usize,
 }
 
 impl Committee {
-    pub fn new(mut validators: Vec<Address>, quorum_size: usize) -> Self {
-        validators.sort();
-        let validator_set = validators.iter().map(|r| (*r, true)).collect();
+    pub fn new(validators: impl IntoIterator<Item = Address>, quorum_size: usize) -> Self {
+        let validator_set = validators.into_iter().collect();
         Committee {
-            validators,
-            validator_set,
+            validators: validator_set,
             quorum_size,
         }
     }
@@ -36,12 +42,17 @@ impl Committee {
     }
 
     pub fn is_in_committee(&self, address: &Address) -> bool {
-        self.validator_set.contains_key(address)
+        self.validators.contains(address)
     }
 
-    pub fn verify_attestation<T: Hashable>(&self, attestation: &Attestation<T>) -> Result<bool> {
+    pub fn verify_attestation<T: Hashable>(
+        &self,
+        attestation: &Attestation<T>,
+    ) -> Result<bool, CommitteeError> {
         if !self.is_in_committee(&attestation.public_key) {
-            return Err(anyhow!("Validator not in committee"));
+            return Err(CommitteeError::ValidatorNotInCommittee(
+                attestation.public_key,
+            ));
         }
 
         let signer = attestation
@@ -53,18 +64,27 @@ impl Committee {
     // utility function that does aggregate verification over an arbitrary hash
     pub fn verify_aggregate_attestation(
         &self,
-        digest: B256,
+        digest: Hash,
         signatures: &Vec<PrimitiveSignature>,
-    ) -> Result<()> {
+    ) -> Result<(), CommitteeError> {
         if signatures.len() < self.quorum_size {
-            return Err(anyhow!("Insufficient quorum"));
+            return Err(CommitteeError::InsufficientQuorum {
+                got: signatures.len(),
+                required: self.quorum_size,
+            });
         }
 
-        let mut recovered_signers = HashSet::new();
+        let mut recovered_signers = BTreeSet::new();
 
         // Recover and validate each signature
         for sig in signatures {
-            let recovered_address = sig.recover_address_from_prehash(&digest)?;
+            let recovered_address = match sig.recover_address_from_prehash(&digest) {
+                Ok(addr) => addr,
+                Err(e) => {
+                    tracing::debug!("failed to recover address from signature: {e}");
+                    continue;
+                }
+            };
 
             // Skip if signer not in committee (treat as invalid signature)
             if !self.is_in_committee(&recovered_address) {
@@ -76,15 +96,19 @@ impl Committee {
 
         // Verify we have enough unique valid signatures from committee members
         if recovered_signers.len() < self.quorum_size {
-            return Err(anyhow!(
-                "Insufficient unique valid signatures from committee members"
-            ));
+            return Err(CommitteeError::InsufficientQuorum {
+                got: recovered_signers.len(),
+                required: self.quorum_size,
+            });
         }
 
         Ok(())
     }
 
-    pub fn verify_certificate<C: Hashable>(&self, certificate: &Certificate<C>) -> Result<()> {
+    pub fn verify_certificate<C: Hashable>(
+        &self,
+        certificate: &Certificate<C>,
+    ) -> Result<(), CommitteeError> {
         self.verify_aggregate_attestation(
             certificate.certified.hash_custom(),
             &certificate.signatures,
