@@ -110,7 +110,7 @@ async fn vote(
     let auction = Auction::new(auction_address, pod_provider.clone());
 
     // Submit bid
-    println!("Submitting bid for auction {}...", auction_id);
+    println!("Submitting bid for auction {auction_id}...");
     let pending_tx = auction
         .submitBid(auction_id, U256::from(deadline), value, data)
         .send()
@@ -181,14 +181,8 @@ async fn watch(auction_id: U256, deadline: u64, rpc_url: String) -> Result<()> {
         .topic1(U256::from(auction_id))
         .build();
 
-    println!(
-        "Watching auction {} until deadline {}...",
-        auction_id, deadline
-    );
-    println!(
-        "View contract on explorer: {}/account/{}",
-        POD_EXPLORER_URL, auction_address
-    );
+    println!("Watching auction {auction_id} until deadline {deadline}...");
+    println!("View contract on explorer: {POD_EXPLORER_URL}/account/{auction_address}");
 
     // Create channel for communication between tasks
     let (tx, mut rx) = mpsc::channel(100);
@@ -251,7 +245,7 @@ async fn watch(auction_id: U256, deadline: u64, rpc_url: String) -> Result<()> {
                 println!("\nNew bid received!");
                 println!("Bidder: {}", event.bidder);
                 println!("Value: {} wei", event.value);
-                println!("View on explorer: {}/tx/{:?}", POD_EXPLORER_URL, tx_hash);
+                println!("View on explorer: {POD_EXPLORER_URL}/tx/{tx_hash:?}");
 
                 // Update highest bid if needed
                 if event.value > highest_bid {
@@ -277,12 +271,9 @@ async fn watch(auction_id: U256, deadline: u64, rpc_url: String) -> Result<()> {
     // Print winner
     if highest_bid > U256::ZERO {
         println!("\nAuction winner:");
-        println!("Address: {}", highest_bidder);
-        println!("Bid amount: {} wei", highest_bid);
-        println!(
-            "View winner on explorer: {}/account/{}",
-            POD_EXPLORER_URL, highest_bidder
-        );
+        println!("Address: {highest_bidder}");
+        println!("Bid amount: {highest_bid} wei");
+        println!("View winner on explorer: {POD_EXPLORER_URL}/account/{highest_bidder}");
     } else {
         println!("\nNo bids were received for this auction.");
     }

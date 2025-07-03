@@ -39,7 +39,7 @@ impl CallData {
     pub fn to_hex_string(&self) -> String {
         let mut result = String::with_capacity(self.0.len() * 2);
         for &byte in self.0.iter() {
-            result.push_str(&format!("{:02x}", byte));
+            result.push_str(&format!("{byte:02x}"));
         }
         result
     }
