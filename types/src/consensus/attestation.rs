@@ -18,7 +18,7 @@ pub type UncheckedReceiptAttestation = Attestation<UncheckedReceipt>;
 
 pub type UncheckedTransactionAttestation = Attestation<UncheckedSigned<Transaction>>;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Indexed<T> {
     #[serde(rename = "timestamp")]
     pub index: Timestamp, // TODO: consider sequential numbers
