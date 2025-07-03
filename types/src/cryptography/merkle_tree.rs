@@ -146,15 +146,15 @@ fn join_prefix(prefix: &str, sub: &str) -> String {
         (true, true) => "".to_string(),
         (true, false) => sub.to_string(),
         (false, true) => prefix.to_string(),
-        (false, false) => format!("{}.{}", prefix, sub),
+        (false, false) => format!("{prefix}.{sub}"),
     }
 }
 
 pub fn index_prefix(prefix: &str, index: usize) -> String {
     if prefix.is_empty() {
-        format!("[{}]", index)
+        format!("[{index}]")
     } else {
-        format!("{}[{}]", prefix, index)
+        format!("{prefix}[{index}]")
     }
 }
 

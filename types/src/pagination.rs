@@ -39,7 +39,7 @@ where
 {
     match cursor {
         Some((start, end)) => {
-            let cursor_str = format!("{}|{}", start, end);
+            let cursor_str = format!("{start}|{end}");
             let encoded = base64::engine::general_purpose::STANDARD.encode(cursor_str);
             serializer.serialize_str(&encoded)
         }

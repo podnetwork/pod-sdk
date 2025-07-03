@@ -153,7 +153,7 @@ impl AuctionClient {
         {
             Ok(tx) => tx,
             Err(e) => {
-                println!("{:?}", e);
+                println!("{e:?}");
                 return Ok(());
             }
         };
@@ -171,7 +171,7 @@ impl AuctionClient {
         let write_tx = match self.consumer_contract.write(certified_log).send().await {
             Ok(tx) => tx,
             Err(e) => {
-                println!("{:?}", e);
+                println!("{e:?}");
                 return Ok(());
             }
         };
@@ -194,7 +194,7 @@ impl AuctionClient {
         {
             Ok(tx) => tx,
             Err(e) => {
-                println!("{:?}", e);
+                println!("{e:?}");
                 return Ok(());
             }
         };
@@ -298,9 +298,9 @@ where
     let receipt = provider.get_transaction_receipt(tx_hash).await?.unwrap();
 
     if receipt.status() {
-        println!("✅ Tx succeeded: {:?}", tx_hash);
+        println!("✅ Tx succeeded: {tx_hash:?}");
     } else {
-        println!("❌ Tx failed: {:?}", tx_hash);
+        println!("❌ Tx failed: {tx_hash:?}");
     }
 
     assert!(receipt.status());

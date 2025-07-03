@@ -15,7 +15,7 @@ async fn main() -> Result<()> {
         .await?;
 
     let committee = pod_provider.get_committee().await?;
-    println!("committee: {:?}", committee);
+    println!("committee: {committee:?}");
 
     // sender sends payment
     let start_time = SystemTime::now()
@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
         .transfer(recipient, U256::from(1_000_000))
         .await
         .unwrap();
-    println!("receipt: {:?}", receipt);
+    println!("receipt: {receipt:?}");
 
     // recipient listens for new receipts and verifies payment
     let receipts = pod_provider.get_receipts(None, start_time, None).await?;
@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
     for receipt in receipts.items {
         if receipt.transaction().to == TxKind::Call(recipient) && receipt.verify(&committee).is_ok()
         {
-            println!("found verified receipt {:?}", receipt);
+            println!("found verified receipt {receipt:?}");
         }
     }
 
@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
         if recipient_receipt.transaction().to == TxKind::Call(recipient)
             && recipient_receipt.verify(&committee).is_ok()
         {
-            println!("found verified receipt {:?}", recipient_receipt);
+            println!("found verified receipt {recipient_receipt:?}");
         }
     }
 
@@ -80,7 +80,7 @@ async fn main() -> Result<()> {
 
     println!("waiting for new logs");
     while let Some(log) = stream.next().await {
-        println!("got log {:?}", log);
+        println!("got log {log:?}");
         log.verify(&committee).expect("log verification failed");
         println!("Found verified auction contract event: {log:?}");
         println!("Event merkle multi-proof: {:?}", log.generate_multi_proof())

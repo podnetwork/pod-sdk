@@ -142,7 +142,7 @@ async fn main() -> Result<()> {
                 deadline,
             )
             .await?;
-            println!("Poll {} created", poll_id);
+            println!("Poll {poll_id} created");
         }
         Commands::Watch {} => watch(cli.rpc_url, cli.contract_address).await?,
     }

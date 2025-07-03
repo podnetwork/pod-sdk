@@ -75,7 +75,7 @@ async fn main() -> Result<()> {
             let balance = address_balance(cli.rpc_url, cli.contract_address, address).await?;
 
             //        address | balance
-            println!("ℹ️  Balance of {}: {} token(s)", address, balance);
+            println!("ℹ️  Balance of {address}: {balance} token(s)");
         }
     }
 
