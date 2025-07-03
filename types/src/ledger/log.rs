@@ -3,12 +3,14 @@ use std::ops::Deref;
 pub use alloy_primitives::{Log, LogData};
 use alloy_rpc_types::Log as RPCLog;
 use alloy_sol_types::SolValue;
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     Certificate, Committee, Timestamp,
-    consensus::attestation::{HeadlessAttestation, Indexed},
+    consensus::{
+        attestation::{HeadlessAttestation, Indexed},
+        committee::CommitteeError,
+    },
     cryptography::{
         Hash, MerkleMultiProof, Merkleizable,
         hash::Hashable,
@@ -78,7 +80,7 @@ impl VerifiableLog {
                 .generate_multi_proof_for_log(i.try_into().unwrap())
         })
     }
-    pub fn verify(&self, committee: &Committee) -> Result<()> {
+    pub fn verify(&self, committee: &Committee) -> Result<(), CommitteeError> {
         committee.verify_certificate(&Certificate {
             signatures: self
                 .pod_metadata

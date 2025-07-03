@@ -4,12 +4,12 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{Error, anyhow};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum TimestampError {
-    InvalidHexString,
+    #[error(r#"invalid hex string "{0}": can't convert to Timestamp"#)]
+    InvalidHexString(String),
 }
 
 #[derive(
@@ -54,17 +54,21 @@ impl Timestamp {
         SystemClock.now()
     }
 
-    pub fn from_hex_seconds_str(s: &str) -> Result<Self, Error> {
-        if s == "earliest" {
-            Ok(Self::zero())
-        } else if s == "latest" || s == "finalized" || s == "pending" {
-            // todo revisit the pending
-            Ok(Self::now())
-        } else {
-            Ok(Self::from_seconds(
+    pub fn from_hex_seconds_str(s: &str) -> Result<Self, TimestampError> {
+        match s {
+            "earliest" => Ok(Self::zero()),
+            "latest" | "finalized" => Ok(Self::now()),
+            // TODO: revisit the pending
+            "pending" => {
+                tracing::warn!(
+                    "Using 'pending' as a timestamp isn't properly implemented. Using current time."
+                );
+                Ok(Self::now())
+            }
+            s => Ok(Self::from_seconds(
                 u64::from_str_radix(s.strip_prefix("0x").unwrap_or(s), 16)
-                    .map_err(|_| anyhow!("Invalid timestamp. Expected a hex string"))?,
-            ))
+                    .map_err(|_| TimestampError::InvalidHexString(s.to_string()))?,
+            )),
         }
     }
 }
