@@ -7,9 +7,7 @@ use serde::{Deserialize, Serialize};
 use super::{Transaction, log};
 use crate::cryptography::{
     hash::{Hash, Hashable},
-    merkle_tree::{
-        MerkleBuilder, MerkleError, MerkleMultiProof, MerkleProof, Merkleizable, index_prefix,
-    },
+    merkle_tree::{MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable, index_prefix},
     signer::{Signed, UncheckedSigned},
 };
 
@@ -29,25 +27,17 @@ impl Receipt {
     }
 
     // Generates a proof for the hash of the log at a given index.
-    pub fn generate_proof_for_log_hash(
-        &self,
-        log_index: usize,
-    ) -> Result<MerkleProof, MerkleError> {
-        if log_index >= self.logs.len() {
-            return Err(MerkleError::InvalidIndex(log_index));
-        }
+    pub fn generate_proof_for_log_hash(&self, log_index: usize) -> Option<MerkleProof> {
+        let log_hash = self.logs.get(log_index)?.hash_custom();
 
-        self.generate_proof(
-            &index_prefix("log_hashes", log_index),
-            &self.log_hashes()[log_index],
-        )
+        self.generate_proof(&index_prefix("log_hashes", log_index), &log_hash)
     }
 
     // Generates a proof for the hash of each log at the given indices.
     pub fn generate_proofs_for_log_hashes(
         &self,
         log_indices: &[usize],
-    ) -> Result<Vec<MerkleProof>, MerkleError> {
+    ) -> Vec<Option<MerkleProof>> {
         log_indices
             .iter()
             .map(|&i| self.generate_proof_for_log_hash(i))

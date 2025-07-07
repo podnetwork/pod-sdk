@@ -101,12 +101,11 @@ impl VerifiableLog {
             self.pod_metadata
                 .receipt
                 .generate_proof_for_log_hash(i.try_into().unwrap())
-                .ok()
         })
     }
 
     pub fn get_leaf(&self) -> Hash {
-        let log_index = self.inner.log_index.unwrap_or(0) as usize;
+        let log_index = self.inner.log_index.unwrap_or(0).try_into().unwrap();
         StandardMerkleTree::hash_leaf(
             index_prefix("log_hashes", log_index),
             self.inner.inner.hash_custom(),
