@@ -13,6 +13,6 @@ This guide shows how to create and use a simple fungible token using `FastTypes.
 
 To get started, clone `podnetwork/pod-sdk` github repository and go to `examples/tokens` directory:
 
-```bash
+```bash clickToCopy
 $ git clone github.com/podnetwork/ && cd examples/tokens
 ```
