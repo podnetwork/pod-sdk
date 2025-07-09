@@ -14,6 +14,14 @@ documentation = "https://docs.rs/pod-types"
 name = "pod_types"
 path = "src/lib.rs"
 
+[features]
+default = []
+arbitrary = [
+  "alloy-consensus/arbitrary",
+  "alloy-primitives/arbitrary",
+  "dep:arbitrary",
+]
+
 [dependencies]
 alloy-consensus = { version = "0.12.1", features = [
   "serde",
@@ -37,10 +45,11 @@ serde_with = "3.12.0"
 thiserror = "2.0.12"
 tracing = "0.1.41"
 
+arbitrary = { version = "1.4.1", optional = true, features = ["derive"] }
 
 [dev-dependencies]
 arbitrary = "1.4.1"
-alloy-consensus = { version = "0.12.1", features = ["arbitrary"] }
+pod-types = { path = ".", features = ["arbitrary"] }
 bincode = { version = "2.0.1", features = ["serde"] }
 rand = "0.9.1"
 serde_json = "*"

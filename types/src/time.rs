@@ -25,6 +25,7 @@ pub enum TimestampError {
     std::hash::Hash,
     Default,
 )]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Timestamp(u128);
 
 impl Timestamp {

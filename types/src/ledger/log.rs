@@ -36,6 +36,7 @@ pub fn to_rpc_format(inner_log: Log, tx_hash: Hash) -> RPCLog {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Event {
     pub log: Log,
     pub log_index: u64,

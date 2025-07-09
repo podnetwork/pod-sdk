@@ -12,6 +12,7 @@ use crate::cryptography::{
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Receipt {
     pub status: bool,
     pub actual_gas_used: u64,

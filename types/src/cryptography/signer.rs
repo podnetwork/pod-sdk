@@ -142,21 +142,32 @@ impl<T: Merkleizable + Hashable> Merkleizable for Signed<T> {
     }
 }
 
+#[cfg(feature = "arbitrary")]
+impl<'a, T: arbitrary::Arbitrary<'a> + Hashable + SignableTransaction<PrimitiveSignature>>
+    arbitrary::Arbitrary<'a> for Signed<T>
+{
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        use alloy_signer::SignerSync;
+        let signed = T::arbitrary(u)?;
+        let signer = alloy_signer_local::PrivateKeySigner::random();
+        let signature = signer.sign_hash_sync(&signed.signature_hash()).unwrap();
+        Ok(Signed {
+            signed,
+            signature,
+            signer: signer.address(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_signer_local::PrivateKeySigner;
     use arbitrary::Arbitrary;
     use bincode::config::standard;
-    use rand::Rng;
 
     fn arbitrary_signed_tx() -> Signed<Transaction> {
-        let mut bytes = [0u8; 1024];
-        rand::rng().fill(bytes.as_mut_slice());
-        let tx = Transaction::arbitrary(&mut arbitrary::Unstructured::new(&bytes)).unwrap();
-
-        let signer = PrivateKeySigner::random();
-        TxSigner::sign_tx(&signer, tx).unwrap()
+        let bytes: [u8; 1024] = rand::random();
+        Signed::arbitrary(&mut arbitrary::Unstructured::new(&bytes)).unwrap()
     }
 
     #[test]
