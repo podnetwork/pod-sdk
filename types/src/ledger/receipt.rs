@@ -8,7 +8,7 @@ use super::{Transaction, log};
 use crate::cryptography::{
     hash::{Hash, Hashable},
     merkle_tree::{MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable, index_prefix},
-    signer::{Signed, UncheckedSigned},
+    signer::Signed,
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -112,44 +112,6 @@ impl From<Receipt> for TransactionReceipt {
             from: val.tx.signer,
             to: val.tx.signed.to.to().cloned(),
             contract_address: val.contract_address, // None if the transaction is not a contract creation.
-        }
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug, Eq, PartialEq)]
-pub struct UncheckedReceipt {
-    pub status: bool,
-    pub actual_gas_used: u64,
-    pub logs: Vec<Log>,
-    pub logs_root: Hash,
-    pub tx: UncheckedSigned<Transaction>,
-    pub contract_address: Option<Address>,
-}
-
-impl From<Receipt> for UncheckedReceipt {
-    fn from(receipt: Receipt) -> Self {
-        Self {
-            status: receipt.status,
-            actual_gas_used: receipt.actual_gas_used,
-            logs: receipt.logs,
-            logs_root: receipt.logs_root,
-            tx: receipt.tx.into(),
-            contract_address: receipt.contract_address,
-        }
-    }
-}
-
-impl UncheckedReceipt {
-    /// Convert from an `UncheckedReceipt` to a fully fledged `Receipt`
-    /// _without_ re-verifying.
-    pub fn into_unchecked(self) -> Receipt {
-        Receipt {
-            status: self.status,
-            actual_gas_used: self.actual_gas_used,
-            logs: self.logs,
-            logs_root: self.logs_root,
-            tx: self.tx.into_signed_unchecked(),
-            contract_address: self.contract_address,
         }
     }
 }
