@@ -4,19 +4,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Receipt, Signed, Timestamp, Transaction,
-    cryptography::{
-        hash::{Hash, Hashable},
-        signer::UncheckedSigned,
-    },
-    ledger::receipt::UncheckedReceipt,
+    cryptography::hash::{Hash, Hashable},
 };
 
 pub type TransactionAttestation = Attestation<Signed<Transaction>>;
 pub type ReceiptAttestation = Attestation<Receipt>;
-
-pub type UncheckedReceiptAttestation = Attestation<UncheckedReceipt>;
-
-pub type UncheckedTransactionAttestation = Attestation<UncheckedSigned<Transaction>>;
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Indexed<T> {

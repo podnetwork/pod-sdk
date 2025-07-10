@@ -1,7 +1,8 @@
-use alloy_consensus::{SignableTransaction, TxEip1559};
+use alloy_consensus::{SignableTransaction, TxEip1559, serde_bincode_compat};
 use alloy_primitives::{PrimitiveSignature, SignatureError};
 use alloy_sol_types::SolValue;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_with::serde_as;
 use std::ops::Deref;
 
 use alloy_primitives::Address;
@@ -33,10 +34,35 @@ where
 // Only works with ECDSA signatures for now
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Signed<T: Hashable> {
+pub struct Signed<T> {
     pub signed: T,
     pub signature: PrimitiveSignature,
     pub signer: Address,
+}
+
+impl<T> Signed<T>
+where
+    T: SignableTransaction<PrimitiveSignature>,
+{
+    /// Creates a new `Signed<T>` with the given `signed`, `signature`, and `signer`.
+    ///
+    /// # Safety
+    /// The caller must ensure that the `signer` is the correct address that corresponds to the
+    /// `signature`
+    pub unsafe fn new_unchecked(signed: T, signature: PrimitiveSignature, signer: Address) -> Self {
+        debug_assert_eq!(
+            signer,
+            signature
+                .recover_address_from_prehash(&signed.signature_hash())
+                .unwrap(),
+            "Signer address does not match the signature's recovered address"
+        );
+        Signed {
+            signed,
+            signature,
+            signer,
+        }
+    }
 }
 
 impl Serialize for Signed<Transaction> {
@@ -116,110 +142,6 @@ impl<T: Merkleizable + Hashable> Merkleizable for Signed<T> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct UncheckedSigned<T: Hashable> {
-    pub signed: T,
-    pub signature: PrimitiveSignature,
-    pub signer: Address,
-}
-
-use alloy_consensus::serde_bincode_compat;
-use serde_with::serde_as;
-
-impl Serialize for UncheckedSigned<Transaction> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        #[serde_as]
-        #[derive(Serialize)]
-        struct Helper<'a> {
-            #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
-            signed: &'a Transaction,
-            signature: &'a PrimitiveSignature,
-            signer: &'a Address,
-        }
-
-        Helper {
-            signed: &self.signed,
-            signature: &self.signature,
-            signer: &self.signer,
-        }
-        .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for UncheckedSigned<Transaction> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[serde_as]
-        #[derive(Deserialize)]
-        struct Helper {
-            #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
-            signed: Transaction,
-            signature: PrimitiveSignature,
-            signer: Address,
-        }
-        let helper = Helper::deserialize(deserializer)?;
-        Ok(UncheckedSigned {
-            signed: helper.signed,
-            signature: helper.signature,
-            signer: helper.signer,
-        })
-    }
-}
-
-impl From<Signed<Transaction>> for UncheckedSigned<Transaction> {
-    fn from(signed: Signed<Transaction>) -> Self {
-        UncheckedSigned {
-            signed: signed.signed,
-            signature: signed.signature,
-            signer: signed.signer,
-        }
-    }
-}
-
-impl UncheckedSigned<Transaction> {
-    /// Convert from an `UncheckedSigned<Transaction>` to a fully fledged `Signed<Transaction>`
-    /// _without_ re-verifying.
-    pub fn into_signed_unchecked(self) -> Signed<Transaction> {
-        // Make a "blind" Signed structure that does *not* re-check
-        Signed {
-            signed: self.signed,
-            signature: self.signature,
-            signer: self.signer,
-        }
-    }
-}
-
-impl<T: Hashable> Deref for UncheckedSigned<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.signed
-    }
-}
-
-impl TryFrom<alloy_consensus::Signed<TxEip1559, PrimitiveSignature>>
-    for UncheckedSigned<Transaction>
-{
-    type Error = SignatureError;
-
-    fn try_from(value: alloy_consensus::Signed<TxEip1559>) -> Result<Self, Self::Error> {
-        Signed::try_from(value).map(Into::into)
-    }
-}
-
-impl<T: Merkleizable + Hashable> Merkleizable for UncheckedSigned<T> {
-    fn append_leaves(&self, builder: &mut MerkleBuilder) {
-        builder.add_merkleizable("signed", &self.signed);
-        builder.add_field("signer", self.signer.abi_encode().hash_custom());
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,22 +189,13 @@ mod tests {
     }
 
     #[test]
-    fn unchecked_signed_serialization() {
-        let unchecked_signed: UncheckedSigned<_> = arbitrary_signed_tx().into();
+    fn signed_new_unchecked() {
+        let signed = arbitrary_signed_tx();
 
-        let serialized = serde_json::to_string(&unchecked_signed).unwrap();
-        let deserialized: UncheckedSigned<Transaction> = serde_json::from_str(&serialized).unwrap();
+        let new_signed = unsafe {
+            Signed::new_unchecked(signed.signed.clone(), signed.signature, signed.signer)
+        };
 
-        assert_eq!(unchecked_signed, deserialized);
-    }
-
-    #[test]
-    fn serialize_with_bincode() {
-        let unchecked_signed: UncheckedSigned<_> = arbitrary_signed_tx().into();
-
-        let serialized = bincode::serde::encode_to_vec(&unchecked_signed, standard()).unwrap();
-        let (deserialized, _) = bincode::serde::decode_from_slice(&serialized, standard()).unwrap();
-
-        assert_eq!(unchecked_signed, deserialized);
+        assert_eq!(new_signed, signed);
     }
 }
