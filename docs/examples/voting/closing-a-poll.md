@@ -39,8 +39,6 @@ Once the winner is known, we can call `setWinningChoice`, which closes the poll.
 
 ! content
 
-! sticky
-
 ! codeblock title="Rust"
 
 ```rust
@@ -94,8 +92,6 @@ async fn close_poll(
 ```
 
 ! codeblock end
-
-! sticky end
 
 ! content end
 

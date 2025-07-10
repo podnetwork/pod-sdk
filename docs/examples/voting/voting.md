@@ -12,8 +12,6 @@ Voting is straightforward. We need to send a transaction with the selected choic
 
 ! content
 
-! sticky
-
 ! codeblock title="Rust"
 
 ```rust
@@ -40,8 +38,6 @@ async fn vote(
 ```
 
 ! codeblock end
-
-! sticky end
 
 ! content end
 

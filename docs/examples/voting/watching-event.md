@@ -25,8 +25,6 @@ which returns an enum with variants respective to event types that the contract 
 
 ! content
 
-! sticky
-
 ! codeblock title="Rust"
 
 ```rust
@@ -78,7 +76,5 @@ async fn watch(rpc_url: String, contract_address: Address) -> Result<()> {
 ```
 
 ! codeblock end
-
-! sticky end
 
 ! content end

@@ -44,8 +44,6 @@ Ok(proposal_created.proposalId)
 
 Complete example for creating a proposal with `pod_sdk`:
 
-! sticky
-
 ! codeblock title="Rust"
 
 ```rust
@@ -93,8 +91,6 @@ async fn create_proposal(
 ```
 
 ! codeblock end
-
-! sticky end
 
 ! content end
 
