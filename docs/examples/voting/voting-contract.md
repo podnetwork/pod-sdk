@@ -9,8 +9,6 @@ layout: single
 
 ! content
 
-! sticky
-
 ! codeblock title="Solidity"
 
 ```solidity
@@ -143,8 +141,6 @@ contract Voting {
 ```
 
 ! codeblock end
-
-! sticky end
 
 ! content end
 
