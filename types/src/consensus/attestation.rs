@@ -11,6 +11,7 @@ pub type TransactionAttestation = Attestation<Signed<Transaction>>;
 pub type ReceiptAttestation = Attestation<Receipt>;
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Indexed<T> {
     #[serde(rename = "timestamp")]
     pub index: Timestamp, // TODO: consider sequential numbers
@@ -52,6 +53,21 @@ pub struct Attestation<T> {
     pub attested: T,
 }
 
+#[cfg(feature = "arbitrary")]
+impl<'a, T: arbitrary::Arbitrary<'a> + Hashable> arbitrary::Arbitrary<'a> for Attestation<T> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        use alloy_signer::SignerSync;
+        let signer = alloy_signer_local::PrivateKeySigner::random();
+        let attested = T::arbitrary(u)?;
+
+        Ok(Attestation {
+            public_key: signer.address(),
+            signature: signer.sign_hash_sync(&attested.hash_custom()).unwrap(),
+            attested,
+        })
+    }
+}
+
 impl<T: Hashable> Hashable for Attestation<T> {
     fn hash_custom(&self) -> Hash {
         let mut hasher = alloy_primitives::Keccak256::default();
@@ -63,6 +79,7 @@ impl<T: Hashable> Hashable for Attestation<T> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct TimestampedHeadlessAttestation {
     pub timestamp: Timestamp,
     pub public_key: Address,
@@ -70,6 +87,7 @@ pub struct TimestampedHeadlessAttestation {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct HeadlessAttestation {
     pub public_key: Address,
     pub signature: PrimitiveSignature,

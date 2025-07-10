@@ -3247,6 +3247,7 @@ dependencies = [
  "bytes",
  "hex",
  "itertools 0.13.0",
+ "pod-types",
  "rand 0.9.1",
  "serde",
  "serde_json",
