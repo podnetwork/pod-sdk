@@ -35,7 +35,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Vote in existing poll
-    Vote {
+    CastVote {
         /// Private key for signing the transaction
         #[arg(long)]
         private_key: Privatekey,
@@ -46,7 +46,7 @@ enum Commands {
         #[arg(long)]
         choice: usize,
     },
-    CreatePoll {
+    CreateProposal {
         /// Private key for signing the transaction
         #[arg(long)]
         private_key: Privatekey,
@@ -63,7 +63,7 @@ enum Commands {
         #[arg(short, long)]
         participants: Vec<Address>,
     },
-    ClosePoll {
+    ExecuteProposal {
         /// Private key for signing the transaction
         #[arg(long)]
         private_key: Privatekey,

@@ -1,157 +1,126 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import {requireTimeBefore, requireTimeAfter} from "pod-sdk/pod/Time.sol";
+import {requireTimeBefore, requireTimeAfter} from "pod-sdk/Time.sol";
+import {FastTypes} from "pod-sdk/FastTypes.sol";
 
 contract Voting {
+    using FastTypes for FastTypes.SharedCounter;
+    using FastTypes for FastTypes.OwnedCounter;
+
     enum VoterState {
         Unregistered,
         Registered,
         Voted
     }
 
-    struct Poll {
+    struct Proposal {
         uint256 deadline;
-        uint256 maxChoice;
-        address owner;
+	uint256 threshold;
+        address proposer;
         mapping(address => VoterState) voters;
-        mapping(uint256 => uint256) voteCount;
         uint256 totalVotes;
         uint256 totalVoters; // Total number of registered voters
-        uint256 winningChoice; // 0 means not set
+        bool executed;
     }
 
-    // Maps poll ID to poll data
-    mapping(bytes32 => Poll) private polls;
+    // Maps proposal ID to proposal data
+    mapping(bytes32 => Proposal) private proposals;
+    FastTypes.SharedCounter private voteCount;
+    FastTypes.OwnedCounter private hasVoted;
 
-    event PollCreated(bytes32 indexed pollId, uint256 deadline);
-    event Voted(bytes32 indexed pollId, address indexed voter, uint256 indexed choice);
-    event Winner(bytes32 indexed pollId, uint256 indexed choice);
+    event ProposalCreated(bytes32 indexed proposalId, uint256 deadline);
+    event VoteCast(bytes32 indexed proposalId, address indexed voter, uint8 choice);
+    event ProposalExecuted(bytes32 indexed proposalId);
 
-    /// @notice Calculate poll ID
-    /// @param deadline The poll deadline in seconds
-    /// @param maxChoice The maximum choice in a poll
-    /// @param owner The crator of the poll
-    /// @param voters The poll participants
-    /// @return pollId The unique poll ID derived from the input parameters
-    function getPollId(uint256 deadline, uint256 maxChoice, address owner, address[] calldata voters)
+    /// @notice Calculate proposal ID
+    /// @param deadline The proposal deadline in seconds
+    /// @param proposer The creator of the proposal
+    /// @param voters The voters
+    /// @return proposalId The unique proposal ID derived from the input parameters
+    function getProposalId(uint256 deadline, address proposer, address[] calldata voters)
         public
         pure
-        returns (bytes32 pollId)
+        returns (bytes32 proposalId)
     {
-        // calculates an id (hash) based on the poll information and owner
-        return keccak256(abi.encode(deadline, maxChoice, owner, keccak256(abi.encodePacked(voters))));
+        // calculates an id (hash) based on the proposal information and proposer
+        return keccak256(abi.encode(deadline, proposer, keccak256(abi.encodePacked(voters))));
     }
 
-    /// @notice Create a new poll
-    /// @param deadline The poll deadline in seconds
-    /// @param maxChoice The maximum choice in a poll
-    /// @param voters The poll participants
-    /// @return pollId The unique poll ID
-    function createPoll(uint256 deadline, uint256 maxChoice, address[] calldata voters)
+    /// @notice Create a new proposal
+    /// @param deadline The proposal deadline in seconds
+    /// @param voters The proposal participants
+    /// @return proposalId The unique proposal ID
+    function createProposal(uint256 deadline, uint256 threshold, address[] calldata voters)
         public
-        returns (bytes32 pollId)
+        returns (bytes32 proposalId)
     {
         // Validation
         requireTimeBefore(deadline, "Deadline must be in the future");
-        require(maxChoice > 0, "MaxChoice must be greater than zero");
+	require(threshold > 0, "Threshold should not be 0");
         require(voters.length > 0, "There must be at least one voter");
 
-        bytes32 id = getPollId(deadline, maxChoice, msg.sender, voters);
+        bytes32 id = getProposalId(deadline, msg.sender, voters);
 
-        // Create new poll
-        Poll storage newPoll = polls[id];
-        require(newPoll.totalVoters == 0, "poll already exists");
+        // Create new proposal
+        Proposal storage newProposal = proposals[id];
+        require(newProposal.totalVoters == 0, "proposal already exists");
 
-        newPoll.deadline = deadline;
-        newPoll.maxChoice = maxChoice;
-        newPoll.owner = msg.sender;
-        newPoll.totalVoters = voters.length;
+        newProposal.deadline = deadline;
+        newProposal.proposer = msg.sender;
+        newProposal.totalVoters = voters.length;
 
         // Register all voters
         for (uint256 i = 0; i < voters.length; i++) {
-            newPoll.voters[voters[i]] = VoterState.Registered;
+            newProposal.voters[voters[i]] = VoterState.Registered;
         }
 
-        emit PollCreated(id, deadline);
+        emit ProposalCreated(id, deadline);
         return id;
     }
 
-    /// @notice Vote in a poll
-    /// @param pollId The poll ID to vote in
-    /// @param choice The choice to vote for. Must be between 1 and maxChoice
-    function vote(bytes32 pollId, uint256 choice) public {
+    /// @notice Vote in a proposal
+    /// @param proposalId The proposal ID to vote in
+    /// @param choice The choice of the voter.
+    function castVote(bytes32 proposalId, uint8 choice) public {
         // adds vote only if: deadline hasnt passed, voter is registered
-        Poll storage poll = polls[pollId];
-        requireTimeBefore(poll.deadline, "Poll deadline has passed or poll does not exist");
-        require(choice > 0 && choice <= poll.maxChoice, "Choice must be between 1 and maxChoice");
+        Proposal storage proposal = proposals[proposalId];
+        requireTimeBefore(proposal.deadline, "Proposal deadline has passed or proposal does not exist");
 
         // Check if voter can vote
-        require(poll.voters[msg.sender] == VoterState.Registered, "sender can't vote");
+        require(proposal.voters[msg.sender] == VoterState.Registered, "sender not a voter");
+
+	// Check if already voted
+        require(hasVoted.get(proposalId, msg.sender) == 0, "already voted");
 
         // Mark that this voter has voted
-        poll.voters[msg.sender] = VoterState.Voted;
+	hasVoted.increment(proposalId, msg.sender, 1);
 
         // Count the vote
-        poll.voteCount[choice]++;
-        poll.totalVotes++;
+	voteCount.increment(keccak256(abi.encode(proposalId, choice)), 1);
 
-        emit Voted(pollId, msg.sender, choice);
+        emit VoteCast(proposalId, msg.sender, choice);
     }
 
-    /// @notice Close a poll, selecting the winning choice.
-    /// Anyone can call, but choice must be definitely the winning one.
-    /// A choice is definitely winning, when even if all remaining votes 
-    /// are given to second highest voted, this choice would still win.
-    /// @param pollId The poll ID to close
-    /// @param choice the selected winning choice
-    function setWinningChoice(bytes32 pollId, uint256 choice) public {
-        Poll storage poll = polls[pollId];
-        requireTimeAfter(poll.deadline, "Poll deadline has not passed yet");
-        require(choice > 0 && choice <= poll.maxChoice, "Choice must be between 1 and maxChoice");
+    /// @notice Execute proposal if succeeded
+    /// @param proposalId The proposal ID to execute if succeeded
+    function execute(bytes32 proposalId) public {
+        Proposal storage proposal = proposals[proposalId];
+        requireTimeAfter(proposal.deadline, "Proposal deadline has not passed yet");
+        require(!proposal.executed, "Proposal already executed");
 
-        uint256 voteCount = poll.voteCount[choice];
+	bytes32 key = keccak256(abi.encode(proposalId, 1));
+	voteCount.requireGte(key, proposal.threshold, "Not enough yes votes");
 
-        // Calculate remaining voters
-        uint256 remainingVoters = poll.totalVoters - poll.totalVotes;
+	// Mark proposal so that it cannot be executed again
+        proposal.executed = true;
 
-        // Find second highest vote count
-        uint256 secondHighestVotes = 0;
-        for (uint256 i = 1; i <= poll.maxChoice; i++) {
-            if (i == choice) continue; // Skip the choice we're checking
+	_execute(proposalId);
 
-            if (poll.voteCount[i] > secondHighestVotes) {
-                secondHighestVotes = poll.voteCount[i];
-            }
-        }
-
-        // Verify this choice has enough votes that it cannot be overtaken
-        requireQuorum(
-            voteCount - secondHighestVotes > remainingVoters,
-            "This choice could still be overtaken if remaining voters vote"
-        );
-
-        // Update the winning choice
-        poll.winningChoice = choice;
-
-        // Emit the Winner event
-        emit Winner(pollId, choice);
+        emit ProposalExecuted(proposalId);
     }
 
-    /// @notice Get poll data
-    /// @param pollId The poll ID to retrieve
-    /// @return participants The total number of participants of the poll
-    /// @return votes A list containing number of votes per each choice.
-    /// The choice "1" is the first element in the list.
-    function getVotes(bytes32 pollId) public view returns (uint256 participants, uint256[] memory votes) {
-        Poll storage poll = polls[pollId];
-        require(poll.maxChoice > 0, "poll doesn't exist");
-
-        uint256[] memory votesPerChoice = new uint256[](poll.maxChoice);
-        for (uint256 i = 0; i < poll.maxChoice; i++) {
-            votesPerChoice[i] = poll.voteCount[i + 1];
-        }
-
-        return (poll.totalVoters, votesPerChoice);
+    function _execute(bytes32 proposalId) internal {
+        // hook to run execution logic
     }
 }

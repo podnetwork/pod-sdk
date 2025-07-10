@@ -25,3 +25,6 @@
 [submodule "examples/solidity/lib/openzeppelin-contracts"]
 	path = examples/solidity/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "examples/voting/contract/lib/openzeppelin-contracts"]
+	path = examples/voting/contract/lib/openzeppelin-contracts
+	url = https://github.com/openzeppelin/openzeppelin-contracts
