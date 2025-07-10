@@ -26,11 +26,3 @@ toc:
 ---
 
 ! import ./voting.md
-
----
-
-! import ./closing-a-poll.md
-
----
-
-! import ./watching-event.md

@@ -1,24 +1,22 @@
 ---
-layout: simple
+layout: single
 ---
 
 ! content
 
-### Creating a poll
+### Creating a proposal
 
-Creating a poll is a two-step process.
+Creating a proposal is a two-step process.
 
-First, we create and send a transaction to create the poll, passing in:
+First, we create and send a transaction to create the proposal, passing in:
 
 - deadline
-- maximum choice (participants will vote for choices in 1 -> max_choice)
-- list of participants (people that can vote in the poll)
+- list of participants (people that can vote in the proposal)
 
 ```rust
 let pendix_tx = voting
-    .createPoll(
+    .createProposal(
         U256::from(deadline.as_seconds()),
-        U256::from(max_choice),
         participants.clone(),
     )
     .send()
@@ -27,34 +25,35 @@ let pendix_tx = voting
 let receipt = pendix_tx.get_receipt().await?;
 ```
 
-Next, we need to retrieve the poll ID from the transaction receipt:
+Next, we need to retrieve the proposal ID from the transaction receipt:
 
 ```rust
 let event = receipt
     .as_ref()
     .logs()
     .first()
-    .ok_or(anyhow!("missing PollCreated event"))?;
+    .ok_or(anyhow!("missing ProposalCreated event"))?;
 
-let poll_created = Voting::PollCreated::decode_log_data(event.data(), true)?;
-Ok(poll_created.pollId)
+let proposal_created = Voting::ProposalCreated::decode_log_data(event.data(), true)?;
+Ok(proposal_created.proposalId)
 ```
 
 ! content end
 
 ! content
 
+Complete example for creating a proposal with `pod_sdk`:
+
 ! sticky
 
 ! codeblock title="Rust"
 
 ```rust
-async fn create_poll(
+async fn create_proposal(
     rpc_url: String,
     contract_address: Address,
     private_key: SigningKey,
     participants: Vec<Address>,
-    max_choice: usize,
     deadline: SystemTime,
 ) -> Result<Hash> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
@@ -65,9 +64,8 @@ async fn create_poll(
 
     let deadline = Timestamp::from(deadline);
     let pendix_tx = voting
-        .createPoll(
+        .createProposal(
             U256::from(deadline.as_seconds()),
-            U256::from(max_choice),
             participants.clone(),
         )
         .send()
@@ -82,15 +80,15 @@ async fn create_poll(
         "receipt failed comittee validation"
     );
 
-    // extract poll ID
+    // extract proposal ID
     let event = receipt
         .as_ref()
         .logs()
         .first()
-        .ok_or(anyhow!("missing PollCreated event"))?;
+        .ok_or(anyhow!("missing ProposalCreated event"))?;
 
-    let poll_created = Voting::PollCreated::decode_log_data(event.data(), true)?;
-    Ok(poll_created.pollId)
+    let proposal_created = Voting::ProposalCreated::decode_log_data(event.data(), true)?;
+    Ok(proposal_created.proposalId)
 }
 ```
 
