@@ -3,12 +3,14 @@ use std::ops::Deref;
 pub use alloy_primitives::{Log, LogData};
 use alloy_rpc_types::Log as RPCLog;
 use alloy_sol_types::SolValue;
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     Certificate, Committee, Timestamp,
-    consensus::attestation::{HeadlessAttestation, Indexed},
+    consensus::{
+        attestation::{HeadlessAttestation, Indexed},
+        committee::CommitteeError,
+    },
     cryptography::{
         Hash, MerkleMultiProof, Merkleizable,
         hash::Hashable,
@@ -78,7 +80,7 @@ impl VerifiableLog {
                 .generate_multi_proof_for_log(i.try_into().unwrap())
         })
     }
-    pub fn verify(&self, committee: &Committee) -> Result<()> {
+    pub fn verify(&self, committee: &Committee) -> Result<(), CommitteeError> {
         committee.verify_certificate(&Certificate {
             signatures: self
                 .pod_metadata
@@ -99,12 +101,11 @@ impl VerifiableLog {
             self.pod_metadata
                 .receipt
                 .generate_proof_for_log_hash(i.try_into().unwrap())
-                .ok()
         })
     }
 
     pub fn get_leaf(&self) -> Hash {
-        let log_index = self.inner.log_index.unwrap_or(0) as usize;
+        let log_index = self.inner.log_index.unwrap_or(0).try_into().unwrap();
         StandardMerkleTree::hash_leaf(
             index_prefix("log_hashes", log_index),
             self.inner.inner.hash_custom(),

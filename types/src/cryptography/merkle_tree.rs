@@ -1,5 +1,4 @@
 use alloy_sol_types::SolValue;
-use anyhow::{Result, bail};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -8,6 +7,12 @@ use std::{
 };
 
 use crate::cryptography::hash::{Hash, Hashable};
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum MerkleError {
+    #[error("invalid index: {0}")]
+    InvalidIndex(usize),
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct MerkleTree {
@@ -107,12 +112,12 @@ impl StandardMerkleTree {
         Self { tree, indices }
     }
 
-    pub fn generate_proof(&self, leaf: Hash) -> Result<MerkleProof> {
-        if let Some(&tree_index) = self.indices.get(&leaf) {
-            self.tree.generate_proof(tree_index)
-        } else {
-            bail!("leaf not found")
-        }
+    pub fn generate_proof(&self, leaf: Hash) -> Option<MerkleProof> {
+        self.indices.get(&leaf).map(|&tree_index| {
+            self.tree
+                .generate_proof(tree_index)
+                .expect("it's guaranteed that index is in the tree")
+        })
     }
 
     pub fn generate_multi_proof(&self, leaves: &[Hash]) -> Option<MerkleMultiProof> {
@@ -132,11 +137,7 @@ impl StandardMerkleTree {
         MerkleTree::verify_proof(root, leaf, proof)
     }
 
-    pub fn verify_multi_proof(
-        root: Hash,
-        leaves: &[Hash],
-        proof: MerkleMultiProof,
-    ) -> Result<bool> {
+    pub fn verify_multi_proof(root: Hash, leaves: &[Hash], proof: MerkleMultiProof) -> bool {
         MerkleTree::verify_multi_proof(root, leaves, proof)
     }
 }
@@ -203,6 +204,11 @@ impl MerkleBuilder {
         self.leaves
     }
 }
+
+pub trait ToLeaf {
+    fn to_leaf(&self) -> (String, Hash);
+}
+
 pub trait Merkleizable {
     fn append_leaves(&self, builder: &mut MerkleBuilder);
 
@@ -223,13 +229,8 @@ pub trait Merkleizable {
     }
 
     // Generate a proof for the given item.
-    fn generate_proof<T: Merkleizable>(&self, prefix: &str, item: &T) -> Result<MerkleProof> {
-        let leaves = item.leaves();
-        if leaves.len() != 1 {
-            bail!("more than one leaf given");
-        }
-
-        let leaf = apply_prefix_to_leaf(prefix, leaves[0].to_owned());
+    fn generate_proof<T: ToLeaf>(&self, prefix: &str, item: &T) -> Option<MerkleProof> {
+        let leaf = apply_prefix_to_leaf(prefix, item.to_leaf());
         self.to_merkle_tree().generate_proof(leaf)
     }
 
@@ -238,7 +239,7 @@ pub trait Merkleizable {
         &self,
         prefix: &str,
         items: &[T],
-    ) -> Result<Vec<MerkleProof>> {
+    ) -> Vec<Option<MerkleProof>> {
         let leaves = apply_prefix_to_leaves(prefix, items.leaves());
         let tree = self.to_merkle_tree();
         leaves
@@ -283,6 +284,12 @@ pub trait Merkleizable {
 impl Merkleizable for Hash {
     fn append_leaves(&self, builder: &mut MerkleBuilder) {
         builder.add_field("", *self);
+    }
+}
+
+impl ToLeaf for Hash {
+    fn to_leaf(&self) -> (String, Hash) {
+        ("".to_string(), *self)
     }
 }
 
@@ -331,10 +338,10 @@ impl MerkleTree {
         self.tree.len()
     }
 
-    pub fn generate_proof(&self, index: usize) -> Result<MerkleProof> {
+    pub fn generate_proof(&self, index: usize) -> Result<MerkleProof, MerkleError> {
         let tree_len = self.tree.len();
         if !is_leaf_index(tree_len, index) {
-            bail!("invalid index {}", index);
+            return Err(MerkleError::InvalidIndex(index));
         }
 
         let mut path = Vec::new();
@@ -401,18 +408,16 @@ impl MerkleTree {
         root == proof.path.into_iter().fold(leaf, commutative_hash_pair)
     }
 
-    pub fn verify_multi_proof(
-        root: Hash,
-        leaves: &[Hash],
-        proof: MerkleMultiProof,
-    ) -> Result<bool> {
+    pub fn verify_multi_proof(root: Hash, leaves: &[Hash], proof: MerkleMultiProof) -> bool {
         let path_len = proof.path.len();
         if path_len < proof.flags.iter().filter(|&&f| !f).count() {
-            bail!("invalid multiproof: too few path hashes");
+            tracing::debug!("invalid multiproof: too few path hashes");
+            return false;
         }
 
         if leaves.len() + path_len != proof.flags.len() + 1 {
-            bail!("invalid multiproof: invalid total hashes");
+            tracing::debug!("invalid multiproof: invalid total hashes");
+            return false;
         }
 
         // This is a deviation from OpenZeppelin's implementation,
@@ -438,7 +443,7 @@ impl MerkleTree {
             _ => panic!("invalid multiproof: invalid total hashes"),
         };
 
-        Ok(root == reconstructed_root)
+        root == reconstructed_root
     }
 }
 
@@ -469,6 +474,10 @@ mod test {
         ];
         let tree = StandardMerkleTree::new(leaves.clone());
         let proof = tree.generate_multi_proof(&leaves).unwrap();
-        assert!(MerkleTree::verify_multi_proof(tree.root(), &leaves, proof.clone()).unwrap());
+        assert!(MerkleTree::verify_multi_proof(
+            tree.root(),
+            &leaves,
+            proof.clone()
+        ));
     }
 }

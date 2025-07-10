@@ -2,7 +2,6 @@ use alloy_consensus::{Eip658Value, ReceiptWithBloom};
 use alloy_primitives::{Address, Bloom, Log};
 use alloy_rpc_types::TransactionReceipt;
 use alloy_sol_types::SolValue;
-use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 use super::{Transaction, log};
@@ -28,22 +27,17 @@ impl Receipt {
     }
 
     // Generates a proof for the hash of the log at a given index.
-    pub fn generate_proof_for_log_hash(&self, log_index: usize) -> Result<MerkleProof> {
-        if log_index >= self.logs.len() {
-            bail!("no log at index {}", log_index);
-        }
+    pub fn generate_proof_for_log_hash(&self, log_index: usize) -> Option<MerkleProof> {
+        let log_hash = self.logs.get(log_index)?.hash_custom();
 
-        self.generate_proof(
-            &index_prefix("log_hashes", log_index),
-            &self.log_hashes()[log_index],
-        )
+        self.generate_proof(&index_prefix("log_hashes", log_index), &log_hash)
     }
 
     // Generates a proof for the hash of each log at the given indices.
     pub fn generate_proofs_for_log_hashes(
         &self,
         log_indices: &[usize],
-    ) -> Result<Vec<MerkleProof>> {
+    ) -> Vec<Option<MerkleProof>> {
         log_indices
             .iter()
             .map(|&i| self.generate_proof_for_log_hash(i))
@@ -95,7 +89,7 @@ impl Hashable for Receipt {
 impl From<Receipt> for TransactionReceipt {
     fn from(val: Receipt) -> Self {
         TransactionReceipt {
-            inner: alloy_consensus::ReceiptEnvelope::Legacy(ReceiptWithBloom {
+            inner: alloy_consensus::ReceiptEnvelope::Eip1559(ReceiptWithBloom {
                 logs_bloom: Bloom::from_iter(val.logs.iter()),
                 receipt: alloy_consensus::Receipt {
                     status: Eip658Value::Eip658(val.status),
@@ -157,76 +151,6 @@ impl UncheckedReceipt {
             tx: self.tx.into_signed_unchecked(),
             contract_address: self.contract_address,
         }
-    }
-}
-
-impl UncheckedReceipt {
-    fn log_hashes(&self) -> Vec<Hash> {
-        self.logs.iter().map(|l| l.hash_custom()).collect()
-    }
-
-    // Generates a proof for the hash of the log at a given index.
-    pub fn generate_proof_for_log_hash(&self, log_index: usize) -> Result<MerkleProof> {
-        if log_index >= self.logs.len() {
-            bail!("no log at index {}", log_index);
-        }
-
-        self.generate_proof(
-            &index_prefix("log_hashes", log_index),
-            &self.log_hashes()[log_index],
-        )
-    }
-
-    // Generates a proof for the hash of each log at the given indices.
-    pub fn generate_proofs_for_log_hashes(
-        &self,
-        log_indices: &[usize],
-    ) -> Result<Vec<MerkleProof>> {
-        log_indices
-            .iter()
-            .map(|&i| self.generate_proof_for_log_hash(i))
-            .collect()
-    }
-
-    // Generates a multi proof for all log hashes in the receipt.
-    pub fn generate_multi_proof_for_log_hashes(&self) -> (Vec<Hash>, MerkleMultiProof) {
-        self.generate_multi_proof("log_hashes", &self.log_hashes())
-            .expect("log_hashes should exist")
-    }
-
-    // Generates a multi proof for the children of the receipt log at the given index.
-    pub fn generate_multi_proof_for_log(
-        &self,
-        log_index: usize,
-    ) -> Option<(Vec<Hash>, MerkleMultiProof)> {
-        self.generate_multi_proof(&index_prefix("logs", log_index), &self.logs[log_index])
-    }
-
-    // Generates a multi proof for all log children of all receipt logs.
-    pub fn generate_multi_proof_for_logs(&self) -> (Vec<Hash>, MerkleMultiProof) {
-        self.generate_multi_proofs("logs", &self.logs)
-            .expect("logs should exist in the tree")
-    }
-}
-
-impl Merkleizable for UncheckedReceipt {
-    fn append_leaves(&self, builder: &mut MerkleBuilder) {
-        builder.add_field("status", self.status.abi_encode().hash_custom());
-        builder.add_field(
-            "actual_gas_used",
-            self.actual_gas_used.abi_encode().hash_custom(),
-        );
-        builder.add_slice("logs", &self.logs);
-        // NOTE: "log_hashes" isn't part of the Receipt struct
-        builder.add_slice("log_hashes", &self.log_hashes());
-        builder.add_field("logs_root", self.logs_root.abi_encode().hash_custom());
-        builder.add_merkleizable("tx", &self.tx);
-    }
-}
-
-impl Hashable for UncheckedReceipt {
-    fn hash_custom(&self) -> Hash {
-        self.to_merkle_tree().hash_custom()
     }
 }
 
@@ -303,12 +227,24 @@ mod test {
         let mut leaves = vec![log_address_leaf, log_data_leaf];
         let proof = receipt_tree.generate_multi_proof(&leaves).unwrap();
         leaves.sort();
-        assert!(StandardMerkleTree::verify_multi_proof(receipt_root, &leaves, proof).unwrap());
+        assert!(StandardMerkleTree::verify_multi_proof(
+            receipt_root,
+            &leaves,
+            proof
+        ));
 
         let (leaves, proof) = receipt.generate_multi_proof_for_log(0).unwrap();
-        assert!(StandardMerkleTree::verify_multi_proof(receipt_root, &leaves, proof).unwrap());
+        assert!(StandardMerkleTree::verify_multi_proof(
+            receipt_root,
+            &leaves,
+            proof
+        ));
 
         let (leaves, proof) = receipt.generate_multi_proof_for_logs();
-        assert!(StandardMerkleTree::verify_multi_proof(receipt_root, &leaves, proof).unwrap());
+        assert!(StandardMerkleTree::verify_multi_proof(
+            receipt_root,
+            &leaves,
+            proof
+        ));
     }
 }

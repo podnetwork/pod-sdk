@@ -1,7 +1,6 @@
 use alloy_consensus::{SignableTransaction, TxEip1559};
-use alloy_primitives::PrimitiveSignature;
+use alloy_primitives::{PrimitiveSignature, SignatureError};
 use alloy_sol_types::SolValue;
-use anyhow::Result;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::ops::Deref;
 
@@ -11,7 +10,7 @@ use super::{Hashable, Merkleizable, merkle_tree::MerkleBuilder};
 use crate::Transaction;
 
 pub trait TxSigner {
-    fn sign_tx(&self, tx: Transaction) -> Result<Signed<Transaction>>;
+    fn sign_tx(&self, tx: Transaction) -> Result<Signed<Transaction>, alloy_signer::Error>;
 }
 
 impl<S> TxSigner for S
@@ -19,7 +18,7 @@ where
     S: alloy_signer::SignerSync<PrimitiveSignature>,
     S: alloy_signer::Signer<PrimitiveSignature>,
 {
-    fn sign_tx(&self, tx: Transaction) -> Result<Signed<Transaction>> {
+    fn sign_tx(&self, tx: Transaction) -> Result<Signed<Transaction>, alloy_signer::Error> {
         let signature = self.sign_hash_sync(&tx.signature_hash())?;
         Ok(Signed {
             signed: tx,
@@ -97,16 +96,14 @@ impl<T: Hashable> Deref for Signed<T> {
 }
 
 impl TryFrom<alloy_consensus::Signed<TxEip1559, PrimitiveSignature>> for Signed<Transaction> {
-    type Error = anyhow::Error;
+    type Error = SignatureError;
 
-    fn try_from(value: alloy_consensus::Signed<TxEip1559>) -> Result<Self> {
+    fn try_from(value: alloy_consensus::Signed<TxEip1559>) -> Result<Self, Self::Error> {
         let signer = value.recover_signer()?;
 
-        let tx: Transaction = value.tx().clone();
-
         Ok(Signed {
-            signed: tx,
             signature: *value.signature(),
+            signed: value.strip_signature(),
             signer,
         })
     }
@@ -209,18 +206,10 @@ impl<T: Hashable> Deref for UncheckedSigned<T> {
 impl TryFrom<alloy_consensus::Signed<TxEip1559, PrimitiveSignature>>
     for UncheckedSigned<Transaction>
 {
-    type Error = anyhow::Error;
+    type Error = SignatureError;
 
-    fn try_from(value: alloy_consensus::Signed<TxEip1559>) -> Result<Self> {
-        let signer = value.recover_signer()?;
-
-        let tx: Transaction = value.tx().clone();
-
-        Ok(UncheckedSigned {
-            signed: tx,
-            signature: *value.signature(),
-            signer,
-        })
+    fn try_from(value: alloy_consensus::Signed<TxEip1559>) -> Result<Self, Self::Error> {
+        Signed::try_from(value).map(Into::into)
     }
 }
 
