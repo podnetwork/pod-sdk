@@ -1,13 +1,15 @@
-use alloy_consensus::{SignableTransaction, TxEip1559, serde_bincode_compat};
+use alloy_consensus::{
+    SignableTransaction, TxEip1559, serde_bincode_compat, transaction::RlpEcdsaEncodableTx,
+};
 use alloy_primitives::{PrimitiveSignature, SignatureError};
 use alloy_sol_types::SolValue;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::serde_as;
-use std::ops::Deref;
+use std::{ops::Deref, sync::OnceLock};
 
 use alloy_primitives::Address;
 
-use super::{Hashable, Merkleizable, merkle_tree::MerkleBuilder};
+use super::{Hash, Hashable, Merkleizable, merkle_tree::MerkleBuilder};
 use crate::Transaction;
 
 pub trait TxSigner {
@@ -25,6 +27,7 @@ where
             signed: tx,
             signature,
             signer: self.address(),
+            hash: OnceLock::new(),
         })
     }
 }
@@ -38,6 +41,7 @@ pub struct Signed<T> {
     pub signed: T,
     pub signature: PrimitiveSignature,
     pub signer: Address,
+    pub hash: OnceLock<Hash>,
 }
 
 impl<T> Signed<T>
@@ -61,6 +65,7 @@ where
             signed,
             signature,
             signer,
+            hash: OnceLock::new(),
         }
     }
 }
@@ -109,6 +114,7 @@ impl<'de> Deserialize<'de> for Signed<Transaction> {
             signed,
             signature,
             signer,
+            hash: OnceLock::new(),
         })
     }
 }
@@ -118,6 +124,15 @@ impl<T: Hashable> Deref for Signed<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.signed
+    }
+}
+
+// the actual hash used for identifying a transaction
+impl<T: RlpEcdsaEncodableTx> Hashable for Signed<T> {
+    fn hash_custom(&self) -> Hash {
+        *self
+            .hash
+            .get_or_init(|| self.signed.tx_hash(&self.signature))
     }
 }
 
@@ -131,6 +146,7 @@ impl TryFrom<alloy_consensus::Signed<TxEip1559, PrimitiveSignature>> for Signed<
             signature: *value.signature(),
             signed: value.strip_signature(),
             signer,
+            hash: OnceLock::new(),
         })
     }
 }
@@ -155,6 +171,7 @@ impl<'a, T: arbitrary::Arbitrary<'a> + Hashable + SignableTransaction<PrimitiveS
             signed,
             signature,
             signer: signer.address(),
+            hash: OnceLock::new(),
         })
     }
 }
