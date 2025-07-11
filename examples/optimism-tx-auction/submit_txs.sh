@@ -46,8 +46,12 @@ BID=1
 
 # Loop through each private key and submit a transaction
 for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
-    CMD="RPC_URL=\"$RPC_URL\" POD_RPC_URL=\"$POD_RPC_URL\" CONTRACT_ADDRESS=\"$CONTRACT_ADDRESS\" cargo run --release -q --bin send_tx -- \
+    CMD="cargo run --release -q --bin send_tx -- \
 	--private-key \"$PRIVATE_KEY\" \
+        --pod-private-key \"$PRIVATE_KEY\" \
+        --contract-address \"$CONTRACT_ADDRESS\" \
+        --rpc-url \"$RPC_URL\" \
+        --pod-rpc-url \"$POD_RPC_URL\" \
 	--to \"$TO_ADDRESS\" \
 	--amount \"$AMOUNT\" \
 	--bid \"$BID\""
