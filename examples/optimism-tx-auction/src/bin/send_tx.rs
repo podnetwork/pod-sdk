@@ -5,7 +5,7 @@ use alloy::{
     eips::{BlockId, BlockNumberOrTag::Latest, Encodable2718},
     network::TxSigner,
 };
-use anyhow::ensure;
+use anyhow::{Context, ensure};
 use clap::Parser;
 use op_alloy::{consensus::OpTxEnvelope, network::Optimism, rpc_types::OpTransactionRequest};
 use optimism_tx_auction::bindings;
@@ -33,46 +33,55 @@ const CHAIN_ID: u64 = 13;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Address of the Notary contract
-    #[arg(long, default_value = "0x12296f2D128530a834460DF6c36a2895B793F26d")]
+    /// Address of the auction contract on pod
+    #[arg(
+        long,
+        env,
+        default_value = "0x12296f2D128530a834460DF6c36a2895B793F26d"
+    )]
     contract_address: Address,
 
     /// Funded private key for signing bid transactions on the pod network
     #[arg(
         long,
+        env,
         default_value = "0x6df79891f22b0f3c9e9fb53b966a8861fd6fef69f99772c5c4dbcf303f10d901"
     )]
     pod_private_key: PrivateKeySigner,
 
     /// Private key for account on the Optimism network to send funds from.
-    #[arg(long, default_value = DEFAULT_PRV_KEYS[1])]
+    #[arg(long, env, default_value = DEFAULT_PRV_KEYS[1])]
     private_key: PrivateKeySigner,
 
     /// RPC URL for the Pod network
-    #[arg(long, default_value = "ws://localhost:18545")]
+    #[arg(long, env, default_value = "ws://localhost:18545")]
     pod_rpc_url: String,
 
     /// RPC URL for the Optimism network
-    #[arg(long, default_value = "ws://localhost:8547")]
+    #[arg(long, env, default_value = "ws://localhost:8547")]
     rpc_url: String,
 
     /// Deadline for the bid in seconds since UNIX epoch.
     /// Must match the block timestamp parity (even/odd).
     /// If not provided, defaults to 5 seconds from now.
-    #[arg(long)]
+    #[arg(long, env)]
     deadline: Option<u64>,
 
     /// Bid amount in wei.
-    #[arg(long, default_value_t = 100)]
+    #[arg(long, env, default_value_t = 100)]
     bid: u64,
 
     /// Amount to send
-    #[arg(long, default_value_t = 1)]
+    #[arg(long, env, default_value_t = 1)]
     amount: u64,
 
     /// Address to send the transaction to.
     // Private key of the default one: 0xe1c4b604d0ff32147b478e5d2bcd04a4672bb36b71c7271503bc79f11fe7ffd6
-    #[arg(long, default_value = "0x8d84a54F0038526422950137b119AdF02cCD6960")]
+    #[arg(
+        long,
+        env,
+        default_value = "0x8d84a54F0038526422950137b119AdF02cCD6960"
+    )]
     to: Address,
 }
 
@@ -81,19 +90,83 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     let op_signer = cli.private_key;
-    let op_provider = ProviderBuilder::new_with_network::<Optimism>()
-        .wallet(EthereumWallet::new(op_signer.clone()))
-        .connect(&cli.rpc_url)
-        .await?;
+    let op_provider = Box::new(
+        ProviderBuilder::new_with_network::<Optimism>()
+            .wallet(EthereumWallet::new(op_signer.clone()))
+            .connect(&cli.rpc_url)
+            .await
+            .with_context(|| format!("connecting to an Optimism provider @ {}", cli.rpc_url))?,
+    );
 
-    // Calculate the auction deadline, making sure it matches the block timestamp parity.
-    let latest_block = op_provider
+    let (deadline, block_number) =
+        calculate_deadline_and_block_number(op_provider.clone(), cli.deadline).await?;
+
+    let nonce = op_provider
+        .get_transaction_count(op_signer.address())
+        .await
+        .context("getting nonce")?;
+    let gas_price = op_provider.get_gas_price().await.unwrap();
+    let estimated_gas = op_provider
+        .estimate_gas(OpTransactionRequest::default())
+        .await
+        .context("estimating gas")?;
+
+    let mut tx = TxLegacy {
+        chain_id: Some(CHAIN_ID),
+        nonce,
+        gas_price,
+        gas_limit: estimated_gas,
+        to: pod_sdk::TxKind::Call(cli.to),
+        value: U256::from(cli.amount),
+        ..Default::default()
+    };
+
+    let signature = op_signer.sign_transaction(&mut tx).await?;
+    let signed_tx = Signed::new_unhashed(tx, signature);
+    let signed_tx: OpTxEnvelope = signed_tx.into();
+    let enc = signed_tx.encoded_2718();
+
+    let pod_provider = PodProviderBuilder::with_recommended_settings()
+        .with_private_key(cli.pod_private_key.credential().clone())
+        .on_url(&cli.pod_rpc_url)
+        .await
+        .with_context(|| format!("connecting to a Pod provider @ {}", cli.pod_rpc_url))?;
+    let auction = bindings::Auction::AuctionInstance::new(cli.contract_address, pod_provider);
+
+    println!(
+        "Bidding TX {:#} for block {} sending {} from {:#} to {:#} with deadline: {deadline} and bid {}",
+        signed_tx.tx_hash(),
+        block_number,
+        cli.amount,
+        op_signer.address(),
+        cli.to,
+        cli.bid,
+    );
+
+    let pending_tx = auction
+        .submitBid(U256::from(deadline), U256::from(cli.bid), enc.into())
+        .send()
+        .await
+        .context("sending TX to pod")?;
+    let receipt = pending_tx.get_receipt().await?;
+    ensure!(receipt.status(), "Failed to submit TX bid on pod");
+    Ok(())
+}
+
+/// Calculate auction deadline and the corresponding block number.
+/// Makes sure the deadline matches the block timestamp parity.
+async fn calculate_deadline_and_block_number(
+    provider: Box<dyn Provider<Optimism>>,
+    user_deadline: Option<u64>,
+) -> anyhow::Result<(u64, u64)> {
+    let latest_block = provider
         .get_block(BlockId::Number(Latest))
         .await?
         .expect("there should be a latest block");
+
     let blocks_timestamp_even = (latest_block.header.timestamp % 2) == 0;
 
-    let deadline = match cli.deadline {
+    let deadline = match user_deadline {
         Some(deadline) => {
             ensure!(
                 deadline >= latest_block.header.timestamp + 2,
@@ -118,50 +191,8 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let nonce = op_provider
-        .get_transaction_count(op_signer.address())
-        .await?;
-    let gas_price = op_provider.get_gas_price().await.unwrap();
-    let estimated_gas = op_provider
-        .estimate_gas(OpTransactionRequest::default())
-        .await?;
-
-    let mut tx = TxLegacy {
-        chain_id: Some(CHAIN_ID),
-        nonce,
-        gas_price,
-        gas_limit: estimated_gas,
-        to: pod_sdk::TxKind::Call(cli.to),
-        value: U256::from(cli.amount),
-        ..Default::default()
-    };
-
-    let signature = op_signer.sign_transaction(&mut tx).await?;
-    let signed_tx = Signed::new_unhashed(tx, signature);
-    let signed_tx: OpTxEnvelope = signed_tx.into();
-    let enc = signed_tx.encoded_2718();
-
-    let pod_provider = PodProviderBuilder::with_recommended_settings()
-        .with_private_key(cli.pod_private_key.credential().clone())
-        .on_url(cli.pod_rpc_url)
-        .await
-        .unwrap();
-    let auction = bindings::Auction::AuctionInstance::new(cli.contract_address, pod_provider);
-
-    println!(
-        "Bidding TX {} sending {} from {} to {} with deadline: {deadline} and bid {}",
-        signed_tx.tx_hash(),
-        cli.amount,
-        op_signer.address(),
-        cli.to,
-        cli.bid,
-    );
-
-    let pending_tx = auction
-        .submitBid(U256::from(deadline), U256::from(cli.bid), enc.into())
-        .send()
-        .await?;
-    let receipt = pending_tx.get_receipt().await?;
-    ensure!(receipt.status(), "Failed to submit TX bid on pod");
-    Ok(())
+    let block_timestamp = deadline + 2; // block is built 2s after the deadline
+    let block_number =
+        latest_block.header.number + (block_timestamp - latest_block.header.timestamp) / 2;
+    Ok((deadline, block_number))
 }

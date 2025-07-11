@@ -34,55 +34,6 @@ if [[ -z "$TO_ADDRESS" || -z "$AMOUNT" ]]; then
     exit 1
 fi
 
-while [[ "$#" -gt 0 ]]; do
-    key="$1"
-    case $key in
-        --to)
-            TO_ADDRESS="$2"
-            shift 2
-            ;;
-        --amount)
-            AMOUNT="$2"
-            shift 2
-            ;;
-        --deadline)
-            DEADLINE="$2"
-            shift 2
-            ;;
-        *)
-            shift
-            ;;
-    esac
-done
-
-if [[ -z "$TO_ADDRESS" || -z "$AMOUNT" ]]; then
-    echo "Both --to and --amount arguments must be provided"
-    exit 1
-fi
-
-while [[ "$#" -gt 0 ]]; do
-    key="$1"
-    case $key in
-        --to)
-            TO_ADDRESS="$2"
-            shift 2
-            ;;
-        --amount)
-            AMOUNT="$2"
-            shift 2
-            ;;
-        *)
-            shift
-            ;;
-    esac
-done
-
-if [[ -z "$TO_ADDRESS" || -z "$AMOUNT" ]]; then
-    echo "Both --to and --amount arguments must be provided"
-    exit 1
-fi
-
-
 declare -a PRIVATE_KEYS=(
     "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba"
     "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e"
@@ -95,9 +46,7 @@ BID=1
 
 # Loop through each private key and submit a transaction
 for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
-    echo "Submitting transaction sending $AMOUNT to $TO_ADDRESS with bid $BID"
-
-    CMD="cargo run -q --bin send_tx -- \
+    CMD="RPC_URL=\"$RPC_URL\" POD_RPC_URL=\"$POD_RPC_URL\" CONTRACT_ADDRESS=\"$CONTRACT_ADDRESS\" cargo run --release -q --bin send_tx -- \
 	--private-key \"$PRIVATE_KEY\" \
 	--to \"$TO_ADDRESS\" \
 	--amount \"$AMOUNT\" \
@@ -110,7 +59,6 @@ for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
 	echo "Failed to submit transaction with private key: $PRIVATE_KEY"
 	exit 1
     fi
-    echo "Transaction submitted successfully"
     BID=$((BID + 1))
 done
 
