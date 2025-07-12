@@ -38,11 +38,11 @@ impl Hashable for Timestamp {
     }
 }
 
-impl Hashable for (u128, Timestamp) {
+impl Hashable for (u64, u128) {
     fn hash_custom(&self) -> Hash {
-        let mut bytes = [0u8; 32];
-        bytes[..16].copy_from_slice(&self.0.to_be_bytes());
-        bytes[16..].copy_from_slice(&self.1.as_micros().to_be_bytes());
+        let mut bytes = [0u8; 24];
+        bytes[..8].copy_from_slice(&self.0.to_be_bytes());
+        bytes[8..].copy_from_slice(&self.1.to_be_bytes());
         hash(bytes)
     }
 }
