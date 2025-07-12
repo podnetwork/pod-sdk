@@ -54,7 +54,7 @@ The `key` parameter is a string that allows namespacing for multiple balances by
 ```solidity
 pragma solidity ^0.8.26;
 
-import {FastTypes} "pod-sdk/FastTypes.sol";
+import {FastTypes} from "pod-sdk/FastTypes.sol";
 
 contract Token {
     using FastTypes for FastTypes.Balance;
