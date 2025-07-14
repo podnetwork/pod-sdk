@@ -47,6 +47,12 @@ impl Hashable for (u128, Timestamp) {
     }
 }
 
+impl Hashable for Hash {
+    fn hash_custom(&self) -> Hash {
+        *self
+    }
+}
+
 pub fn std_hash<H: StdHash>(h: H) -> u64 {
     let mut hasher = DefaultHasher::new();
     h.hash(&mut hasher);

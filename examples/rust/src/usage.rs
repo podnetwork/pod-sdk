@@ -35,7 +35,8 @@ async fn main() -> Result<()> {
     let receipts = pod_provider.get_receipts(None, start_time, None).await?;
 
     for receipt in receipts.items {
-        if receipt.transaction().to == TxKind::Call(recipient) && receipt.verify(&committee).is_ok()
+        if receipt.transaction().to == TxKind::Call(recipient)
+            && receipt.verify_receipt(&committee).is_ok()
         {
             println!("found verified receipt {receipt:?}");
         }
@@ -48,7 +49,7 @@ async fn main() -> Result<()> {
 
     for recipient_receipt in recipient_receipts.items {
         if recipient_receipt.transaction().to == TxKind::Call(recipient)
-            && recipient_receipt.verify(&committee).is_ok()
+            && recipient_receipt.verify_receipt(&committee).is_ok()
         {
             println!("found verified receipt {recipient_receipt:?}");
         }
