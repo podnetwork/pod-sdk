@@ -9,7 +9,7 @@ use pod_types::rpc::filter::LogFilterBuilder;
 
 alloy::sol!(
     #[sol(rpc)]
-    "Tokens.sol"
+    "contracts/Tokens.sol"
 );
 
 /// Lightweight CLI tool for interacting with a fungible **Tokens** contract that follows the
