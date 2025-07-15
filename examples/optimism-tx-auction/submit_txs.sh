@@ -41,8 +41,6 @@ declare -a PRIVATE_KEYS=(
     "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
     "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6"
 )
-# Initialize bid counter
-BID=1
 
 # Loop through each private key and submit a transaction
 for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
@@ -53,8 +51,7 @@ for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
         --rpc-url \"$RPC_URL\" \
         --pod-rpc-url \"$POD_RPC_URL\" \
 	--to \"$TO_ADDRESS\" \
-	--amount \"$AMOUNT\" \
-	--bid \"$BID\""
+	--amount \"$AMOUNT\""
     if [[ -n "$DEADLINE" ]]; then
         CMD="$CMD \\
 	--deadline \"$DEADLINE\""
@@ -63,6 +60,5 @@ for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
 	echo "Failed to submit transaction with private key: $PRIVATE_KEY"
 	exit 1
     fi
-    BID=$((BID + 1))
 done
 

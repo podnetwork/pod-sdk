@@ -1,10 +1,12 @@
+use std::time::Duration;
+
 use alloy::sol_types::SolEvent;
 use anyhow::Context;
 use pod_sdk::{
     Address, U256,
     provider::{PodProvider, PodProviderBuilder},
 };
-use pod_types::rpc::filter::LogFilterBuilder;
+use pod_types::{Timestamp, rpc::filter::LogFilterBuilder};
 use tokio::sync::OnceCell;
 
 use crate::bindings::Auction::BidSubmitted;
@@ -16,7 +18,7 @@ pub struct AuctionClient {
 }
 
 pub struct Bid {
-    pub amount: U256,
+    pub amount: u128,
     pub data: Vec<u8>,
 }
 
@@ -29,6 +31,7 @@ impl AuctionClient {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn bids(&self, deadline_secs: u64) -> anyhow::Result<Vec<Bid>> {
         let provider = self
             .provider
@@ -37,9 +40,17 @@ impl AuctionClient {
             })
             .await?;
 
-        // TODO: wait for past perfect deadline?
-        // It's problematic right now because PPT is hardcoded to 5 seconds after requested
-        // timestamps on fullnode side.
+        tracing::info!("waiting for past perfect time");
+        provider
+            // FIXME: The current PPT implementation in pod is dummy and waits 5s which is far too long.
+            // Remove - 5s + 200ms when it's fixed.
+            .wait_past_perfect_time(
+                Timestamp::from_seconds(deadline_secs) - Duration::from_secs(5)
+                    + Duration::from_millis(200),
+            )
+            .await
+            .context("waiting for the provider to be ready")?;
+        tracing::info!("past perfect time reached");
 
         let filter = LogFilterBuilder::new()
             .address(self.contract)
@@ -48,12 +59,8 @@ impl AuctionClient {
             .build();
 
         let logs = provider.get_verifiable_logs(&filter).await?;
-        let committee = provider.get_committee().await?;
         logs.into_iter()
             .map(|log| {
-                log.verify(&committee)
-                    .context("obtained bid log is not valid")?;
-
                 let event = BidSubmitted::decode_log(&log.inner.inner)
                     .context("failed to decode bid log")?
                     .data;

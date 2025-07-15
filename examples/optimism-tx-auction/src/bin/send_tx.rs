@@ -1,16 +1,17 @@
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use alloy::{
-    consensus::Signed,
+    consensus::{Signed, TxEip1559},
     eips::{BlockId, BlockNumberOrTag::Latest, Encodable2718},
     network::TxSigner,
+    primitives::TxKind,
 };
 use anyhow::{Context, ensure};
 use clap::Parser;
 use op_alloy::{consensus::OpTxEnvelope, network::Optimism, rpc_types::OpTransactionRequest};
 use optimism_tx_auction::bindings;
 use pod_sdk::{
-    Address, EthereumWallet, PrivateKeySigner, Provider, ProviderBuilder, TxLegacy, U256,
+    Address, PrivateKeySigner, Provider, ProviderBuilder, U256, alloy_rpc_types::Block,
     provider::PodProviderBuilder,
 };
 
@@ -27,8 +28,6 @@ const DEFAULT_PRV_KEYS: [&str; 10] = [
     "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97",
     "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6",
 ];
-
-const CHAIN_ID: u64 = 13;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -61,16 +60,6 @@ struct Cli {
     #[arg(long, env, default_value = "ws://localhost:8547")]
     rpc_url: String,
 
-    /// Deadline for the bid in seconds since UNIX epoch.
-    /// Must match the block timestamp parity (even/odd).
-    /// If not provided, defaults to 5 seconds from now.
-    #[arg(long, env)]
-    deadline: Option<u64>,
-
-    /// Bid amount in wei.
-    #[arg(long, env, default_value_t = 100)]
-    bid: u64,
-
     /// Amount to send
     #[arg(long, env, default_value_t = 1)]
     amount: u64,
@@ -92,38 +81,39 @@ async fn main() -> anyhow::Result<()> {
     let op_signer = cli.private_key;
     let op_provider = Box::new(
         ProviderBuilder::new_with_network::<Optimism>()
-            .wallet(EthereumWallet::new(op_signer.clone()))
+            .with_call_batching()
             .connect(&cli.rpc_url)
             .await
             .with_context(|| format!("connecting to an Optimism provider @ {}", cli.rpc_url))?,
     );
 
-    let (deadline, block_number) =
-        calculate_deadline_and_block_number(op_provider.clone(), cli.deadline).await?;
+    let (chain_id, latest_block, nonce, gas_price, estimated_gas) = tokio::try_join!(
+        op_provider.get_chain_id(),
+        op_provider.get_block(BlockId::Number(Latest)),
+        op_provider.get_transaction_count(op_signer.address()),
+        op_provider.get_gas_price(),
+        op_provider.estimate_gas(OpTransactionRequest::default())
+    )?;
+    let latest_block =
+        latest_block.ok_or_else(|| anyhow::anyhow!("Failed to fetch the latest block"))?;
 
-    let nonce = op_provider
-        .get_transaction_count(op_signer.address())
-        .await
-        .context("getting nonce")?;
-    let gas_price = op_provider.get_gas_price().await.unwrap();
-    let estimated_gas = op_provider
-        .estimate_gas(OpTransactionRequest::default())
-        .await
-        .context("estimating gas")?;
+    let (deadline, block_number) = calculate_deadline_and_block_number(latest_block).await?;
 
-    let mut tx = TxLegacy {
-        chain_id: Some(CHAIN_ID),
+    let max_priority_fee = rand::random_range(0..gas_price / 5);
+
+    let mut tx = TxEip1559 {
+        chain_id,
         nonce,
-        gas_price,
+        max_fee_per_gas: gas_price,
+        max_priority_fee_per_gas: max_priority_fee,
         gas_limit: estimated_gas,
-        to: pod_sdk::TxKind::Call(cli.to),
+        to: TxKind::Call(cli.to),
         value: U256::from(cli.amount),
         ..Default::default()
     };
 
     let signature = op_signer.sign_transaction(&mut tx).await?;
-    let signed_tx = Signed::new_unhashed(tx, signature);
-    let signed_tx: OpTxEnvelope = signed_tx.into();
+    let signed_tx: OpTxEnvelope = Signed::new_unhashed(tx, signature).into();
     let enc = signed_tx.encoded_2718();
 
     let pod_provider = PodProviderBuilder::with_recommended_settings()
@@ -133,63 +123,39 @@ async fn main() -> anyhow::Result<()> {
         .with_context(|| format!("connecting to a Pod provider @ {}", cli.pod_rpc_url))?;
     let auction = bindings::Auction::AuctionInstance::new(cli.contract_address, pod_provider);
 
-    println!(
-        "Bidding TX {:#} for block {} sending {} from {:#} to {:#} with deadline: {deadline} and bid {}",
-        signed_tx.tx_hash(),
-        block_number,
-        cli.amount,
-        op_signer.address(),
-        cli.to,
-        cli.bid,
-    );
-
     let pending_tx = auction
-        .submitBid(U256::from(deadline), U256::from(cli.bid), enc.into())
+        .submitBid(U256::from(deadline), max_priority_fee, enc.into())
         .send()
         .await
         .context("sending TX to pod")?;
     let receipt = pending_tx.get_receipt().await?;
     ensure!(receipt.status(), "Failed to submit TX bid on pod");
+    println!(
+        "[{block_number} @ {}] TX {:#} from {:#} fee {max_priority_fee} (pod TX: https://explorer.v2.pod.network/tx/{} )",
+        humantime::format_rfc3339_seconds(UNIX_EPOCH + Duration::from_secs(deadline)),
+        signed_tx.tx_hash(),
+        op_signer.address(),
+        receipt.transaction_hash,
+    );
+
     Ok(())
 }
 
 /// Calculate auction deadline and the corresponding block number.
 /// Makes sure the deadline matches the block timestamp parity.
-async fn calculate_deadline_and_block_number(
-    provider: Box<dyn Provider<Optimism>>,
-    user_deadline: Option<u64>,
+async fn calculate_deadline_and_block_number<T>(
+    latest_block: Block<T>,
 ) -> anyhow::Result<(u64, u64)> {
-    let latest_block = provider
-        .get_block(BlockId::Number(Latest))
-        .await?
-        .expect("there should be a latest block");
-
     let blocks_timestamp_even = (latest_block.header.timestamp % 2) == 0;
 
-    let deadline = match user_deadline {
-        Some(deadline) => {
-            ensure!(
-                deadline >= latest_block.header.timestamp + 2,
-                "Deadline must be in the future."
-            );
-            let tt = if blocks_timestamp_even { "even" } else { "odd" };
-            ensure!(
-                blocks_timestamp_even == (deadline % 2 == 0),
-                "Blocks are produced at {tt} timestamps - deadline must be {tt}.",
-            );
-            deadline
-        }
-        None => {
-            let deadline = (SystemTime::now() + Duration::from_secs(5))
-                .duration_since(std::time::UNIX_EPOCH)?
-                .as_secs();
-            if blocks_timestamp_even {
-                deadline + (deadline % 2)
-            } else {
-                deadline + (1 - (deadline % 2))
-            }
-        }
-    };
+    let mut deadline = (SystemTime::now() + Duration::from_secs(5))
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs();
+    if blocks_timestamp_even {
+        deadline += deadline % 2;
+    } else {
+        deadline += 1 - (deadline % 2)
+    }
 
     let block_timestamp = deadline + 2; // block is built 2s after the deadline
     let block_number =
