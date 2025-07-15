@@ -3239,9 +3239,11 @@ dependencies = [
  "alloy",
  "anyhow",
  "clap",
+ "humantime",
  "op-alloy",
  "pod-sdk",
  "pod-types",
+ "rand 0.9.1",
  "tokio",
  "tracing",
 ]
