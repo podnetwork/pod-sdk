@@ -1,5 +1,5 @@
 ---
-title: Tokens 
+title: Tokens
 layout: single
 
 url: /examples/tokens
@@ -24,7 +24,7 @@ This guide shows how to create and use a simple fungible token using `FastTypes.
 To get started, clone `podnetwork/pod-sdk` github repository and go to `examples/tokens` directory:
 
 ```bash clickToCopy
-$ git clone github.com/podnetwork/ && cd examples/tokens
+$ git clone github.com/podnetwork/pod-sdk && cd examples/tokens
 ```
 
 ! content end
@@ -35,7 +35,7 @@ $ git clone github.com/podnetwork/ && cd examples/tokens
 
 ## Smart Contract Definition
 
-As in the [ERC20 Token Standard](https://eips.ethereum.org/EIPS/eip-20), each `Token` contract instance corresponds to a single fungible token, 
+As in the [ERC20 Token Standard](https://eips.ethereum.org/EIPS/eip-20), each `Token` contract instance corresponds to a single fungible token,
 defined by its own name, ticker symbol, number of decimals, and fixed total supply.
 
 The contract makes use of the [`FastTypes`](/smart-contract-development/solidity-sdk-reference) library provided by `pod-sdk`.
