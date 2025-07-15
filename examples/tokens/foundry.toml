@@ -1,0 +1,16 @@
+[profile.default]
+src = "contracts"
+out = "out"
+libs = ["lib"]
+solc = "0.8.28"
+evm_version = "berlin"
+bytecode_hash = "none"
+cbor_metadata = false
+remappings = [
+    "pod-sdk/=../../solidity-sdk/src/",
+]
+allow_paths = ["../../solidity-sdk"]
+
+[fmt]
+exclude = ["lib/**"]
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
