@@ -109,7 +109,7 @@ contract Token {
 ```bash
 $ forge create --rpc-url https://rpc.v1.dev.pod.network \
     --private-key $PRIVATE_KEY \
-    src/Token.sol:Token \
+    contracts/Tokens.sol:Tokens \
     --constructor-args "token" "TKC" 9 1000000000000
 ```
 
