@@ -4,7 +4,6 @@ run-name: ${{ github.actor }} call deploy pod doc site 🚀
 on:
   push:
     branches:
-      - doc/v1
       - main
     paths:
       - docs/**
