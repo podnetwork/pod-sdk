@@ -110,6 +110,7 @@ contract Token {
 $ forge create --rpc-url https://rpc.v1.dev.pod.network \
     --private-key $PRIVATE_KEY \
     contracts/Tokens.sol:Tokens \
+    --broadcast \
     --constructor-args "token" "TKC" 9 1000000000000
 ```
 
