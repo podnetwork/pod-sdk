@@ -1,0 +1,29 @@
+menu:
+  - heading: getting-started
+  - href: /
+    label: Welcome to pod
+  - href: /devnet
+    label: Devnet
+  - href: /overview
+    label: Coming from Ethereum?
+
+  - heading: examples 
+  - href: /examples/tokens
+    label: Tokens
+  - href: /examples/nfts
+    label: NFTs
+  - href: /examples/auctions
+    label: Auctions
+  - href: /examples/voting
+    label: Voting
+  
+
+  - heading: Building on pod
+  - href: /reference/json-rpc
+    label: JSON-RPC
+  - href: /smart-contract-development/solidity-sdk-reference
+    external: true
+    label: Solidity SDK
+  - href: https://docs.rs/pod-sdk
+    label: Rust SDK
+    newTab: true
