@@ -11,6 +11,8 @@ on:
 jobs:
   make-api-request:
     runs-on: ubuntu-latest
+    env:
+      VERCEL_DEPLOY_URL_MAIN: ${{ secrets.VERCEL_DEPLOY_URL_MAIN }}
     steps:
       # call Vercel API to deploy
       - name: Make API Request
