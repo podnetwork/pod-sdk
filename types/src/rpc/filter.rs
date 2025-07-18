@@ -8,16 +8,18 @@ use crate::{Timestamp, cryptography::Hash};
 pub struct LogFilter {
     #[serde(
         deserialize_with = "deserialize_address",
-        serialize_with = "serialize_address"
+        serialize_with = "serialize_address",
+        default
     )]
     pub address: FilterSet<Address>,
-    #[serde(deserialize_with = "deserialize_topics")]
+    #[serde(deserialize_with = "deserialize_topics", default)]
     pub topics: [Option<Hash>; 4],
     #[serde(
         alias = "fromBlock",
         deserialize_with = "deserialize_block_timestamp",
         serialize_with = "serialize_block_timestamp"
     )]
+    #[serde(default)]
     pub from: Timestamp,
     #[serde(
         alias = "toBlock",
