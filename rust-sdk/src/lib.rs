@@ -82,7 +82,7 @@ pub mod network;
 pub mod provider;
 
 // Re-export external dependencies used in public API
-pub use alloy_consensus::TxLegacy;
+pub use alloy_consensus::TxEip1559;
 pub use alloy_network::{EthereumWallet, TransactionBuilder};
 pub use alloy_primitives::{Address, Bytes, TxKind, B256 as Hash, U256};
 pub use alloy_provider::{Provider, ProviderBuilder};
@@ -95,7 +95,5 @@ pub use alloy_rpc_types;
 pub use alloy_signer;
 pub use alloy_sol_types;
 
-// Re-export types types used in public API
-pub use pod_types::{
-    consensus::attestation::HeadlessAttestation, Certificate, Receipt, Transaction,
-};
+// Re-export types used in public API
+pub use pod_types::*;
