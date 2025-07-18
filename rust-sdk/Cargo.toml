@@ -15,7 +15,7 @@ name = "pod_sdk"
 path = "src/lib.rs"
 
 [dependencies]
-pod-types = { path = "../types", version = "0.1.1" }
+pod-types = { path = "../types", version = "0.1.4" }
 
 alloy-primitives = { version = "^0.8.22", features = ["k256", "serde"] }
 alloy-sol-types = "^0.8.22"
