@@ -1,6 +1,6 @@
 [package]
 name = "pod-types"
-version = "0.1.1"
+version = "0.1.4"
 edition = "2024"
 description = "Types of Software Development Kit for the pod Network"
 license = "MIT OR Apache-2.0"
