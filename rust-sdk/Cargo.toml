@@ -1,6 +1,6 @@
 [package]
 name = "pod-sdk"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 description = "Software Development Kit for the pod Network"
 license = "MIT OR Apache-2.0"
@@ -15,7 +15,7 @@ name = "pod_sdk"
 path = "src/lib.rs"
 
 [dependencies]
-pod-types = { path = "../types", version = "0.1.4" }
+pod-types = { path = "../types", version = "0.1.6" }
 
 alloy-primitives = { version = "^0.8.22", features = ["k256", "serde"] }
 alloy-sol-types = "^0.8.22"
