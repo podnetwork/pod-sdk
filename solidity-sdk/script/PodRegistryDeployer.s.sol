@@ -9,7 +9,7 @@ import {PodRegistry} from "../src/verifier/PodRegistry.sol";
 contract PodRegistryDeployer is BaseDeployer {
     function run() public {
         address[] memory initialValidators = getValidatorAddresses();
-        
+
         vm.startBroadcast();
         PodRegistry podRegistry = new PodRegistry(initialValidators);
         vm.stopBroadcast();
