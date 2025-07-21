@@ -109,8 +109,6 @@ pub mod Auction {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"`\x80`@R4\x80\x15a\0\x10W`\0\x80\xFD[P`\x046\x10a\0+W`\x005`\xE0\x1C\x80c\x85,\xA6\x12\x14a\x000W[`\0\x80\xFD[a\0J`\x04\x806\x03\x81\x01\x90a\0E\x91\x90a\x02\x91V[a\0LV[\0[a\0\x8B\x84`@Q\x80`@\x01`@R\x80`\x17\x81R` \x01\x7FAuction deadline passed\0\0\0\0\0\0\0\0\0\x81RPa\0\xE6V[\x833s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x86\x7F\xAF,O\xDC\xA8V=\x13\xE2\xF5n\xD3\xC7\xB4\x8D?\x86\xC6\x1B\x03~r\x81apq\xA4\x1D(\x1A\"\x04\x86\x86\x86`@Qa\0\xD7\x93\x92\x91\x90a\x03\x86V[`@Q\x80\x91\x03\x90\xA4PPPPPV[a\0\xF2\x82B\x10\x82a\0\xF6V[PPV[`\0\x7F=\xCD\xF6;A\xC1\x03V}r%\x97j\xD9\x14^\x86lz}\xCC\xC6\xC2w\xEA\x86\xAB\xBD&\x8F\xBA\xC9`\0\x1Cs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83`@Q` \x01a\x01C\x91\x90a\x03\xD3V[`@Q` \x81\x83\x03\x03\x81R\x90`@R`@Qa\x01_\x91\x90a\x04_V[`\0`@Q\x80\x83\x03\x81\x85Z\xFA\x91PP=\x80`\0\x81\x14a\x01\x9AW`@Q\x91P`\x1F\x19`?=\x01\x16\x82\x01`@R=\x82R=`\0` \x84\x01>a\x01\x9FV[``\x91P[PP\x90P\x80\x82\x90a\x01\xE6W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x01\xDD\x91\x90a\x04\xCBV[`@Q\x80\x91\x03\x90\xFD[PPPPV[`\0\x80\xFD[`\0\x80\xFD[`\0\x81\x90P\x91\x90PV[a\x02\t\x81a\x01\xF6V[\x81\x14a\x02\x14W`\0\x80\xFD[PV[`\0\x815\x90Pa\x02&\x81a\x02\0V[\x92\x91PPV[`\0\x80\xFD[`\0\x80\xFD[`\0\x80\xFD[`\0\x80\x83`\x1F\x84\x01\x12a\x02QWa\x02Pa\x02,V[[\x825\x90Pg\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x02nWa\x02ma\x021V[[` \x83\x01\x91P\x83`\x01\x82\x02\x83\x01\x11\x15a\x02\x8AWa\x02\x89a\x026V[[\x92P\x92\x90PV[`\0\x80`\0\x80`\0`\x80\x86\x88\x03\x12\x15a\x02\xADWa\x02\xACa\x01\xECV[[`\0a\x02\xBB\x88\x82\x89\x01a\x02\x17V[\x95PP` a\x02\xCC\x88\x82\x89\x01a\x02\x17V[\x94PP`@a\x02\xDD\x88\x82\x89\x01a\x02\x17V[\x93PP``\x86\x015g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x02\xFEWa\x02\xFDa\x01\xF1V[[a\x03\n\x88\x82\x89\x01a\x02;V[\x92P\x92PP\x92\x95P\x92\x95\x90\x93PV[a\x03\"\x81a\x01\xF6V[\x82RPPV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x82\x81\x837`\0\x83\x83\x01RPPPV[`\0`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[`\0a\x03e\x83\x85a\x03(V[\x93Pa\x03r\x83\x85\x84a\x039V[a\x03{\x83a\x03HV[\x84\x01\x90P\x93\x92PPPV[`\0`@\x82\x01\x90Pa\x03\x9B`\0\x83\x01\x86a\x03\x19V[\x81\x81\x03` \x83\x01Ra\x03\xAE\x81\x84\x86a\x03YV[\x90P\x94\x93PPPPV[`\0\x81\x15\x15\x90P\x91\x90PV[a\x03\xCD\x81a\x03\xB8V[\x82RPPV[`\0` \x82\x01\x90Pa\x03\xE8`\0\x83\x01\x84a\x03\xC4V[\x92\x91PPV[`\0\x81Q\x90P\x91\x90PV[`\0\x81\x90P\x92\x91PPV[`\0[\x83\x81\x10\x15a\x04\"W\x80\x82\x01Q\x81\x84\x01R` \x81\x01\x90Pa\x04\x07V[`\0\x84\x84\x01RPPPPV[`\0a\x049\x82a\x03\xEEV[a\x04C\x81\x85a\x03\xF9V[\x93Pa\x04S\x81\x85` \x86\x01a\x04\x04V[\x80\x84\x01\x91PP\x92\x91PPV[`\0a\x04k\x82\x84a\x04.V[\x91P\x81\x90P\x92\x91PPV[`\0\x81Q\x90P\x91\x90PV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[`\0a\x04\x9D\x82a\x04vV[a\x04\xA7\x81\x85a\x04\x81V[\x93Pa\x04\xB7\x81\x85` \x86\x01a\x04\x04V[a\x04\xC0\x81a\x03HV[\x84\x01\x91PP\x92\x91PPV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x04\xE5\x81\x84a\x04\x92V[\x90P\x92\x91PPV",
     );
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `BidSubmitted(uint256,address,uint256,uint256,bytes)` and selector `0xaf2c4fdca8563d13e2f56ed3c7b48d3f86c61b037e7281617071a41d281a2204`.
 ```solidity
 event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 indexed deadline, uint256 value, bytes data);
@@ -159,9 +157,38 @@ event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 i
             );
             const SIGNATURE: &'static str = "BidSubmitted(uint256,address,uint256,uint256,bytes)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                175u8, 44u8, 79u8, 220u8, 168u8, 86u8, 61u8, 19u8, 226u8, 245u8, 110u8,
-                211u8, 199u8, 180u8, 141u8, 63u8, 134u8, 198u8, 27u8, 3u8, 126u8, 114u8,
-                129u8, 97u8, 112u8, 113u8, 164u8, 29u8, 40u8, 26u8, 34u8, 4u8,
+                175u8,
+                44u8,
+                79u8,
+                220u8,
+                168u8,
+                86u8,
+                61u8,
+                19u8,
+                226u8,
+                245u8,
+                110u8,
+                211u8,
+                199u8,
+                180u8,
+                141u8,
+                63u8,
+                134u8,
+                198u8,
+                27u8,
+                3u8,
+                126u8,
+                114u8,
+                129u8,
+                97u8,
+                112u8,
+                113u8,
+                164u8,
+                29u8,
+                40u8,
+                26u8,
+                34u8,
+                4u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -253,8 +280,6 @@ event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint256 i
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `submitBid(uint256,uint256,uint256,bytes)` and selector `0x852ca612`.
 ```solidity
 function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes memory data) external;
@@ -414,8 +439,6 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
         }
     };
     ///Container for all the [`Auction`](self) function calls.
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive()]
     pub enum AuctionCalls {
         #[allow(missing_docs)]
         submitBid(submitBidCall),
@@ -507,8 +530,6 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
         }
     }
     ///Container for all the [`Auction`](self) events.
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum AuctionEvents {
         #[allow(missing_docs)]
         BidSubmitted(BidSubmitted),
@@ -523,9 +544,38 @@ function submitBid(uint256 auction_id, uint256 deadline, uint256 value, bytes me
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                175u8, 44u8, 79u8, 220u8, 168u8, 86u8, 61u8, 19u8, 226u8, 245u8, 110u8,
-                211u8, 199u8, 180u8, 141u8, 63u8, 134u8, 198u8, 27u8, 3u8, 126u8, 114u8,
-                129u8, 97u8, 112u8, 113u8, 164u8, 29u8, 40u8, 26u8, 34u8, 4u8,
+                175u8,
+                44u8,
+                79u8,
+                220u8,
+                168u8,
+                86u8,
+                61u8,
+                19u8,
+                226u8,
+                245u8,
+                110u8,
+                211u8,
+                199u8,
+                180u8,
+                141u8,
+                63u8,
+                134u8,
+                198u8,
+                27u8,
+                3u8,
+                126u8,
+                114u8,
+                129u8,
+                97u8,
+                112u8,
+                113u8,
+                164u8,
+                29u8,
+                40u8,
+                26u8,
+                34u8,
+                4u8,
             ],
         ];
     }

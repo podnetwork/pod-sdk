@@ -548,8 +548,6 @@ pub mod Pi2 {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct Account { AccountProof proof; bytes code; }
 ```*/
@@ -768,8 +766,6 @@ struct Account { AccountProof proof; bytes code; }
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct AccountProof { address addr; bytes[] accountProof; uint256 balance; bytes32 codeHash; uint256 nonce; bytes32 storageHash; StorageProof[] storageProof; }
 ```*/
@@ -1124,8 +1120,6 @@ struct AccountProof { address addr; bytes[] accountProof; uint256 balance; bytes
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct Claim { string claimType; string trustBaseSpec; Header assumptions; EVMCall action; bytes result; EVMMetadata metadata; }
 ```*/
@@ -1434,8 +1428,6 @@ struct Claim { string claimType; string trustBaseSpec; Header assumptions; EVMCa
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct EVMCall { address from; address to; bytes input; }
 ```*/
@@ -1673,8 +1665,6 @@ struct EVMCall { address from; address to; bytes input; }
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct EVMMetadata { uint256 chainId; }
 ```*/
@@ -1870,8 +1860,6 @@ struct EVMMetadata { uint256 chainId; }
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct Header { bytes32 parentHash; bytes32 uncleHash; address coinbase; bytes32 root; bytes32 txHash; bytes32 receiptHash; bytes bloom; uint256 difficulty; uint256 number; uint256 gasLimit; uint256 gasUsed; uint256 time; bytes extra; bytes32 mixDigest; bytes8 nonce; }
 ```*/
@@ -2395,8 +2383,6 @@ struct Header { bytes32 parentHash; bytes32 uncleHash; address coinbase; bytes32
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct StorageProof { bytes32 key; bytes32 value; bytes[] proof; }
 ```*/
@@ -2637,8 +2623,6 @@ struct StorageProof { bytes32 key; bytes32 value; bytes[] proof; }
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
 struct VerificationData { Account[] accounts; }
 ```*/
@@ -2843,8 +2827,6 @@ struct VerificationData { Account[] accounts; }
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `ClaimAppended((string,string,(bytes32,bytes32,address,bytes32,bytes32,bytes32,bytes,uint256,uint256,uint256,uint256,uint256,bytes,bytes32,bytes8),(address,address,bytes),bytes,(uint256)),(((address,bytes[],uint256,bytes32,uint256,bytes32,(bytes32,bytes32,bytes[])[]),bytes)[]))` and selector `0x2aaddb84d033d8bd501fa7185627cee29c4081b3eb6b1799a72ded83291e2784`.
 ```solidity
 event ClaimAppended(Claim claim, VerificationData indexed verData);
@@ -2882,9 +2864,38 @@ event ClaimAppended(Claim claim, VerificationData indexed verData);
             );
             const SIGNATURE: &'static str = "ClaimAppended((string,string,(bytes32,bytes32,address,bytes32,bytes32,bytes32,bytes,uint256,uint256,uint256,uint256,uint256,bytes,bytes32,bytes8),(address,address,bytes),bytes,(uint256)),(((address,bytes[],uint256,bytes32,uint256,bytes32,(bytes32,bytes32,bytes[])[]),bytes)[]))";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                42u8, 173u8, 219u8, 132u8, 208u8, 51u8, 216u8, 189u8, 80u8, 31u8, 167u8,
-                24u8, 86u8, 39u8, 206u8, 226u8, 156u8, 64u8, 129u8, 179u8, 235u8, 107u8,
-                23u8, 153u8, 167u8, 45u8, 237u8, 131u8, 41u8, 30u8, 39u8, 132u8,
+                42u8,
+                173u8,
+                219u8,
+                132u8,
+                208u8,
+                51u8,
+                216u8,
+                189u8,
+                80u8,
+                31u8,
+                167u8,
+                24u8,
+                86u8,
+                39u8,
+                206u8,
+                226u8,
+                156u8,
+                64u8,
+                129u8,
+                179u8,
+                235u8,
+                107u8,
+                23u8,
+                153u8,
+                167u8,
+                45u8,
+                237u8,
+                131u8,
+                41u8,
+                30u8,
+                39u8,
+                132u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -2955,8 +2966,6 @@ event ClaimAppended(Claim claim, VerificationData indexed verData);
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `verify((string,string,(bytes32,bytes32,address,bytes32,bytes32,bytes32,bytes,uint256,uint256,uint256,uint256,uint256,bytes,bytes32,bytes8),(address,address,bytes),bytes,(uint256)),(((address,bytes[],uint256,bytes32,uint256,bytes32,(bytes32,bytes32,bytes[])[]),bytes)[]))` and selector `0x0b0e9659`.
 ```solidity
 function verify(Claim memory claim, VerificationData memory verData) external pure;
@@ -3090,8 +3099,6 @@ function verify(Claim memory claim, VerificationData memory verData) external pu
         }
     };
     ///Container for all the [`Pi2`](self) function calls.
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive()]
     pub enum Pi2Calls {
         #[allow(missing_docs)]
         verify(verifyCall),
@@ -3178,8 +3185,6 @@ function verify(Claim memory claim, VerificationData memory verData) external pu
         }
     }
     ///Container for all the [`Pi2`](self) events.
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum Pi2Events {
         #[allow(missing_docs)]
         ClaimAppended(ClaimAppended),
@@ -3194,9 +3199,38 @@ function verify(Claim memory claim, VerificationData memory verData) external pu
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                42u8, 173u8, 219u8, 132u8, 208u8, 51u8, 216u8, 189u8, 80u8, 31u8, 167u8,
-                24u8, 86u8, 39u8, 206u8, 226u8, 156u8, 64u8, 129u8, 179u8, 235u8, 107u8,
-                23u8, 153u8, 167u8, 45u8, 237u8, 131u8, 41u8, 30u8, 39u8, 132u8,
+                42u8,
+                173u8,
+                219u8,
+                132u8,
+                208u8,
+                51u8,
+                216u8,
+                189u8,
+                80u8,
+                31u8,
+                167u8,
+                24u8,
+                86u8,
+                39u8,
+                206u8,
+                226u8,
+                156u8,
+                64u8,
+                129u8,
+                179u8,
+                235u8,
+                107u8,
+                23u8,
+                153u8,
+                167u8,
+                45u8,
+                237u8,
+                131u8,
+                41u8,
+                30u8,
+                39u8,
+                132u8,
             ],
         ];
     }
