@@ -131,8 +131,8 @@ async fn watch(
     let committee = pod_provider.get_committee().await?;
 
     while let Some(log) = stream.next().await {
-        if !log.verify(&committee)? {
-            eprintln!(" got invalid event!");
+        if log.verify(&committee).is_err() {
+            eprintln!("got invalid event!");
             continue;
         }
         let event = Notary::DocumentTimestamped::decode_log(&log.inner.inner)

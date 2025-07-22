@@ -1,23 +1,22 @@
-use alloy_consensus::{TxType, TypedTransaction};
+use alloy_consensus::{TxEnvelope, TxType, TypedTransaction};
 use alloy_eips::eip2930::AccessList;
 use alloy_network::{
     BuildResult, Network, NetworkWallet, ReceiptResponse, TransactionBuilder,
     TransactionBuilderError,
 };
-use alloy_primitives::{Address, BlockHash, Bytes, ChainId, Log, TxHash, TxKind, B256, U256};
+use alloy_primitives::{
+    Address, BlockHash, Bytes, ChainId, Log, Signature, TxHash, TxKind, B256, U256,
+};
 use alloy_provider::fillers::{
     ChainIdFiller, GasFiller, JoinFill, NonceFiller, RecommendedFillers,
 };
 
-use anyhow::Result;
-use pod_types::{ledger::Transaction, metadata::DetailedReceiptMetadata};
-
-use alloy_consensus::TxEnvelope;
-use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
 use pod_types::{
-    ecdsa::{AddressECDSA, SignatureECDSA},
-    Committee, Hashable, Merkleizable, Receipt, Timestamp,
+    consensus::committee::CommitteeError, ledger::Transaction, metadata::DetailedReceiptMetadata,
 };
+
+use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
+use pod_types::{Committee, Hashable, Merkleizable, Receipt, Timestamp};
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
@@ -33,7 +32,8 @@ pub struct PodTransactionRequest {
 impl Default for PodTransactionRequest {
     fn default() -> Self {
         let mut inner = TransactionRequest::default();
-        inner.set_gas_price(1_000_000_000);
+        inner.set_max_fee_per_gas(1_000_000_000);
+        inner.set_max_priority_fee_per_gas(1_000_000_000);
         Self { inner }
     }
 }
@@ -163,8 +163,8 @@ impl TransactionBuilder<PodNetwork> for PodTransactionRequest {
 
     fn complete_type(&self, ty: TxType) -> Result<(), Vec<&'static str>> {
         match ty {
-            TxType::Legacy => self.complete_legacy(),
-            _ => unimplemented!(), // Preventing usage of any other except Legacy Tx
+            TxType::Eip1559 => self.complete_1559(),
+            _ => unimplemented!(), // Preventing usage of any other except EIP-1559 Tx
         }
     }
 
@@ -176,13 +176,13 @@ impl TransactionBuilder<PodNetwork> for PodTransactionRequest {
     }
 
     fn can_build(&self) -> bool {
-        // Only supporting Legacy Transactions
-        self.gas_price.is_some()
+        // Only supporting EIP-1559 Transactions
+        self.max_fee_per_gas.is_some() && self.max_priority_fee_per_gas.is_some()
     }
 
     #[doc(alias = "output_transaction_type")]
     fn output_tx_type(&self) -> TxType {
-        TxType::Legacy
+        TxType::Eip1559
     }
 
     #[doc(alias = "output_transaction_type_checked")]
@@ -285,8 +285,8 @@ impl ReceiptResponse for PodReceiptResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AttestationData {
-    pub public_key: AddressECDSA,
-    pub signature: SignatureECDSA,
+    pub public_key: Address,
+    pub signature: Signature,
     pub timestamp: Timestamp,
 }
 
@@ -298,8 +298,7 @@ pub struct PodReceiptResponse {
 }
 
 impl PodReceiptResponse {
-    // todo: add error handling
-    pub fn verify(&self, committee: &Committee) -> Result<bool> {
+    pub fn verify_receipt(&self, committee: &Committee) -> Result<(), CommitteeError> {
         let logs = self
             .receipt
             .inner
@@ -309,25 +308,45 @@ impl PodReceiptResponse {
             .collect::<Vec<Log>>();
 
         let logs_root = logs.to_merkle_tree().hash_custom();
+        let tx_hash = self.pod_metadata.transaction.hash_custom();
+        let to = match self.pod_metadata.transaction.to {
+            TxKind::Create => None,
+            TxKind::Call(address) => Some(address),
+        };
 
         let receipt = Receipt {
             status: self.status(),
             actual_gas_used: self.receipt.gas_used,
             logs,
             logs_root,
-            tx: self.pod_metadata.transaction.clone(),
+            tx_hash,
+            max_fee_per_gas: self.pod_metadata.transaction.max_fee_per_gas,
+            signer: self.pod_metadata.transaction.signer,
+            to,
             contract_address: self.receipt.contract_address,
         };
 
         committee.verify_aggregate_attestation(
-            receipt.tx.hash_custom(),
+            receipt.tx_hash,
             &self
                 .pod_metadata
                 .attestations
                 .iter()
                 .map(|a| a.signature)
                 .collect(),
-        )
+        )?;
+
+        committee.verify_aggregate_attestation(
+            receipt.hash_custom(),
+            &self
+                .pod_metadata
+                .receipt_attestations
+                .iter()
+                .map(|a| a.signature)
+                .collect(),
+        )?;
+
+        Ok(())
     }
 
     pub fn transaction(&self) -> &pod_types::Signed<Transaction> {

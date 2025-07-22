@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {requireQuorum} from "pod-sdk/pod/Quorum.sol";
+import {requireQuorum} from "pod-sdk/Quorum.sol";
 
 contract Tokens {
     string  public name;

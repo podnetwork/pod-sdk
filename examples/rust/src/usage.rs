@@ -15,7 +15,7 @@ async fn main() -> Result<()> {
         .await?;
 
     let committee = pod_provider.get_committee().await?;
-    println!("committee: {:?}", committee);
+    println!("committee: {committee:?}");
 
     // sender sends payment
     let start_time = SystemTime::now()
@@ -29,16 +29,16 @@ async fn main() -> Result<()> {
         .transfer(recipient, U256::from(1_000_000))
         .await
         .unwrap();
-    println!("receipt: {:?}", receipt);
+    println!("receipt: {receipt:?}");
 
     // recipient listens for new receipts and verifies payment
     let receipts = pod_provider.get_receipts(None, start_time, None).await?;
 
     for receipt in receipts.items {
         if receipt.transaction().to == TxKind::Call(recipient)
-            && matches!(receipt.verify(&committee), Ok(true))
+            && receipt.verify_receipt(&committee).is_ok()
         {
-            println!("found verified receipt {:?}", receipt);
+            println!("found verified receipt {receipt:?}");
         }
     }
 
@@ -49,9 +49,9 @@ async fn main() -> Result<()> {
 
     for recipient_receipt in recipient_receipts.items {
         if recipient_receipt.transaction().to == TxKind::Call(recipient)
-            && matches!(recipient_receipt.verify(&committee), Ok(true))
+            && recipient_receipt.verify_receipt(&committee).is_ok()
         {
-            println!("found verified receipt {:?}", recipient_receipt);
+            println!("found verified receipt {recipient_receipt:?}");
         }
     }
 
@@ -70,11 +70,9 @@ async fn main() -> Result<()> {
     println!("fetching historical logs");
     let logs = pod_provider.get_verifiable_logs(&filter).await?;
     for log in logs {
-        println!("log {:?}", log);
-        if log.verify(&committee).unwrap() {
-            println!("Found verified auction contract event: {log:?}");
-            println!("Event merkle multi-proof: {:?}", log.generate_multi_proof())
-        }
+        log.verify(&committee).expect("log verification failed");
+        println!("Found verified auction contract event: {log:?}");
+        println!("Event merkle multi-proof: {:?}", log.generate_multi_proof())
     }
 
     // same as historical logs, but subscribing to new events
@@ -83,11 +81,10 @@ async fn main() -> Result<()> {
 
     println!("waiting for new logs");
     while let Some(log) = stream.next().await {
-        println!("got log {:?}", log);
-        if log.verify(&committee).unwrap() {
-            println!("Found verified auction contract event: {log:?}");
-            println!("Event merkle multi-proof: {:?}", log.generate_multi_proof())
-        }
+        println!("got log {log:?}");
+        log.verify(&committee).expect("log verification failed");
+        println!("Found verified auction contract event: {log:?}");
+        println!("Event merkle multi-proof: {:?}", log.generate_multi_proof())
     }
 
     Ok(())

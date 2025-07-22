@@ -1,16 +1,16 @@
+use alloy_primitives::Signature;
 use serde::{Deserialize, Serialize};
 
-use crate::cryptography::{ecdsa::SignatureECDSA, hash::Hashable};
-
 // Certificate represents a proof on an agreement by the committee
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Certificate<T: Hashable> {
-    pub signatures: Vec<SignatureECDSA>,
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+pub struct Certificate<T> {
+    pub signatures: Vec<Signature>,
     pub certified: T,
 }
 
-impl<T: Hashable> Certificate<T> {
-    pub fn new(signatures: Vec<SignatureECDSA>, certified: T) -> Self {
+impl<T> Certificate<T> {
+    pub fn new(signatures: Vec<Signature>, certified: T) -> Self {
         Certificate {
             signatures,
             certified,

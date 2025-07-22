@@ -13,10 +13,11 @@ pub use crate::{
         attestation::{ReceiptAttestation, TransactionAttestation},
     },
     cryptography::{
-        Hashable, MerkleTree, Merkleizable, ecdsa,
+        Hashable, MerkleTree, Merkleizable,
         hash::std_hash,
-        signer::{Signed, Signer},
+        signer::{Signed, TxSigner},
     },
     ledger::{CallData, Receipt, Transaction},
+    rpc::filter::{LogFilter, LogFilterBuilder},
     time::{Clock, Timestamp},
 };

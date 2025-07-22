@@ -31,10 +31,9 @@ async fn main() {
 
     println!("waiting for new logs");
     while let Some(log) = stream.next().await {
-        println!("got log {:?}", log);
-        if log.verify(&committee).unwrap() {
-            println!("Found verified auction contract event: {log:?}");
-            println!("Event merkle multi-proof: {:?}", log.generate_multi_proof())
-        }
+        println!("got log {log:?}");
+        log.verify(&committee).unwrap();
+        println!("Found verified auction contract event: {log:?}");
+        println!("Event merkle multi-proof: {:?}", log.generate_multi_proof())
     }
 }

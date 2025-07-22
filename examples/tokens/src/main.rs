@@ -9,7 +9,7 @@ use pod_types::rpc::filter::LogFilterBuilder;
 
 alloy::sol!(
     #[sol(rpc)]
-    "Tokens.sol"
+    "contracts/Tokens.sol"
 );
 
 /// Lightweight CLI tool for interacting with a fungible **Tokens** contract that follows the
@@ -75,7 +75,7 @@ async fn main() -> Result<()> {
             let balance = address_balance(cli.rpc_url, cli.contract_address, address).await?;
 
             //        address | balance
-            println!("ℹ️  Balance of {}: {} token(s)", address, balance);
+            println!("ℹ️  Balance of {address}: {balance} token(s)");
         }
     }
 
@@ -107,7 +107,7 @@ async fn watch(
     let committee = pod_provider.get_committee().await?;
 
     while let Some(log) = stream.next().await {
-        if !log.verify(&committee)? {
+        if log.verify(&committee).is_err() {
             eprintln!("⚠️  Received an unverifiable event – ignoring");
             continue;
         }

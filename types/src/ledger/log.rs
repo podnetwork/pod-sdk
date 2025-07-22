@@ -1,15 +1,16 @@
 use std::ops::Deref;
 
-use alloy_primitives::Bytes;
 pub use alloy_primitives::{Log, LogData};
 use alloy_rpc_types::Log as RPCLog;
 use alloy_sol_types::SolValue;
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Certificate, Committee, Timestamp,
-    consensus::attestation::{HeadlessAttestation, Indexed},
+    Certificate, Committee, Signed, Timestamp, Transaction,
+    consensus::{
+        attestation::{HeadlessAttestation, Indexed},
+        committee::CommitteeError,
+    },
     cryptography::{
         Hash, MerkleMultiProof, Merkleizable,
         hash::Hashable,
@@ -35,10 +36,11 @@ pub fn to_rpc_format(inner_log: Log, tx_hash: Hash) -> RPCLog {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Event {
     pub log: Log,
     pub log_index: u64,
-    pub tx_hash: Hash,
+    pub tx: Signed<Transaction>,
     pub attestations: Vec<Indexed<HeadlessAttestation>>,
     pub receipt: Receipt,
 }
@@ -79,7 +81,7 @@ impl VerifiableLog {
                 .generate_multi_proof_for_log(i.try_into().unwrap())
         })
     }
-    pub fn verify(&self, committee: &Committee) -> Result<bool> {
+    pub fn verify(&self, committee: &Committee) -> Result<(), CommitteeError> {
         committee.verify_certificate(&Certificate {
             signatures: self
                 .pod_metadata
@@ -100,30 +102,26 @@ impl VerifiableLog {
             self.pod_metadata
                 .receipt
                 .generate_proof_for_log_hash(i.try_into().unwrap())
-                .ok()
         })
     }
 
     pub fn get_leaf(&self) -> Hash {
-        let log_index = self.inner.log_index.unwrap_or(0) as usize;
+        let log_index = self.inner.log_index.unwrap_or(0).try_into().unwrap();
         StandardMerkleTree::hash_leaf(
             index_prefix("log_hashes", log_index),
             self.inner.inner.hash_custom(),
         )
     }
 
-    pub fn aggregate_signatures(&self) -> Result<Bytes> {
-        let aggregated = self
-            .pod_metadata
+    pub fn aggregate_signatures(&self) -> Vec<u8> {
+        self.pod_metadata
             .attestations
             .iter()
-            .map(|a| a.signature.to_bytes())
-            .reduce(|mut acc, sig| {
+            .map(|a| a.signature.as_bytes())
+            .fold(Vec::new(), |mut acc, sig| {
                 acc.extend_from_slice(&sig);
                 acc
             })
-            .ok_or(anyhow::anyhow!("error aggregating signatures"))?;
-        Ok(Bytes::from(aggregated))
     }
 
     pub fn verify_proof(&self, receipt_root: Hash, proof: MerkleProof) -> bool {
@@ -143,7 +141,7 @@ impl Deref for VerifiableLog {
 #[cfg(test)]
 mod test {
     use super::*;
-    use alloy_primitives::{Log, LogData, TxKind, U256};
+    use alloy_primitives::{Address, Log, LogData, TxKind, U256};
     use alloy_signer_local::PrivateKeySigner;
 
     use crate::{Hashable, Merkleizable, Transaction};
@@ -175,16 +173,17 @@ mod test {
             ),
         };
 
+        let to: Address = "0x217f5658c6ecc27d439922263ad9bb8e992e0373"
+            .parse()
+            .unwrap();
         let transaction = Transaction {
-            chain_id: Some(1293),
-            to: TxKind::Call(
-                "0x217f5658c6ecc27d439922263ad9bb8e992e0373"
-                    .parse()
-                    .unwrap(),
-            ),
+            chain_id: 0x50d,
+            to: TxKind::Call(to.clone()),
             nonce: 0,
             gas_limit: 22048,
-            gas_price: 1000000000,
+            max_fee_per_gas: 1000000000,
+            max_priority_fee_per_gas: 1000000000,
+            access_list: Default::default(),
             value: U256::ZERO,
             input: vec![
                 133, 44, 166, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -222,9 +221,12 @@ mod test {
                 receipt: Receipt {
                     status: true,
                     actual_gas_used: 21784,
+                    max_fee_per_gas: transaction.max_fee_per_gas,
                     logs: logs.clone(),
                     logs_root,
-                    tx: crate::Signer::sign_tx(&signer, &transaction).await.unwrap(),
+                    tx_hash: transaction.hash_custom(),
+                    signer: signer.address(),
+                    to: Some(to),
                     contract_address: None,
                 },
             },

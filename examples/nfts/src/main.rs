@@ -90,7 +90,7 @@ async fn main() -> Result<()> {
         Commands::GetTokenURI { token_id } => {
             let uri = token_uri(cli.rpc_url, cli.contract_address, token_id).await?;
 
-            println!("ℹ️  tokenURI({}) → {}", token_id, uri);
+            println!("ℹ️  tokenURI({token_id}) → {uri}");
         }
     }
 
@@ -121,7 +121,7 @@ async fn watch(
     let committee = pod_provider.get_committee().await?;
 
     while let Some(log) = stream.next().await {
-        if !log.verify(&committee)? {
+        if log.verify(&committee).is_err() {
             eprintln!("⚠️  received an invalid event");
             continue;
         }

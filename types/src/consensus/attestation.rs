@@ -1,24 +1,16 @@
+use alloy_primitives::{Address, Signature};
 use alloy_sol_types::SolValue;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    Receipt, Signed, Timestamp, Transaction,
-    cryptography::{
-        ecdsa::{AddressECDSA, SignatureECDSA},
-        hash::{Hash, Hashable, hash},
-        signer::UncheckedSigned,
-    },
-    ledger::receipt::UncheckedReceipt,
+    Receipt, Signed, Timestamp, Transaction, cryptography::Hash, cryptography::hash::Hashable,
 };
 
 pub type TransactionAttestation = Attestation<Signed<Transaction>>;
 pub type ReceiptAttestation = Attestation<Receipt>;
 
-pub type UncheckedReceiptAttestation = Attestation<UncheckedReceipt>;
-
-pub type UncheckedTransactionAttestation = Attestation<UncheckedSigned<Transaction>>;
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Indexed<T> {
     #[serde(rename = "timestamp")]
     pub index: Timestamp, // TODO: consider sequential numbers
@@ -54,37 +46,50 @@ impl<T: Hashable> Hashable for Indexed<T> {
 
 // An Attestation<T> is T signed by a validator using ECDSA
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(bound = "T: Hashable + Serialize + DeserializeOwned + Eq")]
 pub struct Attestation<T> {
-    pub public_key: AddressECDSA,
-    pub signature: SignatureECDSA,
+    pub public_key: Address,
+    pub signature: Signature,
     pub attested: T,
+}
+
+#[cfg(feature = "arbitrary")]
+impl<'a, T: arbitrary::Arbitrary<'a> + Hashable> arbitrary::Arbitrary<'a> for Attestation<T> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        use alloy_signer::SignerSync;
+        let signer = alloy_signer_local::PrivateKeySigner::random();
+        let attested = T::arbitrary(u)?;
+
+        Ok(Attestation {
+            public_key: signer.address(),
+            signature: signer.sign_hash_sync(&attested.hash_custom()).unwrap(),
+            attested,
+        })
+    }
 }
 
 impl<T: Hashable> Hashable for Attestation<T> {
     fn hash_custom(&self) -> Hash {
-        hash(
-            [
-                self.public_key.to_bytes(),
-                self.signature.to_bytes(),
-                self.attested.hash_custom().to_vec(),
-            ]
-            .concat(),
-        )
+        let mut hasher = alloy_primitives::Keccak256::default();
+        hasher.update(self.public_key.as_slice());
+        hasher.update(self.signature.as_bytes());
+        hasher.update(self.attested.hash_custom().as_slice());
+        hasher.finalize()
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct TimestampedHeadlessAttestation {
     pub timestamp: Timestamp,
-    pub public_key: AddressECDSA,
-    pub signature: SignatureECDSA,
+    pub public_key: Address,
+    pub signature: Signature,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct HeadlessAttestation {
-    pub public_key: AddressECDSA,
-    pub signature: SignatureECDSA,
+    pub public_key: Address,
+    pub signature: Signature,
 }
 
 impl<T> From<Attestation<T>> for HeadlessAttestation {
@@ -116,8 +121,8 @@ impl From<Indexed<Attestation<Receipt>>> for TimestampedHeadlessAttestation {
     }
 }
 
-impl From<Indexed<Attestation<Signed<Transaction>>>> for TimestampedHeadlessAttestation {
-    fn from(indexed: Indexed<Attestation<Signed<Transaction>>>) -> Self {
+impl From<Indexed<Attestation<Hash>>> for TimestampedHeadlessAttestation {
+    fn from(indexed: Indexed<Attestation<Hash>>) -> Self {
         Self {
             timestamp: indexed.index,
             public_key: indexed.value.public_key,
