@@ -33,19 +33,11 @@ const DEFAULT_PRV_KEYS: [&str; 10] = [
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Address of the auction contract on pod
-    #[arg(
-        long,
-        env,
-        default_value = "0x12296f2D128530a834460DF6c36a2895B793F26d"
-    )]
+    #[arg(long, env)]
     contract_address: Address,
 
     /// Funded private key for signing bid transactions on the pod network
-    #[arg(
-        long,
-        env,
-        default_value = "0x6df79891f22b0f3c9e9fb53b966a8861fd6fef69f99772c5c4dbcf303f10d901"
-    )]
+    #[arg(long, env)]
     pod_private_key: PrivateKeySigner,
 
     /// Private key for account on the Optimism network to send funds from.
@@ -125,6 +117,7 @@ async fn main() -> anyhow::Result<()> {
 
     let pending_tx = auction
         .submitBid(U256::from(deadline), max_priority_fee, enc.into())
+        .max_priority_fee_per_gas(0)
         .send()
         .await
         .context("sending TX to pod")?;

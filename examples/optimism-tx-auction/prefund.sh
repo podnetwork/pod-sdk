@@ -8,18 +8,14 @@ declare -a PRIVATE_KEYS=(
     "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6"
 )
 
-POD_PRIVATE_KEY="0x6df79891f22b0f3c9e9fb53b966a8861fd6fef69f99772c5c4dbcf303f10d901"
-
 # Loop through each private key and fund it on pod
 for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
     TO=$(cast wallet address --private-key "$PRIVATE_KEY")
-    CMD="cast send $TO --rpc-url \"$POD_RPC_URL\" --private-key \"$POD_PRIVATE_KEY\" --legacy --value 1ether --gas-price 100gwei --gas-limit 1000000 --async"
-    echo $CMD
+    CMD="cast send $TO --rpc-url $POD_RPC_URL --private-key $POD_PRIVATE_KEY --value 1ether --gas-price 100gwei --gas-limit 1000000 --async"
 
     if ! eval "$CMD"; then
 	echo "Failed to submit transaction with private key: $PRIVATE_KEY"
 	exit 1
     fi
-    BID=$((BID + 1))
 done
 
