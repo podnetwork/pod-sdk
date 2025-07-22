@@ -1,12 +1,11 @@
 #!/bin/bash
 
 if [ "$#" -lt 3 ]; then
-    echo "Usage: $0 --to <to_address> --amount <amount> [--deadline <timestamp>]"
+    echo "Usage: $0 --to <to_address> --amount <amount>"
     exit 1
 fi
 TO_ADDRESS=""
 AMOUNT=""
-DEADLINE=""
 
 while [[ "$#" -gt 0 ]]; do
     key="$1"
@@ -17,10 +16,6 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         --amount)
             AMOUNT="$2"
-            shift 2
-            ;;
-        --deadline)
-            DEADLINE="$2"
             shift 2
             ;;
         *)
@@ -44,7 +39,7 @@ declare -a PRIVATE_KEYS=(
 
 # Loop through each private key and submit a transaction
 for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
-    CMD="cargo run --release -q --bin send_tx -- \
+    CMD="cargo run --release --bin send_tx -- \
 	--private-key \"$PRIVATE_KEY\" \
         --pod-private-key \"$PRIVATE_KEY\" \
         --contract-address \"$CONTRACT_ADDRESS\" \
@@ -52,10 +47,6 @@ for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
         --pod-rpc-url \"$POD_RPC_URL\" \
 	--to \"$TO_ADDRESS\" \
 	--amount \"$AMOUNT\""
-    if [[ -n "$DEADLINE" ]]; then
-        CMD="$CMD \\
-	--deadline \"$DEADLINE\""
-    fi
     if ! eval "$CMD"; then
 	echo "Failed to submit transaction with private key: $PRIVATE_KEY"
 	exit 1
