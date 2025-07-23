@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import {requireTimeBefore, requireTimeAfter} from "pod-sdk/pod/Time.sol";
+import {requireTimeBefore, requireTimeAfter, Time} from "pod-sdk/Time.sol";
+import {requireQuorum} from "pod-sdk/Quorum.sol";
 
 contract Voting {
+    using Time for Time.Timestamp;
+
     enum VoterState {
         Unregistered,
         Registered,
@@ -11,7 +14,7 @@ contract Voting {
     }
 
     struct Poll {
-        uint256 deadline;
+        Time.Timestamp deadline;
         uint256 maxChoice;
         address owner;
         mapping(address => VoterState) voters;
@@ -24,17 +27,17 @@ contract Voting {
     // Maps poll ID to poll data
     mapping(bytes32 => Poll) private polls;
 
-    event PollCreated(bytes32 indexed pollId, uint256 deadline);
+    event PollCreated(bytes32 indexed pollId, Time.Timestamp deadline);
     event Voted(bytes32 indexed pollId, address indexed voter, uint256 indexed choice);
     event Winner(bytes32 indexed pollId, uint256 indexed choice);
 
     /// @notice Calculate poll ID
-    /// @param deadline The poll deadline in seconds
+    /// @param deadline The poll deadline
     /// @param maxChoice The maximum choice in a poll
     /// @param owner The crator of the poll
     /// @param voters The poll participants
     /// @return pollId The unique poll ID derived from the input parameters
-    function getPollId(uint256 deadline, uint256 maxChoice, address owner, address[] calldata voters)
+    function getPollId(Time.Timestamp deadline, uint256 maxChoice, address owner, address[] calldata voters)
         public
         pure
         returns (bytes32 pollId)
@@ -44,11 +47,11 @@ contract Voting {
     }
 
     /// @notice Create a new poll
-    /// @param deadline The poll deadline in seconds
+    /// @param deadline The poll deadline
     /// @param maxChoice The maximum choice in a poll
     /// @param voters The poll participants
     /// @return pollId The unique poll ID
-    function createPoll(uint256 deadline, uint256 maxChoice, address[] calldata voters)
+    function createPoll(Time.Timestamp deadline, uint256 maxChoice, address[] calldata voters)
         public
         returns (bytes32 pollId)
     {

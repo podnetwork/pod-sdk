@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Voting} from "../src/Voting.sol";
-import {REQUIRE_QUORUM} from "pod-sdk/pod/Quorum.sol";
+import {REQUIRE_QUORUM} from "pod-sdk/Quorum.sol";
 
 contract MockRequireQuorum {
     fallback() external {
