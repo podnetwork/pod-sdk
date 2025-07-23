@@ -4,11 +4,10 @@ use alloy_rpc_types::TransactionReceipt;
 use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize};
 
-use super::{Transaction, log};
+use super::log;
 use crate::cryptography::{
     hash::{Hash, Hashable},
     merkle_tree::{MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable, index_prefix},
-    signer::Signed,
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -16,9 +15,12 @@ use crate::cryptography::{
 pub struct Receipt {
     pub status: bool,
     pub actual_gas_used: u64,
+    pub max_fee_per_gas: u128,
     pub logs: Vec<Log>,
     pub logs_root: Hash,
-    pub tx: Signed<Transaction>,
+    pub tx_hash: Hash,
+    pub signer: Address,
+    pub to: Option<Address>,
     pub contract_address: Option<Address>,
 }
 
@@ -77,7 +79,7 @@ impl Merkleizable for Receipt {
         // NOTE: "log_hashes" isn't part of the Receipt struct
         builder.add_slice("log_hashes", &self.log_hashes());
         builder.add_field("logs_root", self.logs_root.abi_encode().hash_custom());
-        builder.add_merkleizable("tx", &self.tx);
+        builder.add_field("tx_hash", self.tx_hash);
     }
 }
 
@@ -98,20 +100,20 @@ impl From<Receipt> for TransactionReceipt {
                     logs: val
                         .logs
                         .into_iter()
-                        .map(|l| log::to_rpc_format(l, val.tx.hash_custom()))
+                        .map(|l| log::to_rpc_format(l, val.tx_hash))
                         .collect(),
                 },
             }),
-            transaction_hash: val.tx.hash_custom(),
+            transaction_hash: val.tx_hash,
             transaction_index: Some(0),
             block_hash: Some(Hash::default()), // Need hash for tx confirmation on Metamask
             block_number: Some(1),             // Need number of tx confirmation on Metamask
             gas_used: val.actual_gas_used,     // Gas used by the transaction alone.
-            effective_gas_price: val.tx.max_fee_per_gas, // Use max_fee_per_gas for EIP-1559 transactions
-            blob_gas_used: None,  // This is none for non EIP-4844 transactions.
-            blob_gas_price: None, // This is none for non EIP-4844 transactions.
-            from: val.tx.signer,
-            to: val.tx.signed.to.to().cloned(),
+            effective_gas_price: val.max_fee_per_gas, // Use max_fee_per_gas for EIP-1559 transactions
+            blob_gas_used: None,                      // This is none for non EIP-4844 transactions.
+            blob_gas_price: None,                     // This is none for non EIP-4844 transactions.
+            from: val.signer,
+            to: val.to,
             contract_address: val.contract_address, // None if the transaction is not a contract creation.
         }
     }
@@ -119,7 +121,7 @@ impl From<Receipt> for TransactionReceipt {
 
 #[cfg(test)]
 mod test {
-    use alloy_primitives::{Log, LogData, TxKind, U256};
+    use alloy_primitives::{Address, Log, LogData, TxKind, U256};
     use alloy_signer_local::PrivateKeySigner;
 
     use crate::{
@@ -131,9 +133,10 @@ mod test {
 
     #[tokio::test]
     async fn test_provable_receipt() {
+        let to: Address = "217f5658c6ecc27d439922263ad9bb8e992e0373".parse().unwrap();
         let transaction = Transaction {
             chain_id: 0x50d,
-            to: TxKind::Call("217f5658c6ecc27d439922263ad9bb8e992e0373".parse().unwrap()),
+            to: TxKind::Call(to.clone()),
             nonce: 1337,
             gas_limit: 25_000,
             max_fee_per_gas: 20_000_000_000,
@@ -158,16 +161,20 @@ mod test {
             ),
         };
 
+        let signer = PrivateKeySigner::random();
+        let tx = signer.sign_tx(transaction.clone()).unwrap();
         let logs = vec![log.clone()];
         let logs_tree = logs.to_merkle_tree();
         let logs_root = logs_tree.root();
-        let signer = PrivateKeySigner::random();
         let receipt = Receipt {
             status: true,
             actual_gas_used: 23_112,
+            max_fee_per_gas: transaction.max_fee_per_gas,
             logs: logs.clone(),
             logs_root,
-            tx: signer.sign_tx(transaction).unwrap(),
+            tx_hash: tx.hash_custom(),
+            signer: tx.signer,
+            to: Some(to),
             contract_address: None,
         };
 

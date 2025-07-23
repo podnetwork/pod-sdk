@@ -18,5 +18,6 @@ pub use crate::{
         signer::{Signed, TxSigner},
     },
     ledger::{CallData, Receipt, Transaction},
+    rpc::filter::{LogFilter, LogFilterBuilder},
     time::{Clock, Timestamp},
 };

@@ -297,7 +297,7 @@ async fn create_poll(
     let receipt = pendix_tx.get_receipt().await?;
     anyhow::ensure!(receipt.status(), "creating vote failed");
     let committee = pod_provider.get_committee().await?;
-    receipt.verify(&committee)?;
+    receipt.verify_receipt(&committee)?;
 
     let event = receipt
         .as_ref()

@@ -141,7 +141,7 @@ async fn vote(
     let committee = pod_provider.get_committee().await?;
 
     // Verify receipt
-    if receipt.verify(&committee).is_ok() {
+    if receipt.verify_receipt(&committee).is_ok() {
         println!("\nReceipt verified by committee!");
         println!("Attestations:");
         for attestation in &receipt.pod_metadata.attestations {
