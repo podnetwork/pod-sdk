@@ -1,6 +1,26 @@
 #!/bin/bash
 
+# Display help message when --help or -h is passed
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    printf "Usage: %s\n" "$0"
+    printf "\nThis script funds testing private keys with 10 ether each on the pod network.\n"
+    printf "\nMake sure to set the following environment variables before running:\n"
+    printf "  POD_PRIVATE_KEY - The private key used to fund other keys.\n"
+    printf "  POD_RPC_URL - The RPC URL of the pod network.\n"
+    exit 0
+fi
+
+# Ensure POD_PRIVATE_KEY and POD_RPC_URL are set
+if [[ -z "$POD_PRIVATE_KEY" || -z "$POD_RPC_URL" ]]; then
+    echo "Environment variables POD_PRIVATE_KEY and POD_RPC_URL must be set."
+    exit 1
+fi
+
 declare -a PRIVATE_KEYS=(
+    "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+    "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"
+    "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
+    "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
     "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba"
     "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e"
     "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356"
@@ -10,12 +30,12 @@ declare -a PRIVATE_KEYS=(
 
 # Loop through each private key and fund it on pod
 for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
-    TO=$(cast wallet address --private-key "$PRIVATE_KEY")
-    CMD="cast send $TO --rpc-url $POD_RPC_URL --private-key $POD_PRIVATE_KEY --value 1ether --gas-price 100gwei --gas-limit 1000000 --async"
-
+    TO=$(cast wallet address --private-key "$PRIVATE_KEY" 2>/dev/null)
+    CMD="cast -q send $TO --rpc-url $POD_RPC_URL --private-key $POD_PRIVATE_KEY --value 1ether --gas-price 100gwei --gas-limit 1000000 --async 2>/dev/null"
     if ! eval "$CMD"; then
-	echo "Failed to submit transaction with private key: $PRIVATE_KEY"
+	echo "Failed to submit funding transaction for: $TO"
 	exit 1
     fi
+    echo "$TO balance = $(cast balance $TO --rpc-url $POD_RPC_URL 2>/dev/null)"
 done
 
