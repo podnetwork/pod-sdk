@@ -3247,6 +3247,7 @@ dependencies = [
  "alloy",
  "anyhow",
  "clap",
+ "futures",
  "humantime",
  "op-alloy",
  "pod-sdk",
