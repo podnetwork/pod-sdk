@@ -30,12 +30,12 @@ declare -a PRIVATE_KEYS=(
 
 # Loop through each private key and fund it on pod
 for PRIVATE_KEY in "${PRIVATE_KEYS[@]}"; do
-    TO=$(cast wallet address --private-key "$PRIVATE_KEY" 2>/dev/null)
-    CMD="cast -q send $TO --rpc-url $POD_RPC_URL --private-key $POD_PRIVATE_KEY --value 1ether --gas-price 100gwei --gas-limit 1000000 --async 2>/dev/null"
+    TO=$(cast wallet address --private-key "$PRIVATE_KEY")
+    CMD="cast -q send $TO --rpc-url $POD_RPC_URL --private-key $POD_PRIVATE_KEY --value 1ether --gas-price 100gwei --gas-limit 1000000 --async"
     if ! eval "$CMD"; then
 	echo "Failed to submit funding transaction for: $TO"
 	exit 1
     fi
-    echo "$TO balance = $(cast balance $TO --rpc-url $POD_RPC_URL 2>/dev/null)"
+    echo "$TO balance = $(cast balance $TO --rpc-url $POD_RPC_URL)"
 done
 
