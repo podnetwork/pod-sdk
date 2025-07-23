@@ -147,3 +147,5 @@ TX 0x486d…6e70 from 0xDeaD…0001 fee 0
 TX 0x2bfb…139b from 0xa0Ee…9720 fee 111501560
 TX 0xb97c…0cfd from 0xf39F…2266 fee 0
 ```
+
+Here's a screencast showing all the steps in action: ![screencast](./demo.gif)
