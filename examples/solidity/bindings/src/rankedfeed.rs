@@ -123,6 +123,8 @@ pub mod RankedFeed {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"`\x80`@R4\x80\x15a\0\x10W`\0\x80\xFD[P`\x046\x10a\x006W`\x005`\xE0\x1C\x80c\xA1\x98\x1B\xF1\x14a\0;W\x80c\xDF\xBA\xA2\xFB\x14a\0WW[`\0\x80\xFD[a\0U`\x04\x806\x03\x81\x01\x90a\0P\x91\x90a\x04CV[a\0sV[\0[a\0q`\x04\x806\x03\x81\x01\x90a\0l\x91\x90a\x04\xD5V[a\x018V[\0[`\0a\0\x8B\x823`\x01a\x02;\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x14a\0\xC2W`@Q\x7F|\x9A\x1C\xF9\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01`@Q\x80\x91\x03\x90\xFD[a\0\xDA\x813`\x01\x80a\x03\x07\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[a\0\xF1\x81`\x01`\0a\x03\xD2\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81\x7F\x98\xB6\xB1\x80ul\x84\x9B[\xFB\xBD+\xBD\t\x1F?\xE6K\t5\xAC\x19T\x18\xC0\xB6\x19\xB9\xB6a\xC7\x8D`@Q`@Q\x80\x91\x03\x90\xA3PV[`\x003\x83\x83`@Q` \x01a\x01O\x93\x92\x91\x90a\x05\xDBV[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90P`\0a\x01\x7F\x823`\x01a\x02;\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x14a\x01\xB6W`@Q\x7F|\x9A\x1C\xF9\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01`@Q\x80\x91\x03\x90\xFD[a\x01\xCE\x813`\x01\x80a\x03\x07\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[a\x01\xE5\x81`\x01`\0a\x03\xD2\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81\x7F\xEDno\xDF\x99\xCD^\x97\x14\\~Y\xAD\xE99#\xBE\x19yUzw\xE69\xED\x95\xA2\x03\xC7\xA8\xE8a\x85\x85`@Qa\x02.\x92\x91\x90a\x06TV[`@Q\x80\x91\x03\x90\xA3PPPV[`\x002s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x02\xABW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x02\xA2\x90a\x06\xFBV[`@Q\x80\x91\x03\x90\xFD[\x83`\0\x01`\0\x84\x81R` \x01\x90\x81R` \x01`\0 `\0\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 T\x90P\x93\x92PPPV[2s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x03uW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x03l\x90a\x06\xFBV[`@Q\x80\x91\x03\x90\xFD[\x80\x84`\0\x01`\0\x85\x81R` \x01\x90\x81R` \x01`\0 `\0\x84s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 \x81\x90UPPPPPV[\x80\x83`\0\x01`\0\x84\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x82Ta\x03\xF7\x91\x90a\x07TV[\x92PP\x81\x90UPPPPV[`\0\x80\xFD[`\0\x80\xFD[`\0\x81\x90P\x91\x90PV[a\x04 \x81a\x04\rV[\x81\x14a\x04+W`\0\x80\xFD[PV[`\0\x815\x90Pa\x04=\x81a\x04\x17V[\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\x04YWa\x04Xa\x04\x03V[[`\0a\x04g\x84\x82\x85\x01a\x04.V[\x91PP\x92\x91PPV[`\0\x80\xFD[`\0\x80\xFD[`\0\x80\xFD[`\0\x80\x83`\x1F\x84\x01\x12a\x04\x95Wa\x04\x94a\x04pV[[\x825\x90Pg\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x04\xB2Wa\x04\xB1a\x04uV[[` \x83\x01\x91P\x83`\x01\x82\x02\x83\x01\x11\x15a\x04\xCEWa\x04\xCDa\x04zV[[\x92P\x92\x90PV[`\0\x80` \x83\x85\x03\x12\x15a\x04\xECWa\x04\xEBa\x04\x03V[[`\0\x83\x015g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x05\nWa\x05\ta\x04\x08V[[a\x05\x16\x85\x82\x86\x01a\x04\x7FV[\x92P\x92PP\x92P\x92\x90PV[`\0s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[`\0a\x05M\x82a\x05\"V[\x90P\x91\x90PV[`\0\x81``\x1B\x90P\x91\x90PV[`\0a\x05l\x82a\x05TV[\x90P\x91\x90PV[`\0a\x05~\x82a\x05aV[\x90P\x91\x90PV[a\x05\x96a\x05\x91\x82a\x05BV[a\x05sV[\x82RPPV[`\0\x81\x90P\x92\x91PPV[\x82\x81\x837`\0\x83\x83\x01RPPPV[`\0a\x05\xC2\x83\x85a\x05\x9CV[\x93Pa\x05\xCF\x83\x85\x84a\x05\xA7V[\x82\x84\x01\x90P\x93\x92PPPV[`\0a\x05\xE7\x82\x86a\x05\x85V[`\x14\x82\x01\x91Pa\x05\xF8\x82\x84\x86a\x05\xB6V[\x91P\x81\x90P\x94\x93PPPPV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[`\0`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[`\0a\x063\x83\x85a\x06\x05V[\x93Pa\x06@\x83\x85\x84a\x05\xA7V[a\x06I\x83a\x06\x16V[\x84\x01\x90P\x93\x92PPPV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x06o\x81\x84\x86a\x06'V[\x90P\x93\x92PPPV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x7FCannot access OwnedCounter owned`\0\x82\x01R\x7F by another address\0\0\0\0\0\0\0\0\0\0\0\0\0` \x82\x01RPV[`\0a\x06\xE5`3\x83a\x06xV[\x91Pa\x06\xF0\x82a\x06\x89V[`@\x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x07\x14\x81a\x06\xD8V[\x90P\x91\x90PV[`\0\x81\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0`\0R`\x11`\x04R`$`\0\xFD[`\0a\x07_\x82a\x07\x1BV[\x91Pa\x07j\x83a\x07\x1BV[\x92P\x82\x82\x01\x90P\x80\x82\x11\x15a\x07\x82Wa\x07\x81a\x07%V[[\x92\x91PPV",
     );
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `AlreadyVoted()` and selector `0x7c9a1cf9`.
 ```solidity
 error AlreadyVoted();
@@ -187,6 +189,8 @@ error AlreadyVoted();
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `PostCreated(bytes32,address,bytes)` and selector `0xed6e6fdf99cd5e97145c7e59ade93923be1979557a77e639ed95a203c7a8e861`.
 ```solidity
 event PostCreated(bytes32 indexed post_id, address indexed poster, bytes post_data);
@@ -227,38 +231,9 @@ event PostCreated(bytes32 indexed post_id, address indexed poster, bytes post_da
             );
             const SIGNATURE: &'static str = "PostCreated(bytes32,address,bytes)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                237u8,
-                110u8,
-                111u8,
-                223u8,
-                153u8,
-                205u8,
-                94u8,
-                151u8,
-                20u8,
-                92u8,
-                126u8,
-                89u8,
-                173u8,
-                233u8,
-                57u8,
-                35u8,
-                190u8,
-                25u8,
-                121u8,
-                85u8,
-                122u8,
-                119u8,
-                230u8,
-                57u8,
-                237u8,
-                149u8,
-                162u8,
-                3u8,
-                199u8,
-                168u8,
-                232u8,
-                97u8,
+                237u8, 110u8, 111u8, 223u8, 153u8, 205u8, 94u8, 151u8, 20u8, 92u8, 126u8,
+                89u8, 173u8, 233u8, 57u8, 35u8, 190u8, 25u8, 121u8, 85u8, 122u8, 119u8,
+                230u8, 57u8, 237u8, 149u8, 162u8, 3u8, 199u8, 168u8, 232u8, 97u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -337,6 +312,8 @@ event PostCreated(bytes32 indexed post_id, address indexed poster, bytes post_da
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `PostVoted(bytes32,address)` and selector `0x98b6b180756c849b5bfbbd2bbd091f3fe64b0935ac195418c0b619b9b661c78d`.
 ```solidity
 event PostVoted(bytes32 indexed post_id, address indexed voter);
@@ -375,38 +352,9 @@ event PostVoted(bytes32 indexed post_id, address indexed voter);
             );
             const SIGNATURE: &'static str = "PostVoted(bytes32,address)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                152u8,
-                182u8,
-                177u8,
-                128u8,
-                117u8,
-                108u8,
-                132u8,
-                155u8,
-                91u8,
-                251u8,
-                189u8,
-                43u8,
-                189u8,
-                9u8,
-                31u8,
-                63u8,
-                230u8,
-                75u8,
-                9u8,
-                53u8,
-                172u8,
-                25u8,
-                84u8,
-                24u8,
-                192u8,
-                182u8,
-                25u8,
-                185u8,
-                182u8,
-                97u8,
-                199u8,
-                141u8,
+                152u8, 182u8, 177u8, 128u8, 117u8, 108u8, 132u8, 155u8, 91u8, 251u8,
+                189u8, 43u8, 189u8, 9u8, 31u8, 63u8, 230u8, 75u8, 9u8, 53u8, 172u8, 25u8,
+                84u8, 24u8, 192u8, 182u8, 25u8, 185u8, 182u8, 97u8, 199u8, 141u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -480,6 +428,8 @@ event PostVoted(bytes32 indexed post_id, address indexed voter);
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `createPost(bytes)` and selector `0xdfbaa2fb`.
 ```solidity
 function createPost(bytes memory post_data) external;
@@ -603,6 +553,8 @@ function createPost(bytes memory post_data) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `votePost(bytes32)` and selector `0xa1981bf1`.
 ```solidity
 function votePost(bytes32 post_id) external;
@@ -727,6 +679,8 @@ function votePost(bytes32 post_id) external;
         }
     };
     ///Container for all the [`RankedFeed`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
     pub enum RankedFeedCalls {
         #[allow(missing_docs)]
         createPost(createPostCall),
@@ -846,6 +800,8 @@ function votePost(bytes32 post_id) external;
         }
     }
     ///Container for all the [`RankedFeed`](self) custom errors.
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum RankedFeedErrors {
         #[allow(missing_docs)]
         AlreadyVoted(AlreadyVoted),
@@ -937,6 +893,8 @@ function votePost(bytes32 post_id) external;
         }
     }
     ///Container for all the [`RankedFeed`](self) events.
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum RankedFeedEvents {
         #[allow(missing_docs)]
         PostCreated(PostCreated),
@@ -953,72 +911,14 @@ function votePost(bytes32 post_id) external;
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                152u8,
-                182u8,
-                177u8,
-                128u8,
-                117u8,
-                108u8,
-                132u8,
-                155u8,
-                91u8,
-                251u8,
-                189u8,
-                43u8,
-                189u8,
-                9u8,
-                31u8,
-                63u8,
-                230u8,
-                75u8,
-                9u8,
-                53u8,
-                172u8,
-                25u8,
-                84u8,
-                24u8,
-                192u8,
-                182u8,
-                25u8,
-                185u8,
-                182u8,
-                97u8,
-                199u8,
-                141u8,
+                152u8, 182u8, 177u8, 128u8, 117u8, 108u8, 132u8, 155u8, 91u8, 251u8,
+                189u8, 43u8, 189u8, 9u8, 31u8, 63u8, 230u8, 75u8, 9u8, 53u8, 172u8, 25u8,
+                84u8, 24u8, 192u8, 182u8, 25u8, 185u8, 182u8, 97u8, 199u8, 141u8,
             ],
             [
-                237u8,
-                110u8,
-                111u8,
-                223u8,
-                153u8,
-                205u8,
-                94u8,
-                151u8,
-                20u8,
-                92u8,
-                126u8,
-                89u8,
-                173u8,
-                233u8,
-                57u8,
-                35u8,
-                190u8,
-                25u8,
-                121u8,
-                85u8,
-                122u8,
-                119u8,
-                230u8,
-                57u8,
-                237u8,
-                149u8,
-                162u8,
-                3u8,
-                199u8,
-                168u8,
-                232u8,
-                97u8,
+                237u8, 110u8, 111u8, 223u8, 153u8, 205u8, 94u8, 151u8, 20u8, 92u8, 126u8,
+                89u8, 173u8, 233u8, 57u8, 35u8, 190u8, 25u8, 121u8, 85u8, 122u8, 119u8,
+                230u8, 57u8, 237u8, 149u8, 162u8, 3u8, 199u8, 168u8, 232u8, 97u8,
             ],
         ];
     }
