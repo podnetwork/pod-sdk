@@ -7,4 +7,5 @@ pub mod r#auction;
 pub mod r#fasttypes;
 pub mod r#pi2;
 pub mod r#rankedfeed;
+pub mod r#time;
 pub mod r#voting;
