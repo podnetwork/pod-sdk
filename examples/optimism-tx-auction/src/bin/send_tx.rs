@@ -14,6 +14,7 @@ use pod_sdk::{
     Address, PrivateKeySigner, Provider, ProviderBuilder, U256, alloy_rpc_types::Block,
     provider::PodProviderBuilder,
 };
+use tokio::time::timeout;
 
 // some funded keys on the builder playground network for testing
 const DEFAULT_PRV_KEYS: [&str; 9] = [
@@ -32,15 +33,15 @@ const DEFAULT_PRV_KEYS: [&str; 9] = [
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Address of the auction contract on pod
-    #[arg(long, env)]
+    #[arg(long)]
     contract_address: Address,
 
     /// RPC URL for the Pod network
-    #[arg(long, env, default_value = "wss://rpc.v2.pod.network")]
+    #[arg(long, default_value = "wss://rpc.v2.pod.network")]
     pod_rpc_url: String,
 
     /// RPC URL for the Optimism network
-    #[arg(long, env, default_value = "ws://localhost:8547")]
+    #[arg(long, default_value = "ws://localhost:8547")]
     rpc_url: String,
 
     #[command(subcommand)]
@@ -236,31 +237,10 @@ async fn main() -> anyhow::Result<()> {
                     println!("Failed to submit TX bid for {address:#}: {e:?}");
                 }
             }
-
-            println!("\nWaiting for block {block_number} to be built...");
-
-            let mut blocks = op_provider.watch_full_blocks().await?.full().into_stream();
-            while let Some(block) = blocks.next().await {
-                let block = block.context("fetching L2 block")?;
-                if block.header.number == block_number {
-                    println!(
-                        "\n[{}]] Block {block_number} built. Transactions:",
-                        humantime::format_rfc3339_seconds(SystemTime::now())
-                    );
-                    for tx in block.transactions.txns() {
-                        let tx = &tx.inner.inner;
-                        println!(
-                            "TX {:#} from {:#} fee {}",
-                            tx.tx_hash(),
-                            tx.signer(),
-                            tx.max_priority_fee_per_gas().unwrap_or_default()
-                        );
-                    }
-                    break;
-                }
-            }
         }
     }
+
+    wait_for_block(&op_provider, block_number).await?;
 
     Ok(())
 }
@@ -285,4 +265,39 @@ async fn calculate_deadline_and_block_number<T>(
     let block_number =
         latest_block.header.number + (block_timestamp - latest_block.header.timestamp) / 2;
     Ok((deadline, block_number))
+}
+
+async fn wait_for_block<P: Provider<Optimism>>(
+    op_provider: &P,
+    block_number: u64,
+) -> anyhow::Result<()> {
+    println!("\nWaiting for block {block_number} to be built...");
+
+    let mut blocks = op_provider.watch_full_blocks().await?.full().into_stream();
+    timeout(Duration::from_secs(10), async move {
+        while let Some(block) = blocks.next().await {
+            let block = block.context("fetching L2 block")?;
+            if block.header.number == block_number {
+                println!(
+                    "\n[{}]] Block {block_number} built. {} transactions:",
+                    humantime::format_rfc3339_seconds(SystemTime::now()),
+                    block.transactions.len(),
+                );
+                for tx in block.transactions.txns() {
+                    let tx = &tx.inner.inner;
+                    println!(
+                        "TX {:#} from {:#} fee {}",
+                        tx.tx_hash(),
+                        tx.signer(),
+                        tx.max_priority_fee_per_gas().unwrap_or_default()
+                    );
+                }
+                return Ok(());
+            }
+        }
+        Err(anyhow::anyhow!("failed waiting for block {block_number}"))
+    })
+    .await
+    .context("timed out waiting for block")??;
+    Ok(())
 }

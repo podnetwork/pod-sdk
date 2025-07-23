@@ -11,7 +11,7 @@ alloy = { version = "1.0.9", features = ["sol-types", "contract"] }
 op-alloy = { version = "0.17.2", features = ["full"] }
 tracing = "0.1.41"
 tokio = { version = "1.45.1", features = ["full"] }
-clap = { version = "4.5.40", features = ["derive", "env"] }
+clap = { version = "4.5.40", features = ["derive"] }
 anyhow = "1.0.98"
 rand = "0.9.1"
 humantime = "2.2.0"
