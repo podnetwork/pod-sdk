@@ -122,13 +122,13 @@ impl AuctionClient {
     pub async fn submit_bid(
         &self,
         auction_id: U256,
-        deadline: U256,
+        deadline: u64,
         value: U256,
         data: Vec<u8>,
     ) -> Result<()> {
         let tx = self
             .auction_contract
-            .submitBid(auction_id, U256::from(deadline), value, data.into())
+            .submitBid(auction_id, deadline, value, data.into())
             .gas(1000000)
             .gas_price(1000000000)
             .send()
@@ -235,7 +235,7 @@ impl AuctionClient {
     //     Ok(())
     // }
 
-    pub async fn read_state(&self, auction_id: U256, deadline: U256) -> Result<()> {
+    pub async fn read_state(&self, auction_id: U256, deadline: u64) -> Result<()> {
         let state: readReturn = self
             .consumer_contract
             .read(auction_id, deadline)
@@ -254,7 +254,7 @@ impl AuctionClient {
         &self,
         auction_id: U256,
         bidder_address: Address,
-        deadline: U256,
+        deadline: u64,
     ) -> Result<CertifiedLog> {
         let bidder_filter = U256::from_str(&bidder_address.to_string())?;
 
@@ -263,7 +263,7 @@ impl AuctionClient {
             .event_signature(BidSubmitted::SIGNATURE_HASH)
             .topic1(auction_id)
             .topic2(bidder_filter)
-            .topic3(deadline)
+            .topic3(U256::from(deadline))
             .build();
 
         let logs = self.pod_provider.get_verifiable_logs(&filter).await?;
@@ -275,11 +275,11 @@ impl AuctionClient {
     }
 }
 
-async fn advance_time<P: Provider>(provider: P, timestamp: U256) -> Result<()> {
+async fn advance_time<P: Provider>(provider: P, timestamp: u64) -> Result<()> {
     provider
         .raw_request::<_, ()>(
             std::borrow::Cow::Borrowed("evm_setNextBlockTimestamp"),
-            vec![timestamp],
+            vec![U256::from(timestamp)],
         )
         .await?;
 
@@ -319,6 +319,7 @@ struct Args {
 }
 
 const WAITING_PERIOD: u64 = 600;
+const MICROSECONDS_PER_SECOND: u64 = 1_000_000;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -342,13 +343,13 @@ async fn main() -> Result<()> {
 
     let now = (std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs())
+        .as_micros() as u64)
         + (4 * WAITING_PERIOD * args.iteration);
 
-    let deadline = U256::from(now + 5);
+    let deadline = now + 5 * MICROSECONDS_PER_SECOND;
 
-    let writing_period_ends = deadline + U256::from(WAITING_PERIOD + 1);
-    let dispute_period_ends = writing_period_ends + U256::from(WAITING_PERIOD + 1);
+    let writing_period_ends = deadline + WAITING_PERIOD + 1 * MICROSECONDS_PER_SECOND;
+    let dispute_period_ends = writing_period_ends + WAITING_PERIOD + 1 * MICROSECONDS_PER_SECOND;
 
     let data = vec![0x12, 0x34, 0x56];
 
@@ -382,7 +383,7 @@ async fn main() -> Result<()> {
         .submit_bid(auction_id, deadline, value2, data.clone())
         .await?;
 
-    advance_time(auction_client_1.consumer_provider.clone(), U256::from(now)).await?;
+    advance_time(auction_client_1.consumer_provider.clone(), now).await?;
 
     let _ = auction_client_1.bond().await;
     let _ = auction_client_2.bond().await;
