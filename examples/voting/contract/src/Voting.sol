@@ -104,7 +104,7 @@ contract Voting {
 
     /// @notice Close a poll, selecting the winning choice.
     /// Anyone can call, but choice must be definitely the winning one.
-    /// A choice is definitely winning, when even if all remaining votes 
+    /// A choice is definitely winning, when even if all remaining votes
     /// are given to second highest voted, this choice would still win.
     /// @param pollId The poll ID to close
     /// @param choice the selected winning choice

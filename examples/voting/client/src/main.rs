@@ -287,7 +287,7 @@ async fn create_poll(
     let deadline = Timestamp::from(deadline);
     let pendix_tx = voting
         .createPoll(
-            U256::from(deadline.as_seconds()),
+            deadline.as_micros() as u64,
             U256::from(max_choice),
             participants.clone(),
         )
