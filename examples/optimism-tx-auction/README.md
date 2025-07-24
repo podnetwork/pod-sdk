@@ -17,18 +17,18 @@ auction contract is deployed on pod.
 
 ### Deploying the auction contract on pod
 
-To deploy the auction contract on pod, run:
+In case when the contract isn't already deploy on the pod devnet, change directory to `examples/solidity` and run the
+following command:
 
 ```bash
-POD_PRIVATE_KEY=<PRIVATE KEY OF A FUNDED ACCOUNT ON POD> make -C contract deploy
+POD_PRIVATE_KEY= make -C contract deploy
+forge create  src/Auction.sol:Auction --evm-version prague --private-key <PRIVATE KEY OF A FUNDED ACCOUNT ON POD> --rpc-url wss://rpc.v2.pod.network --broadcast
 ```
 
-> [!NOTE]
-> The private key should be of an account that has enough funds to pay for the gas of the deployment
+> [!NOTE] The private key should be of an account that has enough funds to pay for the gas of the deployment
 > transaction.
 
-> [!IMPORTANT]
-> Write down the address of the auction contract after deployment, as it will be needed later.
+> [!IMPORTANT] Write down the address of the auction contract after deployment, as it will be needed later.
 
 ### Running local OP stack devnet
 
@@ -47,13 +47,25 @@ Then, run the builder playground with:
 builder-playground cook opstack --external-builder http://host.docker.internal:4444
 ```
 
-> [!NOTE]
-> If you get an error
+> [!NOTE] If you get an error
 > `Error: unlinkat <HOME>/.playground/devnet/data_validator/validators/logs/validator.log: permission denied`, remove
 > the .playground directory: `sudo rm -rf ~/.playground`
 
 We also need to run a custom block builder that will fetch transactions from a pod auction and include them in block,
 sorting by the _max priority fee_. Clone the repository and run the builder with:
+
+### Prefunding accounts
+
+For the purpose of demonstation, the CLI has hardcoded few private keys that need to be prefunded. The same accounts
+will be used on pod to pay gas for bidding on the auction contract. To prefund them on pod, run:
+
+```bash
+POD_PRIVATE_KEY=<PRIVATE KEY OF A FUNDED ACCOUNT ON POD> POD_RPC_URL=wss://rpc.v2.pod.network ./prefund.sh
+```
+
+### Running OP Builder
+
+To run the OP builder, we need to clone the `op-rbuilder` repository and run it with the appropriate parameters.
 
 ```bash
 git clone -b pod-builder git@github.com:podnetwork/op-rbuilder.git
@@ -73,20 +85,12 @@ RUST_LOG="info,client=debug" cargo run -p op-rbuilder --bin op-rbuilder -- node 
                                     --trusted-peers enode://79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8@127.0.0.1:30304
 ```
 
-> [!NOTE]
-> If you get an error `Error: genesis hash in the storage does not match the specified chainspec`, remove the
+> [!NOTE] If you get an error `Error: genesis hash in the storage does not match the specified chainspec`, remove the
 > reth directory: `rm ~/.local/share/reth/ -r`
 
 ## Bidding L2 transactions on pod auction
 
 To bid the layer 2 transactions on a pod auction, we will use the [CLI](./src/bin/send_tx.rs).
-
-For the purpose of demonstation, the CLI has hardcoded 9 private keys that are, by default, already prefunded on the L2.
-The same accounts will be used on pod to pay gas for bidding on the auction contract. To prefund them on pod, run:
-
-```bash
-POD_PRIVATE_KEY=<PRIVATE KEY OF A FUNDED ACCOUNT ON POD> POD_RPC_URL=wss://rpc.v2.pod.network ./prefund.sh
-```
 
 ### Bidding batch of transactions
 
