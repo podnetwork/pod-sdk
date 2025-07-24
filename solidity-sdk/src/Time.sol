@@ -291,10 +291,28 @@ function requireTimeAfter(Time.Timestamp _timestamp, string memory _message) vie
 }
 
 /**
+ * @dev Requires that the current time is at least a given timestamp
+ * @param _timestamp The timestamp to check against
+ * @param _message The message to revert with if the current time is not at least the given timestamp
+ */
+function requireTimeAtLeast(Time.Timestamp _timestamp, string memory _message) view {
+    requireQuorum(Time.currentTime().gte(_timestamp), _message);
+}
+
+/**
  * @dev Requires that the current time is before a given timestamp
  * @param _timestamp The timestamp to check against
  * @param _message The message to revert with if the current time is not before the given timestamp
  */
 function requireTimeBefore(Time.Timestamp _timestamp, string memory _message) view {
     requireQuorum(Time.currentTime().lt(_timestamp), _message);
+}
+
+/**
+ * @dev Requires that the current time is at most a given timestamp
+ * @param _timestamp The timestamp to check against
+ * @param _message The message to revert with if the current time is not at most the given timestamp
+ */
+function requireTimeAtMost(Time.Timestamp _timestamp, string memory _message) view {
+    requireQuorum(Time.currentTime().lte(_timestamp), _message);
 }
