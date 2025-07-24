@@ -21,11 +21,15 @@ contract PodRegistry is IPodRegistry, Ownable {
 
     constructor(address[] memory initialValidators) Ownable(msg.sender) {
         for (uint8 i = 0; i < initialValidators.length; i++) {
-            addValidator(initialValidators[i]);
+            _addValidator(initialValidators[i]);
         }
     }
 
-    function addValidator(address validator) public onlyOwner {
+    function addValidator(address validator) external onlyOwner {
+        _addValidator(validator);
+    }
+
+    function _addValidator(address validator) internal {
         require(validator != address(0), "pod: validator is the zero address");
         require(validatorIndex[validator] == 0, "pod: validator already exists");
         require(nextValidatorIndex < MAX_VALIDATOR_COUNT, "pod: max validator count reached");
@@ -34,7 +38,11 @@ contract PodRegistry is IPodRegistry, Ownable {
         emit ValidatorAdded(validator);
     }
 
-    function removeValidator(address validator) public onlyOwner {
+    function removeValidator(address validator) external onlyOwner {
+        _removeValidator(validator);
+    }
+
+    function _removeValidator(address validator) internal {
         require(validatorIndex[validator] != 0, "pod: validator does not exist");
         delete validatorIndex[validator];
         validatorCount--;
