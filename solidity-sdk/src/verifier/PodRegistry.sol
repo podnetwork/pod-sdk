@@ -5,7 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IPodRegistry {
     struct Snapshot {
-        uint256 effectiveAsOfBlockNumber;
+        uint256 activeAsOfBlockNumber;
         uint256 bitmap;
     }
 
@@ -14,7 +14,7 @@ interface IPodRegistry {
     event ValidatorUnbanned(address indexed validator);
     event ValidatorDeactivated(address indexed validator);
     event ValidatorReactivated(address indexed validator);
-    event SnapshotCreated(uint256 indexed effectiveAsOfBlockNumber, uint256 bitmap);
+    event SnapshotCreated(uint256 indexed activeAsOfBlockNumber, uint256 bitmap);
 
     function validatorIndex(address validator) external view returns (uint8 index);
     function bannedValidators(address validator) external view returns (bool isBanned);
@@ -38,7 +38,7 @@ interface IPodRegistry {
 
     function getActiveValidatorCount() external view returns (uint8 count);
     function getFaultTolerance() external view returns (uint8);
-    function getSnapshot(uint256 index) external view returns (uint256 effectiveAsOfBlockNumber, uint256 bitmap);
+    function getSnapshot(uint256 index) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap);
     function getHistoryLength() external view returns (uint256);
 }
 
@@ -124,7 +124,7 @@ contract PodRegistry is IPodRegistry, Ownable {
     }
 
     function _createSnapshot() internal {
-        history.push(Snapshot({effectiveAsOfBlockNumber: block.number, bitmap: activeValidatorBitmap}));
+        history.push(Snapshot({activeAsOfBlockNumber: block.number, bitmap: activeValidatorBitmap}));
         emit SnapshotCreated(block.number, activeValidatorBitmap);
     }
 
@@ -143,9 +143,9 @@ contract PodRegistry is IPodRegistry, Ownable {
     {
         require(snapshotIndex < history.length, "pod: invalid snapshot index");
         Snapshot memory snapshot = history[snapshotIndex];
-        require(snapshot.effectiveAsOfBlockNumber <= blockNumber, "pod: snapshot too new");
+        require(snapshot.activeAsOfBlockNumber <= blockNumber, "pod: snapshot too new");
         require(
-            snapshotIndex == history.length - 1 || history[snapshotIndex + 1].effectiveAsOfBlockNumber > blockNumber,
+            snapshotIndex == history.length - 1 || history[snapshotIndex + 1].activeAsOfBlockNumber > blockNumber,
             "pod: snapshot too old"
         );
 
@@ -175,7 +175,7 @@ contract PodRegistry is IPodRegistry, Ownable {
 
         while (low < high) {
             uint256 mid = (low + high + 1) / 2;
-            if (history[mid].effectiveAsOfBlockNumber <= blockNumber) {
+            if (history[mid].activeAsOfBlockNumber <= blockNumber) {
                 low = mid;
             } else {
                 high = mid - 1;
@@ -198,9 +198,9 @@ contract PodRegistry is IPodRegistry, Ownable {
         return getActiveValidatorCount() / 3;
     }
 
-    function getSnapshot(uint256 index) external view returns (uint256 effectiveAsOfBlockNumber, uint256 bitmap) {
+    function getSnapshot(uint256 index) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap) {
         Snapshot memory s = history[index];
-        return (s.effectiveAsOfBlockNumber, s.bitmap);
+        return (s.activeAsOfBlockNumber, s.bitmap);
     }
 
     function getHistoryLength() external view returns (uint256) {
