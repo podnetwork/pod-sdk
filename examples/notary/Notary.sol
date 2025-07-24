@@ -8,6 +8,7 @@ function min(uint256 a, uint256 b) pure returns (uint256) {
 
 contract Notary {
     using Time for Time.Timestamp;
+
     mapping(bytes32 => Time.Timestamp) public timestamps;
 
     event DocumentTimestamped(bytes32 indexed documentHash, address indexed submitter, Time.Timestamp timestamp);
@@ -31,4 +32,3 @@ contract Notary {
         }
     }
 }
-
