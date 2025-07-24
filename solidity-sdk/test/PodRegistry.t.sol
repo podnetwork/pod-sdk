@@ -132,4 +132,75 @@ contract PodRegistryTest is Test {
         uint256 bitmapAfterRemove = registry.validatorBitmap();
         assertEq(bitmapAfterRemove & (1 << (3 - 1)), 0);
     }
+
+    function test_DeactivateAndReactivate() public {
+        vm.startPrank(validator1);
+
+        registry.deactivate();
+        assertEq((registry.validatorBitmap() & (1 << (1 - 1))), 0);
+
+        registry.reactivate();
+        assertEq((registry.validatorBitmap() & (1 << (1 - 1))), (1 << (1 - 1)));
+    }
+
+    function test_Deactivate_RevertIfAlreadyInactive() public {
+        vm.startPrank(validator1);
+        registry.deactivate();
+
+        vm.expectRevert("pod: caller is already inactive");
+        registry.deactivate();
+    }
+
+    function test_Reactivate_RevertIfAlreadyActive() public {
+        vm.startPrank(validator1);
+        vm.expectRevert("pod: caller is already active");
+        registry.reactivate();
+    }
+
+    function test_Deactivate_RevertIfNotValidator() public {
+        vm.startPrank(address(1337));
+        vm.expectRevert("pod: caller is not a validator");
+        registry.deactivate();
+    }
+
+    function test_Reactivate_RevertIfNotValidator() public {
+        vm.startPrank(address(1337));
+        vm.expectRevert("pod: caller is not a validator");
+        registry.reactivate();
+    }
+
+    function test_ComputeWeight_IgnoresInactiveValidators() public {
+        vm.startPrank(validator1);
+        registry.deactivate();
+        vm.stopPrank();
+
+        address[] memory subset = new address[](2);
+        subset[0] = validator1;
+        subset[1] = validator2;
+
+        uint256 weight = registry.computeWeight(subset);
+        assertEq(weight, 1);
+    }
+
+    function test_RemoveValidator_AfterDeactivation() public {
+        vm.prank(validator1);
+        registry.deactivate();
+
+        vm.prank(owner);
+        registry.removeValidator(validator1);
+
+        assertEq(registry.validatorIndex(validator1), 0);
+        assertEq((registry.validatorBitmap() & (1 << (1 - 1))), 0);
+    }
+
+    function test_ValidatorCount_UnchangedOnDeactivateReactivate() public {
+        uint8 before = registry.validatorCount();
+
+        vm.startPrank(validator1);
+        registry.deactivate();
+        registry.reactivate();
+        vm.stopPrank();
+
+        assertEq(registry.validatorCount(), before);
+    }
 }

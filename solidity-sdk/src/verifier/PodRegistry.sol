@@ -19,6 +19,8 @@ contract PodRegistry is IPodRegistry, Ownable {
 
     event ValidatorAdded(address indexed validator);
     event ValidatorRemoved(address indexed validator);
+    event ValidatorDeactivated(address indexed validator);
+    event ValidatorReactivated(address indexed validator);
 
     constructor(address[] memory initialValidators) Ownable(msg.sender) {
         for (uint8 i = 0; i < initialValidators.length; i++) {
@@ -54,6 +56,24 @@ contract PodRegistry is IPodRegistry, Ownable {
         emit ValidatorRemoved(validator);
     }
 
+    function deactivate() external {
+        uint8 index = validatorIndex[msg.sender];
+        require(index != 0, "pod: caller is not a validator");
+        uint256 mask = 1 << (index - 1);
+        require((validatorBitmap & mask) != 0, "pod: caller is already inactive");
+        validatorBitmap &= ~mask;
+        emit ValidatorDeactivated(msg.sender);
+    }
+
+    function reactivate() external {
+        uint8 index = validatorIndex[msg.sender];
+        require(index != 0, "pod: caller is not a validator");
+        uint256 mask = 1 << (index - 1);
+        require((validatorBitmap & mask) == 0, "pod: caller is already active");
+        validatorBitmap |= mask;
+        emit ValidatorReactivated(msg.sender);
+    }
+
     function computeWeight(address[] memory subset) public view returns (uint256 weight) {
         uint256 counted = 0;
         for (uint8 i = 0; i < subset.length; i++) {
@@ -64,7 +84,7 @@ contract PodRegistry is IPodRegistry, Ownable {
             }
 
             uint256 mask = 1 << (index - 1);
-            if ((counted & mask) == 0) {
+            if ((validatorBitmap & mask) != 0 && (counted & mask) == 0) {
                 counted |= mask;
                 weight++;
             }
