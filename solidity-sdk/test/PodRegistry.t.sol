@@ -118,4 +118,18 @@ contract PodRegistryTest is Test {
 
         assertEq(registry.validatorCount(), 255);
     }
+
+    function test_ValidatorBitmapAfterAddRemove() public {
+        vm.startPrank(owner);
+
+        registry.addValidator(validator3);
+
+        uint256 bitmapAfterAdd = registry.validatorBitmap();
+        assertEq(bitmapAfterAdd & (1 << (3 - 1)), (1 << (3 - 1)));
+
+        registry.removeValidator(validator3);
+
+        uint256 bitmapAfterRemove = registry.validatorBitmap();
+        assertEq(bitmapAfterRemove & (1 << (3 - 1)), 0);
+    }
 }

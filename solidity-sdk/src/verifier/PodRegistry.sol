@@ -13,6 +13,7 @@ contract PodRegistry is IPodRegistry, Ownable {
 
     mapping(address => uint8) public validatorIndex;
 
+    uint256 public validatorBitmap;
     uint8 public validatorCount;
     uint8 public nextValidatorIndex;
 
@@ -33,7 +34,9 @@ contract PodRegistry is IPodRegistry, Ownable {
         require(validator != address(0), "pod: validator is the zero address");
         require(validatorIndex[validator] == 0, "pod: validator already exists");
         require(nextValidatorIndex < MAX_VALIDATOR_COUNT, "pod: max validator count reached");
-        validatorIndex[validator] = ++nextValidatorIndex;
+        uint8 index = ++nextValidatorIndex;
+        validatorIndex[validator] = index;
+        validatorBitmap |= (1 << (index - 1));
         validatorCount++;
         emit ValidatorAdded(validator);
     }
@@ -43,7 +46,9 @@ contract PodRegistry is IPodRegistry, Ownable {
     }
 
     function _removeValidator(address validator) internal {
-        require(validatorIndex[validator] != 0, "pod: validator does not exist");
+        uint8 index = validatorIndex[validator];
+        require(index != 0, "pod: validator does not exist");
+        validatorBitmap &= ~(1 << (index - 1));
         delete validatorIndex[validator];
         validatorCount--;
         emit ValidatorRemoved(validator);
