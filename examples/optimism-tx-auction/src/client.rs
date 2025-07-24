@@ -65,7 +65,10 @@ impl AuctionClient {
                     .context("failed to decode bid log")?
                     .data;
                 Ok(Bid {
-                    amount: event.bid,
+                    amount: event
+                        .value
+                        .try_into()
+                        .context("failed to convert bid amount to u128")?,
                     data: event.data.to_vec(),
                 })
             })

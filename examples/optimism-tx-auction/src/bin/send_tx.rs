@@ -152,7 +152,12 @@ async fn main() -> anyhow::Result<()> {
                 bindings::Auction::AuctionInstance::new(cli.contract_address, pod_provider);
 
             let pending_tx = auction
-                .submitBid(U256::from(deadline), max_priority_fee, enc.into())
+                .submitBid(
+                    U256::from(deadline),
+                    U256::from(deadline),
+                    U256::from(max_priority_fee),
+                    enc.into(),
+                )
                 .max_priority_fee_per_gas(0)
                 .send()
                 .await
@@ -205,7 +210,8 @@ async fn main() -> anyhow::Result<()> {
                     let pending_tx = auction
                         .submitBid(
                             U256::from(deadline),
-                            max_priority_fee,
+                            U256::from(deadline),
+                            U256::from(max_priority_fee),
                             signed_tx.encoded_2718().into(),
                         )
                         .max_priority_fee_per_gas(0)
@@ -213,9 +219,15 @@ async fn main() -> anyhow::Result<()> {
                         .await
                         .context("sending TX to pod")?;
 
-                    let receipt = pending_tx
-                        .get_receipt()
+                    println!(
+                        "[{}] Sent bid with pod TX {:#}. awaiting confirmation",
+                        humantime::format_rfc3339_seconds(SystemTime::now()),
+                        pending_tx.tx_hash()
+                    );
+
+                    let receipt = timeout(Duration::from_secs(15), pending_tx.get_receipt())
                         .await
+                        .context("getting TX receipt from pod")?
                         .context("getting TX receipt from pod")?;
 
                     ensure!(receipt.status(), "Failed to submit TX bid on pod");
@@ -252,7 +264,7 @@ async fn calculate_deadline_and_block_number<T>(
 ) -> anyhow::Result<(u64, u64)> {
     let blocks_timestamp_even = (latest_block.header.timestamp % 2) == 0;
 
-    let mut deadline = (SystemTime::now() + Duration::from_secs(2))
+    let mut deadline = (SystemTime::now() + Duration::from_secs(5))
         .duration_since(std::time::UNIX_EPOCH)?
         .as_secs();
     if blocks_timestamp_even {
