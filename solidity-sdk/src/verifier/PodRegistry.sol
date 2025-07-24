@@ -17,13 +17,24 @@ interface IPodRegistry {
     event SnapshotCreated(uint256 indexed effectiveAsOfBlockNumber, uint256 bitmap);
 
     function validatorIndex(address validator) external view returns (uint8 index);
+    function bannedValidators(address validator) external view returns (bool isBanned);
+
+    function nextValidatorIndex() external view returns (uint8 index);
     function activeValidatorBitmap() external view returns (uint256 bitmap);
+
+    function addValidator(address validator) external;
+    function banValidator(address validator) external;
+    function unbanValidator(address validator) external;
+    function deactivate() external;
+    function reactivate() external;
 
     function computeWeight(address[] memory subset) external view returns (uint256 weight);
     function computeWeight(address[] memory subset, uint256 blockNumber, uint256 snapshotIndex)
         external
         view
         returns (uint256 weight);
+
+    function findSnapshotIndex(uint256 blockNumber) external view returns (uint256 index);
 
     function getActiveValidatorCount() external view returns (uint8 count);
     function getFaultTolerance() external view returns (uint8);
