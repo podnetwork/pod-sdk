@@ -21,8 +21,6 @@ contract PodRegistryTest is Test {
     }
 
     function test_Initialization() public view {
-        assertEq(registry.validatorCount(), 2);
-        assertEq(registry.activeValidatorCount(), 2);
         assertEq(registry.validatorIndex(validator1), 1);
         assertEq(registry.validatorIndex(validator2), 2);
         assertEq(registry.getHistoryLength(), 1);
@@ -36,8 +34,7 @@ contract PodRegistryTest is Test {
         emit PodRegistry.ValidatorAdded(validator3);
         registry.addValidator(validator3);
 
-        assertEq(registry.validatorCount(), 3);
-        assertEq(registry.activeValidatorCount(), 3);
+        assertEq(registry.getActiveValidatorCount(), 3);
         assertEq(registry.validatorIndex(validator3), 3);
         assertEq(registry.getHistoryLength(), beforeHistory + 1);
     }
@@ -69,8 +66,6 @@ contract PodRegistryTest is Test {
         vm.expectRevert("pod: max validator count reached");
         registry.addValidator(address(9999));
         vm.stopPrank();
-
-        assertEq(registry.validatorCount(), 255);
     }
 
     function test_BanValidator() public {
@@ -81,8 +76,7 @@ contract PodRegistryTest is Test {
         emit PodRegistry.ValidatorBanned(validator1);
         registry.banValidator(validator1);
 
-        assertEq(registry.activeValidatorCount(), 1);
-        assertEq(registry.validatorCount(), 1);
+        assertEq(registry.getActiveValidatorCount(), 1);
         // index does not change after banning
         assertEq(registry.validatorIndex(validator1), 1);
         assertEq(registry.getHistoryLength(), beforeHistory + 1);
@@ -118,7 +112,6 @@ contract PodRegistryTest is Test {
         emit PodRegistry.ValidatorUnbanned(validator1);
         registry.unbanValidator(validator1);
         assertFalse(registry.bannedValidators(validator1));
-        assertEq(registry.validatorCount(), 2); // count restored
     }
 
     function test_UnbanValidator_DoesNotCreateSnapshot() public {
@@ -234,17 +227,6 @@ contract PodRegistryTest is Test {
         assertEq((registry.activeValidatorBitmap() & (1 << (1 - 1))), 0);
         // index does not change after banning
         assertEq(registry.validatorIndex(validator1), 1);
-    }
-
-    function test_ValidatorCount_UnchangedOnDeactivateReactivate() public {
-        uint8 before = registry.validatorCount();
-
-        vm.startPrank(validator1);
-        registry.deactivate();
-        registry.reactivate();
-        vm.stopPrank();
-
-        assertEq(registry.validatorCount(), before);
     }
 
     function test_SnapshotCreatedOnAddBanDeactivateReactivate() public {

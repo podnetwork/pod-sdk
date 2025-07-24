@@ -11,7 +11,6 @@ interface IPodRegistry {
 
     function validatorIndex(address validator) external view returns (uint8 index);
     function activeValidatorBitmap() external view returns (uint256 bitmap);
-    function activeValidatorCount() external view returns (uint8 count);
 
     function computeWeight(address[] memory subset) external view returns (uint256 weight);
     function computeWeight(address[] memory subset, uint256 blockNumber, uint256 snapshotIndex)
@@ -19,6 +18,7 @@ interface IPodRegistry {
         view
         returns (uint256 weight);
 
+    function getActiveValidatorCount() external view returns (uint8 count);
     function getFaultTolerance() external view returns (uint8);
     function getSnapshot(uint256 index) external view returns (uint256 effectiveAsOfBlockNumber, uint256 bitmap);
     function getHistoryLength() external view returns (uint256);
@@ -32,10 +32,7 @@ contract PodRegistry is IPodRegistry, Ownable {
     mapping(address => uint8) public validatorIndex;
     mapping(address => bool) public bannedValidators;
 
-    uint8 public validatorCount;
     uint8 public nextValidatorIndex;
-
-    uint8 public activeValidatorCount;
     uint256 public activeValidatorBitmap;
 
     event ValidatorAdded(address indexed validator);
@@ -65,8 +62,6 @@ contract PodRegistry is IPodRegistry, Ownable {
         uint8 index = ++nextValidatorIndex;
         validatorIndex[validator] = index;
         activeValidatorBitmap |= (1 << (index - 1));
-        validatorCount++;
-        activeValidatorCount++;
         emit ValidatorAdded(validator);
     }
 
@@ -83,11 +78,9 @@ contract PodRegistry is IPodRegistry, Ownable {
         uint256 mask = 1 << (index - 1);
         if ((activeValidatorBitmap & mask) != 0) {
             activeValidatorBitmap &= ~mask;
-            activeValidatorCount--;
         }
 
         bannedValidators[validator] = true;
-        validatorCount--;
         emit ValidatorBanned(validator);
     }
 
@@ -95,7 +88,6 @@ contract PodRegistry is IPodRegistry, Ownable {
         require(validatorIndex[validator] != 0, "pod: validator does not exist");
         require(bannedValidators[validator], "pod: validator is not banned");
         bannedValidators[validator] = false;
-        validatorCount++;
         emit ValidatorUnbanned(validator);
     }
 
@@ -105,7 +97,6 @@ contract PodRegistry is IPodRegistry, Ownable {
         uint256 mask = 1 << (index - 1);
         require((activeValidatorBitmap & mask) != 0, "pod: caller is already inactive");
         activeValidatorBitmap &= ~mask;
-        activeValidatorCount--;
         emit ValidatorDeactivated(msg.sender);
         _createSnapshot();
     }
@@ -117,7 +108,6 @@ contract PodRegistry is IPodRegistry, Ownable {
         uint256 mask = 1 << (index - 1);
         require((activeValidatorBitmap & mask) == 0, "pod: caller is already active");
         activeValidatorBitmap |= mask;
-        activeValidatorCount++;
         emit ValidatorReactivated(msg.sender);
         _createSnapshot();
     }
@@ -184,8 +174,17 @@ contract PodRegistry is IPodRegistry, Ownable {
         return low;
     }
 
+    function getActiveValidatorCount() public view returns (uint8 count) {
+        count = 0;
+        uint256 bitmap = activeValidatorBitmap;
+        while (bitmap != 0) {
+            count++;
+            bitmap &= bitmap - 1;
+        }
+    }
+
     function getFaultTolerance() external view returns (uint8) {
-        return activeValidatorCount / 3;
+        return getActiveValidatorCount() / 3;
     }
 
     function getSnapshot(uint256 index) external view returns (uint256 effectiveAsOfBlockNumber, uint256 bitmap) {
