@@ -148,3 +148,75 @@ jobs:
           make check
         working-directory: examples/optimistic-auction
         id: bindings
+
+  voting:
+    name: voting 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: |
+          forge --version
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        id: fmt
+        working-directory: examples/voting/contracts 
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        id: build
+        working-directory: examples/voting/contracts 
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: examples/voting/contracts 
+
+      - name: Check bindings
+        run: |
+          make check
+        working-directory: examples/voting/contracts
+        id: bindings
+
+  notary:
+    name: notary 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: |
+          forge --version
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        id: fmt
+        working-directory: examples/notary 
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        id: build
+        working-directory: examples/notary 
+
+      - name: Check bindings
+        run: |
+          make check
+        working-directory: examples/notary
+        id: bindings
