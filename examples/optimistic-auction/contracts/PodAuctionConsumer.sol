@@ -5,13 +5,15 @@ import {PodECDSA} from "pod-sdk/verifier/PodECDSA.sol";
 import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {IPodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
 import {AbsBonding} from "./AbsBonding.sol";
-import {requireTimeBefore, requireTimeAfter, Time} from "pod-sdk/Time.sol";
+import {requireTimeBefore, requireTimeAtLeast, Time} from "pod-sdk/Time.sol";
 
 contract PodAuctionConsumer is AbsBonding {
     using Time for Time.Timestamp;
 
     uint64 public constant U = 10 minutes; // Waiting period for announcement or blaming
     bytes32 public constant LOG_TOPIC_0 = 0xaf2c4fdca8563d13e2f56ed3c7b48d3f86c61b037e7281617071a41d281a2204;
+
+    event Log(string message, Time.Timestamp value);
 
     struct Bid {
         address bidder;
@@ -66,7 +68,7 @@ contract PodAuctionConsumer is AbsBonding {
         (uint256 auctionId, address bidder, Time.Timestamp deadline, uint256 bid) = decodeBid(certifiedLog.log);
         bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadline);
         State storage s = state[uniqueAuctionId];
-        requireTimeAfter(deadline, "Writing period has not started");
+        requireTimeAtLeast(deadline, "Writing period has not started");
         requireTimeBefore(deadline.addSeconds(U), "Writing period ended");
         require(s.winner.bid == 0, "Bid already exists");
         require(msg.sender == bidder, "Invalid caller");
@@ -87,7 +89,7 @@ contract PodAuctionConsumer is AbsBonding {
      */
     function read(uint256 auctionId, Time.Timestamp deadline) external view returns (State memory) {
         bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadline);
-        requireTimeAfter(deadline.addSeconds(2 * U), "Dispute period NOT ended");
+        requireTimeAtLeast(deadline.addSeconds(2 * U), "Dispute period NOT ended");
         return state[uniqueAuctionId];
     }
 
@@ -100,6 +102,8 @@ contract PodAuctionConsumer is AbsBonding {
         bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadline);
         State storage s = state[uniqueAuctionId];
         require(s.winner.bid != 0, "Bid not written");
+        emit Log("Contract log deadline", deadline);
+        emit Log("Contract log deadline + 2U", deadline.addSeconds(2 * U));
         requireTimeBefore(deadline.addSeconds(2 * U), "Dispute period ended");
 
         uint256 f = podRegistry.getFaultTolerance();
@@ -123,7 +127,7 @@ contract PodAuctionConsumer is AbsBonding {
         State storage s = state[uniqueAuctionId];
 
         require(s.winner.bid == 0, "Bid already exists");
-        requireTimeAfter(deadline.addSeconds(U), "Still in waiting period");
+        requireTimeAtLeast(deadline.addSeconds(U), "Still in waiting period");
         requireTimeBefore(deadline.addSeconds(2 * U), "Dispute period ended");
         require(s.blamed.bid < bid, "Invalid blamed bid");
 

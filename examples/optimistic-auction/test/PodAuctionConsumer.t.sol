@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
-
+import {PodTest} from "pod-sdk/test/podTest.sol";
 import {PodECDSA, ECDSA} from "pod-sdk/verifier/PodECDSA.sol";
 import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {PodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
-
 import {PodAuctionConsumer} from "../contracts/PodAuctionConsumer.sol";
+import {Time} from "pod-sdk/Time.sol";
 
-contract PodAuctionConsumerTest is Test {
+contract PodAuctionConsumerTest is PodTest {
+    using Time for Time.Timestamp;
+
     PodAuctionConsumer consumer;
     PodRegistry podRegistry;
 
@@ -18,13 +18,244 @@ contract PodAuctionConsumerTest is Test {
 
     address constant OWNER = address(0x123abc);
     uint256 constant AUCTION_ID = 1;
-    uint256 constant DEADLINE = 3485693721;
+    uint64 constant DEADLINE = 3485693721;
     address constant SMALLER_BIDDER = 0x13791790Bef192d14712D627f13A55c4ABEe52a4;
     address constant HIGHER_BIDDER = 0xb8AA43999C2b3Cbb10FbE2092432f98D8F35Dcd7;
     address constant BONDED_ADDRESS = address(0x123def);
-    uint256 constant U = 10 minutes;
+    uint64 constant U = 10 minutes * Time.MICROSECONDS_PER_SECOND;
     uint256 constant NUMBER_OF_VALIDATORS = 128;
     uint256 constant F = NUMBER_OF_VALIDATORS / 3;
+
+    function setUp() public {
+        vm.prank(OWNER);
+        podRegistry = new PodRegistry(new address[](0));
+
+        validatorPrivateKeys = new uint256[](NUMBER_OF_VALIDATORS);
+
+        for (uint256 i = 0; i < NUMBER_OF_VALIDATORS; i++) {
+            validatorPrivateKeys[i] = uint256(i + 1);
+            vm.prank(OWNER);
+            podRegistry.addValidator(vm.addr(validatorPrivateKeys[i]));
+        }
+
+        consumer = new PodAuctionConsumer(address(podRegistry), 1 ether);
+        vm.deal(SMALLER_BIDDER, 2 ether);
+        vm.deal(HIGHER_BIDDER, 2 ether);
+        vm.deal(BONDED_ADDRESS, 2 ether);
+        vm.prank(SMALLER_BIDDER);
+        consumer.bond{value: 1 ether}();
+        vm.prank(HIGHER_BIDDER);
+        consumer.bond{value: 1 ether}();
+        vm.prank(BONDED_ADDRESS);
+        consumer.bond{value: 1 ether}();
+
+        podWarp(Time.fromMicros(DEADLINE));
+        podMockQuorum();
+    }
+
+    function tearDown() public {
+        vm.clearMockedCalls();
+    }
+
+    function test_Write_Success() public {
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+
+        vm.prank(SMALLER_BIDDER);
+        consumer.write(certifiedLog);
+
+        podWarp(Time.currentTime().addMicros(2 * U));
+
+        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, Time.fromMicros(DEADLINE));
+        assertEq(state.winner.bid, 100);
+        assertEq(state.winner.bidder, SMALLER_BIDDER);
+    }
+
+    function test_Write_Fail_BidderNotBonded() public {
+        vm.prank(makeAddr("not_bonded"));
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+        vm.expectRevert("Not bonded");
+        consumer.write(certifiedLog);
+    }
+
+    function test_Write_Fail_BidderNotWriter() public {
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+
+        vm.prank(BONDED_ADDRESS);
+        vm.expectRevert("Invalid caller");
+        consumer.write(certifiedLog);
+    }
+
+    function test_Write_Fail_BidAlreadyWritten() public {
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
+
+        vm.prank(SMALLER_BIDDER);
+        consumer.write(certifiedLogSmallerBid);
+
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F + 1, false);
+
+        vm.prank(HIGHER_BIDDER);
+        vm.expectRevert("Bid already exists");
+        consumer.write(certifiedLogHigherBid);
+    }
+
+    function test_Write_Fail_WritingPeriodEnded() public {
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+
+        podWarp(Time.currentTime().addMicros(U + 1 seconds * Time.MICROSECONDS_PER_SECOND));
+
+        vm.prank(SMALLER_BIDDER);
+        vm.expectRevert("Writing period ended");
+        consumer.write(certifiedLog);
+    }
+
+    function test_Write_Fail_InvalidCommittee() public {
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F, true);
+        vm.expectRevert("Invalid proof or quorum not reached");
+        vm.prank(SMALLER_BIDDER);
+        consumer.write(certifiedLog);
+    }
+
+    function test_BlameIllAnnounced_Success() public {
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
+
+        vm.prank(SMALLER_BIDDER);
+        consumer.write(certifiedLogSmallerBid);
+
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F + 1, false);
+
+        assert(consumer.isBonded(SMALLER_BIDDER));
+
+        vm.prank(HIGHER_BIDDER);
+        consumer.blameIllAnnounced(certifiedLogHigherBid);
+        podWarp(Time.currentTime().addMicros(2 * U));
+
+        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, Time.fromMicros(DEADLINE));
+        assertEq(state.winner.bid, 1000);
+        assertEq(state.winner.bidder, HIGHER_BIDDER);
+        assertEq(state.blamed.bid, 100);
+        assertEq(state.blamed.bidder, SMALLER_BIDDER);
+        assert(!consumer.isBonded(SMALLER_BIDDER));
+    }
+
+    function test_BlameIllAnnounced_Fail_BidNotWritten() public {
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+
+        vm.prank(BONDED_ADDRESS);
+        vm.expectRevert("Bid not written");
+        consumer.blameIllAnnounced(certifiedLog);
+    }
+
+    function test_BlameIllAnnounced_Fail_DisputePeriodEnded() public {
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
+
+        vm.prank(SMALLER_BIDDER);
+        consumer.write(certifiedLogSmallerBid);
+
+        podWarp(Time.currentTime().addMicros(2 * U));
+
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F + 1, false);
+
+        vm.prank(BONDED_ADDRESS);
+        vm.expectRevert("Dispute period ended");
+        consumer.blameIllAnnounced(certifiedLogHigherBid);
+    }
+
+    function test_BlameIllAnnounced_Fail_InvalidCommittee() public {
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+
+        vm.prank(SMALLER_BIDDER);
+        consumer.write(certifiedLog);
+
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F, false);
+
+        vm.prank(BONDED_ADDRESS);
+        vm.expectRevert("Invalid proof or quorum not reached");
+        consumer.blameIllAnnounced(certifiedLogHigherBid);
+    }
+
+    function test_BlameNoShow_Success() public {
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
+
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
+
+        podWarp(Time.currentTime().addMicros(U));
+
+        assert(consumer.isBonded(SMALLER_BIDDER));
+
+        vm.prank(BONDED_ADDRESS);
+        consumer.blameNoShow(certifiedLogSmallerBid);
+        vm.prank(BONDED_ADDRESS);
+        consumer.blameNoShow(certifiedLogHigherBid);
+
+        podWarp(Time.currentTime().addMicros(2 * U));
+
+        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, Time.fromMicros(DEADLINE));
+        assertEq(state.winner.bid, 0);
+        assertEq(state.winner.bidder, address(0));
+        assertEq(state.blamed.bid, 1000);
+        assertEq(state.blamed.bidder, HIGHER_BIDDER);
+        assert(!consumer.isBonded(HIGHER_BIDDER));
+    }
+
+    function test_BlameNoShow_Fail_InvalidCommittee() public {
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(F, true);
+
+        podWarp(Time.currentTime().addMicros(U));
+
+        vm.prank(BONDED_ADDRESS);
+        vm.expectRevert("Invalid proof or quorum not reached");
+        consumer.blameNoShow(certifiedLog);
+    }
+
+    function test_BlameNoShow_Fail_BidAlreadyExists() public {
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
+
+        vm.prank(SMALLER_BIDDER);
+        consumer.write(certifiedLogSmallerBid);
+
+        podWarp(Time.currentTime().addMicros(U));
+
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
+
+        vm.prank(BONDED_ADDRESS);
+        vm.expectRevert("Bid already exists");
+        consumer.blameNoShow(certifiedLogHigherBid);
+    }
+
+    function test_BlameNoShow_Fail_DisputePeriodEnded() public {
+        podWarp(Time.currentTime().addMicros(2 * U));
+
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
+
+        podWarp(Time.currentTime().addMicros(2 * U));
+
+        vm.prank(BONDED_ADDRESS);
+        vm.expectRevert("Dispute period ended");
+        consumer.blameNoShow(certifiedLogHigherBid);
+    }
+
+    function test_BlameNoShow_Fail_StillInWaitingPeriod() public {
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(F + 1, false);
+
+        vm.prank(BONDED_ADDRESS);
+        vm.expectRevert("Still in waiting period");
+        consumer.blameNoShow(certifiedLog);
+    }
+
+    function test_BlameNoShow_Fail_InvalidBid() public {
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
+
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(F + 1, true);
+
+        podWarp(Time.currentTime().addMicros(U));
+
+        vm.prank(BONDED_ADDRESS);
+        consumer.blameNoShow(certifiedLogHigherBid);
+
+        vm.prank(BONDED_ADDRESS);
+        vm.expectRevert("Invalid blamed bid");
+        consumer.blameNoShow(certifiedLogSmallerBid);
+    }
 
     function createCertifiedLog(uint256 numberOfRequiredSignatures, bool isSmallerBid)
         internal
@@ -71,228 +302,6 @@ contract PodAuctionConsumerTest is Test {
         receiptRoots[1] = bytes32(0xff1f0769c1f5f49d15679c58beffaa9c63627314c2965a2c3025b6012a6a93ab);
 
         return receiptRoots[index];
-    }
-
-    function setUp() public {
-        vm.prank(OWNER);
-        podRegistry = new PodRegistry(new address[](0));
-
-        validatorPrivateKeys = new uint256[](NUMBER_OF_VALIDATORS);
-
-        for (uint256 i = 0; i < NUMBER_OF_VALIDATORS; i++) {
-            validatorPrivateKeys[i] = uint256(i + 1);
-            vm.prank(OWNER);
-            podRegistry.addValidator(vm.addr(validatorPrivateKeys[i]));
-        }
-
-        consumer = new PodAuctionConsumer(address(podRegistry), 1 ether);
-        vm.deal(SMALLER_BIDDER, 2 ether);
-        vm.deal(HIGHER_BIDDER, 2 ether);
-        vm.deal(BONDED_ADDRESS, 2 ether);
-        vm.prank(SMALLER_BIDDER);
-        consumer.bond{value: 1 ether}();
-        vm.prank(HIGHER_BIDDER);
-        consumer.bond{value: 1 ether}();
-        vm.prank(BONDED_ADDRESS);
-        consumer.bond{value: 1 ether}();
-
-        vm.warp(DEADLINE);
-    }
-
-    function test_Write_Success() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
-
-        vm.prank(SMALLER_BIDDER);
-        consumer.write(certifiedLog);
-
-        vm.warp(block.timestamp + 2 * U);
-        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, DEADLINE);
-        assertEq(state.winner.bid, 100);
-        assertEq(state.winner.bidder, SMALLER_BIDDER);
-    }
-
-    function test_Write_Fail_BidderNotBonded() public {
-        vm.prank(makeAddr("not_bonded"));
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
-        vm.expectRevert("Not bonded");
-        consumer.write(certifiedLog);
-    }
-
-    function test_Write_Fail_BidderNotWriter() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
-
-        vm.prank(BONDED_ADDRESS);
-        vm.expectRevert("Invalid caller");
-        consumer.write(certifiedLog);
-    }
-
-    function test_Write_Fail_BidAlreadyWritten() public {
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
-
-        vm.prank(SMALLER_BIDDER);
-        consumer.write(certifiedLogSmallerBid);
-
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F + 1, false);
-
-        vm.prank(HIGHER_BIDDER);
-        vm.expectRevert("Bid already exists");
-        consumer.write(certifiedLogHigherBid);
-    }
-
-    function test_Write_Fail_WritingPeriodEnded() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
-
-        vm.warp(block.timestamp + U + 1 seconds);
-        vm.expectRevert("Writing period ended");
-        vm.prank(SMALLER_BIDDER);
-        consumer.write(certifiedLog);
-    }
-
-    function test_Write_Fail_InvalidCommittee() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F, true);
-        vm.expectRevert("Invalid proof or quorum not reached");
-        vm.prank(SMALLER_BIDDER);
-        consumer.write(certifiedLog);
-    }
-
-    function test_BlameIllAnnounced_Success() public {
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
-
-        vm.prank(SMALLER_BIDDER);
-        consumer.write(certifiedLogSmallerBid);
-
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F + 1, false);
-
-        assert(consumer.isBonded(SMALLER_BIDDER));
-
-        vm.prank(HIGHER_BIDDER);
-        consumer.blameIllAnnounced(certifiedLogHigherBid);
-        vm.warp(block.timestamp + 2 * U);
-        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, DEADLINE);
-        assertEq(state.winner.bid, 1000);
-        assertEq(state.winner.bidder, HIGHER_BIDDER);
-        assertEq(state.blamed.bid, 100);
-        assertEq(state.blamed.bidder, SMALLER_BIDDER);
-        assert(!consumer.isBonded(SMALLER_BIDDER));
-    }
-
-    function test_BlameIllAnnounced_Fail_BidNotWritten() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
-
-        vm.prank(BONDED_ADDRESS);
-        vm.expectRevert("Bid not written");
-        consumer.blameIllAnnounced(certifiedLog);
-    }
-
-    function test_BlameIllAnnounced_Fail_DisputePeriodEnded() public {
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
-
-        vm.prank(SMALLER_BIDDER);
-        consumer.write(certifiedLogSmallerBid);
-
-        vm.warp(block.timestamp + 2 * U);
-
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F + 1, false);
-
-        vm.prank(BONDED_ADDRESS);
-        vm.expectRevert("Dispute period ended");
-        consumer.blameIllAnnounced(certifiedLogHigherBid);
-    }
-
-    function test_BlameIllAnnounced_Fail_InvalidCommittee() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
-
-        vm.prank(SMALLER_BIDDER);
-        consumer.write(certifiedLog);
-
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F, false);
-
-        vm.prank(BONDED_ADDRESS);
-        vm.expectRevert("Invalid proof or quorum not reached");
-        consumer.blameIllAnnounced(certifiedLogHigherBid);
-    }
-
-    function test_BlameNoShow_Success() public {
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
-
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
-
-        vm.warp(block.timestamp + U);
-
-        assert(consumer.isBonded(SMALLER_BIDDER));
-
-        vm.prank(BONDED_ADDRESS);
-        consumer.blameNoShow(certifiedLogSmallerBid);
-        vm.prank(BONDED_ADDRESS);
-        consumer.blameNoShow(certifiedLogHigherBid);
-
-        vm.warp(block.timestamp + U);
-        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, DEADLINE);
-        assertEq(state.winner.bid, 0);
-        assertEq(state.winner.bidder, address(0));
-        assertEq(state.blamed.bid, 1000);
-        assertEq(state.blamed.bidder, HIGHER_BIDDER);
-        assert(!consumer.isBonded(HIGHER_BIDDER));
-    }
-
-    function test_BlameNoShow_Fail_InvalidCommittee() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(F, true);
-
-        vm.warp(block.timestamp + U);
-
-        vm.prank(BONDED_ADDRESS);
-        vm.expectRevert("Invalid proof or quorum not reached");
-        consumer.blameNoShow(certifiedLog);
-    }
-
-    function test_BlameNoShow_Fail_BidAlreadyExists() public {
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
-
-        vm.prank(SMALLER_BIDDER);
-        consumer.write(certifiedLogSmallerBid);
-
-        vm.warp(block.timestamp + U);
-
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
-
-        vm.prank(BONDED_ADDRESS);
-        vm.expectRevert("Bid already exists");
-        consumer.blameNoShow(certifiedLogHigherBid);
-    }
-
-    function test_BlameNoShow_Fail_DisputePeriodEnded() public {
-        vm.warp(block.timestamp + 2 * U);
-
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
-
-        vm.warp(block.timestamp + 2 * U);
-
-        vm.prank(BONDED_ADDRESS);
-        vm.expectRevert("Dispute period ended");
-        consumer.blameNoShow(certifiedLogHigherBid);
-    }
-
-    function test_BlameNoShow_Fail_StillInWaitingPeriod() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(F + 1, false);
-
-        vm.prank(BONDED_ADDRESS);
-        vm.expectRevert("Still in waiting period");
-        consumer.blameNoShow(certifiedLog);
-    }
-
-    function test_BlameNoShow_Fail_InvalidBid() public {
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
-
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(F + 1, true);
-
-        vm.warp(block.timestamp + U);
-
-        vm.prank(BONDED_ADDRESS);
-        consumer.blameNoShow(certifiedLogHigherBid);
-
-        vm.prank(BONDED_ADDRESS);
-        vm.expectRevert("Invalid blamed bid");
-        consumer.blameNoShow(certifiedLogSmallerBid);
     }
 
     function getDataForBid(uint256 index) public pure returns (bytes memory) {
