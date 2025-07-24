@@ -31,7 +31,7 @@ contract PodRegistryTest is Test {
 
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
-        emit PodRegistry.ValidatorAdded(validator3);
+        emit IPodRegistry.ValidatorAdded(validator3);
         registry.addValidator(validator3);
 
         assertEq(registry.getActiveValidatorCount(), 3);
@@ -73,7 +73,7 @@ contract PodRegistryTest is Test {
 
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
-        emit PodRegistry.ValidatorBanned(validator1);
+        emit IPodRegistry.ValidatorBanned(validator1);
         registry.banValidator(validator1);
 
         assertEq(registry.getActiveValidatorCount(), 1);
@@ -109,7 +109,7 @@ contract PodRegistryTest is Test {
 
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
-        emit PodRegistry.ValidatorUnbanned(validator1);
+        emit IPodRegistry.ValidatorUnbanned(validator1);
         registry.unbanValidator(validator1);
         assertFalse(registry.bannedValidators(validator1));
     }
@@ -159,14 +159,14 @@ contract PodRegistryTest is Test {
 
         vm.prank(validator1);
         vm.expectEmit(true, false, false, true);
-        emit PodRegistry.ValidatorDeactivated(validator1);
+        emit IPodRegistry.ValidatorDeactivated(validator1);
         registry.deactivate();
         assertEq((registry.activeValidatorBitmap() & (1 << (1 - 1))), 0);
         assertEq(registry.getHistoryLength(), beforeHistory + 1);
 
         vm.prank(validator1);
         vm.expectEmit(true, false, false, true);
-        emit PodRegistry.ValidatorReactivated(validator1);
+        emit IPodRegistry.ValidatorReactivated(validator1);
         registry.reactivate();
         assertEq((registry.activeValidatorBitmap() & (1 << (1 - 1))), (1 << (1 - 1)));
         assertEq(registry.getHistoryLength(), beforeHistory + 2);
@@ -234,25 +234,25 @@ contract PodRegistryTest is Test {
 
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
-        emit PodRegistry.SnapshotCreated(block.number, (1 << (1 - 1)) | (1 << (2 - 1)) | (1 << (3 - 1)));
+        emit IPodRegistry.SnapshotCreated(block.number, (1 << (1 - 1)) | (1 << (2 - 1)) | (1 << (3 - 1)));
         registry.addValidator(validator3);
         assertEq(registry.getHistoryLength(), initialHistory + 1);
 
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
-        emit PodRegistry.SnapshotCreated(block.number, (1 << (1 - 1)) | (1 << (2 - 1)));
+        emit IPodRegistry.SnapshotCreated(block.number, (1 << (1 - 1)) | (1 << (2 - 1)));
         registry.banValidator(validator3);
         assertEq(registry.getHistoryLength(), initialHistory + 2);
 
         vm.prank(validator1);
         vm.expectEmit(true, false, false, true);
-        emit PodRegistry.SnapshotCreated(block.number, (1 << (2 - 1)));
+        emit IPodRegistry.SnapshotCreated(block.number, (1 << (2 - 1)));
         registry.deactivate();
         assertEq(registry.getHistoryLength(), initialHistory + 3);
 
         vm.prank(validator1);
         vm.expectEmit(true, false, false, true);
-        emit PodRegistry.SnapshotCreated(block.number, (1 << (1 - 1)) | (1 << (2 - 1)));
+        emit IPodRegistry.SnapshotCreated(block.number, (1 << (1 - 1)) | (1 << (2 - 1)));
         registry.reactivate();
         assertEq(registry.getHistoryLength(), initialHistory + 4);
     }

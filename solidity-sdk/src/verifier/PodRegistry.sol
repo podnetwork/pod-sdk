@@ -9,6 +9,13 @@ interface IPodRegistry {
         uint256 bitmap;
     }
 
+    event ValidatorAdded(address indexed validator);
+    event ValidatorBanned(address indexed validator);
+    event ValidatorUnbanned(address indexed validator);
+    event ValidatorDeactivated(address indexed validator);
+    event ValidatorReactivated(address indexed validator);
+    event SnapshotCreated(uint256 indexed effectiveAsOfBlockNumber, uint256 bitmap);
+
     function validatorIndex(address validator) external view returns (uint8 index);
     function activeValidatorBitmap() external view returns (uint256 bitmap);
 
@@ -34,13 +41,6 @@ contract PodRegistry is IPodRegistry, Ownable {
 
     uint8 public nextValidatorIndex;
     uint256 public activeValidatorBitmap;
-
-    event ValidatorAdded(address indexed validator);
-    event ValidatorBanned(address indexed validator);
-    event ValidatorUnbanned(address indexed validator);
-    event ValidatorDeactivated(address indexed validator);
-    event ValidatorReactivated(address indexed validator);
-    event SnapshotCreated(uint256 indexed effectiveAsOfBlockNumber, uint256 bitmap);
 
     constructor(address[] memory initialValidators) Ownable(msg.sender) {
         for (uint8 i = 0; i < initialValidators.length; i++) {
