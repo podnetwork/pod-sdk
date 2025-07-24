@@ -256,7 +256,7 @@ async fn watch(rpc_url: String, contract_address: Address) -> Result<()> {
                 println!("poll {}: winner selected: {}", winner.pollId, winner.choice);
             }
             Voting::VotingEvents::PollCreated(poll_created) => {
-                let deadline: u64 = poll_created.deadline.try_into()?;
+                let deadline: u64 = poll_created.deadline;
                 let deadline = Timestamp::from_seconds(deadline);
                 println!(
                     "poll {}: created with deadline: {}",
