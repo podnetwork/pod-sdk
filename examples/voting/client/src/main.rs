@@ -1,17 +1,17 @@
 use std::{
-    collections::BTreeMap,
     str::FromStr,
-    time::{Duration, SystemTime},
+    time::{Duration},
+    ops::Add,
 };
 
 use alloy::{
     primitives::ruint::aliases::U256,
     sol_types::{SolEvent, SolEventInterface},
 };
-use anyhow::{Context, Result, anyhow, ensure};
+use anyhow::{Context, Result, anyhow};
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
-use pod_sdk::{Address, Hash, SigningKey, provider::PodProviderBuilder};
+use pod_sdk::{provider::PodProviderBuilder, Address, Hash, SigningKey};
 
 use pod_types::{Timestamp, rpc::filter::LogFilterBuilder};
 
@@ -21,7 +21,7 @@ use voting_bindings::voting::Voting;
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Address of the Voting contract
-    #[arg(long, default_value = "0x12296f2D128530a834460DF6c36a2895B793F26d")]
+    #[arg(long)]
     contract_address: Address,
 
     /// RPC URL for the Pod network
@@ -35,56 +35,50 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Vote in existing poll
-    CastVote {
+    Vote {
         /// Private key for signing the transaction
         #[arg(long)]
         private_key: Privatekey,
         /// ID of the  poll to vote in
         #[arg(long)]
-        poll_id: PollId,
+        proposal_id: ProposalId,
         /// Choice to vote for
         #[arg(long)]
-        choice: usize,
+        choice: u8,
     },
-    CreateProposal {
+    Create {
         /// Private key for signing the transaction
         #[arg(long)]
         private_key: Privatekey,
 
-        /// Poll deadline. Defaults to current time + 30s
+        /// Proposal deadline. Defaults to current time + 30s
         #[arg(short, long)]
-        deadline: Option<humantime::Timestamp>,
+        deadline: Option<u64>,
 
         /// Number of posssible choices
         #[arg(long)]
-        max_choice: usize,
+        threshold: usize,
 
         /// List of poll participants
         #[arg(short, long)]
         participants: Vec<Address>,
-    },
-    ExecuteProposal {
-        /// Private key for signing the transaction
-        #[arg(long)]
-        private_key: Privatekey,
 
+        /// Data to be voted on
         #[arg(long)]
-        poll_id: PollId,
-    },
-    /// Watch poll events
-    Watch {},
+        data: String,
+    }
 }
 
-#[derive(Clone)]
-struct PollId(Hash);
+#[derive(Clone, Debug)]
+struct ProposalId(Hash);
 
-impl FromStr for PollId {
+impl FromStr for ProposalId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let poll_id = hex::decode(s.trim_start_matches("0x"))?;
-        let poll_id = U256::try_from_be_slice(&poll_id).ok_or(anyhow!("invalid poll id"))?;
-        Ok(Self(poll_id.into()))
+        let proposal_id = hex::decode(s.trim_start_matches("0x"))?;
+        let proposal_id = U256::try_from_be_slice(&proposal_id).ok_or(anyhow!("invalid proposal id"))?;
+        Ok(Self(proposal_id.into()))
     }
 }
 
@@ -106,99 +100,42 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::ClosePoll {
-            poll_id,
-            private_key,
-        } => close_poll(cli.rpc_url, cli.contract_address, private_key.0, poll_id).await?,
         Commands::Vote {
             private_key,
-            poll_id,
+            proposal_id,
             choice,
         } => {
             vote(
                 cli.rpc_url,
                 cli.contract_address,
                 private_key,
-                poll_id,
+                proposal_id,
                 choice,
             )
             .await?
         }
-        Commands::CreatePoll {
+        Commands::Create {
             private_key,
             deadline,
-            max_choice,
+            threshold,
             participants,
+            data
         } => {
             let deadline = deadline
-                .map(|ht| ht.into())
-                .unwrap_or_else(|| SystemTime::now() + Duration::from_secs(30));
-            let poll_id = create_poll(
+                .map(|d| Timestamp::from_seconds(d))
+                .unwrap_or_else(|| Timestamp::now().add(Duration::from_secs(10)));
+            create_and_watch_proposal(
                 cli.rpc_url,
                 cli.contract_address,
                 private_key.0,
                 participants,
-                max_choice,
+                threshold,
                 deadline,
+                data,
             )
             .await?;
-            println!("Poll {poll_id} created");
         }
-        Commands::Watch {} => watch(cli.rpc_url, cli.contract_address).await?,
     }
-
-    Ok(())
-}
-
-/// Close selected poll.
-/// Will fetch votes from the contract to select the winner automatically.
-/// Note: it doesn't check if the poll has a definitively resolved
-/// (if any additional votes can still change the result) - the contract
-/// does it.
-async fn close_poll(
-    rpc_url: String,
-    contract_address: Address,
-    private_key: SigningKey,
-    poll_id: PollId,
-) -> Result<()> {
-    let pod_provider = PodProviderBuilder::with_recommended_settings()
-        .with_private_key(private_key)
-        .on_url(&rpc_url)
-        .await?;
-    let voting = Voting::new(contract_address, pod_provider);
-
-    // 1. Check if winner is clear
-    let votes = voting
-        .getVotes(poll_id.0)
-        .call()
-        .await
-        .context("querying existing votes")?;
-
-    let mut votes_to_choices = BTreeMap::<usize, Vec<usize>>::new();
-    for (choice, votes) in votes
-        .votes
-        .iter()
-        .enumerate()
-        .map(|(i, v)| (i + 1, usize::try_from(v).unwrap()))
-    {
-        votes_to_choices.entry(votes).or_default().push(choice);
-    }
-    let (votes, choices) = votes_to_choices.pop_last().ok_or(anyhow!("no votes yet"))?;
-    ensure!(
-        choices.len() == 1,
-        "choices {choices:?} ex aequo: can't select winner"
-    );
-    let choice = choices[0];
-    println!("selected {choice} with {votes} votes");
-
-    // 2. Close poll with selected winner
-    let pending_tx = voting
-        .setWinningChoice(poll_id.0, U256::from(choice))
-        .send()
-        .await?;
-
-    let receipt = pending_tx.get_receipt().await?;
-    anyhow::ensure!(receipt.status(), "failed to select winner");
 
     Ok(())
 }
@@ -207,8 +144,8 @@ async fn vote(
     rpc_url: String,
     contract_address: Address,
     private_key: Privatekey,
-    poll_id: PollId,
-    choice: usize,
+    proposal_id: ProposalId,
+    choice: u8,
 ) -> Result<()> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
         .with_private_key(private_key.0)
@@ -216,20 +153,136 @@ async fn vote(
         .await?;
     let voting = Voting::new(contract_address, pod_provider);
 
-    let pending_tx = voting.vote(poll_id.0, U256::from(choice)).send().await?;
+    let pending_tx = voting.castVote(proposal_id.0, choice).send().await?;
 
     let receipt = pending_tx.get_receipt().await?;
-    anyhow::ensure!(receipt.status(), "voting failed");
+    anyhow::ensure!(receipt.status(), "voting tx {} failed", receipt.transaction_hash);
+
+    println!("Voting successful. Tx: {}", receipt.transaction_hash);
 
     Ok(())
 }
 
-async fn watch(rpc_url: String, contract_address: Address) -> Result<()> {
+async fn create_and_watch_proposal(
+    rpc_url: String,
+    contract_address: Address,
+    private_key: SigningKey,
+    participants: Vec<Address>,
+    threshold: usize,
+    deadline: Timestamp,
+    data: String,
+) -> Result<()> {
+    let proposal_id = create_proposal(rpc_url.clone(), contract_address, private_key.clone(), participants, threshold, deadline, data).await?;
+
+    println!("Proposal {} created", proposal_id.0);
+    
+    let rpc_url_cloned = rpc_url.clone();
+    let pid2 = proposal_id.clone();
+    let mut watch_handle = tokio::spawn(async move {
+        if let Err(e) = watch(rpc_url_cloned, contract_address, pid2).await {
+            eprintln!("watch failed: {e}");
+        }
+    });
+
+    let r2 = rpc_url.clone();
+    let p2 = private_key.clone();
+    let mut pp_handle = tokio::spawn(async move {
+        let pod_provider = PodProviderBuilder::with_recommended_settings()
+            .with_private_key(p2)
+            .on_url(&r2)
+            .await.unwrap();
+
+        if let Err(e) = pod_provider.wait_past_perfect_time(deadline).await {
+            eprintln!("waiting for past perfect time failed: {e}");
+        }
+    });
+
+    loop {
+        tokio::select! {
+            _ = &mut watch_handle => {},
+            _ = &mut pp_handle => {
+                break;
+            },
+        }
+    }
+
+    let votes = get_votes(rpc_url.clone(), contract_address, proposal_id.clone()).await?;
+
+    if votes.len() >= threshold {
+        println!("Deadline passed with {} votes, executing", votes.len());
+        execute(rpc_url, contract_address, private_key, proposal_id).await?;
+    } else {
+        println!("Deadline passed with no votes, proposal not executed");
+    }
+
+    Ok(())
+}
+
+async fn get_votes(rpc_url: String, contract_address: Address, proposal_id: ProposalId) -> Result<Vec<Voting::VoteCast>> {
+    let pod_provider = PodProviderBuilder::with_recommended_settings()
+        .on_url(&rpc_url)
+        .await?;
+
+    let filter = LogFilterBuilder::new().address(contract_address).event_signature(Voting::VoteCast::SIGNATURE_HASH).topic1(proposal_id.0).build();
+    let logs = pod_provider.get_verifiable_logs(&filter).await?;
+
+    let mut votes = Vec::with_capacity(logs.len());
+    for log in logs {
+        let vote = Voting::VoteCast::decode_log_data(log.data(), true)?;
+        votes.push(vote);
+    }
+
+    Ok(votes)
+}
+async fn create_proposal(
+    rpc_url: String,
+    contract_address: Address,
+    private_key: SigningKey,
+    participants: Vec<Address>,
+    threshold: usize,
+    deadline: Timestamp,
+    data: String,
+) -> Result<ProposalId> {
+    let pod_provider = PodProviderBuilder::with_recommended_settings()
+        .with_private_key(private_key)
+        .on_url(&rpc_url)
+        .await?;
+    let voting = Voting::new(contract_address, pod_provider.clone());
+
+    let data_bytes = hex::decode(data)?;
+
+    let pendix_tx = voting
+        .createProposal(
+            U256::from(deadline.as_seconds()),
+            U256::from(threshold),
+            participants.clone(),
+            data_bytes.into(),
+        )
+        .send()
+        .await?;
+
+    let receipt = pendix_tx.get_receipt().await.context("creating proposal failed")?;
+
+    if !receipt.status() {
+        return Err(anyhow!("proposal creation tx failed: {}", receipt.transaction_hash));
+    }
+
+    let event = receipt
+        .as_ref()
+        .logs()
+        .first()
+        .ok_or(anyhow!("missing ProposalCreated event"))?;
+
+    let proposal_created = Voting::ProposalCreated::decode_log_data(event.data(), true)?;
+    Ok(ProposalId(proposal_created.proposalId))
+}
+
+async fn watch(rpc_url: String, contract_address: Address, proposal_id: ProposalId) -> Result<()> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
         .on_url(rpc_url)
         .await?;
 
-    let filter = LogFilterBuilder::new().address(contract_address).build();
+    let filter = LogFilterBuilder::new().address(contract_address).event_signature(Voting::VoteCast::SIGNATURE_HASH).topic1(proposal_id.0).build();
 
     let mut stream = pod_provider
         .subscribe_verifiable_logs(&filter)
@@ -246,65 +299,47 @@ async fn watch(rpc_url: String, contract_address: Address) -> Result<()> {
         let event = Voting::VotingEvents::decode_log(&log.inner.inner, true)
             .context("decoding event failed. deployed contract version might not match")?;
         match event.data {
-            Voting::VotingEvents::Voted(voted) => {
+            Voting::VotingEvents::VoteCast(vote) => {
                 println!(
-                    "poll {}: voter {} voted for {}",
-                    voted.pollId, voted.voter, voted.choice
+                    "poll {}: voter {} voted {}",
+                    vote.proposalId, vote.voter, vote.choice
                 );
             }
-            Voting::VotingEvents::Winner(winner) => {
-                println!("poll {}: winner selected: {}", winner.pollId, winner.choice);
-            }
-            Voting::VotingEvents::PollCreated(poll_created) => {
-                let deadline: u64 = poll_created.deadline.try_into()?;
-                let deadline = Timestamp::from_seconds(deadline);
-                println!(
-                    "poll {}: created with deadline: {}",
-                    poll_created.pollId,
-                    humantime::format_rfc3339(deadline.into())
-                );
-            }
+	    _ => {},
         }
     }
 
     Ok(())
 }
 
-async fn create_poll(
+/// Execute proposal
+/// Will fetch votes from the contract to select the winner automatically.
+/// Note: it doesn't check if the proposal has a definitively resolved
+/// (if any additional votes can still change the result) - the contract
+/// does it.
+async fn execute(
     rpc_url: String,
     contract_address: Address,
     private_key: SigningKey,
-    participants: Vec<Address>,
-    max_choice: usize,
-    deadline: SystemTime,
-) -> Result<Hash> {
+    proposal_id: ProposalId,
+) -> Result<()> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
         .with_private_key(private_key)
         .on_url(&rpc_url)
         .await?;
-    let voting = Voting::new(contract_address, pod_provider.clone());
+    let voting = Voting::new(contract_address, pod_provider);
 
-    let deadline = Timestamp::from(deadline);
-    let pendix_tx = voting
-        .createPoll(
-            U256::from(deadline.as_seconds()),
-            U256::from(max_choice),
-            participants.clone(),
-        )
+    // Execute poll
+    let pending_tx = voting
+        .execute(proposal_id.0)
         .send()
         .await?;
 
-    let receipt = pendix_tx.get_receipt().await?;
-    anyhow::ensure!(receipt.status(), "creating vote failed");
-    let committee = pod_provider.get_committee().await?;
-    receipt.verify(&committee)?;
+    let receipt = pending_tx.get_receipt().await?;
 
-    let event = receipt
-        .as_ref()
-        .logs()
-        .first()
-        .ok_or(anyhow!("missing PollCreated event"))?;
+    if !receipt.status() {
+        return Err(anyhow!("failed to execute proposal: {}", receipt.transaction_hash));
+    }
 
-    let poll_created = Voting::PollCreated::decode_log_data(event.data(), true)?;
-    Ok(poll_created.pollId)
+    Ok(())
 }

@@ -90,14 +90,14 @@ contract Voting {
         // Check if voter can vote
         require(proposal.voters[msg.sender] == VoterState.Registered, "sender not a voter");
 
-	// Check if already voted
+	    // Check if already voted
         require(hasVoted.get(proposalId, msg.sender) == 0, "already voted");
 
         // Mark that this voter has voted
-	hasVoted.increment(proposalId, msg.sender, 1);
+	    hasVoted.increment(proposalId, msg.sender, 1);
 
         // Count the vote
-	voteCount.increment(keccak256(abi.encode(proposalId, choice)), 1);
+	    voteCount.increment(keccak256(abi.encode(proposalId, choice)), 1);
 
         emit VoteCast(proposalId, msg.sender, choice);
     }
@@ -109,13 +109,13 @@ contract Voting {
         requireTimeAfter(proposal.deadline, "Proposal deadline has not passed yet");
         require(!proposal.executed, "Proposal already executed");
 
-	bytes32 key = keccak256(abi.encode(proposalId, 1));
-	voteCount.requireGte(key, proposal.threshold, "Not enough yes votes");
+        bytes32 key = keccak256(abi.encode(proposalId, 1));
+        voteCount.requireGte(key, proposal.threshold, "Not enough votes");
 
 	// Mark proposal so that it cannot be executed again
         proposal.executed = true;
 
-	_execute(proposalId);
+	    _execute(proposalId);
 
         emit ProposalExecuted(proposalId);
     }
