@@ -1465,6 +1465,275 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
         }
     }
 }
+///Module containing a contract's types and functions.
+/**
+
+```solidity
+library Time {
+    type Timestamp is uint64;
+}
+```*/
+#[allow(
+    non_camel_case_types,
+    non_snake_case,
+    clippy::pub_underscore_fields,
+    clippy::style,
+    clippy::empty_structs_with_brackets
+)]
+pub mod Time {
+    use super::*;
+    use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct Timestamp(u64);
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::private::SolTypeValue<Timestamp> for u64 {
+            #[inline]
+            fn stv_to_tokens(
+                &self,
+            ) -> <alloy::sol_types::sol_data::Uint<
+                64,
+            > as alloy_sol_types::SolType>::Token<'_> {
+                alloy_sol_types::private::SolTypeValue::<
+                    alloy::sol_types::sol_data::Uint<64>,
+                >::stv_to_tokens(self)
+            }
+            #[inline]
+            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::tokenize(self)
+                    .0
+            }
+            #[inline]
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::abi_encode_packed_to(self, out)
+            }
+            #[inline]
+            fn stv_abi_packed_encoded_size(&self) -> usize {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::abi_encoded_size(self)
+            }
+        }
+        #[automatically_derived]
+        impl Timestamp {
+            /// The Solidity type name.
+            pub const NAME: &'static str = stringify!(@ name);
+            /// Convert from the underlying value type.
+            #[inline]
+            pub const fn from(value: u64) -> Self {
+                Self(value)
+            }
+            /// Return the underlying value.
+            #[inline]
+            pub const fn into(self) -> u64 {
+                self.0
+            }
+            /// Return the single encoding of this value, delegating to the
+            /// underlying type.
+            #[inline]
+            pub fn abi_encode(&self) -> alloy_sol_types::private::Vec<u8> {
+                <Self as alloy_sol_types::SolType>::abi_encode(&self.0)
+            }
+            /// Return the packed encoding of this value, delegating to the
+            /// underlying type.
+            #[inline]
+            pub fn abi_encode_packed(&self) -> alloy_sol_types::private::Vec<u8> {
+                <Self as alloy_sol_types::SolType>::abi_encode_packed(&self.0)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolType for Timestamp {
+            type RustType = u64;
+            type Token<'a> = <alloy::sol_types::sol_data::Uint<
+                64,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SOL_NAME: &'static str = Self::NAME;
+            const ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                64,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                64,
+            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            #[inline]
+            fn valid_token(token: &Self::Token<'_>) -> bool {
+                Self::type_check(token).is_ok()
+            }
+            #[inline]
+            fn type_check(token: &Self::Token<'_>) -> alloy_sol_types::Result<()> {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::type_check(token)
+            }
+            #[inline]
+            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::detokenize(token)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::EventTopic for Timestamp {
+            #[inline]
+            fn topic_preimage_length(rust: &Self::RustType) -> usize {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::topic_preimage_length(rust)
+            }
+            #[inline]
+            fn encode_topic_preimage(
+                rust: &Self::RustType,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, out)
+            }
+            #[inline]
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(rust)
+            }
+        }
+    };
+    use alloy::contract as alloy_contract;
+    /**Creates a new wrapper around an on-chain [`Time`](self) contract instance.
+
+See the [wrapper's documentation](`TimeInstance`) for more details.*/
+    #[inline]
+    pub const fn new<
+        T: alloy_contract::private::Transport + ::core::clone::Clone,
+        P: alloy_contract::private::Provider<T, N>,
+        N: alloy_contract::private::Network,
+    >(address: alloy_sol_types::private::Address, provider: P) -> TimeInstance<T, P, N> {
+        TimeInstance::<T, P, N>::new(address, provider)
+    }
+    /**A [`Time`](self) instance.
+
+Contains type-safe methods for interacting with an on-chain instance of the
+[`Time`](self) contract located at a given `address`, using a given
+provider `P`.
+
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
+
+See the [module-level documentation](self) for all the available methods.*/
+    #[derive(Clone)]
+    pub struct TimeInstance<T, P, N = alloy_contract::private::Ethereum> {
+        address: alloy_sol_types::private::Address,
+        provider: P,
+        _network_transport: ::core::marker::PhantomData<(N, T)>,
+    }
+    #[automatically_derived]
+    impl<T, P, N> ::core::fmt::Debug for TimeInstance<T, P, N> {
+        #[inline]
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_tuple("TimeInstance").field(&self.address).finish()
+        }
+    }
+    /// Instantiation and getters/setters.
+    #[automatically_derived]
+    impl<
+        T: alloy_contract::private::Transport + ::core::clone::Clone,
+        P: alloy_contract::private::Provider<T, N>,
+        N: alloy_contract::private::Network,
+    > TimeInstance<T, P, N> {
+        /**Creates a new wrapper around an on-chain [`Time`](self) contract instance.
+
+See the [wrapper's documentation](`TimeInstance`) for more details.*/
+        #[inline]
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            provider: P,
+        ) -> Self {
+            Self {
+                address,
+                provider,
+                _network_transport: ::core::marker::PhantomData,
+            }
+        }
+        /// Returns a reference to the address.
+        #[inline]
+        pub const fn address(&self) -> &alloy_sol_types::private::Address {
+            &self.address
+        }
+        /// Sets the address.
+        #[inline]
+        pub fn set_address(&mut self, address: alloy_sol_types::private::Address) {
+            self.address = address;
+        }
+        /// Sets the address and returns `self`.
+        pub fn at(mut self, address: alloy_sol_types::private::Address) -> Self {
+            self.set_address(address);
+            self
+        }
+        /// Returns a reference to the provider.
+        #[inline]
+        pub const fn provider(&self) -> &P {
+            &self.provider
+        }
+    }
+    impl<T, P: ::core::clone::Clone, N> TimeInstance<T, &P, N> {
+        /// Clones the provider and returns a new instance with the cloned provider.
+        #[inline]
+        pub fn with_cloned_provider(self) -> TimeInstance<T, P, N> {
+            TimeInstance {
+                address: self.address,
+                provider: ::core::clone::Clone::clone(&self.provider),
+                _network_transport: ::core::marker::PhantomData,
+            }
+        }
+    }
+    /// Function calls.
+    #[automatically_derived]
+    impl<
+        T: alloy_contract::private::Transport + ::core::clone::Clone,
+        P: alloy_contract::private::Provider<T, N>,
+        N: alloy_contract::private::Network,
+    > TimeInstance<T, P, N> {
+        /// Creates a new call builder using this contract instance's provider and address.
+        ///
+        /// Note that the call can be any function call, not just those defined in this
+        /// contract. Prefer using the other methods for building type-safe contract calls.
+        pub fn call_builder<C: alloy_sol_types::SolCall>(
+            &self,
+            call: &C,
+        ) -> alloy_contract::SolCallBuilder<T, &P, C, N> {
+            alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
+        }
+    }
+    /// Event filters.
+    #[automatically_derived]
+    impl<
+        T: alloy_contract::private::Transport + ::core::clone::Clone,
+        P: alloy_contract::private::Provider<T, N>,
+        N: alloy_contract::private::Network,
+    > TimeInstance<T, P, N> {
+        /// Creates a new event filter using this contract instance's provider and address.
+        ///
+        /// Note that the type can be any event, not just those defined in this contract.
+        /// Prefer using the other methods for building type-safe event filters.
+        pub fn event_filter<E: alloy_sol_types::SolEvent>(
+            &self,
+        ) -> alloy_contract::Event<T, &P, E, N> {
+            alloy_contract::Event::new_sol(&self.provider, &self.address)
+        }
+    }
+}
 /**
 
 Generated by the following Solidity interface...
@@ -1497,6 +1766,10 @@ library PodECDSA {
     }
 }
 
+library Time {
+    type Timestamp is uint64;
+}
+
 interface PodAuctionConsumer {
     struct Bid {
         address bidder;
@@ -1513,6 +1786,7 @@ interface PodAuctionConsumer {
     event BidBlamed(bytes32 indexed auctionId, address indexed blamedBidder, uint256 bid);
     event BidWritten(bytes32 indexed auctionId, address indexed bidder, uint256 bid);
     event Bonded(address indexed validator);
+    event Log(string message, Time.Timestamp value);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event Slashed(address indexed validator);
     event Unbonded(address indexed validator);
@@ -1520,7 +1794,7 @@ interface PodAuctionConsumer {
     constructor(address _podRegistry, uint256 _bondAmount);
 
     function LOG_TOPIC_0() external view returns (bytes32);
-    function U() external view returns (uint256);
+    function U() external view returns (uint64);
     function blameIllAnnounced(PodECDSA.CertifiedLog memory certifiedLog) external;
     function blameNoShow(PodECDSA.CertifiedLog memory certifiedLog) external;
     function bond() external payable;
@@ -1528,7 +1802,7 @@ interface PodAuctionConsumer {
     function isBonded(address) external view returns (bool);
     function owner() external view returns (address);
     function podRegistry() external view returns (address);
-    function read(uint256 auctionId, uint256 deadline) external view returns (State memory);
+    function read(uint256 auctionId, Time.Timestamp deadline) external view returns (State memory);
     function renounceOwnership() external;
     function state(bytes32) external view returns (Bid memory winner, Bid memory blamed);
     function transferOwnership(address newOwner) external;
@@ -1577,8 +1851,8 @@ interface PodAuctionConsumer {
     "outputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -1825,8 +2099,8 @@ interface PodAuctionConsumer {
       },
       {
         "name": "deadline",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint64",
+        "internalType": "Time.Timestamp"
       }
     ],
     "outputs": [
@@ -2098,6 +2372,25 @@ interface PodAuctionConsumer {
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Log",
+    "inputs": [
+      {
+        "name": "message",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "value",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "Time.Timestamp"
       }
     ],
     "anonymous": false
@@ -3119,6 +3412,117 @@ event Bonded(address indexed validator);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `Log(string,uint64)` and selector `0x9b17d545c0fe66a8ad6062cc7474298f40a7ea4b601267406d79749513311c95`.
+```solidity
+event Log(string message, Time.Timestamp value);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct Log {
+        #[allow(missing_docs)]
+        pub message: alloy::sol_types::private::String,
+        #[allow(missing_docs)]
+        pub value: <Time::Timestamp as alloy::sol_types::SolType>::RustType,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for Log {
+            type DataTuple<'a> = (alloy::sol_types::sol_data::String, Time::Timestamp);
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (alloy_sol_types::sol_data::FixedBytes<32>,);
+            const SIGNATURE: &'static str = "Log(string,uint64)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                155u8, 23u8, 213u8, 69u8, 192u8, 254u8, 102u8, 168u8, 173u8, 96u8, 98u8,
+                204u8, 116u8, 116u8, 41u8, 143u8, 64u8, 167u8, 234u8, 75u8, 96u8, 18u8,
+                103u8, 64u8, 109u8, 121u8, 116u8, 149u8, 19u8, 49u8, 28u8, 149u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    message: data.0,
+                    value: data.1,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
+                        &self.message,
+                    ),
+                    <Time::Timestamp as alloy_sol_types::SolType>::tokenize(&self.value),
+                )
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (Self::SIGNATURE_HASH.into(),)
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for Log {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&Log> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(this: &Log) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `OwnershipTransferred(address,address)` and selector `0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0`.
 ```solidity
 event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -3660,7 +4064,7 @@ function LOG_TOPIC_0() external view returns (bytes32);
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `U()` and selector `0x2688454a`.
 ```solidity
-function U() external view returns (uint256);
+function U() external view returns (uint64);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -3672,7 +4076,7 @@ function U() external view returns (uint256);
     #[derive(Clone)]
     pub struct UReturn {
         #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+        pub _0: u64,
     }
     #[allow(
         non_camel_case_types,
@@ -3715,11 +4119,9 @@ function U() external view returns (uint256);
         }
         {
             #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U256,
-            );
+            type UnderlyingRustTuple<'a> = (u64,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -3753,7 +4155,7 @@ function U() external view returns (uint256);
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
             type Return = UReturn;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -4660,9 +5062,9 @@ function podRegistry() external view returns (address);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `read(uint256,uint256)` and selector `0x75080997`.
+    /**Function with signature `read(uint256,uint64)` and selector `0x46336cd3`.
 ```solidity
-function read(uint256 auctionId, uint256 deadline) external view returns (State memory);
+function read(uint256 auctionId, Time.Timestamp deadline) external view returns (State memory);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -4670,11 +5072,11 @@ function read(uint256 auctionId, uint256 deadline) external view returns (State 
         #[allow(missing_docs)]
         pub auctionId: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
-        pub deadline: alloy::sol_types::private::primitives::aliases::U256,
+        pub deadline: <Time::Timestamp as alloy::sol_types::SolType>::RustType,
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`read(uint256,uint256)`](readCall) function.
+    ///Container type for the return parameters of the [`read(uint256,uint64)`](readCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct readReturn {
@@ -4693,12 +5095,12 @@ function read(uint256 auctionId, uint256 deadline) external view returns (State 
             #[doc(hidden)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Uint<256>,
-                alloy::sol_types::sol_data::Uint<256>,
+                Time::Timestamp,
             );
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
                 alloy::sol_types::private::primitives::aliases::U256,
-                alloy::sol_types::private::primitives::aliases::U256,
+                <Time::Timestamp as alloy::sol_types::SolType>::RustType,
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
@@ -4766,7 +5168,7 @@ function read(uint256 auctionId, uint256 deadline) external view returns (State 
         impl alloy_sol_types::SolCall for readCall {
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::Uint<256>,
-                alloy::sol_types::sol_data::Uint<256>,
+                Time::Timestamp,
             );
             type Token<'a> = <Self::Parameters<
                 'a,
@@ -4776,8 +5178,8 @@ function read(uint256 auctionId, uint256 deadline) external view returns (State 
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "read(uint256,uint256)";
-            const SELECTOR: [u8; 4] = [117u8, 8u8, 9u8, 151u8];
+            const SIGNATURE: &'static str = "read(uint256,uint64)";
+            const SELECTOR: [u8; 4] = [70u8, 51u8, 108u8, 211u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -4790,9 +5192,9 @@ function read(uint256 auctionId, uint256 deadline) external view returns (State 
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.auctionId),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.deadline),
+                    <Time::Timestamp as alloy_sol_types::SolType>::tokenize(
+                        &self.deadline,
+                    ),
                 )
             }
             #[inline]
@@ -5609,12 +6011,12 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
             [38u8, 136u8, 69u8, 74u8],
             [56u8, 114u8, 51u8, 236u8],
             [60u8, 207u8, 214u8, 11u8],
+            [70u8, 51u8, 108u8, 211u8],
             [74u8, 165u8, 232u8, 133u8],
             [93u8, 246u8, 166u8, 188u8],
             [97u8, 213u8, 133u8, 218u8],
             [100u8, 201u8, 236u8, 111u8],
             [113u8, 80u8, 24u8, 166u8],
-            [117u8, 8u8, 9u8, 151u8],
             [128u8, 129u8, 74u8, 136u8],
             [128u8, 243u8, 35u8, 167u8],
             [141u8, 165u8, 203u8, 91u8],
@@ -5735,6 +6137,19 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                     withdraw
                 },
                 {
+                    fn read(
+                        data: &[u8],
+                        validate: bool,
+                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
+                        <readCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                                validate,
+                            )
+                            .map(PodAuctionConsumerCalls::read)
+                    }
+                    read
+                },
+                {
                     fn isBonded(
                         data: &[u8],
                         validate: bool,
@@ -5798,19 +6213,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                             .map(PodAuctionConsumerCalls::renounceOwnership)
                     }
                     renounceOwnership
-                },
-                {
-                    fn read(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
-                        <readCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
-                            .map(PodAuctionConsumerCalls::read)
-                    }
-                    read
                 },
                 {
                     fn blameNoShow(
@@ -6185,6 +6587,8 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[allow(missing_docs)]
         Bonded(Bonded),
         #[allow(missing_docs)]
+        Log(Log),
+        #[allow(missing_docs)]
         OwnershipTransferred(OwnershipTransferred),
         #[allow(missing_docs)]
         Slashed(Slashed),
@@ -6226,6 +6630,11 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                 47u8, 181u8, 104u8, 155u8, 79u8, 149u8, 230u8, 90u8, 105u8, 70u8,
             ],
             [
+                155u8, 23u8, 213u8, 69u8, 192u8, 254u8, 102u8, 168u8, 173u8, 96u8, 98u8,
+                204u8, 116u8, 116u8, 41u8, 143u8, 64u8, 167u8, 234u8, 75u8, 96u8, 18u8,
+                103u8, 64u8, 109u8, 121u8, 116u8, 149u8, 19u8, 49u8, 28u8, 149u8,
+            ],
+            [
                 239u8, 75u8, 17u8, 44u8, 221u8, 205u8, 183u8, 59u8, 194u8, 254u8, 103u8,
                 77u8, 46u8, 43u8, 55u8, 168u8, 126u8, 234u8, 110u8, 146u8, 77u8, 135u8,
                 188u8, 143u8, 62u8, 96u8, 133u8, 44u8, 121u8, 9u8, 68u8, 31u8,
@@ -6235,7 +6644,7 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for PodAuctionConsumerEvents {
         const NAME: &'static str = "PodAuctionConsumerEvents";
-        const COUNT: usize = 6usize;
+        const COUNT: usize = 7usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -6265,6 +6674,14 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                             validate,
                         )
                         .map(Self::Bonded)
+                }
+                Some(<Log as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
+                    <Log as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                            validate,
+                        )
+                        .map(Self::Log)
                 }
                 Some(
                     <OwnershipTransferred as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
@@ -6319,6 +6736,9 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                 Self::Bonded(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
+                Self::Log(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
                 Self::OwnershipTransferred(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -6339,6 +6759,9 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::Bonded(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
+                Self::Log(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::OwnershipTransferred(inner) => {
@@ -6521,7 +6944,7 @@ See the [wrapper's documentation](`PodAuctionConsumerInstance`) for more details
         pub fn read(
             &self,
             auctionId: alloy::sol_types::private::primitives::aliases::U256,
-            deadline: alloy::sol_types::private::primitives::aliases::U256,
+            deadline: <Time::Timestamp as alloy::sol_types::SolType>::RustType,
         ) -> alloy_contract::SolCallBuilder<T, &P, readCall, N> {
             self.call_builder(&readCall { auctionId, deadline })
         }
@@ -6590,6 +7013,10 @@ See the [wrapper's documentation](`PodAuctionConsumerInstance`) for more details
         ///Creates a new event filter for the [`Bonded`] event.
         pub fn Bonded_filter(&self) -> alloy_contract::Event<T, &P, Bonded, N> {
             self.event_filter::<Bonded>()
+        }
+        ///Creates a new event filter for the [`Log`] event.
+        pub fn Log_filter(&self) -> alloy_contract::Event<T, &P, Log, N> {
+            self.event_filter::<Log>()
         }
         ///Creates a new event filter for the [`OwnershipTransferred`] event.
         pub fn OwnershipTransferred_filter(

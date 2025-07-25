@@ -12,10 +12,8 @@ use pod_sdk::{Address, Hash, provider::PodProviderBuilder};
 use pod_sdk::alloy_primitives::keccak256;
 use pod_types::{Timestamp, rpc::filter::LogFilterBuilder};
 
-alloy::sol!(
-    #[sol(rpc)]
-    "Notary.sol"
-);
+// Use the generated bindings
+use notary_bindings::notary::Notary;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -174,7 +172,7 @@ async fn timestamp(
     };
 
     let pendix_tx = notary
-        .timestamp(document_hash, U256::from(timestamp.as_micros()))
+        .timestamp(document_hash, timestamp.as_micros() as u64)
         .send()
         .await?;
 
@@ -216,19 +214,15 @@ async fn get_timestamp(
     let notary = Notary::new(contract_address, pod_provider);
 
     let timestamp = notary.timestamps(hash).call().await?._0;
-    if timestamp.is_zero() {
+    if timestamp == 0 {
         return Ok(None);
     }
 
     Ok(Some(decode_timestamp(timestamp)?))
 }
 
-fn decode_timestamp(timestamp: U256) -> Result<SystemTime> {
-    let duration_since_epoch = Duration::from_micros(
-        timestamp
-            .try_into()
-            .context("timestamp should fit in u64")?,
-    );
+fn decode_timestamp(timestamp: u64) -> Result<SystemTime> {
+    let duration_since_epoch = Duration::from_micros(timestamp);
 
     Ok(UNIX_EPOCH + duration_since_epoch)
 }
