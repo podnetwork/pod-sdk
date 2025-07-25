@@ -1,6 +1,6 @@
 ---
 title: Voting
-layout: simple
+layout: single
 
 url: /examples/voting
 
@@ -9,19 +9,9 @@ toc:
   interacting-with-the-contract: Interacting with the contract
 ---
 
-! content
-
 # Introduction
 
 The voting smart contract shows an example of voting for proposals.
-
-! content end
-
-! content
-
-! content end
-
-! content
 
 ## Smart contract
 
@@ -37,10 +27,6 @@ FastTypes.OwnedCounter private hasVoted;
 The voteCount is the total votes (yes or no) for each proposal, and is increased by any voter.
 
 The hasVoted variable stores whether a voter has voted for a proposal or not.
-
-! content end
-
-! content
 
 ! codeblock title="Solidity"
 
@@ -175,10 +161,6 @@ contract Voting {
 
 ! codeblock end
 
-! content end
-
-! content
-
 # Interfacing with the contract
 
 ## Voting
@@ -212,14 +194,6 @@ async fn vote(
 ```
 ! codeblock end
 
-! content end
-
-! content
-
-! content end
-
-! content
-
 ## Listing votes
 
 To list all the votes, use `get_verifiable_logs` from pod-sdk.
@@ -244,9 +218,3 @@ async fn get_votes(rpc_url: String, contract_address: Address, proposal_id: Prop
 }
 ```
 ! codeblock end
-
-! content end
-
-! content
-
-! content end
