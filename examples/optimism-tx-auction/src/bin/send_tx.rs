@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    path::PathBuf,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use alloy::{
     consensus::{Signed, Transaction},
@@ -15,25 +18,6 @@ use pod_sdk::{
     provider::PodProviderBuilder,
 };
 use tokio::time::timeout;
-
-// some funded keys on the builder playground network for testing
-const DEFAULT_PRV_KEYS: [&str; 5] = [
-    "0x4be88d4f66c037df278fea5ebc57285b9e0dae556d7ed4a93932fd21da1fa588",
-    "0x904dfcf126418bef9f3a7ce60aceb237ab4fc6469c508da01ac8a8bdb6973e9b",
-    "0x9850cf7be87d39428ae81c68d90e287eb817c239859ea3a128cdae808306f793",
-    "0xb0e94ab208447a63cb02483a6bba73f2ebda3b40b0c9077f8fceec848d1df37c",
-    "0xbd081ac2224f448c0786f525050b3bf39b1ae0e326c42b44200e2e9ff3518ef1",
-    //
-    // "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-    // "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
-    // "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6",
-    // "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a",
-    // "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba",
-    // "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e",
-    // "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356",
-    // "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97",
-    // "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6",
-];
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -74,7 +58,10 @@ enum Commands {
         pod_private_key: Option<PrivateKeySigner>,
 
         /// Private key for account on the Optimism network to send funds from.
-        #[arg(long, default_value = DEFAULT_PRV_KEYS[1])]
+        #[arg(
+            long,
+            default_value = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+        )]
         private_key: PrivateKeySigner,
     },
     /// Bid a batch of transfer transactions on the Pod network, using the hardcoded set of private
@@ -88,6 +75,12 @@ enum Commands {
         // Private key of the default one: 0xe1c4b604d0ff32147b478e5d2bcd04a4672bb36b71c7271503bc79f11fe7ffd6
         #[arg(long, default_value = "0x8d84a54F0038526422950137b119AdF02cCD6960")]
         to: Address,
+
+        /// JSON file with keys to be used to bid TXs
+        /// Will bid 1 TX per key.
+        /// Keys need to be funded both on L2 and on pod.
+        #[arg(long, default_value = "keys.json")]
+        keys: PathBuf,
     },
 }
 
@@ -180,12 +173,10 @@ async fn main() -> anyhow::Result<()> {
                 receipt.transaction_hash,
             );
         }
-        Commands::BidBatch { amount, to } => {
-            // read private keys from keys.json
-            let keys_file =
-                std::fs::read_to_string("keys.json").context("Failed to read keys.json file")?;
-            let private_keys = serde_json::from_str::<Vec<String>>(&keys_file)
-                .context("Failed to parse keys.json")?;
+        Commands::BidBatch { amount, to, keys } => {
+            let keys = std::fs::File::open(keys).context("Failed to read keys.json file")?;
+            let private_keys: Vec<String> =
+                serde_json::from_reader(&keys).context("Failed to parse keys.json")?;
 
             let mut pending_bid_txs = Vec::new();
             let tx = tx.value(U256::from(amount)).to(to);
