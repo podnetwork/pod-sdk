@@ -181,9 +181,15 @@ async fn main() -> anyhow::Result<()> {
             );
         }
         Commands::BidBatch { amount, to } => {
+            // read private keys from keys.json
+            let keys_file =
+                std::fs::read_to_string("keys.json").context("Failed to read keys.json file")?;
+            let private_keys = serde_json::from_str::<Vec<String>>(&keys_file)
+                .context("Failed to parse keys.json")?;
+
             let mut pending_bid_txs = Vec::new();
             let tx = tx.value(U256::from(amount)).to(to);
-            for private_key in DEFAULT_PRV_KEYS {
+            for private_key in private_keys {
                 let op_signer: PrivateKeySigner = private_key.parse().unwrap();
                 let op_signer_address = op_signer.address();
                 let op_provider = op_provider.clone();
