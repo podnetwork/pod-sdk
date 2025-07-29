@@ -15,7 +15,7 @@ The voting smart contract shows an example of voting for proposals.
 
 The interface is similar to OpenZeppelin's [Governor](https://docs.openzeppelin.com/contracts/5.x/api/governance#Governor) contract, but simplified for demonstration. It can easily be extended to cover the whole interface.
 
-To get started, clone `podnetwork/pod-sdk` github repository and go to `examples/voting` directory:
+To get started, clone pod-sdk [github repository](https://github.com/podnetwork/pod-sdk) and go to `examples/voting` directory:
 
 ! codeblock
 ```bash
