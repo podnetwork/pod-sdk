@@ -46,14 +46,8 @@ node send_tx_with_attestations.js
 
 If successful, you'll see:
 
-```
-🚀 Transaction sent! Hash: 0x...
-🧾 Confirmed in block: 1
-⛽ Gas used: 21000
-🧾 Confirmed with 22 attestations:
-  #1 signer: 0xabc...
-  ...
-```
+![Transaction confirmation demo](./Screen-Shot-2025-07-29.png)
+
 
 ---
 
