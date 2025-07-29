@@ -1,8 +1,4 @@
-use std::{
-    str::FromStr,
-    time::{Duration},
-    ops::Add,
-};
+use std::{ops::Add, str::FromStr, time::Duration};
 
 use alloy::{
     primitives::ruint::aliases::U256,
@@ -11,7 +7,7 @@ use alloy::{
 use anyhow::{Context, Result, anyhow};
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
-use pod_sdk::{provider::PodProviderBuilder, Address, Hash, SigningKey};
+use pod_sdk::{Address, Hash, SigningKey, provider::PodProviderBuilder};
 
 use pod_types::{Timestamp, rpc::filter::LogFilterBuilder};
 
@@ -66,7 +62,7 @@ enum Commands {
         /// Data to be voted on
         #[arg(long)]
         data: String,
-    }
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -77,7 +73,8 @@ impl FromStr for ProposalId {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let proposal_id = hex::decode(s.trim_start_matches("0x"))?;
-        let proposal_id = U256::try_from_be_slice(&proposal_id).ok_or(anyhow!("invalid proposal id"))?;
+        let proposal_id =
+            U256::try_from_be_slice(&proposal_id).ok_or(anyhow!("invalid proposal id"))?;
         Ok(Self(proposal_id.into()))
     }
 }
@@ -119,7 +116,7 @@ async fn main() -> Result<()> {
             deadline,
             threshold,
             participants,
-            data
+            data,
         } => {
             let deadline = deadline
                 .map(|d| Timestamp::from_seconds(d))
@@ -156,7 +153,11 @@ async fn vote(
     let pending_tx = voting.castVote(proposal_id.0, choice).send().await?;
 
     let receipt = pending_tx.get_receipt().await?;
-    anyhow::ensure!(receipt.status(), "voting tx {} failed", receipt.transaction_hash);
+    anyhow::ensure!(
+        receipt.status(),
+        "voting tx {} failed",
+        receipt.transaction_hash
+    );
 
     println!("Voting successful. Tx: {}", receipt.transaction_hash);
 
@@ -172,10 +173,19 @@ async fn create_and_watch_proposal(
     deadline: Timestamp,
     data: String,
 ) -> Result<()> {
-    let proposal_id = create_proposal(rpc_url.clone(), contract_address, private_key.clone(), participants, threshold, deadline, data).await?;
+    let proposal_id = create_proposal(
+        rpc_url.clone(),
+        contract_address,
+        private_key.clone(),
+        participants,
+        threshold,
+        deadline,
+        data,
+    )
+    .await?;
 
     println!("Proposal {} created", proposal_id.0);
-    
+
     let rpc_url_cloned = rpc_url.clone();
     let pid2 = proposal_id.clone();
     let mut watch_handle = tokio::spawn(async move {
@@ -190,7 +200,8 @@ async fn create_and_watch_proposal(
         let pod_provider = PodProviderBuilder::with_recommended_settings()
             .with_private_key(p2)
             .on_url(&r2)
-            .await.unwrap();
+            .await
+            .unwrap();
 
         if let Err(e) = pod_provider.wait_past_perfect_time(deadline).await {
             eprintln!("waiting for past perfect time failed: {e}");
@@ -218,12 +229,20 @@ async fn create_and_watch_proposal(
     Ok(())
 }
 
-async fn get_votes(rpc_url: String, contract_address: Address, proposal_id: ProposalId) -> Result<Vec<Voting::VoteCast>> {
+async fn get_votes(
+    rpc_url: String,
+    contract_address: Address,
+    proposal_id: ProposalId,
+) -> Result<Vec<Voting::VoteCast>> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
         .on_url(&rpc_url)
         .await?;
 
-    let filter = LogFilterBuilder::new().address(contract_address).event_signature(Voting::VoteCast::SIGNATURE_HASH).topic1(proposal_id.0).build();
+    let filter = LogFilterBuilder::new()
+        .address(contract_address)
+        .event_signature(Voting::VoteCast::SIGNATURE_HASH)
+        .topic1(proposal_id.0)
+        .build();
     let logs = pod_provider.get_verifiable_logs(&filter).await?;
 
     let mut votes = Vec::with_capacity(logs.len());
@@ -261,10 +280,16 @@ async fn create_proposal(
         .send()
         .await?;
 
-    let receipt = pendix_tx.get_receipt().await.context("creating proposal failed")?;
+    let receipt = pendix_tx
+        .get_receipt()
+        .await
+        .context("creating proposal failed")?;
 
     if !receipt.status() {
-        return Err(anyhow!("proposal creation tx failed: {}", receipt.transaction_hash));
+        return Err(anyhow!(
+            "proposal creation tx failed: {}",
+            receipt.transaction_hash
+        ));
     }
 
     let event = receipt
@@ -282,7 +307,11 @@ async fn watch(rpc_url: String, contract_address: Address, proposal_id: Proposal
         .on_url(rpc_url)
         .await?;
 
-    let filter = LogFilterBuilder::new().address(contract_address).event_signature(Voting::VoteCast::SIGNATURE_HASH).topic1(proposal_id.0).build();
+    let filter = LogFilterBuilder::new()
+        .address(contract_address)
+        .event_signature(Voting::VoteCast::SIGNATURE_HASH)
+        .topic1(proposal_id.0)
+        .build();
 
     let mut stream = pod_provider
         .subscribe_verifiable_logs(&filter)
@@ -302,10 +331,12 @@ async fn watch(rpc_url: String, contract_address: Address, proposal_id: Proposal
             Voting::VotingEvents::VoteCast(vote) => {
                 println!(
                     "Voter {} voted {}, tx: {}",
-                    vote.voter, vote.choice, log.inner.transaction_hash.unwrap()
+                    vote.voter,
+                    vote.choice,
+                    log.inner.transaction_hash.unwrap()
                 );
             }
-	    _ => {},
+            _ => {}
         }
     }
 
@@ -330,15 +361,15 @@ async fn execute(
     let voting = Voting::new(contract_address, pod_provider);
 
     // Execute poll
-    let pending_tx = voting
-        .execute(proposal_id.0)
-        .send()
-        .await?;
+    let pending_tx = voting.execute(proposal_id.0).send().await?;
 
     let receipt = pending_tx.get_receipt().await?;
 
     if !receipt.status() {
-        return Err(anyhow!("failed to execute proposal: {}", receipt.transaction_hash));
+        return Err(anyhow!(
+            "failed to execute proposal: {}",
+            receipt.transaction_hash
+        ));
     }
 
     println!("Proposal executed, tx: {}", receipt.transaction_hash);
