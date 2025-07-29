@@ -7,10 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Certificate, Committee, Signed, Timestamp, Transaction,
-    consensus::{
-        attestation::{HeadlessAttestation, Indexed},
-        committee::CommitteeError,
-    },
+    consensus::{attestation::TimestampedHeadlessAttestation, committee::CommitteeError},
     cryptography::{
         Hash, MerkleMultiProof, Merkleizable,
         hash::Hashable,
@@ -41,7 +38,7 @@ pub struct Event {
     pub log: Log,
     pub log_index: u64,
     pub tx: Signed<Transaction>,
-    pub attestations: Vec<Indexed<HeadlessAttestation>>,
+    pub attestations: Vec<TimestampedHeadlessAttestation>,
     pub receipt: Receipt,
 }
 
