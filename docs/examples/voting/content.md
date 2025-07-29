@@ -13,6 +13,16 @@ toc:
 
 The voting smart contract shows an example of voting for proposals.
 
+The interface is similar to OpenZeppelin's [Governor](https://docs.openzeppelin.com/contracts/5.x/api/governance#Governor) contract, but simplified for demonstration. It can easily be extended to cover the whole interface.
+
+To get started, clone `podnetwork/pod-sdk` github repository and go to `examples/voting` directory:
+
+! codeblock
+```bash
+$ git clone github.com/podnetwork/pod-sdk && cd examples/voting
+```
+! codeblock end
+
 ## Smart contract
 
 The smart contract uses two types from pod's fast types library:
@@ -24,16 +34,13 @@ FastTypes.OwnedCounter private hasVoted;
 ```
 ! codeblock end
 
-The voteCount is the total votes (yes or no) for each proposal, and is increased by any voter.
+The `voteCount` is the total votes (yes or no) for each proposal, and is increased by any voter. Even though this variable is shared between different senders, the order of transactions do not matter because it can only be incremented.
 
-The hasVoted variable stores whether a voter has voted for a proposal or not.
+The `hasVoted` variable stores whether a voter has voted for a proposal or not. Each user can only alter this value for himself (the value is "owned").
 
 ! codeblock title="Solidity"
 
 ```solidity
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.28;
-
 import {requireTimeBefore, requireTimeAfter} from "pod-sdk/Time.sol";
 import {FastTypes} from "pod-sdk/FastTypes.sol";
 
@@ -41,74 +48,29 @@ contract Voting {
     using FastTypes for FastTypes.SharedCounter;
     using FastTypes for FastTypes.OwnedCounter;
 
-    enum VoterState {
-        Unregistered,
-        Registered,
-        Voted
-    }
+    /// ...
 
-    struct Proposal {
-        uint256 deadline;
-	uint256 threshold;
-        address proposer;
-        mapping(address => VoterState) voters;
-        uint256 totalVotes;
-        uint256 totalVoters; // Total number of registered voters
-        bool executed;
-    }
-
-    // Maps proposal ID to proposal data
     mapping(bytes32 => Proposal) private proposals;
     FastTypes.SharedCounter private voteCount;
     FastTypes.OwnedCounter private hasVoted;
-
-    event ProposalCreated(bytes32 indexed proposalId, uint256 deadline);
-    event VoteCast(bytes32 indexed proposalId, address indexed voter, uint8 choice);
-    event ProposalExecuted(bytes32 indexed proposalId);
-
-    /// @notice Calculate proposal ID
-    /// @param deadline The proposal deadline in seconds
-    /// @param proposer The creator of the proposal
-    /// @param voters The voters
-    /// @return proposalId The unique proposal ID derived from the input parameters
-    function getProposalId(uint256 deadline, address proposer, address[] calldata voters)
-        public
-        pure
-        returns (bytes32 proposalId)
-    {
-        // calculates an id (hash) based on the proposal information and proposer
-        return keccak256(abi.encode(deadline, proposer, keccak256(abi.encodePacked(voters))));
-    }
 
     /// @notice Create a new proposal
     /// @param deadline The proposal deadline in seconds
     /// @param voters The proposal participants
     /// @return proposalId The unique proposal ID
-    function createProposal(uint256 deadline, uint256 threshold, address[] calldata voters)
+    function createProposal(uint256 deadline, uint256 threshold, address[] calldata voters, bytes calldata data)
         public
         returns (bytes32 proposalId)
     {
         // Validation
         requireTimeBefore(deadline, "Deadline must be in the future");
-	require(threshold > 0, "Threshold should not be 0");
+        require(threshold > 0, "Threshold should not be 0");
         require(voters.length > 0, "There must be at least one voter");
-
         bytes32 id = getProposalId(deadline, msg.sender, voters);
 
-        // Create new proposal
-        Proposal storage newProposal = proposals[id];
-        require(newProposal.totalVoters == 0, "proposal already exists");
+        // ...
 
-        newProposal.deadline = deadline;
-        newProposal.proposer = msg.sender;
-        newProposal.totalVoters = voters.length;
-
-        // Register all voters
-        for (uint256 i = 0; i < voters.length; i++) {
-            newProposal.voters[voters[i]] = VoterState.Registered;
-        }
-
-        emit ProposalCreated(id, deadline);
+        emit ProposalCreated(id, deadline, data);
         return id;
     }
 
@@ -123,14 +85,14 @@ contract Voting {
         // Check if voter can vote
         require(proposal.voters[msg.sender] == VoterState.Registered, "sender not a voter");
 
-	    // Check if already voted
+        // Check if already voted
         require(hasVoted.get(proposalId, msg.sender) == 0, "already voted");
 
         // Mark that this voter has voted
-	    hasVoted.increment(proposalId, msg.sender, 1);
+        hasVoted.increment(proposalId, msg.sender, 1);
 
         // Count the vote
-	    voteCount.increment(keccak256(abi.encode(proposalId, choice)), 1);
+        voteCount.increment(keccak256(abi.encode(proposalId, choice)), 1);
 
         emit VoteCast(proposalId, msg.sender, choice);
     }
@@ -145,23 +107,87 @@ contract Voting {
         bytes32 key = keccak256(abi.encode(proposalId, 1));
         voteCount.requireGte(key, proposal.threshold, "Not enough votes");
 
-	// Mark proposal so that it cannot be executed again
+        // Mark proposal so that it cannot be executed again
         proposal.executed = true;
 
-	    _execute(proposalId);
+        _execute(proposalId);
 
         emit ProposalExecuted(proposalId);
     }
 
-    function _execute(bytes32 proposalId) internal {
-        // hook to run execution logic
-    }
+    // ...
 }
 ```
+! codeblock end
 
+You can find the full smart contract on our github repository [here](https://github.com/podnetwork/pod-sdk/blob/9951f50926c771a62c75cb1fb21b5300c125861b/examples/voting/contract/src/Voting.sol#L1).
+
+You can deploy the smart contract in the same way as in other EVM networks, for example with foundry forge command. We include a deployment script in [Voting.s.sol](https://github.com/podnetwork/pod-sdk/blob/9951f50926c771a62c75cb1fb21b5300c125861b/examples/voting/contract/script/Voting.s.sol), to use it:
+
+! codeblock
+```bash
+forge script script/Voting.s.sol:VotingScript  \ 
+      --rpc-url https://rpc.v1.dev.pod.network \
+      --private-key $PRIVATE_KEY               \
+      --broadcast
+```
 ! codeblock end
 
 # Interfacing with the contract
+
+## Creating a proposal
+
+To create a proposal call `createProposal` on the smart contract passing a deadline, the threshold for the proposal to be considered passed.
+
+! codeblock
+```rust
+async fn create_proposal(
+    rpc_url: String,
+    contract_address: Address,
+    private_key: SigningKey,
+    participants: Vec<Address>,
+    threshold: usize,
+    deadline: Timestamp,
+    data: String,
+) -> Result<ProposalId> {
+    let pod_provider = PodProviderBuilder::with_recommended_settings()
+        .with_private_key(private_key)
+        .on_url(&rpc_url)
+        .await?;
+    let voting = Voting::new(contract_address, pod_provider.clone());
+
+    let data_bytes = hex::decode(data)?;
+
+    let pendix_tx = voting
+        .createProposal(
+            U256::from(deadline.as_seconds()),
+            U256::from(threshold),
+            participants.clone(),
+            data_bytes.into(),
+        )
+        .send()
+        .await?;
+    // ...
+}
+```
+! codeblock end
+
+You can use the voting client implementation to create a proposal on the smart contract we have deployed:
+
+! codeblock start
+```bash
+cargo run -- \
+      --contract-address 0xf8643C0A56B836C8Ba12Fb09a3243f54aBDFdf6F \
+      create \
+      --private-key $PRIVATE_KEY \
+      --threshold 1 \
+      --data 1234 \
+      --deadline $(($(date +%s) + 30)) \
+      --participants $VOTER1_PUB_KEY,$VOTER2_PUB_KEY 
+```
+! codeblock end
+
+The client will create the proposal, and wait for votes until the deadline (30 seconds from command execution).
 
 ## Voting
 
@@ -193,6 +219,22 @@ async fn vote(
 }
 ```
 ! codeblock end
+
+You can try this out by using the voting client:
+
+! codeblock start
+```bash
+cargo run -- \
+     --contract-address 0xf8643C0A56B836C8Ba12Fb09a3243f54aBDFdf6F \
+     vote \
+     --private-key $VOTER_PRIVATE_KEY \
+     --proposal-id $PROPOSAL_ID \
+     --choice 1
+```
+
+! codeblock end
+
+Remember to replace the PROPOSAL_ID with the second topic of the log on proposal creation.
 
 ## Listing votes
 
