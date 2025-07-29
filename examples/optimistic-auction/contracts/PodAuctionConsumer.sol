@@ -11,7 +11,7 @@ contract PodAuctionConsumer is AbsBonding {
     using Time for Time.Timestamp;
 
     uint64 public constant U = 10 minutes; // Waiting period for announcement or blaming
-    bytes32 public constant LOG_TOPIC_0 = 0xaf2c4fdca8563d13e2f56ed3c7b48d3f86c61b037e7281617071a41d281a2204;
+    bytes32 public constant LOG_TOPIC_0 = 0xfa9544cad94ab8507946215078af54be3ed0a1f19911d5dab2037baf8e064fb0;
 
     event Log(string message, Time.Timestamp value);
 

@@ -298,8 +298,8 @@ contract PodAuctionConsumerTest is PodTest {
 
     function getReceiptRoot(uint256 index) public pure returns (bytes32) {
         bytes32[] memory receiptRoots = new bytes32[](2);
-        receiptRoots[0] = bytes32(0x7a7de453df4c8bc30bec5eb5948e6c7d9bfa4c625ca72835c6f847f0b2adef74);
-        receiptRoots[1] = bytes32(0xff1f0769c1f5f49d15679c58beffaa9c63627314c2965a2c3025b6012a6a93ab);
+        receiptRoots[0] = bytes32(0xf89a92bff4aec73b42247cad1a3da4f00692bcea1c4cb340a49123f6dc4d74e6);
+        receiptRoots[1] = bytes32(0x10bfa8686ee6391651718011b617a01acc21719448bc0e70e604fa5bac40cb57);
 
         return receiptRoots[index];
     }
@@ -316,12 +316,12 @@ contract PodAuctionConsumerTest is PodTest {
         bytes32[][] memory topics = new bytes32[][](2);
         topics[0] = new bytes32[](4);
         topics[1] = new bytes32[](4);
-        topics[0][0] = 0xaf2c4fdca8563d13e2f56ed3c7b48d3f86c61b037e7281617071a41d281a2204;
+        topics[0][0] = 0xfa9544cad94ab8507946215078af54be3ed0a1f19911d5dab2037baf8e064fb0;
         topics[0][1] = 0x0000000000000000000000000000000000000000000000000000000000000001;
         topics[0][2] = 0x00000000000000000000000013791790bef192d14712d627f13a55c4abee52a4;
         topics[0][3] = 0x00000000000000000000000000000000000000000000000000000000cfc37719;
 
-        topics[1][0] = 0xaf2c4fdca8563d13e2f56ed3c7b48d3f86c61b037e7281617071a41d281a2204;
+        topics[1][0] = 0xfa9544cad94ab8507946215078af54be3ed0a1f19911d5dab2037baf8e064fb0;
         topics[1][1] = 0x0000000000000000000000000000000000000000000000000000000000000001;
         topics[1][2] = 0x000000000000000000000000b8aa43999c2b3cbb10fbe2092432f98d8f35dcd7;
         topics[1][3] = 0x00000000000000000000000000000000000000000000000000000000cfc37719;
@@ -333,16 +333,16 @@ contract PodAuctionConsumerTest is PodTest {
         bytes32[][] memory paths = new bytes32[][](2);
         paths[0] = new bytes32[](5);
         paths[1] = new bytes32[](4);
-        paths[0][0] = 0x0177fef4eb615dc3b054c47369eb6c0c0a3e63740da7cf01a1533b59fa7df56a;
-        paths[0][1] = 0xd9c74aa19994428cc9b9f72b363dfd58a156391e783e8cb1eebc64ff6387eb15;
-        paths[0][2] = 0x556284c9263c29665d5873357d4c33187f44f4fc2ce249d2d1c3863e6c2524a8;
-        paths[0][3] = 0xb20da9eaaf8eed5af276144f72c4e994d77d10d7305d40f2b50ea6a59fe1af39;
-        paths[0][4] = 0x991d66b8fba006fde490a120dcfd3d32ad74069d63a55a020dff94577f15e370;
+        paths[0][0] = 0x6a4e143b1d6d748b27b99e09fd2b31f388814ac859501adf698eeaf4cc1f7839;
+        paths[0][1] = 0x50391cf02927d8ee25a283f04a0b77605ece18b5008d540f7637f76f5671a17d;
+        paths[0][2] = 0x546d91bb44af90ac0c34d8e12b47971b6c671657a1a03d886e37766652e88d98;
+        paths[0][3] = 0xad770cb486fc71b80a7da875244eaf147d347ea26bc0e54e08867dc588154ecf;
+        paths[0][4] = 0x40e6add0069c917287debf22d0e3fa7dabf5357e1ff8cec2ec8972be8f397b25;
 
-        paths[1][0] = 0xa826946064ba2696b1fec95e71239f315349b6b918d84119719797d3e1a2a5c6;
-        paths[1][1] = 0x806b5fec59ccb4b45a849aa355770e3235798253b5e4d95c0317b4b3bcd8de9b;
-        paths[1][2] = 0x1e4c1fbcb3c12597e0abeae10285c243fd477b094efd8e3a8c1e4aa4eebc164c;
-        paths[1][3] = 0xd956ed9b6b393a9e5079d484e41e61d7394bf8020d6ed2df9a9e2dc775bd14b8;
+        paths[1][0] = 0xd5d8c72081398392c0782d1e409e2c09d013753234a4abf60932114b1d3371d5;
+        paths[1][1] = 0xf646fc9398152f92d17784eccea50b79f8e99c7550d901ef227c499cc3a94039;
+        paths[1][2] = 0x63e0c3f6f6faf68ba2391c0b6576c9dd4859b78522675ce93b4703f0395c7aee;
+        paths[1][3] = 0x9cb73109cea62dad0ab8338da558743a4dbef2298ed7a46c93fde81735c3e730;
 
         return paths[index];
     }
