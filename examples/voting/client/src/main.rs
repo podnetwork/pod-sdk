@@ -119,7 +119,7 @@ async fn main() -> Result<()> {
             data,
         } => {
             let deadline = deadline
-                .map(|d| Timestamp::from_seconds(d))
+                .map(Timestamp::from_seconds)
                 .unwrap_or_else(|| Timestamp::now().add(Duration::from_secs(10)));
             create_and_watch_proposal(
                 cli.rpc_url,
@@ -327,16 +327,13 @@ async fn watch(rpc_url: String, contract_address: Address, proposal_id: Proposal
         }
         let event = Voting::VotingEvents::decode_log(&log.inner.inner, true)
             .context("decoding event failed. deployed contract version might not match")?;
-        match event.data {
-            Voting::VotingEvents::VoteCast(vote) => {
-                println!(
-                    "Voter {} voted {}, tx: {}",
-                    vote.voter,
-                    vote.choice,
-                    log.inner.transaction_hash.unwrap()
-                );
-            }
-            _ => {}
+        if let Voting::VotingEvents::VoteCast(vote) = event.data {
+            println!(
+                "Voter {} voted {}, tx: {}",
+                vote.voter,
+                vote.choice,
+                log.inner.transaction_hash.unwrap()
+            );
         }
     }
 
