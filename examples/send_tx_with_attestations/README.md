@@ -53,7 +53,7 @@ If successful, you'll see:
 
 ### 📚 How it works
 
-- Sends a small amount of OG to the recipient using EIP-1559
+- Sends a small amount of pETH to the recipient using EIP-1559
 - Waits for confirmation
 - Makes a second RPC call to `eth_getTransactionReceipt` to retrieve Pod-specific metadata
 - Displays each validator’s signature (attestation)
