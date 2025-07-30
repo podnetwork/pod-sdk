@@ -19,9 +19,9 @@ menu:
   
 
   - heading: Building on pod
-  - href: /reference/json-rpc
+  - href: /json-rpc
     label: JSON-RPC
-  - href: /smart-contract-development/solidity-sdk-reference
+  - href: /solidity-sdk
     external: true
     label: Solidity SDK
   - href: https://docs.rs/pod-sdk
