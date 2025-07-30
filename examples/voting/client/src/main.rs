@@ -119,10 +119,10 @@ async fn main() -> Result<()> {
             data,
         } => {
             let deadline = deadline
-            .map(|d| Timestamp::from_seconds(d).as_micros() as u64)
-            .unwrap_or_else(|| {
-                Timestamp::now().add(Duration::from_secs(30)).as_micros() as u64
-            });
+                .map(|d| Timestamp::from_seconds(d).as_micros() as u64)
+                .unwrap_or_else(|| {
+                    Timestamp::now().add(Duration::from_secs(30)).as_micros() as u64
+                });
             create_and_watch_proposal(
                 cli.rpc_url,
                 cli.contract_address,
