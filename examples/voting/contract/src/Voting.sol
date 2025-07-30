@@ -15,7 +15,6 @@ contract Voting {
         Voted
     }
 
-
     struct Proposal {
         Time.Timestamp deadline;
         uint256 threshold;
@@ -93,7 +92,7 @@ contract Voting {
         // Check if voter can vote
         require(proposal.voters[msg.sender] == VoterState.Registered, "sender not a voter");
 
-	// Check if already voted
+        // Check if already voted
         require(hasVoted.get(proposalId, msg.sender) == 0, "already voted");
 
         // Mark that this voter has voted

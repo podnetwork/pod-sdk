@@ -275,11 +275,6 @@ async fn create_proposal(
 
     let data_bytes = hex::decode(data)?;
 
-    println!("Creating proposal with deadline: {}", deadline);
-    println!("Participants: {:?}", participants);
-    println!("Threshold: {}", threshold);
-    println!("Data: {:?}", data_bytes);
-
     let pendix_tx = voting
         .createProposal(
             deadline,
