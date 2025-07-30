@@ -35,6 +35,9 @@ where
 // Guarantees Signed<T>.signer == Signed<T>.signature.recover_address(T.hash())
 // by the fact that it can only be constructed by functions that guarantee the address.
 // Only works with ECDSA signatures for now
+// The signature check happens on both rounds. For the second round, it *might* not be
+// necessary but we still want to do it to ensure that if something ever went wrong, we
+// have a second line of defence.
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signed<T> {
