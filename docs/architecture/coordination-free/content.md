@@ -11,7 +11,7 @@ pod is faster and more efficient than any other L1 or blockchain system out ther
 
 ## Coordination-free
 
-In distributed systems, **coordination** refers to the act of synchronizing across nodes to ensure a shared understanding of global state or to make decisions (e.g., ordering, mutual exclusion, locking). Coordination is expensive: it introduces latency, reduces throughput, and makes systems more fragile under partial failure or network partitions.
+In distributed systems, **coordination** refers to the act of synchronizing across nodes to ensure a shared understanding of global state or to make decisions (e.g., ordering). Coordination is expensive: it introduces latency, reduces throughput, and makes systems more fragile under partial failure or network partitions.
 
 A **coordination-free** system avoids these costs by designing its logic such that correctness doesn’t depend on agreement or synchronization across nodes. Operations can proceed independently and concurrently, without waiting for others.
 
