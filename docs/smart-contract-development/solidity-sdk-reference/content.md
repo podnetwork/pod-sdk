@@ -19,7 +19,7 @@ toc:
 To install:
 
 ```bash
- $ forge soldeer install pod-sdk~0.1.3 --url https://github.com/podnetwork/pod-sdk/releases/download/v0.1.3/solidity-sdk-v0.1.3.zip
+ $ forge install podnetwork/pod-sdk
 ```
 
 ! anchor fast-types
