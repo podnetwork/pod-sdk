@@ -1,9 +1,8 @@
 generate:
-	forge bind --crate-name voting-bindings --bindings-path ../bindings --alloy-version 0.12.1 --force --no-metadata --select "^Voting$$" --overwrite
-	@printf '\nserde = { version = "1.0.214", features = ["derive"] }' >> ../bindings/Cargo.toml
+	forge bind --crate-name voting-bindings --bindings-path ../bindings --alloy-version 1.0.9 --force --no-metadata --select "^Voting$$" --overwrite
 
 check:
-	forge bind --crate-name voting-bindings --bindings-path ../bindings --alloy-version 0.12.1 --force --no-metadata --select "^Voting$$"
+	forge bind --crate-name voting-bindings --bindings-path ../bindings --alloy-version 1.0.9 --force --no-metadata --select "^Voting$$"
 
 .PHONY: generate
 .PHONY: check

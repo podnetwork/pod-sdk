@@ -4,8 +4,8 @@
 //! Do not manually edit these files.
 //! These files may be overwritten by the codegen system at any time.
 pub mod r#auction;
-pub mod r#fasttypes;
+pub mod r#fast_types;
 pub mod r#pi2;
-pub mod r#rankedfeed;
+pub mod r#ranked_feed;
 pub mod r#time;
 pub mod r#voting;
