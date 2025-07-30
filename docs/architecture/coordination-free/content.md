@@ -35,7 +35,7 @@ This limits throughput, increases tail latency, and creates choke points — all
 
 pod network is built on the idea that **most application-level invariants can be preserved without coordination**, if we restructure how validation and visibility work.
 
-** Examples in pod:
+**Examples in pod**:
 
 - [Payments](/examples/tokens): Double-spending is prevented without consensus by requiring validators to sign off on unique transaction nonces and verifying the client has enough balance. Clients gather a threshold of signatures asynchronously.
 - [Auctions](/examples/auctions): The order in which bids are sent to an auction does not matter, as long as the bid was sent before deadline.
