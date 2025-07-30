@@ -14,20 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Cache cargo dependencies
-      id: cache-cargo
-      uses: actions/cache@v4
-      env:
-        cache-name: cache-cargo-dependencies
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-
+    - uses: Swatinem/rust-cache@v2
     - name: Versions
       run: |
         cargo version
