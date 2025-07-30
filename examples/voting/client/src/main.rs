@@ -119,8 +119,10 @@ async fn main() -> Result<()> {
             data,
         } => {
             let deadline = deadline
-                .map(Timestamp::from_seconds)
-                .unwrap_or_else(|| Timestamp::now().add(Duration::from_secs(10)));
+                .map(|d| Timestamp::from_seconds(d).as_micros() as u64)
+                .unwrap_or_else(|| {
+                    Timestamp::now().add(Duration::from_secs(30)).as_micros() as u64
+                });
             create_and_watch_proposal(
                 cli.rpc_url,
                 cli.contract_address,
@@ -170,7 +172,7 @@ async fn create_and_watch_proposal(
     private_key: SigningKey,
     participants: Vec<Address>,
     threshold: usize,
-    deadline: Timestamp,
+    deadline: u64,
     data: String,
 ) -> Result<()> {
     let proposal_id = create_proposal(
@@ -203,7 +205,10 @@ async fn create_and_watch_proposal(
             .await
             .unwrap();
 
-        if let Err(e) = pod_provider.wait_past_perfect_time(deadline).await {
+        if let Err(e) = pod_provider
+            .wait_past_perfect_time(Timestamp::from_micros(deadline as u128))
+            .await
+        {
             eprintln!("waiting for past perfect time failed: {e}");
         }
     });
@@ -259,7 +264,7 @@ async fn create_proposal(
     private_key: SigningKey,
     participants: Vec<Address>,
     threshold: usize,
-    deadline: Timestamp,
+    deadline: u64,
     data: String,
 ) -> Result<ProposalId> {
     let pod_provider = PodProviderBuilder::with_recommended_settings()
@@ -272,7 +277,7 @@ async fn create_proposal(
 
     let pendix_tx = voting
         .createProposal(
-            U256::from(deadline.as_seconds()),
+            deadline,
             U256::from(threshold),
             participants.clone(),
             data_bytes.into(),

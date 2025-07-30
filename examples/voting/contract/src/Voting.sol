@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import {requireTimeBefore, requireTimeAfter} from "pod-sdk/Time.sol";
+import {requireTimeBefore, requireTimeAfter, Time} from "pod-sdk/Time.sol";
 import {FastTypes} from "pod-sdk/FastTypes.sol";
 
 contract Voting {
+    using Time for Time.Timestamp;
     using FastTypes for FastTypes.SharedCounter;
     using FastTypes for FastTypes.OwnedCounter;
 
@@ -15,8 +16,8 @@ contract Voting {
     }
 
     struct Proposal {
-        uint256 deadline;
-	uint256 threshold;
+        Time.Timestamp deadline;
+        uint256 threshold;
         address proposer;
         mapping(address => VoterState) voters;
         uint256 totalVotes;
@@ -30,16 +31,16 @@ contract Voting {
     FastTypes.SharedCounter private voteCount;
     FastTypes.OwnedCounter private hasVoted;
 
-    event ProposalCreated(bytes32 indexed proposalId, uint256 deadline, bytes data);
+    event ProposalCreated(bytes32 indexed proposalId, Time.Timestamp indexed deadline, bytes data);
     event VoteCast(bytes32 indexed proposalId, address indexed voter, uint8 choice);
     event ProposalExecuted(bytes32 indexed proposalId);
 
     /// @notice Calculate proposal ID
-    /// @param deadline The proposal deadline in seconds
+    /// @param deadline The proposal deadline in microseconds
     /// @param proposer The creator of the proposal
     /// @param voters The voters
     /// @return proposalId The unique proposal ID derived from the input parameters
-    function getProposalId(uint256 deadline, address proposer, address[] calldata voters)
+    function getProposalId(Time.Timestamp deadline, address proposer, address[] calldata voters)
         public
         pure
         returns (bytes32 proposalId)
@@ -49,16 +50,16 @@ contract Voting {
     }
 
     /// @notice Create a new proposal
-    /// @param deadline The proposal deadline in seconds
+    /// @param deadline The proposal deadline in microseconds
     /// @param voters The proposal participants
     /// @return proposalId The unique proposal ID
-    function createProposal(uint256 deadline, uint256 threshold, address[] calldata voters, bytes calldata data)
+    function createProposal(Time.Timestamp deadline, uint256 threshold, address[] calldata voters, bytes calldata data)
         public
         returns (bytes32 proposalId)
     {
         // Validation
         requireTimeBefore(deadline, "Deadline must be in the future");
-	require(threshold > 0, "Threshold should not be 0");
+        require(threshold > 0, "Threshold should not be 0");
         require(voters.length > 0, "There must be at least one voter");
 
         bytes32 id = getProposalId(deadline, msg.sender, voters);
@@ -91,14 +92,14 @@ contract Voting {
         // Check if voter can vote
         require(proposal.voters[msg.sender] == VoterState.Registered, "sender not a voter");
 
-	// Check if already voted
+        // Check if already voted
         require(hasVoted.get(proposalId, msg.sender) == 0, "already voted");
 
         // Mark that this voter has voted
-	hasVoted.increment(proposalId, msg.sender, 1);
+        hasVoted.increment(proposalId, msg.sender, 1);
 
         // Count the vote
-	voteCount.increment(keccak256(abi.encode(proposalId, choice)), 1);
+        voteCount.increment(keccak256(abi.encode(proposalId, choice)), 1);
 
         emit VoteCast(proposalId, msg.sender, choice);
     }
@@ -113,10 +114,10 @@ contract Voting {
         bytes32 key = keccak256(abi.encode(proposalId, 1));
         voteCount.requireGte(key, proposal.threshold, "Not enough votes");
 
-	// Mark proposal so that it cannot be executed again
+        // Mark proposal so that it cannot be executed again
         proposal.executed = true;
 
-	_execute(proposalId);
+        _execute(proposalId);
 
         emit ProposalExecuted(proposalId);
     }
