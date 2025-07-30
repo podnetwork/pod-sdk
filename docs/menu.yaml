@@ -4,6 +4,8 @@ menu:
     label: Welcome to pod
   - href: /devnet
     label: Devnet
+  - href: /architecture/coordination-free
+    label: What makes pod fast?
   - href: /overview
     label: Coming from Ethereum?
 
