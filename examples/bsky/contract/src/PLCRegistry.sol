@@ -156,7 +156,7 @@ contract PLCRegistry {
     }
 
     function validateCreationOp(bytes32 did, Op calldata op, bytes calldata signature) internal view returns (bool) {
-        // We only require quorum here because it is possible that mutliple TXs create the same DID at the same time.
+        // We only require quorum here because it is possible that multiple TXs create the same DID at the same time.
         // In this case, we verify the correctness of the operation, but we DON'T update the state.
         // Example of valid order of execution scenarios (TXs can be signed by different keys and therefore not sequenced):
         // 1. [TX 1 creates DID] -> [TX 2 creates DID]

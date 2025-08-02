@@ -181,7 +181,7 @@ sol! {
 }
 
 async fn event_transfer(pod_provider: &PodProvider, committee: &Committee, destination_address: Address, rpc_is_trusted: bool) -> Result<(), Box<dyn Error>> {
-    // Filter transfer by specifing a destination address
+    // Filter transfer by specifying a destination address
     let filter = Filter::new().event_signature(Transfer::SIGNATURE).topic1(destination_address);
     let logs = pod_provider.get_verifiable_logs(&filter).await?;
     for log in logs {

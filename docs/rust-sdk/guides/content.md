@@ -61,7 +61,7 @@ async fn main() -> Result<()> {
 
 ### Retrieving Transactions
 
-As shown in the introductory section, the transaction can be retreived by hash as
+As shown in the introductory section, the transaction can be retrieved by hash as
 
 ! codeblock title="Example"
 
