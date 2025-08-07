@@ -8,7 +8,7 @@ pod-sdk = { path = "../../rust-sdk" }
 pod-types = { path = "../../types" }
 notary-bindings = { path = "./bindings" }
 
-alloy = { version = "1.0.9", features = ["sol-types", "contract"] }
+alloy = { version = "1.0.24", features = ["sol-types", "contract"] }
 tokio = { version = "1.45.1", features = ["full"] }
 anyhow = "1.0.98"
 clap = { version = "4.5.38", features = ["derive"] }

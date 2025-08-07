@@ -4,6 +4,7 @@
 //! Do not manually edit these files.
 //! These files may be overwritten by the codegen system at any time.
 pub mod r#auction;
+pub mod r#deterministic_deploy_factory;
 pub mod r#fast_types;
 pub mod r#pi2;
 pub mod r#ranked_feed;
