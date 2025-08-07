@@ -51,7 +51,7 @@ enum Commands {
         #[arg(short, long)]
         deadline: Option<u64>,
 
-        /// Number of posssible choices
+        /// Number of possible choices
         #[arg(long)]
         threshold: usize,
 

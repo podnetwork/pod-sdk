@@ -79,7 +79,7 @@ async fn create_poll(
     let committee = pod_provider.get_committee().await?;
     ensure!(
         receipt.verify(&committee)?,
-        "receipt failed comittee validation"
+        "receipt failed committee validation"
     );
 
     // extract poll ID
