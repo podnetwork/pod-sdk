@@ -2,7 +2,7 @@
 title: pod JSON-RPC API
 layout: blank
 
-url: /reference/json-rpc
+url: /json-rpc
 
 toc:
   general-rpc-api: RPC-API

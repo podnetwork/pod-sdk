@@ -78,7 +78,7 @@ contract Voting {
     /// @param proposalId The proposal ID to vote in
     /// @param choice The choice of the voter.
     function castVote(bytes32 proposalId, uint8 choice) public {
-        // adds vote only if: deadline hasnt passed, voter is registered
+        // adds vote only if: deadline hasn't passed, voter is registered
         Proposal storage proposal = proposals[proposalId];
         requireTimeBefore(proposal.deadline, "Proposal deadline has passed or proposal does not exist");
 
