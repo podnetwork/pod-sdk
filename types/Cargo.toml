@@ -22,6 +22,11 @@ arbitrary = [
   "dep:arbitrary",
 ]
 
+[package.metadata.cargo-shear]
+ignored = [
+  "pod-types", # self-depend for tests to enable the arbitrary feature
+]
+
 [dependencies]
 alloy-consensus = { version = "0.12.1", features = [
   "serde",

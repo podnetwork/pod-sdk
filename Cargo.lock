@@ -2816,9 +2816,18 @@ dependencies = [
  "futures",
  "hex",
  "humantime",
+ "notary-bindings",
  "pod-sdk",
  "pod-types",
  "tokio",
+]
+
+[[package]]
+name = "notary-bindings"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "serde",
 ]
 
 [[package]]
@@ -4832,7 +4841,6 @@ dependencies = [
  "clap",
  "futures",
  "hex",
- "humantime",
  "pod-sdk",
  "pod-types",
  "tokio",

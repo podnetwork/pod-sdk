@@ -1,16 +1,17 @@
 pragma solidity ^0.8.25;
 
 import {FastTypes} from "pod-sdk/FastTypes.sol";
-import {requireTimeAfter, requireTimeBefore} from "pod-sdk/Time.sol";
+import {requireTimeAfter, requireTimeBefore, Time} from "pod-sdk/Time.sol";
 
 contract Voting {
     using FastTypes for FastTypes.AddressSet;
     using FastTypes for FastTypes.OwnedCounter;
     using FastTypes for FastTypes.SharedCounter;
+    using Time for Time.Timestamp;
 
     struct VotingInfo {
         uint256 threshold;
-        uint256 deadline;
+        Time.Timestamp deadline;
         uint256 nonce;
         address owner;
     }

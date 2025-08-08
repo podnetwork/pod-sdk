@@ -16,25 +16,46 @@ toc:
 
 # Solidity SDK Reference
 
-To install:
+The Solidity SDK is available at the pod-sdk [github repository](https://github.com/podnetwork/pod-sdk.git).
+
+For example, to install with forge use:
 
 ```bash
- $ forge soldeer install pod-sdk~0.1.3 --url https://github.com/podnetwork/pod-sdk/releases/download/v0.1.3/solidity-sdk-v0.1.3.zip
+ $ forge install podnetwork/pod-sdk
 ```
 
 ! anchor fast-types
 
 ## Fast types
 
-The `FastTypes` library provides order-independent data structures through precompiled contracts. All operations are designed to be commutative and safe under pod's consensus model.
+The `FastTypes` library provides coordination-free data structures through precompiled contracts. All operations are designed to be commutative and safe under pod's consensus model which avoids coordination between the validators.
 
-A smart contract written for pod must not depend on the order of transactions arriving to a validator, otherwise there may be inconsistencies between validators, which may lead to safety issues or a correct transaction to not be approved by the validators. However, if a smart contract is written to use only types from `FastTypes` as storage, then it is guaranteed to be safe and not depend on the order of transaction execution.
+A smart contract written for pod must not depend on the order of transactions arriving to a validator, otherwise there may be inconsistencies between validators, which may lead to safety issues or a correct transaction to not be approved. However, if a smart contract is written to use only types from `FastTypes` as storage, then it is guaranteed to be safe despite lack of coordination.
 
 To use the library, import the necessary types from `pod-sdk/FastTypes.sol`:
 
 ```solidity
 import {SharedCounter} from "pod-sdk/FastTypes.sol";
 ```
+
+---
+
+! anchor owned-counter
+
+### OwnedCounter
+
+A collection of owned `uint256` values. It can be considered as one `bytes32 => uint256` mapping for each transaction sender. Functions revert if a sender is trying to manipulate the value owned by another address.
+
+**Functions**
+
+ * **set(address owner, bytes32 key, uint256 value)**: Set counter to `value`. Ignores previous values.
+ * **increment(address owner, bytes32 key, uint256 value)**: Increment counter owned by `owner`, by `value`.
+ * **decrement(address owner, bytes32 key, uint256 value)**: Decrement counter owned by `owner` by `value`.
+ * **get(address owner, bytes32 key)**: Retrieve value of counter.
+
+All functions revert if `tx.origin` does not equal `owner`. The `key` allows for every owner to have multiple values. The same key on different owners refers to different values.
+
+**Why is OwnedCounter coordination-free?** If two transactions were sent by different users then they cannot access the same key, and if they were sent by the same user they are already ordered by the account nonce.
 
 ---
 
@@ -49,22 +70,7 @@ Shared monotonically increasing values that support increment and threshold chec
  * **increment(bytes32 key, uint256 value)**: Increase counter named `key` by `value`.
  * **requireGte(bytes32 key, uint256 value, string errorMessage)**: Revert if counter named `key` is less than `value`.
 
----
-
-! anchor owned-counter
-
-### OwnedCounter
-
-A collection of owned `uint256` values. Functions revert if a sender is trying to manipulate the value owned by another address.
-
-**Functions**
-
- * **set(address owner, bytes32 key, uint256 value)**: Set counter to `value`. Ignores previous values.
- * **increment(address owner, bytes32 key, uint256 value)**: Increment counter owned by `owner`, by `value`.
- * **decrement(address owner, bytes32 key, uint256 value)**: Decrement counter owned by `owner` by `value`.
- * **get(address owner, bytes32 key)**: Retrieve value of counter.
-
-All functions revert if `tx.origin` does not equal `owner`. The `key` allows for every owner to have multiple values. The same key on different owners refers to different values.
+**Why is SharedCounter coordination-free?** While the SharedCounter allows transactions by different users to affect the same memory, it does not matter in which order the increments happen: if `reguireGte` is true for one validator it will remain true forever and will eventually be true for all other validators as well. Importantly, the shared counter does *not* allow decreasing the counter, or checking if it is smaller than some value (eg. reguireLte), because both would violate this principle.
 
 ---
 
@@ -82,6 +88,8 @@ A collection of `uint256` values, where every sender can decrement (spend) his v
 
 See [Tokens](/examples/tokens) or [NFTs](/examples/nfts) for examples using the `Balance` type.
 
+**Why is Balance coordination-free?** It is essentially a combination of SharedCounter and OwnedCounter.
+
 ---
 
 ! anchor uint256-set
@@ -96,6 +104,8 @@ Shared collection of uint256 values.
  * **requireExists(uint256 value, string error)** Revert if `value` not in the set.
  * **requireLengthGte(uint256 length, string error)** Revert if size of set less than `length`.
  * **requireMaxValueGte(uint256 value, string error)** Revert if maximum value in set less than `value`.
+
+**Why is Uint256Set coordination-free?** A set with `add` and `exists` operations is the most typical CRDT operation. It does not matter in which order elements are added to a set. However, removing elements is non-monotonic and requires coordination. Instead, deletion can be implemented by having a second set, the set of all deleted values.
 
 ---
 
