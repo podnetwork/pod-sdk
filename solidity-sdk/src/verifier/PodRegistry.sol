@@ -50,10 +50,12 @@ contract PodRegistry is IPodRegistry, Ownable {
     mapping(address => uint8) public validatorIndex;
     mapping(address => bool) public bannedValidators;
 
-    uint8 public nextValidatorIndex;
     uint256 public activeValidatorBitmap;
+    uint8 public nextValidatorIndex;
 
     constructor(address[] memory initialValidators) Ownable(msg.sender) {
+        require(initialValidators.length <= MAX_VALIDATOR_COUNT, "pod: validator count exceeds max allowed");
+
         for (uint8 i = 0; i < initialValidators.length; i++) {
             _addValidator(initialValidators[i]);
         }
@@ -72,7 +74,8 @@ contract PodRegistry is IPodRegistry, Ownable {
         require(nextValidatorIndex < MAX_VALIDATOR_COUNT, "pod: max validator count reached");
         uint8 index = ++nextValidatorIndex;
         validatorIndex[validator] = index;
-        activeValidatorBitmap |= (1 << (index - 1));
+        uint256 mask = 1 << (index - 1);
+        activeValidatorBitmap |= mask;
         emit ValidatorAdded(validator);
     }
 
@@ -87,9 +90,7 @@ contract PodRegistry is IPodRegistry, Ownable {
         require(!bannedValidators[validator], "pod: validator is already banned");
 
         uint256 mask = 1 << (index - 1);
-        if ((activeValidatorBitmap & mask) != 0) {
-            activeValidatorBitmap &= ~mask;
-        }
+        activeValidatorBitmap &= ~mask;
 
         bannedValidators[validator] = true;
         emit ValidatorBanned(validator);
@@ -149,10 +150,9 @@ contract PodRegistry is IPodRegistry, Ownable {
             "pod: snapshot too old"
         );
 
-        uint256 bitmap = snapshot.bitmap;
         uint256 counted = 0;
 
-        for (uint8 i = 0; i < subset.length; i++) {
+        for (uint256 i = 0; i < subset.length; i++) {
             uint8 index = validatorIndex[subset[i]];
 
             if (index == 0) {
@@ -160,7 +160,7 @@ contract PodRegistry is IPodRegistry, Ownable {
             }
 
             uint256 mask = 1 << (index - 1);
-            if ((bitmap & mask) != 0 && (counted & mask) == 0) {
+            if ((snapshot.bitmap & mask) != 0 && (counted & mask) == 0) {
                 counted |= mask;
                 weight++;
             }
