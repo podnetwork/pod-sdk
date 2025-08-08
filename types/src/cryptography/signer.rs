@@ -1,7 +1,7 @@
 use alloy_consensus::{
     SignableTransaction, TxEip1559, serde_bincode_compat, transaction::RlpEcdsaEncodableTx,
 };
-use alloy_primitives::{PrimitiveSignature, SignatureError};
+use alloy_primitives::{Signature, SignatureError};
 use alloy_sol_types::SolValue;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::serde_as;
@@ -18,8 +18,8 @@ pub trait TxSigner {
 
 impl<S> TxSigner for S
 where
-    S: alloy_signer::SignerSync<PrimitiveSignature>,
-    S: alloy_signer::Signer<PrimitiveSignature>,
+    S: alloy_signer::SignerSync<Signature>,
+    S: alloy_signer::Signer<Signature>,
 {
     fn sign_tx(&self, tx: Transaction) -> Result<Signed<Transaction>, alloy_signer::Error> {
         let signature = self.sign_hash_sync(&tx.signature_hash())?;
@@ -42,21 +42,21 @@ where
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signed<T> {
     pub signed: T,
-    pub signature: PrimitiveSignature,
+    pub signature: Signature,
     pub signer: Address,
     pub hash: OnceLock<Hash>,
 }
 
 impl<T> Signed<T>
 where
-    T: SignableTransaction<PrimitiveSignature>,
+    T: SignableTransaction<Signature>,
 {
     /// Creates a new `Signed<T>` with the given `signed`, `signature`, and `signer`.
     ///
     /// # Safety
     /// The caller must ensure that the `signer` is the correct address that corresponds to the
     /// `signature`
-    pub unsafe fn new_unchecked(signed: T, signature: PrimitiveSignature, signer: Address) -> Self {
+    pub unsafe fn new_unchecked(signed: T, signature: Signature, signer: Address) -> Self {
         debug_assert_eq!(
             signer,
             signature
@@ -83,7 +83,7 @@ impl Serialize for Signed<Transaction> {
         struct Helper<'a> {
             #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
             signed: &'a Transaction,
-            signature: &'a PrimitiveSignature,
+            signature: &'a Signature,
         }
 
         Helper {
@@ -104,7 +104,7 @@ impl<'de> Deserialize<'de> for Signed<Transaction> {
         struct Helper {
             #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
             signed: Transaction,
-            signature: PrimitiveSignature,
+            signature: Signature,
         }
         let Helper { signed, signature } = Helper::deserialize(deserializer)?;
 
@@ -139,7 +139,7 @@ impl<T: RlpEcdsaEncodableTx> Hashable for Signed<T> {
     }
 }
 
-impl TryFrom<alloy_consensus::Signed<TxEip1559, PrimitiveSignature>> for Signed<Transaction> {
+impl TryFrom<alloy_consensus::Signed<TxEip1559, Signature>> for Signed<Transaction> {
     type Error = SignatureError;
 
     fn try_from(value: alloy_consensus::Signed<TxEip1559>) -> Result<Self, Self::Error> {
@@ -162,7 +162,7 @@ impl<T: Merkleizable + Hashable> Merkleizable for Signed<T> {
 }
 
 #[cfg(feature = "arbitrary")]
-impl<'a, T: arbitrary::Arbitrary<'a> + Hashable + SignableTransaction<PrimitiveSignature>>
+impl<'a, T: arbitrary::Arbitrary<'a> + Hashable + SignableTransaction<Signature>>
     arbitrary::Arbitrary<'a> for Signed<T>
 {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {

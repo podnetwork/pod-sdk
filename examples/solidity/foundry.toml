@@ -3,13 +3,13 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc = "0.8.28"
-evm_version = "berlin"
+evm_version = "prague"
 bytecode_hash = "none"
 cbor_metadata = false
 remappings = [
     "pod-sdk/=../../solidity-sdk/src/",
     "pod-sdk-scripts/=../../solidity-sdk/script/",
-    "optimistic-auction/=../optimistic-auction/contracts/"
+    "optimistic-auction/=../optimistic-auction/contracts/",
 ]
 allow_paths = ["../../solidity-sdk", "../optimistic-auction"]
 

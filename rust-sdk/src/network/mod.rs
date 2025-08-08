@@ -5,7 +5,7 @@ use alloy_network::{
     TransactionBuilderError,
 };
 use alloy_primitives::{
-    Address, BlockHash, Bytes, ChainId, Log, PrimitiveSignature, TxHash, TxKind, B256, U256,
+    Address, BlockHash, Bytes, ChainId, Log, Signature, TxHash, TxKind, B256, U256,
 };
 use alloy_provider::fillers::{
     ChainIdFiller, GasFiller, JoinFill, NonceFiller, RecommendedFillers,
@@ -83,6 +83,10 @@ impl TransactionBuilder<PodNetwork> for PodTransactionRequest {
 
     fn set_nonce(&mut self, nonce: u64) {
         self.nonce = Some(nonce);
+    }
+
+    fn take_nonce(&mut self) -> Option<u64> {
+        self.nonce.take()
     }
 
     fn input(&self) -> Option<&Bytes> {
@@ -286,7 +290,7 @@ impl ReceiptResponse for PodReceiptResponse {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AttestationData {
     pub public_key: Address,
-    pub signature: PrimitiveSignature,
+    pub signature: Signature,
     pub timestamp: Timestamp,
 }
 
