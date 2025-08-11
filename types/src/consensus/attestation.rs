@@ -3,8 +3,7 @@ use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Receipt, Signed, Timestamp, Transaction,
-    cryptography::hash::{Hash, Hashable},
+    Receipt, Signed, Timestamp, Transaction, cryptography::Hash, cryptography::hash::Hashable,
 };
 
 pub type TransactionAttestation = Attestation<Signed<Transaction>>;
@@ -122,8 +121,8 @@ impl From<Indexed<Attestation<Receipt>>> for TimestampedHeadlessAttestation {
     }
 }
 
-impl From<Indexed<Attestation<Signed<Transaction>>>> for TimestampedHeadlessAttestation {
-    fn from(indexed: Indexed<Attestation<Signed<Transaction>>>) -> Self {
+impl From<Indexed<Attestation<Hash>>> for TimestampedHeadlessAttestation {
+    fn from(indexed: Indexed<Attestation<Hash>>) -> Self {
         Self {
             timestamp: indexed.index,
             public_key: indexed.value.public_key,

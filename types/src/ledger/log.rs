@@ -6,11 +6,8 @@ use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Certificate, Committee, Timestamp,
-    consensus::{
-        attestation::{HeadlessAttestation, Indexed},
-        committee::CommitteeError,
-    },
+    Certificate, Committee, Signed, Timestamp, Transaction,
+    consensus::{attestation::TimestampedHeadlessAttestation, committee::CommitteeError},
     cryptography::{
         Hash, MerkleMultiProof, Merkleizable,
         hash::Hashable,
@@ -40,8 +37,8 @@ pub fn to_rpc_format(inner_log: Log, tx_hash: Hash) -> RPCLog {
 pub struct Event {
     pub log: Log,
     pub log_index: u64,
-    pub tx_hash: Hash,
-    pub attestations: Vec<Indexed<HeadlessAttestation>>,
+    pub tx: Signed<Transaction>,
+    pub attestations: Vec<TimestampedHeadlessAttestation>,
     pub receipt: Receipt,
 }
 
@@ -141,10 +138,10 @@ impl Deref for VerifiableLog {
 #[cfg(test)]
 mod test {
     use super::*;
-    use alloy_primitives::{Log, LogData, TxKind, U256};
+    use alloy_primitives::{Address, Log, LogData, TxKind, U256};
     use alloy_signer_local::PrivateKeySigner;
 
-    use crate::{Hashable, Merkleizable, Transaction, TxSigner};
+    use crate::{Hashable, Merkleizable, Transaction};
 
     #[tokio::test]
     async fn test_verifiable_log_hash_proof() {
@@ -173,13 +170,12 @@ mod test {
             ),
         };
 
+        let to: Address = "0x217f5658c6ecc27d439922263ad9bb8e992e0373"
+            .parse()
+            .unwrap();
         let transaction = Transaction {
             chain_id: 0x50d,
-            to: TxKind::Call(
-                "0x217f5658c6ecc27d439922263ad9bb8e992e0373"
-                    .parse()
-                    .unwrap(),
-            ),
+            to: TxKind::Call(to.clone()),
             nonce: 0,
             gas_limit: 22048,
             max_fee_per_gas: 1000000000,
@@ -222,9 +218,12 @@ mod test {
                 receipt: Receipt {
                     status: true,
                     actual_gas_used: 21784,
+                    max_fee_per_gas: transaction.max_fee_per_gas,
                     logs: logs.clone(),
                     logs_root,
-                    tx: signer.sign_tx(transaction).unwrap(),
+                    tx_hash: transaction.hash_custom(),
+                    signer: signer.address(),
+                    to: Some(to),
                     contract_address: None,
                 },
             },

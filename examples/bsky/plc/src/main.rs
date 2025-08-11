@@ -267,7 +267,7 @@ async fn create_plc(
 
     let committee = state.provider.get_committee().await.unwrap();
     receipt
-        .verify(&committee)
+        .verify_receipt(&committee)
         .expect("Receipt verification failed");
 
     Ok(Json(json!({

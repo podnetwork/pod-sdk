@@ -32,7 +32,7 @@ enum Commands {
     Vote {
         /// The auction ID
         auction_id: U256,
-        /// The deadline timestamp in seconds
+        /// The deadline timestamp in microseconds
         deadline: u64,
         /// The bid value in wei
         #[arg(long)]
@@ -48,7 +48,7 @@ enum Commands {
     Watch {
         /// The auction ID
         auction_id: U256,
-        /// The deadline timestamp
+        /// The deadline timestamp in microseconds
         deadline: u64,
     },
 }
@@ -89,7 +89,7 @@ async fn vote(
     // Validate deadline
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)?
-        .as_secs();
+        .as_micros() as u64;
     if deadline <= now {
         return Err(anyhow::anyhow!("Deadline must be in the future"));
     }
@@ -112,7 +112,7 @@ async fn vote(
     // Submit bid
     println!("Submitting bid for auction {auction_id}...");
     let pending_tx = auction
-        .submitBid(auction_id, U256::from(deadline), value, data)
+        .submitBid(auction_id, deadline, value, data)
         .send()
         .await?;
 
@@ -141,7 +141,7 @@ async fn vote(
     let committee = pod_provider.get_committee().await?;
 
     // Verify receipt
-    if receipt.verify(&committee).is_ok() {
+    if receipt.verify_receipt(&committee).is_ok() {
         println!("\nReceipt verified by committee!");
         println!("Attestations:");
         for attestation in &receipt.pod_metadata.attestations {
@@ -160,7 +160,7 @@ async fn watch(auction_id: U256, deadline: u64, rpc_url: String) -> Result<()> {
     // Validate deadline
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)?
-        .as_secs();
+        .as_micros() as u64;
     if deadline <= now {
         return Err(anyhow::anyhow!("Deadline must be in the future"));
     }
@@ -226,7 +226,7 @@ async fn watch(auction_id: U256, deadline: u64, rpc_url: String) -> Result<()> {
     let mut deadline_handle = tokio::spawn(async move {
         println!("\nWaiting for auction deadline...");
         provider_clone
-            .wait_past_perfect_time(Timestamp::from_seconds(deadline))
+            .wait_past_perfect_time(Timestamp::from_micros(deadline as u128))
             .await?;
         println!("\n\n**Auction deadline reached!**\n\n");
         Ok::<_, anyhow::Error>(())

@@ -1,11 +1,284 @@
+///Module containing a contract's types and functions.
+/**
+
+```solidity
+library Time {
+    type Timestamp is uint64;
+}
+```*/
+#[allow(
+    non_camel_case_types,
+    non_snake_case,
+    clippy::pub_underscore_fields,
+    clippy::style,
+    clippy::empty_structs_with_brackets
+)]
+pub mod Time {
+    use super::*;
+    use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct Timestamp(u64);
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::private::SolTypeValue<Timestamp> for u64 {
+            #[inline]
+            fn stv_to_tokens(
+                &self,
+            ) -> <alloy::sol_types::sol_data::Uint<
+                64,
+            > as alloy_sol_types::SolType>::Token<'_> {
+                alloy_sol_types::private::SolTypeValue::<
+                    alloy::sol_types::sol_data::Uint<64>,
+                >::stv_to_tokens(self)
+            }
+            #[inline]
+            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::tokenize(self)
+                    .0
+            }
+            #[inline]
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::abi_encode_packed_to(self, out)
+            }
+            #[inline]
+            fn stv_abi_packed_encoded_size(&self) -> usize {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::abi_encoded_size(self)
+            }
+        }
+        #[automatically_derived]
+        impl Timestamp {
+            /// The Solidity type name.
+            pub const NAME: &'static str = stringify!(@ name);
+            /// Convert from the underlying value type.
+            #[inline]
+            pub const fn from(value: u64) -> Self {
+                Self(value)
+            }
+            /// Return the underlying value.
+            #[inline]
+            pub const fn into(self) -> u64 {
+                self.0
+            }
+            /// Return the single encoding of this value, delegating to the
+            /// underlying type.
+            #[inline]
+            pub fn abi_encode(&self) -> alloy_sol_types::private::Vec<u8> {
+                <Self as alloy_sol_types::SolType>::abi_encode(&self.0)
+            }
+            /// Return the packed encoding of this value, delegating to the
+            /// underlying type.
+            #[inline]
+            pub fn abi_encode_packed(&self) -> alloy_sol_types::private::Vec<u8> {
+                <Self as alloy_sol_types::SolType>::abi_encode_packed(&self.0)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolType for Timestamp {
+            type RustType = u64;
+            type Token<'a> = <alloy::sol_types::sol_data::Uint<
+                64,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SOL_NAME: &'static str = Self::NAME;
+            const ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                64,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                64,
+            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            #[inline]
+            fn valid_token(token: &Self::Token<'_>) -> bool {
+                Self::type_check(token).is_ok()
+            }
+            #[inline]
+            fn type_check(token: &Self::Token<'_>) -> alloy_sol_types::Result<()> {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::type_check(token)
+            }
+            #[inline]
+            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::detokenize(token)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::EventTopic for Timestamp {
+            #[inline]
+            fn topic_preimage_length(rust: &Self::RustType) -> usize {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::topic_preimage_length(rust)
+            }
+            #[inline]
+            fn encode_topic_preimage(
+                rust: &Self::RustType,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, out)
+            }
+            #[inline]
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(rust)
+            }
+        }
+    };
+    use alloy::contract as alloy_contract;
+    /**Creates a new wrapper around an on-chain [`Time`](self) contract instance.
+
+See the [wrapper's documentation](`TimeInstance`) for more details.*/
+    #[inline]
+    pub const fn new<
+        T: alloy_contract::private::Transport + ::core::clone::Clone,
+        P: alloy_contract::private::Provider<T, N>,
+        N: alloy_contract::private::Network,
+    >(address: alloy_sol_types::private::Address, provider: P) -> TimeInstance<T, P, N> {
+        TimeInstance::<T, P, N>::new(address, provider)
+    }
+    /**A [`Time`](self) instance.
+
+Contains type-safe methods for interacting with an on-chain instance of the
+[`Time`](self) contract located at a given `address`, using a given
+provider `P`.
+
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
+
+See the [module-level documentation](self) for all the available methods.*/
+    #[derive(Clone)]
+    pub struct TimeInstance<T, P, N = alloy_contract::private::Ethereum> {
+        address: alloy_sol_types::private::Address,
+        provider: P,
+        _network_transport: ::core::marker::PhantomData<(N, T)>,
+    }
+    #[automatically_derived]
+    impl<T, P, N> ::core::fmt::Debug for TimeInstance<T, P, N> {
+        #[inline]
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_tuple("TimeInstance").field(&self.address).finish()
+        }
+    }
+    /// Instantiation and getters/setters.
+    #[automatically_derived]
+    impl<
+        T: alloy_contract::private::Transport + ::core::clone::Clone,
+        P: alloy_contract::private::Provider<T, N>,
+        N: alloy_contract::private::Network,
+    > TimeInstance<T, P, N> {
+        /**Creates a new wrapper around an on-chain [`Time`](self) contract instance.
+
+See the [wrapper's documentation](`TimeInstance`) for more details.*/
+        #[inline]
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            provider: P,
+        ) -> Self {
+            Self {
+                address,
+                provider,
+                _network_transport: ::core::marker::PhantomData,
+            }
+        }
+        /// Returns a reference to the address.
+        #[inline]
+        pub const fn address(&self) -> &alloy_sol_types::private::Address {
+            &self.address
+        }
+        /// Sets the address.
+        #[inline]
+        pub fn set_address(&mut self, address: alloy_sol_types::private::Address) {
+            self.address = address;
+        }
+        /// Sets the address and returns `self`.
+        pub fn at(mut self, address: alloy_sol_types::private::Address) -> Self {
+            self.set_address(address);
+            self
+        }
+        /// Returns a reference to the provider.
+        #[inline]
+        pub const fn provider(&self) -> &P {
+            &self.provider
+        }
+    }
+    impl<T, P: ::core::clone::Clone, N> TimeInstance<T, &P, N> {
+        /// Clones the provider and returns a new instance with the cloned provider.
+        #[inline]
+        pub fn with_cloned_provider(self) -> TimeInstance<T, P, N> {
+            TimeInstance {
+                address: self.address,
+                provider: ::core::clone::Clone::clone(&self.provider),
+                _network_transport: ::core::marker::PhantomData,
+            }
+        }
+    }
+    /// Function calls.
+    #[automatically_derived]
+    impl<
+        T: alloy_contract::private::Transport + ::core::clone::Clone,
+        P: alloy_contract::private::Provider<T, N>,
+        N: alloy_contract::private::Network,
+    > TimeInstance<T, P, N> {
+        /// Creates a new call builder using this contract instance's provider and address.
+        ///
+        /// Note that the call can be any function call, not just those defined in this
+        /// contract. Prefer using the other methods for building type-safe contract calls.
+        pub fn call_builder<C: alloy_sol_types::SolCall>(
+            &self,
+            call: &C,
+        ) -> alloy_contract::SolCallBuilder<T, &P, C, N> {
+            alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
+        }
+    }
+    /// Event filters.
+    #[automatically_derived]
+    impl<
+        T: alloy_contract::private::Transport + ::core::clone::Clone,
+        P: alloy_contract::private::Provider<T, N>,
+        N: alloy_contract::private::Network,
+    > TimeInstance<T, P, N> {
+        /// Creates a new event filter using this contract instance's provider and address.
+        ///
+        /// Note that the type can be any event, not just those defined in this contract.
+        /// Prefer using the other methods for building type-safe event filters.
+        pub fn event_filter<E: alloy_sol_types::SolEvent>(
+            &self,
+        ) -> alloy_contract::Event<T, &P, E, N> {
+            alloy_contract::Event::new_sol(&self.provider, &self.address)
+        }
+    }
+}
 /**
 
 Generated by the following Solidity interface...
 ```solidity
+library Time {
+    type Timestamp is uint64;
+}
+
 interface Voting {
     struct VotingInfo {
         uint256 threshold;
-        uint256 deadline;
+        Time.Timestamp deadline;
         uint256 nonce;
         address owner;
     }
@@ -39,8 +312,8 @@ interface Voting {
           },
           {
             "name": "deadline",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint64",
+            "internalType": "Time.Timestamp"
           },
           {
             "name": "nonce",
@@ -74,8 +347,8 @@ interface Voting {
           },
           {
             "name": "deadline",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint64",
+            "internalType": "Time.Timestamp"
           },
           {
             "name": "nonce",
@@ -114,8 +387,8 @@ interface Voting {
           },
           {
             "name": "deadline",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint64",
+            "internalType": "Time.Timestamp"
           },
           {
             "name": "nonce",
@@ -154,8 +427,8 @@ interface Voting {
           },
           {
             "name": "deadline",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint64",
+            "internalType": "Time.Timestamp"
           },
           {
             "name": "nonce",
@@ -238,27 +511,27 @@ pub mod Voting {
     /// The creation / init bytecode of the contract.
     ///
     /// ```text
-    ///0x6080604052348015600f57600080fd5b50610cf38061001f6000396000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c8063152d18c41461005157806339db66591461006d5780638f253c751461009d5780639747a952146100b9575b600080fd5b61006b600480360381019061006691906107db565b6100d5565b005b6100876004803603810190610082919061081b565b61023a565b6040516100949190610861565b60405180910390f35b6100b760048036038101906100b2919061081b565b61026a565b005b6100d360048036038101906100ce91906107db565b6102cb565b005b61011882602001356040518060400160405280601a81526020017f43616e6e6f7420766f746520616674657220646561646c696e65000000000000815250610393565b60006101238361023a565b9050610170336040518060400160405280601d81526020017f43616e6e6f7420766f7465206966206e6f74207265676973746572656400000081525060006103a39092919063ffffffff16565b6000610188823360026103cf9092919063ffffffff16565b1461019257600080fd5b6101ab81336001600261049b909392919063ffffffff16565b600081836040516020016101c092919061088b565b6040516020818303038152906040528051906020012090506101ef81600160036105669092919063ffffffff16565b823373ffffffffffffffffffffffffffffffffffffffff16837fe4abc5380fa6939d1dc23b5e90b3a8a0e328f0f1a82a5f42bfb795bf9c71750560405160405180910390a450505050565b60008160405160200161024d91906109d3565b604051602081830303815290604052805190602001209050919050565b80606001602081019061027d91906109ee565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146102b457600080fd5b6102c833600061059790919063ffffffff16565b50565b6102f18260200135604051806060016040528060248152602001610c9f602491396105c1565b60006102fc8361023a565b90506000818360405160200161031392919061088b565b60405160208183030381529060405280519060200120905061035f818560000135604051806060016040528060308152602001610cc36030913960036105d1909392919063ffffffff16565b82827f269d3a24712436f77df15d63de7d2337a060c9102dee6f46c909fb0fa2d52f0c60405160405180910390a350505050565b61039f824210826105f9565b5050565b6103ca836000018373ffffffffffffffffffffffffffffffffffffffff1660001b836106ef565b505050565b60003273ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff161461043f576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161043690610a9e565b60405180910390fd5b83600001600084815260200190815260200160002060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000205490509392505050565b3273ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff1614610509576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161050090610a9e565b60405180910390fd5b8084600001600085815260200190815260200160002060008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000208190555050505050565b80836000016000848152602001908152602001600020600082825461058b9190610aed565b92505081905550505050565b6105bd826000018273ffffffffffffffffffffffffffffffffffffffff1660001b610716565b5050565b6105cd824211826105f9565b5050565b6105f382856000016000868152602001908152602001600020541015826105f9565b50505050565b60007f3dcdf63b41c103567d7225976ad9145e866c7a7dccc6c277ea86abbd268fbac960001c73ffffffffffffffffffffffffffffffffffffffff16836040516020016106469190610b3c565b6040516020818303038152906040526040516106629190610bc8565b600060405180830381855afa9150503d806000811461069d576040519150601f19603f3d011682016040523d82523d6000602084013e6106a2565b606091505b505090508082906106e9576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016106e09190610c34565b60405180910390fd5b50505050565b61071160008460000160008581526020019081526020016000205411826105f9565b505050565b6000826000016000838152602001908152602001600020540361077857600182600101546107449190610aed565b8260000160008381526020019081526020016000208190555081600101600081548092919061077290610c56565b91905055505b5050565b600080fd5b600080fd5b60006080828403121561079c5761079b610781565b5b81905092915050565b6000819050919050565b6107b8816107a5565b81146107c357600080fd5b50565b6000813590506107d5816107af565b92915050565b60008060a083850312156107f2576107f161077c565b5b600061080085828601610786565b9250506080610811858286016107c6565b9150509250929050565b6000608082840312156108315761083061077c565b5b600061083f84828501610786565b91505092915050565b6000819050919050565b61085b81610848565b82525050565b60006020820190506108766000830184610852565b92915050565b610885816107a5565b82525050565b60006040820190506108a06000830185610852565b6108ad602083018461087c565b9392505050565b60006108c360208401846107c6565b905092915050565b6108d4816107a5565b82525050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000610905826108da565b9050919050565b610915816108fa565b811461092057600080fd5b50565b6000813590506109328161090c565b92915050565b60006109476020840184610923565b905092915050565b610958816108fa565b82525050565b6080820161096f60008301836108b4565b61097c60008501826108cb565b5061098a60208301836108b4565b61099760208501826108cb565b506109a560408301836108b4565b6109b260408501826108cb565b506109c06060830183610938565b6109cd606085018261094f565b50505050565b60006080820190506109e8600083018461095e565b92915050565b600060208284031215610a0457610a0361077c565b5b6000610a1284828501610923565b91505092915050565b600082825260208201905092915050565b7f43616e6e6f7420616363657373204f776e6564436f756e746572206f776e656460008201527f20627920616e6f74686572206164647265737300000000000000000000000000602082015250565b6000610a88603383610a1b565b9150610a9382610a2c565b604082019050919050565b60006020820190508181036000830152610ab781610a7b565b9050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b6000610af8826107a5565b9150610b03836107a5565b9250828201905080821115610b1b57610b1a610abe565b5b92915050565b60008115159050919050565b610b3681610b21565b82525050565b6000602082019050610b516000830184610b2d565b92915050565b600081519050919050565b600081905092915050565b60005b83811015610b8b578082015181840152602081019050610b70565b60008484015250505050565b6000610ba282610b57565b610bac8185610b62565b9350610bbc818560208601610b6d565b80840191505092915050565b6000610bd48284610b97565b915081905092915050565b600081519050919050565b6000601f19601f8301169050919050565b6000610c0682610bdf565b610c108185610a1b565b9350610c20818560208601610b6d565b610c2981610bea565b840191505092915050565b60006020820190508181036000830152610c4e8184610bfb565b905092915050565b6000610c61826107a5565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610c9357610c92610abe565b5b60018201905091905056fe43616e6e6f74206465636964652077696e6e6572206265666f726520646561646c696e6543616e6e6f74207365742077696e6e65722077697468206c65737320766f746573207468616e207468726573686f6c64
+    ///0x6080604052348015600f57600080fd5b506110f38061001f6000396000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c806324c6e3c414610051578063995d5d9114610081578063a7d4c4731461009d578063e8021822146100b9575b600080fd5b61006b6004803603810190610066919061097a565b6100d5565b60405161007891906109c0565b60405180910390f35b61009b6004803603810190610096919061097a565b610105565b005b6100b760048036038101906100b29190610a11565b610166565b005b6100d360048036038101906100ce9190610a11565b6102d9565b005b6000816040516020016100e89190610c02565b604051602081830303815290604052805190602001209050919050565b8060600160208101906101189190610c1d565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161461014f57600080fd5b6101633360006103af90919063ffffffff16565b50565b6101b782602001602081019061017c9190610c4a565b6040518060400160405280601a81526020017f43616e6e6f7420766f746520616674657220646561646c696e650000000000008152506103d9565b60006101c2836100d5565b905061020f336040518060400160405280601d81526020017f43616e6e6f7420766f7465206966206e6f742072656769737465726564000000815250600061040a9092919063ffffffff16565b6000610227823360026104369092919063ffffffff16565b1461023157600080fd5b61024a813360016002610502909392919063ffffffff16565b6000818360405160200161025f929190610c86565b60405160208183030381529060405280519060200120905061028e81600160036105cd9092919063ffffffff16565b823373ffffffffffffffffffffffffffffffffffffffff16837fe4abc5380fa6939d1dc23b5e90b3a8a0e328f0f1a82a5f42bfb795bf9c71750560405160405180910390a450505050565b61030d8260200160208101906102ef9190610c4a565b60405180606001604052806024815260200161109f602491396105fe565b6000610318836100d5565b90506000818360405160200161032f929190610c86565b60405160208183030381529060405280519060200120905061037b8185600001356040518060600160405280603081526020016110c360309139600361062f909392919063ffffffff16565b82827f269d3a24712436f77df15d63de7d2337a060c9102dee6f46c909fb0fa2d52f0c60405160405180910390a350505050565b6103d5826000018273ffffffffffffffffffffffffffffffffffffffff1660001b610657565b5050565b610406610400836103e86106bd565b67ffffffffffffffff166107f290919063ffffffff16565b82610813565b5050565b610431836000018373ffffffffffffffffffffffffffffffffffffffff1660001b83610909565b505050565b60003273ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff16146104a6576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161049d90610d32565b60405180910390fd5b83600001600084815260200190815260200160002060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000205490509392505050565b3273ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff1614610570576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161056790610d32565b60405180910390fd5b8084600001600085815260200190815260200160002060008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000208190555050505050565b8083600001600084815260200190815260200160002060008282546105f29190610d81565b92505081905550505050565b61062b6106258361060d6106bd565b67ffffffffffffffff1661093090919063ffffffff16565b82610813565b5050565b6106518285600001600086815260200190815260200160002054101582610813565b50505050565b600082600001600083815260200190815260200160002054036106b957600182600101546106859190610d81565b826000016000838152602001908152602001600020819055508160010160008154809291906106b390610db5565b91905055505b5050565b60008060007fba286e4d89dabf4b2878e896423bb123d9d5143e662606fd343b6766d7bcf72160001c73ffffffffffffffffffffffffffffffffffffffff1660405161070890610e2e565b600060405180830381855afa9150503d8060008114610743576040519150601f19603f3d011682016040523d82523d6000602084013e610748565b606091505b50915091508161078d576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161078490610e8f565b60405180910390fd5b60208151146107d1576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016107c890610efb565b60405180910390fd5b6000818060200190518101906107e79190610f47565b905080935050505090565b60008167ffffffffffffffff168367ffffffffffffffff1610905092915050565b60007f3dcdf63b41c103567d7225976ad9145e866c7a7dccc6c277ea86abbd268fbac960001c73ffffffffffffffffffffffffffffffffffffffff16836040516020016108609190610f8f565b60405160208183030381529060405260405161087c9190611010565b600060405180830381855afa9150503d80600081146108b7576040519150601f19603f3d011682016040523d82523d6000602084013e6108bc565b606091505b50509050808290610903576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016108fa919061107c565b60405180910390fd5b50505050565b61092b6000846000016000858152602001908152602001600020541182610813565b505050565b60008167ffffffffffffffff168367ffffffffffffffff1611905092915050565b600080fd5b600080fd5b60006080828403121561097157610970610956565b5b81905092915050565b6000608082840312156109905761098f610951565b5b600061099e8482850161095b565b91505092915050565b6000819050919050565b6109ba816109a7565b82525050565b60006020820190506109d560008301846109b1565b92915050565b6000819050919050565b6109ee816109db565b81146109f957600080fd5b50565b600081359050610a0b816109e5565b92915050565b60008060a08385031215610a2857610a27610951565b5b6000610a368582860161095b565b9250506080610a47858286016109fc565b9150509250929050565b6000610a6060208401846109fc565b905092915050565b610a71816109db565b82525050565b600067ffffffffffffffff82169050919050565b610a9481610a77565b8114610a9f57600080fd5b50565b600081359050610ab181610a8b565b92915050565b6000610ac66020840184610aa2565b905092915050565b6000819050919050565b6000610af3610aee610ae984610a77565b610ace565b610a77565b9050919050565b610b0381610ad8565b82525050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000610b3482610b09565b9050919050565b610b4481610b29565b8114610b4f57600080fd5b50565b600081359050610b6181610b3b565b92915050565b6000610b766020840184610b52565b905092915050565b610b8781610b29565b82525050565b60808201610b9e6000830183610a51565b610bab6000850182610a68565b50610bb96020830183610ab7565b610bc66020850182610afa565b50610bd46040830183610a51565b610be16040850182610a68565b50610bef6060830183610b67565b610bfc6060850182610b7e565b50505050565b6000608082019050610c176000830184610b8d565b92915050565b600060208284031215610c3357610c32610951565b5b6000610c4184828501610b52565b91505092915050565b600060208284031215610c6057610c5f610951565b5b6000610c6e84828501610aa2565b91505092915050565b610c80816109db565b82525050565b6000604082019050610c9b60008301856109b1565b610ca86020830184610c77565b9392505050565b600082825260208201905092915050565b7f43616e6e6f7420616363657373204f776e6564436f756e746572206f776e656460008201527f20627920616e6f74686572206164647265737300000000000000000000000000602082015250565b6000610d1c603383610caf565b9150610d2782610cc0565b604082019050919050565b60006020820190508181036000830152610d4b81610d0f565b9050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b6000610d8c826109db565b9150610d97836109db565b9250828201905080821115610daf57610dae610d52565b5b92915050565b6000610dc0826109db565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610df257610df1610d52565b5b600182019050919050565b600081905092915050565b50565b6000610e18600083610dfd565b9150610e2382610e08565b600082019050919050565b6000610e3982610e0b565b9150819050919050565b7f507265636f6d70696c652063616c6c206661696c656400000000000000000000600082015250565b6000610e79601683610caf565b9150610e8482610e43565b602082019050919050565b60006020820190508181036000830152610ea881610e6c565b9050919050565b7f496e76616c6964206f7574707574206c656e6774680000000000000000000000600082015250565b6000610ee5601583610caf565b9150610ef082610eaf565b602082019050919050565b60006020820190508181036000830152610f1481610ed8565b9050919050565b610f2481610a77565b8114610f2f57600080fd5b50565b600081519050610f4181610f1b565b92915050565b600060208284031215610f5d57610f5c610951565b5b6000610f6b84828501610f32565b91505092915050565b60008115159050919050565b610f8981610f74565b82525050565b6000602082019050610fa46000830184610f80565b92915050565b600081519050919050565b60005b83811015610fd3578082015181840152602081019050610fb8565b60008484015250505050565b6000610fea82610faa565b610ff48185610dfd565b9350611004818560208601610fb5565b80840191505092915050565b600061101c8284610fdf565b915081905092915050565b600081519050919050565b6000601f19601f8301169050919050565b600061104e82611027565b6110588185610caf565b9350611068818560208601610fb5565b61107181611032565b840191505092915050565b600060208201905081810360008301526110968184611043565b90509291505056fe43616e6e6f74206465636964652077696e6e6572206265666f726520646561646c696e6543616e6e6f74207365742077696e6e65722077697468206c65737320766f746573207468616e207468726573686f6c64
     /// ```
     #[rustfmt::skip]
     #[allow(clippy::all)]
     pub static BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
-        b"`\x80`@R4\x80\x15`\x0FW`\0\x80\xFD[Pa\x0C\xF3\x80a\0\x1F`\09`\0\xF3\xFE`\x80`@R4\x80\x15a\0\x10W`\0\x80\xFD[P`\x046\x10a\0LW`\x005`\xE0\x1C\x80c\x15-\x18\xC4\x14a\0QW\x80c9\xDBfY\x14a\0mW\x80c\x8F%<u\x14a\0\x9DW\x80c\x97G\xA9R\x14a\0\xB9W[`\0\x80\xFD[a\0k`\x04\x806\x03\x81\x01\x90a\0f\x91\x90a\x07\xDBV[a\0\xD5V[\0[a\0\x87`\x04\x806\x03\x81\x01\x90a\0\x82\x91\x90a\x08\x1BV[a\x02:V[`@Qa\0\x94\x91\x90a\x08aV[`@Q\x80\x91\x03\x90\xF3[a\0\xB7`\x04\x806\x03\x81\x01\x90a\0\xB2\x91\x90a\x08\x1BV[a\x02jV[\0[a\0\xD3`\x04\x806\x03\x81\x01\x90a\0\xCE\x91\x90a\x07\xDBV[a\x02\xCBV[\0[a\x01\x18\x82` \x015`@Q\x80`@\x01`@R\x80`\x1A\x81R` \x01\x7FCannot vote after deadline\0\0\0\0\0\0\x81RPa\x03\x93V[`\0a\x01#\x83a\x02:V[\x90Pa\x01p3`@Q\x80`@\x01`@R\x80`\x1D\x81R` \x01\x7FCannot vote if not registered\0\0\0\x81RP`\0a\x03\xA3\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[`\0a\x01\x88\x823`\x02a\x03\xCF\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x14a\x01\x92W`\0\x80\xFD[a\x01\xAB\x813`\x01`\x02a\x04\x9B\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[`\0\x81\x83`@Q` \x01a\x01\xC0\x92\x91\x90a\x08\x8BV[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90Pa\x01\xEF\x81`\x01`\x03a\x05f\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x823s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83\x7F\xE4\xAB\xC58\x0F\xA6\x93\x9D\x1D\xC2;^\x90\xB3\xA8\xA0\xE3(\xF0\xF1\xA8*_B\xBF\xB7\x95\xBF\x9Cqu\x05`@Q`@Q\x80\x91\x03\x90\xA4PPPPV[`\0\x81`@Q` \x01a\x02M\x91\x90a\t\xD3V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90P\x91\x90PV[\x80``\x01` \x81\x01\x90a\x02}\x91\x90a\t\xEEV[s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x163s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x02\xB4W`\0\x80\xFD[a\x02\xC83`\0a\x05\x97\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[PV[a\x02\xF1\x82` \x015`@Q\x80``\x01`@R\x80`$\x81R` \x01a\x0C\x9F`$\x919a\x05\xC1V[`\0a\x02\xFC\x83a\x02:V[\x90P`\0\x81\x83`@Q` \x01a\x03\x13\x92\x91\x90a\x08\x8BV[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90Pa\x03_\x81\x85`\0\x015`@Q\x80``\x01`@R\x80`0\x81R` \x01a\x0C\xC3`0\x919`\x03a\x05\xD1\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x82\x82\x7F&\x9D:$q$6\xF7}\xF1]c\xDE}#7\xA0`\xC9\x10-\xEEoF\xC9\t\xFB\x0F\xA2\xD5/\x0C`@Q`@Q\x80\x91\x03\x90\xA3PPPPV[a\x03\x9F\x82B\x10\x82a\x05\xF9V[PPV[a\x03\xCA\x83`\0\x01\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`\0\x1B\x83a\x06\xEFV[PPPV[`\x002s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x04?W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x046\x90a\n\x9EV[`@Q\x80\x91\x03\x90\xFD[\x83`\0\x01`\0\x84\x81R` \x01\x90\x81R` \x01`\0 `\0\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 T\x90P\x93\x92PPPV[2s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x05\tW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x05\0\x90a\n\x9EV[`@Q\x80\x91\x03\x90\xFD[\x80\x84`\0\x01`\0\x85\x81R` \x01\x90\x81R` \x01`\0 `\0\x84s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 \x81\x90UPPPPPV[\x80\x83`\0\x01`\0\x84\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x82Ta\x05\x8B\x91\x90a\n\xEDV[\x92PP\x81\x90UPPPPV[a\x05\xBD\x82`\0\x01\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`\0\x1Ba\x07\x16V[PPV[a\x05\xCD\x82B\x11\x82a\x05\xF9V[PPV[a\x05\xF3\x82\x85`\0\x01`\0\x86\x81R` \x01\x90\x81R` \x01`\0 T\x10\x15\x82a\x05\xF9V[PPPPV[`\0\x7F=\xCD\xF6;A\xC1\x03V}r%\x97j\xD9\x14^\x86lz}\xCC\xC6\xC2w\xEA\x86\xAB\xBD&\x8F\xBA\xC9`\0\x1Cs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83`@Q` \x01a\x06F\x91\x90a\x0B<V[`@Q` \x81\x83\x03\x03\x81R\x90`@R`@Qa\x06b\x91\x90a\x0B\xC8V[`\0`@Q\x80\x83\x03\x81\x85Z\xFA\x91PP=\x80`\0\x81\x14a\x06\x9DW`@Q\x91P`\x1F\x19`?=\x01\x16\x82\x01`@R=\x82R=`\0` \x84\x01>a\x06\xA2V[``\x91P[PP\x90P\x80\x82\x90a\x06\xE9W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x06\xE0\x91\x90a\x0C4V[`@Q\x80\x91\x03\x90\xFD[PPPPV[a\x07\x11`\0\x84`\0\x01`\0\x85\x81R` \x01\x90\x81R` \x01`\0 T\x11\x82a\x05\xF9V[PPPV[`\0\x82`\0\x01`\0\x83\x81R` \x01\x90\x81R` \x01`\0 T\x03a\x07xW`\x01\x82`\x01\x01Ta\x07D\x91\x90a\n\xEDV[\x82`\0\x01`\0\x83\x81R` \x01\x90\x81R` \x01`\0 \x81\x90UP\x81`\x01\x01`\0\x81T\x80\x92\x91\x90a\x07r\x90a\x0CVV[\x91\x90PUP[PPV[`\0\x80\xFD[`\0\x80\xFD[`\0`\x80\x82\x84\x03\x12\x15a\x07\x9CWa\x07\x9Ba\x07\x81V[[\x81\x90P\x92\x91PPV[`\0\x81\x90P\x91\x90PV[a\x07\xB8\x81a\x07\xA5V[\x81\x14a\x07\xC3W`\0\x80\xFD[PV[`\0\x815\x90Pa\x07\xD5\x81a\x07\xAFV[\x92\x91PPV[`\0\x80`\xA0\x83\x85\x03\x12\x15a\x07\xF2Wa\x07\xF1a\x07|V[[`\0a\x08\0\x85\x82\x86\x01a\x07\x86V[\x92PP`\x80a\x08\x11\x85\x82\x86\x01a\x07\xC6V[\x91PP\x92P\x92\x90PV[`\0`\x80\x82\x84\x03\x12\x15a\x081Wa\x080a\x07|V[[`\0a\x08?\x84\x82\x85\x01a\x07\x86V[\x91PP\x92\x91PPV[`\0\x81\x90P\x91\x90PV[a\x08[\x81a\x08HV[\x82RPPV[`\0` \x82\x01\x90Pa\x08v`\0\x83\x01\x84a\x08RV[\x92\x91PPV[a\x08\x85\x81a\x07\xA5V[\x82RPPV[`\0`@\x82\x01\x90Pa\x08\xA0`\0\x83\x01\x85a\x08RV[a\x08\xAD` \x83\x01\x84a\x08|V[\x93\x92PPPV[`\0a\x08\xC3` \x84\x01\x84a\x07\xC6V[\x90P\x92\x91PPV[a\x08\xD4\x81a\x07\xA5V[\x82RPPV[`\0s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[`\0a\t\x05\x82a\x08\xDAV[\x90P\x91\x90PV[a\t\x15\x81a\x08\xFAV[\x81\x14a\t W`\0\x80\xFD[PV[`\0\x815\x90Pa\t2\x81a\t\x0CV[\x92\x91PPV[`\0a\tG` \x84\x01\x84a\t#V[\x90P\x92\x91PPV[a\tX\x81a\x08\xFAV[\x82RPPV[`\x80\x82\x01a\to`\0\x83\x01\x83a\x08\xB4V[a\t|`\0\x85\x01\x82a\x08\xCBV[Pa\t\x8A` \x83\x01\x83a\x08\xB4V[a\t\x97` \x85\x01\x82a\x08\xCBV[Pa\t\xA5`@\x83\x01\x83a\x08\xB4V[a\t\xB2`@\x85\x01\x82a\x08\xCBV[Pa\t\xC0``\x83\x01\x83a\t8V[a\t\xCD``\x85\x01\x82a\tOV[PPPPV[`\0`\x80\x82\x01\x90Pa\t\xE8`\0\x83\x01\x84a\t^V[\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\n\x04Wa\n\x03a\x07|V[[`\0a\n\x12\x84\x82\x85\x01a\t#V[\x91PP\x92\x91PPV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x7FCannot access OwnedCounter owned`\0\x82\x01R\x7F by another address\0\0\0\0\0\0\0\0\0\0\0\0\0` \x82\x01RPV[`\0a\n\x88`3\x83a\n\x1BV[\x91Pa\n\x93\x82a\n,V[`@\x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\n\xB7\x81a\n{V[\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0`\0R`\x11`\x04R`$`\0\xFD[`\0a\n\xF8\x82a\x07\xA5V[\x91Pa\x0B\x03\x83a\x07\xA5V[\x92P\x82\x82\x01\x90P\x80\x82\x11\x15a\x0B\x1BWa\x0B\x1Aa\n\xBEV[[\x92\x91PPV[`\0\x81\x15\x15\x90P\x91\x90PV[a\x0B6\x81a\x0B!V[\x82RPPV[`\0` \x82\x01\x90Pa\x0BQ`\0\x83\x01\x84a\x0B-V[\x92\x91PPV[`\0\x81Q\x90P\x91\x90PV[`\0\x81\x90P\x92\x91PPV[`\0[\x83\x81\x10\x15a\x0B\x8BW\x80\x82\x01Q\x81\x84\x01R` \x81\x01\x90Pa\x0BpV[`\0\x84\x84\x01RPPPPV[`\0a\x0B\xA2\x82a\x0BWV[a\x0B\xAC\x81\x85a\x0BbV[\x93Pa\x0B\xBC\x81\x85` \x86\x01a\x0BmV[\x80\x84\x01\x91PP\x92\x91PPV[`\0a\x0B\xD4\x82\x84a\x0B\x97V[\x91P\x81\x90P\x92\x91PPV[`\0\x81Q\x90P\x91\x90PV[`\0`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[`\0a\x0C\x06\x82a\x0B\xDFV[a\x0C\x10\x81\x85a\n\x1BV[\x93Pa\x0C \x81\x85` \x86\x01a\x0BmV[a\x0C)\x81a\x0B\xEAV[\x84\x01\x91PP\x92\x91PPV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x0CN\x81\x84a\x0B\xFBV[\x90P\x92\x91PPV[`\0a\x0Ca\x82a\x07\xA5V[\x91P\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x03a\x0C\x93Wa\x0C\x92a\n\xBEV[[`\x01\x82\x01\x90P\x91\x90PV\xFECannot decide winner before deadlineCannot set winner with less votes than threshold",
+        b"`\x80`@R4\x80\x15`\x0FW`\0\x80\xFD[Pa\x10\xF3\x80a\0\x1F`\09`\0\xF3\xFE`\x80`@R4\x80\x15a\0\x10W`\0\x80\xFD[P`\x046\x10a\0LW`\x005`\xE0\x1C\x80c$\xC6\xE3\xC4\x14a\0QW\x80c\x99]]\x91\x14a\0\x81W\x80c\xA7\xD4\xC4s\x14a\0\x9DW\x80c\xE8\x02\x18\"\x14a\0\xB9W[`\0\x80\xFD[a\0k`\x04\x806\x03\x81\x01\x90a\0f\x91\x90a\tzV[a\0\xD5V[`@Qa\0x\x91\x90a\t\xC0V[`@Q\x80\x91\x03\x90\xF3[a\0\x9B`\x04\x806\x03\x81\x01\x90a\0\x96\x91\x90a\tzV[a\x01\x05V[\0[a\0\xB7`\x04\x806\x03\x81\x01\x90a\0\xB2\x91\x90a\n\x11V[a\x01fV[\0[a\0\xD3`\x04\x806\x03\x81\x01\x90a\0\xCE\x91\x90a\n\x11V[a\x02\xD9V[\0[`\0\x81`@Q` \x01a\0\xE8\x91\x90a\x0C\x02V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90P\x91\x90PV[\x80``\x01` \x81\x01\x90a\x01\x18\x91\x90a\x0C\x1DV[s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x163s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x01OW`\0\x80\xFD[a\x01c3`\0a\x03\xAF\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[PV[a\x01\xB7\x82` \x01` \x81\x01\x90a\x01|\x91\x90a\x0CJV[`@Q\x80`@\x01`@R\x80`\x1A\x81R` \x01\x7FCannot vote after deadline\0\0\0\0\0\0\x81RPa\x03\xD9V[`\0a\x01\xC2\x83a\0\xD5V[\x90Pa\x02\x0F3`@Q\x80`@\x01`@R\x80`\x1D\x81R` \x01\x7FCannot vote if not registered\0\0\0\x81RP`\0a\x04\n\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[`\0a\x02'\x823`\x02a\x046\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x14a\x021W`\0\x80\xFD[a\x02J\x813`\x01`\x02a\x05\x02\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[`\0\x81\x83`@Q` \x01a\x02_\x92\x91\x90a\x0C\x86V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90Pa\x02\x8E\x81`\x01`\x03a\x05\xCD\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x823s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83\x7F\xE4\xAB\xC58\x0F\xA6\x93\x9D\x1D\xC2;^\x90\xB3\xA8\xA0\xE3(\xF0\xF1\xA8*_B\xBF\xB7\x95\xBF\x9Cqu\x05`@Q`@Q\x80\x91\x03\x90\xA4PPPPV[a\x03\r\x82` \x01` \x81\x01\x90a\x02\xEF\x91\x90a\x0CJV[`@Q\x80``\x01`@R\x80`$\x81R` \x01a\x10\x9F`$\x919a\x05\xFEV[`\0a\x03\x18\x83a\0\xD5V[\x90P`\0\x81\x83`@Q` \x01a\x03/\x92\x91\x90a\x0C\x86V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90Pa\x03{\x81\x85`\0\x015`@Q\x80``\x01`@R\x80`0\x81R` \x01a\x10\xC3`0\x919`\x03a\x06/\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x82\x82\x7F&\x9D:$q$6\xF7}\xF1]c\xDE}#7\xA0`\xC9\x10-\xEEoF\xC9\t\xFB\x0F\xA2\xD5/\x0C`@Q`@Q\x80\x91\x03\x90\xA3PPPPV[a\x03\xD5\x82`\0\x01\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`\0\x1Ba\x06WV[PPV[a\x04\x06a\x04\0\x83a\x03\xE8a\x06\xBDV[g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\x07\xF2\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x82a\x08\x13V[PPV[a\x041\x83`\0\x01\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`\0\x1B\x83a\t\tV[PPPV[`\x002s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x04\xA6W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x04\x9D\x90a\r2V[`@Q\x80\x91\x03\x90\xFD[\x83`\0\x01`\0\x84\x81R` \x01\x90\x81R` \x01`\0 `\0\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 T\x90P\x93\x92PPPV[2s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x05pW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x05g\x90a\r2V[`@Q\x80\x91\x03\x90\xFD[\x80\x84`\0\x01`\0\x85\x81R` \x01\x90\x81R` \x01`\0 `\0\x84s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 \x81\x90UPPPPPV[\x80\x83`\0\x01`\0\x84\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x82Ta\x05\xF2\x91\x90a\r\x81V[\x92PP\x81\x90UPPPPV[a\x06+a\x06%\x83a\x06\ra\x06\xBDV[g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\t0\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x82a\x08\x13V[PPV[a\x06Q\x82\x85`\0\x01`\0\x86\x81R` \x01\x90\x81R` \x01`\0 T\x10\x15\x82a\x08\x13V[PPPPV[`\0\x82`\0\x01`\0\x83\x81R` \x01\x90\x81R` \x01`\0 T\x03a\x06\xB9W`\x01\x82`\x01\x01Ta\x06\x85\x91\x90a\r\x81V[\x82`\0\x01`\0\x83\x81R` \x01\x90\x81R` \x01`\0 \x81\x90UP\x81`\x01\x01`\0\x81T\x80\x92\x91\x90a\x06\xB3\x90a\r\xB5V[\x91\x90PUP[PPV[`\0\x80`\0\x7F\xBA(nM\x89\xDA\xBFK(x\xE8\x96B;\xB1#\xD9\xD5\x14>f&\x06\xFD4;gf\xD7\xBC\xF7!`\0\x1Cs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`@Qa\x07\x08\x90a\x0E.V[`\0`@Q\x80\x83\x03\x81\x85Z\xFA\x91PP=\x80`\0\x81\x14a\x07CW`@Q\x91P`\x1F\x19`?=\x01\x16\x82\x01`@R=\x82R=`\0` \x84\x01>a\x07HV[``\x91P[P\x91P\x91P\x81a\x07\x8DW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x07\x84\x90a\x0E\x8FV[`@Q\x80\x91\x03\x90\xFD[` \x81Q\x14a\x07\xD1W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x07\xC8\x90a\x0E\xFBV[`@Q\x80\x91\x03\x90\xFD[`\0\x81\x80` \x01\x90Q\x81\x01\x90a\x07\xE7\x91\x90a\x0FGV[\x90P\x80\x93PPPP\x90V[`\0\x81g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x10\x90P\x92\x91PPV[`\0\x7F=\xCD\xF6;A\xC1\x03V}r%\x97j\xD9\x14^\x86lz}\xCC\xC6\xC2w\xEA\x86\xAB\xBD&\x8F\xBA\xC9`\0\x1Cs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83`@Q` \x01a\x08`\x91\x90a\x0F\x8FV[`@Q` \x81\x83\x03\x03\x81R\x90`@R`@Qa\x08|\x91\x90a\x10\x10V[`\0`@Q\x80\x83\x03\x81\x85Z\xFA\x91PP=\x80`\0\x81\x14a\x08\xB7W`@Q\x91P`\x1F\x19`?=\x01\x16\x82\x01`@R=\x82R=`\0` \x84\x01>a\x08\xBCV[``\x91P[PP\x90P\x80\x82\x90a\t\x03W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x08\xFA\x91\x90a\x10|V[`@Q\x80\x91\x03\x90\xFD[PPPPV[a\t+`\0\x84`\0\x01`\0\x85\x81R` \x01\x90\x81R` \x01`\0 T\x11\x82a\x08\x13V[PPPV[`\0\x81g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x11\x90P\x92\x91PPV[`\0\x80\xFD[`\0\x80\xFD[`\0`\x80\x82\x84\x03\x12\x15a\tqWa\tpa\tVV[[\x81\x90P\x92\x91PPV[`\0`\x80\x82\x84\x03\x12\x15a\t\x90Wa\t\x8Fa\tQV[[`\0a\t\x9E\x84\x82\x85\x01a\t[V[\x91PP\x92\x91PPV[`\0\x81\x90P\x91\x90PV[a\t\xBA\x81a\t\xA7V[\x82RPPV[`\0` \x82\x01\x90Pa\t\xD5`\0\x83\x01\x84a\t\xB1V[\x92\x91PPV[`\0\x81\x90P\x91\x90PV[a\t\xEE\x81a\t\xDBV[\x81\x14a\t\xF9W`\0\x80\xFD[PV[`\0\x815\x90Pa\n\x0B\x81a\t\xE5V[\x92\x91PPV[`\0\x80`\xA0\x83\x85\x03\x12\x15a\n(Wa\n'a\tQV[[`\0a\n6\x85\x82\x86\x01a\t[V[\x92PP`\x80a\nG\x85\x82\x86\x01a\t\xFCV[\x91PP\x92P\x92\x90PV[`\0a\n`` \x84\x01\x84a\t\xFCV[\x90P\x92\x91PPV[a\nq\x81a\t\xDBV[\x82RPPV[`\0g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[a\n\x94\x81a\nwV[\x81\x14a\n\x9FW`\0\x80\xFD[PV[`\0\x815\x90Pa\n\xB1\x81a\n\x8BV[\x92\x91PPV[`\0a\n\xC6` \x84\x01\x84a\n\xA2V[\x90P\x92\x91PPV[`\0\x81\x90P\x91\x90PV[`\0a\n\xF3a\n\xEEa\n\xE9\x84a\nwV[a\n\xCEV[a\nwV[\x90P\x91\x90PV[a\x0B\x03\x81a\n\xD8V[\x82RPPV[`\0s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[`\0a\x0B4\x82a\x0B\tV[\x90P\x91\x90PV[a\x0BD\x81a\x0B)V[\x81\x14a\x0BOW`\0\x80\xFD[PV[`\0\x815\x90Pa\x0Ba\x81a\x0B;V[\x92\x91PPV[`\0a\x0Bv` \x84\x01\x84a\x0BRV[\x90P\x92\x91PPV[a\x0B\x87\x81a\x0B)V[\x82RPPV[`\x80\x82\x01a\x0B\x9E`\0\x83\x01\x83a\nQV[a\x0B\xAB`\0\x85\x01\x82a\nhV[Pa\x0B\xB9` \x83\x01\x83a\n\xB7V[a\x0B\xC6` \x85\x01\x82a\n\xFAV[Pa\x0B\xD4`@\x83\x01\x83a\nQV[a\x0B\xE1`@\x85\x01\x82a\nhV[Pa\x0B\xEF``\x83\x01\x83a\x0BgV[a\x0B\xFC``\x85\x01\x82a\x0B~V[PPPPV[`\0`\x80\x82\x01\x90Pa\x0C\x17`\0\x83\x01\x84a\x0B\x8DV[\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\x0C3Wa\x0C2a\tQV[[`\0a\x0CA\x84\x82\x85\x01a\x0BRV[\x91PP\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\x0C`Wa\x0C_a\tQV[[`\0a\x0Cn\x84\x82\x85\x01a\n\xA2V[\x91PP\x92\x91PPV[a\x0C\x80\x81a\t\xDBV[\x82RPPV[`\0`@\x82\x01\x90Pa\x0C\x9B`\0\x83\x01\x85a\t\xB1V[a\x0C\xA8` \x83\x01\x84a\x0CwV[\x93\x92PPPV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x7FCannot access OwnedCounter owned`\0\x82\x01R\x7F by another address\0\0\0\0\0\0\0\0\0\0\0\0\0` \x82\x01RPV[`\0a\r\x1C`3\x83a\x0C\xAFV[\x91Pa\r'\x82a\x0C\xC0V[`@\x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\rK\x81a\r\x0FV[\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0`\0R`\x11`\x04R`$`\0\xFD[`\0a\r\x8C\x82a\t\xDBV[\x91Pa\r\x97\x83a\t\xDBV[\x92P\x82\x82\x01\x90P\x80\x82\x11\x15a\r\xAFWa\r\xAEa\rRV[[\x92\x91PPV[`\0a\r\xC0\x82a\t\xDBV[\x91P\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x03a\r\xF2Wa\r\xF1a\rRV[[`\x01\x82\x01\x90P\x91\x90PV[`\0\x81\x90P\x92\x91PPV[PV[`\0a\x0E\x18`\0\x83a\r\xFDV[\x91Pa\x0E#\x82a\x0E\x08V[`\0\x82\x01\x90P\x91\x90PV[`\0a\x0E9\x82a\x0E\x0BV[\x91P\x81\x90P\x91\x90PV[\x7FPrecompile call failed\0\0\0\0\0\0\0\0\0\0`\0\x82\x01RPV[`\0a\x0Ey`\x16\x83a\x0C\xAFV[\x91Pa\x0E\x84\x82a\x0ECV[` \x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x0E\xA8\x81a\x0ElV[\x90P\x91\x90PV[\x7FInvalid output length\0\0\0\0\0\0\0\0\0\0\0`\0\x82\x01RPV[`\0a\x0E\xE5`\x15\x83a\x0C\xAFV[\x91Pa\x0E\xF0\x82a\x0E\xAFV[` \x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x0F\x14\x81a\x0E\xD8V[\x90P\x91\x90PV[a\x0F$\x81a\nwV[\x81\x14a\x0F/W`\0\x80\xFD[PV[`\0\x81Q\x90Pa\x0FA\x81a\x0F\x1BV[\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\x0F]Wa\x0F\\a\tQV[[`\0a\x0Fk\x84\x82\x85\x01a\x0F2V[\x91PP\x92\x91PPV[`\0\x81\x15\x15\x90P\x91\x90PV[a\x0F\x89\x81a\x0FtV[\x82RPPV[`\0` \x82\x01\x90Pa\x0F\xA4`\0\x83\x01\x84a\x0F\x80V[\x92\x91PPV[`\0\x81Q\x90P\x91\x90PV[`\0[\x83\x81\x10\x15a\x0F\xD3W\x80\x82\x01Q\x81\x84\x01R` \x81\x01\x90Pa\x0F\xB8V[`\0\x84\x84\x01RPPPPV[`\0a\x0F\xEA\x82a\x0F\xAAV[a\x0F\xF4\x81\x85a\r\xFDV[\x93Pa\x10\x04\x81\x85` \x86\x01a\x0F\xB5V[\x80\x84\x01\x91PP\x92\x91PPV[`\0a\x10\x1C\x82\x84a\x0F\xDFV[\x91P\x81\x90P\x92\x91PPV[`\0\x81Q\x90P\x91\x90PV[`\0`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[`\0a\x10N\x82a\x10'V[a\x10X\x81\x85a\x0C\xAFV[\x93Pa\x10h\x81\x85` \x86\x01a\x0F\xB5V[a\x10q\x81a\x102V[\x84\x01\x91PP\x92\x91PPV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x10\x96\x81\x84a\x10CV[\x90P\x92\x91PPV\xFECannot decide winner before deadlineCannot set winner with less votes than threshold",
     );
     /// The runtime bytecode of the contract, as deployed on the network.
     ///
     /// ```text
-    ///0x608060405234801561001057600080fd5b506004361061004c5760003560e01c8063152d18c41461005157806339db66591461006d5780638f253c751461009d5780639747a952146100b9575b600080fd5b61006b600480360381019061006691906107db565b6100d5565b005b6100876004803603810190610082919061081b565b61023a565b6040516100949190610861565b60405180910390f35b6100b760048036038101906100b2919061081b565b61026a565b005b6100d360048036038101906100ce91906107db565b6102cb565b005b61011882602001356040518060400160405280601a81526020017f43616e6e6f7420766f746520616674657220646561646c696e65000000000000815250610393565b60006101238361023a565b9050610170336040518060400160405280601d81526020017f43616e6e6f7420766f7465206966206e6f74207265676973746572656400000081525060006103a39092919063ffffffff16565b6000610188823360026103cf9092919063ffffffff16565b1461019257600080fd5b6101ab81336001600261049b909392919063ffffffff16565b600081836040516020016101c092919061088b565b6040516020818303038152906040528051906020012090506101ef81600160036105669092919063ffffffff16565b823373ffffffffffffffffffffffffffffffffffffffff16837fe4abc5380fa6939d1dc23b5e90b3a8a0e328f0f1a82a5f42bfb795bf9c71750560405160405180910390a450505050565b60008160405160200161024d91906109d3565b604051602081830303815290604052805190602001209050919050565b80606001602081019061027d91906109ee565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146102b457600080fd5b6102c833600061059790919063ffffffff16565b50565b6102f18260200135604051806060016040528060248152602001610c9f602491396105c1565b60006102fc8361023a565b90506000818360405160200161031392919061088b565b60405160208183030381529060405280519060200120905061035f818560000135604051806060016040528060308152602001610cc36030913960036105d1909392919063ffffffff16565b82827f269d3a24712436f77df15d63de7d2337a060c9102dee6f46c909fb0fa2d52f0c60405160405180910390a350505050565b61039f824210826105f9565b5050565b6103ca836000018373ffffffffffffffffffffffffffffffffffffffff1660001b836106ef565b505050565b60003273ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff161461043f576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161043690610a9e565b60405180910390fd5b83600001600084815260200190815260200160002060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000205490509392505050565b3273ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff1614610509576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161050090610a9e565b60405180910390fd5b8084600001600085815260200190815260200160002060008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000208190555050505050565b80836000016000848152602001908152602001600020600082825461058b9190610aed565b92505081905550505050565b6105bd826000018273ffffffffffffffffffffffffffffffffffffffff1660001b610716565b5050565b6105cd824211826105f9565b5050565b6105f382856000016000868152602001908152602001600020541015826105f9565b50505050565b60007f3dcdf63b41c103567d7225976ad9145e866c7a7dccc6c277ea86abbd268fbac960001c73ffffffffffffffffffffffffffffffffffffffff16836040516020016106469190610b3c565b6040516020818303038152906040526040516106629190610bc8565b600060405180830381855afa9150503d806000811461069d576040519150601f19603f3d011682016040523d82523d6000602084013e6106a2565b606091505b505090508082906106e9576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016106e09190610c34565b60405180910390fd5b50505050565b61071160008460000160008581526020019081526020016000205411826105f9565b505050565b6000826000016000838152602001908152602001600020540361077857600182600101546107449190610aed565b8260000160008381526020019081526020016000208190555081600101600081548092919061077290610c56565b91905055505b5050565b600080fd5b600080fd5b60006080828403121561079c5761079b610781565b5b81905092915050565b6000819050919050565b6107b8816107a5565b81146107c357600080fd5b50565b6000813590506107d5816107af565b92915050565b60008060a083850312156107f2576107f161077c565b5b600061080085828601610786565b9250506080610811858286016107c6565b9150509250929050565b6000608082840312156108315761083061077c565b5b600061083f84828501610786565b91505092915050565b6000819050919050565b61085b81610848565b82525050565b60006020820190506108766000830184610852565b92915050565b610885816107a5565b82525050565b60006040820190506108a06000830185610852565b6108ad602083018461087c565b9392505050565b60006108c360208401846107c6565b905092915050565b6108d4816107a5565b82525050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000610905826108da565b9050919050565b610915816108fa565b811461092057600080fd5b50565b6000813590506109328161090c565b92915050565b60006109476020840184610923565b905092915050565b610958816108fa565b82525050565b6080820161096f60008301836108b4565b61097c60008501826108cb565b5061098a60208301836108b4565b61099760208501826108cb565b506109a560408301836108b4565b6109b260408501826108cb565b506109c06060830183610938565b6109cd606085018261094f565b50505050565b60006080820190506109e8600083018461095e565b92915050565b600060208284031215610a0457610a0361077c565b5b6000610a1284828501610923565b91505092915050565b600082825260208201905092915050565b7f43616e6e6f7420616363657373204f776e6564436f756e746572206f776e656460008201527f20627920616e6f74686572206164647265737300000000000000000000000000602082015250565b6000610a88603383610a1b565b9150610a9382610a2c565b604082019050919050565b60006020820190508181036000830152610ab781610a7b565b9050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b6000610af8826107a5565b9150610b03836107a5565b9250828201905080821115610b1b57610b1a610abe565b5b92915050565b60008115159050919050565b610b3681610b21565b82525050565b6000602082019050610b516000830184610b2d565b92915050565b600081519050919050565b600081905092915050565b60005b83811015610b8b578082015181840152602081019050610b70565b60008484015250505050565b6000610ba282610b57565b610bac8185610b62565b9350610bbc818560208601610b6d565b80840191505092915050565b6000610bd48284610b97565b915081905092915050565b600081519050919050565b6000601f19601f8301169050919050565b6000610c0682610bdf565b610c108185610a1b565b9350610c20818560208601610b6d565b610c2981610bea565b840191505092915050565b60006020820190508181036000830152610c4e8184610bfb565b905092915050565b6000610c61826107a5565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610c9357610c92610abe565b5b60018201905091905056fe43616e6e6f74206465636964652077696e6e6572206265666f726520646561646c696e6543616e6e6f74207365742077696e6e65722077697468206c65737320766f746573207468616e207468726573686f6c64
+    ///0x608060405234801561001057600080fd5b506004361061004c5760003560e01c806324c6e3c414610051578063995d5d9114610081578063a7d4c4731461009d578063e8021822146100b9575b600080fd5b61006b6004803603810190610066919061097a565b6100d5565b60405161007891906109c0565b60405180910390f35b61009b6004803603810190610096919061097a565b610105565b005b6100b760048036038101906100b29190610a11565b610166565b005b6100d360048036038101906100ce9190610a11565b6102d9565b005b6000816040516020016100e89190610c02565b604051602081830303815290604052805190602001209050919050565b8060600160208101906101189190610c1d565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161461014f57600080fd5b6101633360006103af90919063ffffffff16565b50565b6101b782602001602081019061017c9190610c4a565b6040518060400160405280601a81526020017f43616e6e6f7420766f746520616674657220646561646c696e650000000000008152506103d9565b60006101c2836100d5565b905061020f336040518060400160405280601d81526020017f43616e6e6f7420766f7465206966206e6f742072656769737465726564000000815250600061040a9092919063ffffffff16565b6000610227823360026104369092919063ffffffff16565b1461023157600080fd5b61024a813360016002610502909392919063ffffffff16565b6000818360405160200161025f929190610c86565b60405160208183030381529060405280519060200120905061028e81600160036105cd9092919063ffffffff16565b823373ffffffffffffffffffffffffffffffffffffffff16837fe4abc5380fa6939d1dc23b5e90b3a8a0e328f0f1a82a5f42bfb795bf9c71750560405160405180910390a450505050565b61030d8260200160208101906102ef9190610c4a565b60405180606001604052806024815260200161109f602491396105fe565b6000610318836100d5565b90506000818360405160200161032f929190610c86565b60405160208183030381529060405280519060200120905061037b8185600001356040518060600160405280603081526020016110c360309139600361062f909392919063ffffffff16565b82827f269d3a24712436f77df15d63de7d2337a060c9102dee6f46c909fb0fa2d52f0c60405160405180910390a350505050565b6103d5826000018273ffffffffffffffffffffffffffffffffffffffff1660001b610657565b5050565b610406610400836103e86106bd565b67ffffffffffffffff166107f290919063ffffffff16565b82610813565b5050565b610431836000018373ffffffffffffffffffffffffffffffffffffffff1660001b83610909565b505050565b60003273ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff16146104a6576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161049d90610d32565b60405180910390fd5b83600001600084815260200190815260200160002060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000205490509392505050565b3273ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff1614610570576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161056790610d32565b60405180910390fd5b8084600001600085815260200190815260200160002060008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000208190555050505050565b8083600001600084815260200190815260200160002060008282546105f29190610d81565b92505081905550505050565b61062b6106258361060d6106bd565b67ffffffffffffffff1661093090919063ffffffff16565b82610813565b5050565b6106518285600001600086815260200190815260200160002054101582610813565b50505050565b600082600001600083815260200190815260200160002054036106b957600182600101546106859190610d81565b826000016000838152602001908152602001600020819055508160010160008154809291906106b390610db5565b91905055505b5050565b60008060007fba286e4d89dabf4b2878e896423bb123d9d5143e662606fd343b6766d7bcf72160001c73ffffffffffffffffffffffffffffffffffffffff1660405161070890610e2e565b600060405180830381855afa9150503d8060008114610743576040519150601f19603f3d011682016040523d82523d6000602084013e610748565b606091505b50915091508161078d576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161078490610e8f565b60405180910390fd5b60208151146107d1576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016107c890610efb565b60405180910390fd5b6000818060200190518101906107e79190610f47565b905080935050505090565b60008167ffffffffffffffff168367ffffffffffffffff1610905092915050565b60007f3dcdf63b41c103567d7225976ad9145e866c7a7dccc6c277ea86abbd268fbac960001c73ffffffffffffffffffffffffffffffffffffffff16836040516020016108609190610f8f565b60405160208183030381529060405260405161087c9190611010565b600060405180830381855afa9150503d80600081146108b7576040519150601f19603f3d011682016040523d82523d6000602084013e6108bc565b606091505b50509050808290610903576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016108fa919061107c565b60405180910390fd5b50505050565b61092b6000846000016000858152602001908152602001600020541182610813565b505050565b60008167ffffffffffffffff168367ffffffffffffffff1611905092915050565b600080fd5b600080fd5b60006080828403121561097157610970610956565b5b81905092915050565b6000608082840312156109905761098f610951565b5b600061099e8482850161095b565b91505092915050565b6000819050919050565b6109ba816109a7565b82525050565b60006020820190506109d560008301846109b1565b92915050565b6000819050919050565b6109ee816109db565b81146109f957600080fd5b50565b600081359050610a0b816109e5565b92915050565b60008060a08385031215610a2857610a27610951565b5b6000610a368582860161095b565b9250506080610a47858286016109fc565b9150509250929050565b6000610a6060208401846109fc565b905092915050565b610a71816109db565b82525050565b600067ffffffffffffffff82169050919050565b610a9481610a77565b8114610a9f57600080fd5b50565b600081359050610ab181610a8b565b92915050565b6000610ac66020840184610aa2565b905092915050565b6000819050919050565b6000610af3610aee610ae984610a77565b610ace565b610a77565b9050919050565b610b0381610ad8565b82525050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000610b3482610b09565b9050919050565b610b4481610b29565b8114610b4f57600080fd5b50565b600081359050610b6181610b3b565b92915050565b6000610b766020840184610b52565b905092915050565b610b8781610b29565b82525050565b60808201610b9e6000830183610a51565b610bab6000850182610a68565b50610bb96020830183610ab7565b610bc66020850182610afa565b50610bd46040830183610a51565b610be16040850182610a68565b50610bef6060830183610b67565b610bfc6060850182610b7e565b50505050565b6000608082019050610c176000830184610b8d565b92915050565b600060208284031215610c3357610c32610951565b5b6000610c4184828501610b52565b91505092915050565b600060208284031215610c6057610c5f610951565b5b6000610c6e84828501610aa2565b91505092915050565b610c80816109db565b82525050565b6000604082019050610c9b60008301856109b1565b610ca86020830184610c77565b9392505050565b600082825260208201905092915050565b7f43616e6e6f7420616363657373204f776e6564436f756e746572206f776e656460008201527f20627920616e6f74686572206164647265737300000000000000000000000000602082015250565b6000610d1c603383610caf565b9150610d2782610cc0565b604082019050919050565b60006020820190508181036000830152610d4b81610d0f565b9050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b6000610d8c826109db565b9150610d97836109db565b9250828201905080821115610daf57610dae610d52565b5b92915050565b6000610dc0826109db565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610df257610df1610d52565b5b600182019050919050565b600081905092915050565b50565b6000610e18600083610dfd565b9150610e2382610e08565b600082019050919050565b6000610e3982610e0b565b9150819050919050565b7f507265636f6d70696c652063616c6c206661696c656400000000000000000000600082015250565b6000610e79601683610caf565b9150610e8482610e43565b602082019050919050565b60006020820190508181036000830152610ea881610e6c565b9050919050565b7f496e76616c6964206f7574707574206c656e6774680000000000000000000000600082015250565b6000610ee5601583610caf565b9150610ef082610eaf565b602082019050919050565b60006020820190508181036000830152610f1481610ed8565b9050919050565b610f2481610a77565b8114610f2f57600080fd5b50565b600081519050610f4181610f1b565b92915050565b600060208284031215610f5d57610f5c610951565b5b6000610f6b84828501610f32565b91505092915050565b60008115159050919050565b610f8981610f74565b82525050565b6000602082019050610fa46000830184610f80565b92915050565b600081519050919050565b60005b83811015610fd3578082015181840152602081019050610fb8565b60008484015250505050565b6000610fea82610faa565b610ff48185610dfd565b9350611004818560208601610fb5565b80840191505092915050565b600061101c8284610fdf565b915081905092915050565b600081519050919050565b6000601f19601f8301169050919050565b600061104e82611027565b6110588185610caf565b9350611068818560208601610fb5565b61107181611032565b840191505092915050565b600060208201905081810360008301526110968184611043565b90509291505056fe43616e6e6f74206465636964652077696e6e6572206265666f726520646561646c696e6543616e6e6f74207365742077696e6e65722077697468206c65737320766f746573207468616e207468726573686f6c64
     /// ```
     #[rustfmt::skip]
     #[allow(clippy::all)]
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
-        b"`\x80`@R4\x80\x15a\0\x10W`\0\x80\xFD[P`\x046\x10a\0LW`\x005`\xE0\x1C\x80c\x15-\x18\xC4\x14a\0QW\x80c9\xDBfY\x14a\0mW\x80c\x8F%<u\x14a\0\x9DW\x80c\x97G\xA9R\x14a\0\xB9W[`\0\x80\xFD[a\0k`\x04\x806\x03\x81\x01\x90a\0f\x91\x90a\x07\xDBV[a\0\xD5V[\0[a\0\x87`\x04\x806\x03\x81\x01\x90a\0\x82\x91\x90a\x08\x1BV[a\x02:V[`@Qa\0\x94\x91\x90a\x08aV[`@Q\x80\x91\x03\x90\xF3[a\0\xB7`\x04\x806\x03\x81\x01\x90a\0\xB2\x91\x90a\x08\x1BV[a\x02jV[\0[a\0\xD3`\x04\x806\x03\x81\x01\x90a\0\xCE\x91\x90a\x07\xDBV[a\x02\xCBV[\0[a\x01\x18\x82` \x015`@Q\x80`@\x01`@R\x80`\x1A\x81R` \x01\x7FCannot vote after deadline\0\0\0\0\0\0\x81RPa\x03\x93V[`\0a\x01#\x83a\x02:V[\x90Pa\x01p3`@Q\x80`@\x01`@R\x80`\x1D\x81R` \x01\x7FCannot vote if not registered\0\0\0\x81RP`\0a\x03\xA3\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[`\0a\x01\x88\x823`\x02a\x03\xCF\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x14a\x01\x92W`\0\x80\xFD[a\x01\xAB\x813`\x01`\x02a\x04\x9B\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[`\0\x81\x83`@Q` \x01a\x01\xC0\x92\x91\x90a\x08\x8BV[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90Pa\x01\xEF\x81`\x01`\x03a\x05f\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x823s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83\x7F\xE4\xAB\xC58\x0F\xA6\x93\x9D\x1D\xC2;^\x90\xB3\xA8\xA0\xE3(\xF0\xF1\xA8*_B\xBF\xB7\x95\xBF\x9Cqu\x05`@Q`@Q\x80\x91\x03\x90\xA4PPPPV[`\0\x81`@Q` \x01a\x02M\x91\x90a\t\xD3V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90P\x91\x90PV[\x80``\x01` \x81\x01\x90a\x02}\x91\x90a\t\xEEV[s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x163s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x02\xB4W`\0\x80\xFD[a\x02\xC83`\0a\x05\x97\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[PV[a\x02\xF1\x82` \x015`@Q\x80``\x01`@R\x80`$\x81R` \x01a\x0C\x9F`$\x919a\x05\xC1V[`\0a\x02\xFC\x83a\x02:V[\x90P`\0\x81\x83`@Q` \x01a\x03\x13\x92\x91\x90a\x08\x8BV[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90Pa\x03_\x81\x85`\0\x015`@Q\x80``\x01`@R\x80`0\x81R` \x01a\x0C\xC3`0\x919`\x03a\x05\xD1\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x82\x82\x7F&\x9D:$q$6\xF7}\xF1]c\xDE}#7\xA0`\xC9\x10-\xEEoF\xC9\t\xFB\x0F\xA2\xD5/\x0C`@Q`@Q\x80\x91\x03\x90\xA3PPPPV[a\x03\x9F\x82B\x10\x82a\x05\xF9V[PPV[a\x03\xCA\x83`\0\x01\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`\0\x1B\x83a\x06\xEFV[PPPV[`\x002s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x04?W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x046\x90a\n\x9EV[`@Q\x80\x91\x03\x90\xFD[\x83`\0\x01`\0\x84\x81R` \x01\x90\x81R` \x01`\0 `\0\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 T\x90P\x93\x92PPPV[2s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x05\tW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x05\0\x90a\n\x9EV[`@Q\x80\x91\x03\x90\xFD[\x80\x84`\0\x01`\0\x85\x81R` \x01\x90\x81R` \x01`\0 `\0\x84s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 \x81\x90UPPPPPV[\x80\x83`\0\x01`\0\x84\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x82Ta\x05\x8B\x91\x90a\n\xEDV[\x92PP\x81\x90UPPPPV[a\x05\xBD\x82`\0\x01\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`\0\x1Ba\x07\x16V[PPV[a\x05\xCD\x82B\x11\x82a\x05\xF9V[PPV[a\x05\xF3\x82\x85`\0\x01`\0\x86\x81R` \x01\x90\x81R` \x01`\0 T\x10\x15\x82a\x05\xF9V[PPPPV[`\0\x7F=\xCD\xF6;A\xC1\x03V}r%\x97j\xD9\x14^\x86lz}\xCC\xC6\xC2w\xEA\x86\xAB\xBD&\x8F\xBA\xC9`\0\x1Cs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83`@Q` \x01a\x06F\x91\x90a\x0B<V[`@Q` \x81\x83\x03\x03\x81R\x90`@R`@Qa\x06b\x91\x90a\x0B\xC8V[`\0`@Q\x80\x83\x03\x81\x85Z\xFA\x91PP=\x80`\0\x81\x14a\x06\x9DW`@Q\x91P`\x1F\x19`?=\x01\x16\x82\x01`@R=\x82R=`\0` \x84\x01>a\x06\xA2V[``\x91P[PP\x90P\x80\x82\x90a\x06\xE9W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x06\xE0\x91\x90a\x0C4V[`@Q\x80\x91\x03\x90\xFD[PPPPV[a\x07\x11`\0\x84`\0\x01`\0\x85\x81R` \x01\x90\x81R` \x01`\0 T\x11\x82a\x05\xF9V[PPPV[`\0\x82`\0\x01`\0\x83\x81R` \x01\x90\x81R` \x01`\0 T\x03a\x07xW`\x01\x82`\x01\x01Ta\x07D\x91\x90a\n\xEDV[\x82`\0\x01`\0\x83\x81R` \x01\x90\x81R` \x01`\0 \x81\x90UP\x81`\x01\x01`\0\x81T\x80\x92\x91\x90a\x07r\x90a\x0CVV[\x91\x90PUP[PPV[`\0\x80\xFD[`\0\x80\xFD[`\0`\x80\x82\x84\x03\x12\x15a\x07\x9CWa\x07\x9Ba\x07\x81V[[\x81\x90P\x92\x91PPV[`\0\x81\x90P\x91\x90PV[a\x07\xB8\x81a\x07\xA5V[\x81\x14a\x07\xC3W`\0\x80\xFD[PV[`\0\x815\x90Pa\x07\xD5\x81a\x07\xAFV[\x92\x91PPV[`\0\x80`\xA0\x83\x85\x03\x12\x15a\x07\xF2Wa\x07\xF1a\x07|V[[`\0a\x08\0\x85\x82\x86\x01a\x07\x86V[\x92PP`\x80a\x08\x11\x85\x82\x86\x01a\x07\xC6V[\x91PP\x92P\x92\x90PV[`\0`\x80\x82\x84\x03\x12\x15a\x081Wa\x080a\x07|V[[`\0a\x08?\x84\x82\x85\x01a\x07\x86V[\x91PP\x92\x91PPV[`\0\x81\x90P\x91\x90PV[a\x08[\x81a\x08HV[\x82RPPV[`\0` \x82\x01\x90Pa\x08v`\0\x83\x01\x84a\x08RV[\x92\x91PPV[a\x08\x85\x81a\x07\xA5V[\x82RPPV[`\0`@\x82\x01\x90Pa\x08\xA0`\0\x83\x01\x85a\x08RV[a\x08\xAD` \x83\x01\x84a\x08|V[\x93\x92PPPV[`\0a\x08\xC3` \x84\x01\x84a\x07\xC6V[\x90P\x92\x91PPV[a\x08\xD4\x81a\x07\xA5V[\x82RPPV[`\0s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[`\0a\t\x05\x82a\x08\xDAV[\x90P\x91\x90PV[a\t\x15\x81a\x08\xFAV[\x81\x14a\t W`\0\x80\xFD[PV[`\0\x815\x90Pa\t2\x81a\t\x0CV[\x92\x91PPV[`\0a\tG` \x84\x01\x84a\t#V[\x90P\x92\x91PPV[a\tX\x81a\x08\xFAV[\x82RPPV[`\x80\x82\x01a\to`\0\x83\x01\x83a\x08\xB4V[a\t|`\0\x85\x01\x82a\x08\xCBV[Pa\t\x8A` \x83\x01\x83a\x08\xB4V[a\t\x97` \x85\x01\x82a\x08\xCBV[Pa\t\xA5`@\x83\x01\x83a\x08\xB4V[a\t\xB2`@\x85\x01\x82a\x08\xCBV[Pa\t\xC0``\x83\x01\x83a\t8V[a\t\xCD``\x85\x01\x82a\tOV[PPPPV[`\0`\x80\x82\x01\x90Pa\t\xE8`\0\x83\x01\x84a\t^V[\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\n\x04Wa\n\x03a\x07|V[[`\0a\n\x12\x84\x82\x85\x01a\t#V[\x91PP\x92\x91PPV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x7FCannot access OwnedCounter owned`\0\x82\x01R\x7F by another address\0\0\0\0\0\0\0\0\0\0\0\0\0` \x82\x01RPV[`\0a\n\x88`3\x83a\n\x1BV[\x91Pa\n\x93\x82a\n,V[`@\x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\n\xB7\x81a\n{V[\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0`\0R`\x11`\x04R`$`\0\xFD[`\0a\n\xF8\x82a\x07\xA5V[\x91Pa\x0B\x03\x83a\x07\xA5V[\x92P\x82\x82\x01\x90P\x80\x82\x11\x15a\x0B\x1BWa\x0B\x1Aa\n\xBEV[[\x92\x91PPV[`\0\x81\x15\x15\x90P\x91\x90PV[a\x0B6\x81a\x0B!V[\x82RPPV[`\0` \x82\x01\x90Pa\x0BQ`\0\x83\x01\x84a\x0B-V[\x92\x91PPV[`\0\x81Q\x90P\x91\x90PV[`\0\x81\x90P\x92\x91PPV[`\0[\x83\x81\x10\x15a\x0B\x8BW\x80\x82\x01Q\x81\x84\x01R` \x81\x01\x90Pa\x0BpV[`\0\x84\x84\x01RPPPPV[`\0a\x0B\xA2\x82a\x0BWV[a\x0B\xAC\x81\x85a\x0BbV[\x93Pa\x0B\xBC\x81\x85` \x86\x01a\x0BmV[\x80\x84\x01\x91PP\x92\x91PPV[`\0a\x0B\xD4\x82\x84a\x0B\x97V[\x91P\x81\x90P\x92\x91PPV[`\0\x81Q\x90P\x91\x90PV[`\0`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[`\0a\x0C\x06\x82a\x0B\xDFV[a\x0C\x10\x81\x85a\n\x1BV[\x93Pa\x0C \x81\x85` \x86\x01a\x0BmV[a\x0C)\x81a\x0B\xEAV[\x84\x01\x91PP\x92\x91PPV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x0CN\x81\x84a\x0B\xFBV[\x90P\x92\x91PPV[`\0a\x0Ca\x82a\x07\xA5V[\x91P\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x03a\x0C\x93Wa\x0C\x92a\n\xBEV[[`\x01\x82\x01\x90P\x91\x90PV\xFECannot decide winner before deadlineCannot set winner with less votes than threshold",
+        b"`\x80`@R4\x80\x15a\0\x10W`\0\x80\xFD[P`\x046\x10a\0LW`\x005`\xE0\x1C\x80c$\xC6\xE3\xC4\x14a\0QW\x80c\x99]]\x91\x14a\0\x81W\x80c\xA7\xD4\xC4s\x14a\0\x9DW\x80c\xE8\x02\x18\"\x14a\0\xB9W[`\0\x80\xFD[a\0k`\x04\x806\x03\x81\x01\x90a\0f\x91\x90a\tzV[a\0\xD5V[`@Qa\0x\x91\x90a\t\xC0V[`@Q\x80\x91\x03\x90\xF3[a\0\x9B`\x04\x806\x03\x81\x01\x90a\0\x96\x91\x90a\tzV[a\x01\x05V[\0[a\0\xB7`\x04\x806\x03\x81\x01\x90a\0\xB2\x91\x90a\n\x11V[a\x01fV[\0[a\0\xD3`\x04\x806\x03\x81\x01\x90a\0\xCE\x91\x90a\n\x11V[a\x02\xD9V[\0[`\0\x81`@Q` \x01a\0\xE8\x91\x90a\x0C\x02V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90P\x91\x90PV[\x80``\x01` \x81\x01\x90a\x01\x18\x91\x90a\x0C\x1DV[s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x163s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x01OW`\0\x80\xFD[a\x01c3`\0a\x03\xAF\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[PV[a\x01\xB7\x82` \x01` \x81\x01\x90a\x01|\x91\x90a\x0CJV[`@Q\x80`@\x01`@R\x80`\x1A\x81R` \x01\x7FCannot vote after deadline\0\0\0\0\0\0\x81RPa\x03\xD9V[`\0a\x01\xC2\x83a\0\xD5V[\x90Pa\x02\x0F3`@Q\x80`@\x01`@R\x80`\x1D\x81R` \x01\x7FCannot vote if not registered\0\0\0\x81RP`\0a\x04\n\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[`\0a\x02'\x823`\x02a\x046\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x14a\x021W`\0\x80\xFD[a\x02J\x813`\x01`\x02a\x05\x02\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[`\0\x81\x83`@Q` \x01a\x02_\x92\x91\x90a\x0C\x86V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90Pa\x02\x8E\x81`\x01`\x03a\x05\xCD\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x823s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83\x7F\xE4\xAB\xC58\x0F\xA6\x93\x9D\x1D\xC2;^\x90\xB3\xA8\xA0\xE3(\xF0\xF1\xA8*_B\xBF\xB7\x95\xBF\x9Cqu\x05`@Q`@Q\x80\x91\x03\x90\xA4PPPPV[a\x03\r\x82` \x01` \x81\x01\x90a\x02\xEF\x91\x90a\x0CJV[`@Q\x80``\x01`@R\x80`$\x81R` \x01a\x10\x9F`$\x919a\x05\xFEV[`\0a\x03\x18\x83a\0\xD5V[\x90P`\0\x81\x83`@Q` \x01a\x03/\x92\x91\x90a\x0C\x86V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90Pa\x03{\x81\x85`\0\x015`@Q\x80``\x01`@R\x80`0\x81R` \x01a\x10\xC3`0\x919`\x03a\x06/\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x82\x82\x7F&\x9D:$q$6\xF7}\xF1]c\xDE}#7\xA0`\xC9\x10-\xEEoF\xC9\t\xFB\x0F\xA2\xD5/\x0C`@Q`@Q\x80\x91\x03\x90\xA3PPPPV[a\x03\xD5\x82`\0\x01\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`\0\x1Ba\x06WV[PPV[a\x04\x06a\x04\0\x83a\x03\xE8a\x06\xBDV[g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\x07\xF2\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x82a\x08\x13V[PPV[a\x041\x83`\0\x01\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`\0\x1B\x83a\t\tV[PPPV[`\x002s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x04\xA6W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x04\x9D\x90a\r2V[`@Q\x80\x91\x03\x90\xFD[\x83`\0\x01`\0\x84\x81R` \x01\x90\x81R` \x01`\0 `\0\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 T\x90P\x93\x92PPPV[2s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x05pW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x05g\x90a\r2V[`@Q\x80\x91\x03\x90\xFD[\x80\x84`\0\x01`\0\x85\x81R` \x01\x90\x81R` \x01`\0 `\0\x84s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01`\0 \x81\x90UPPPPPV[\x80\x83`\0\x01`\0\x84\x81R` \x01\x90\x81R` \x01`\0 `\0\x82\x82Ta\x05\xF2\x91\x90a\r\x81V[\x92PP\x81\x90UPPPPV[a\x06+a\x06%\x83a\x06\ra\x06\xBDV[g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\t0\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x82a\x08\x13V[PPV[a\x06Q\x82\x85`\0\x01`\0\x86\x81R` \x01\x90\x81R` \x01`\0 T\x10\x15\x82a\x08\x13V[PPPPV[`\0\x82`\0\x01`\0\x83\x81R` \x01\x90\x81R` \x01`\0 T\x03a\x06\xB9W`\x01\x82`\x01\x01Ta\x06\x85\x91\x90a\r\x81V[\x82`\0\x01`\0\x83\x81R` \x01\x90\x81R` \x01`\0 \x81\x90UP\x81`\x01\x01`\0\x81T\x80\x92\x91\x90a\x06\xB3\x90a\r\xB5V[\x91\x90PUP[PPV[`\0\x80`\0\x7F\xBA(nM\x89\xDA\xBFK(x\xE8\x96B;\xB1#\xD9\xD5\x14>f&\x06\xFD4;gf\xD7\xBC\xF7!`\0\x1Cs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`@Qa\x07\x08\x90a\x0E.V[`\0`@Q\x80\x83\x03\x81\x85Z\xFA\x91PP=\x80`\0\x81\x14a\x07CW`@Q\x91P`\x1F\x19`?=\x01\x16\x82\x01`@R=\x82R=`\0` \x84\x01>a\x07HV[``\x91P[P\x91P\x91P\x81a\x07\x8DW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x07\x84\x90a\x0E\x8FV[`@Q\x80\x91\x03\x90\xFD[` \x81Q\x14a\x07\xD1W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x07\xC8\x90a\x0E\xFBV[`@Q\x80\x91\x03\x90\xFD[`\0\x81\x80` \x01\x90Q\x81\x01\x90a\x07\xE7\x91\x90a\x0FGV[\x90P\x80\x93PPPP\x90V[`\0\x81g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x10\x90P\x92\x91PPV[`\0\x7F=\xCD\xF6;A\xC1\x03V}r%\x97j\xD9\x14^\x86lz}\xCC\xC6\xC2w\xEA\x86\xAB\xBD&\x8F\xBA\xC9`\0\x1Cs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83`@Q` \x01a\x08`\x91\x90a\x0F\x8FV[`@Q` \x81\x83\x03\x03\x81R\x90`@R`@Qa\x08|\x91\x90a\x10\x10V[`\0`@Q\x80\x83\x03\x81\x85Z\xFA\x91PP=\x80`\0\x81\x14a\x08\xB7W`@Q\x91P`\x1F\x19`?=\x01\x16\x82\x01`@R=\x82R=`\0` \x84\x01>a\x08\xBCV[``\x91P[PP\x90P\x80\x82\x90a\t\x03W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x08\xFA\x91\x90a\x10|V[`@Q\x80\x91\x03\x90\xFD[PPPPV[a\t+`\0\x84`\0\x01`\0\x85\x81R` \x01\x90\x81R` \x01`\0 T\x11\x82a\x08\x13V[PPPV[`\0\x81g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x11\x90P\x92\x91PPV[`\0\x80\xFD[`\0\x80\xFD[`\0`\x80\x82\x84\x03\x12\x15a\tqWa\tpa\tVV[[\x81\x90P\x92\x91PPV[`\0`\x80\x82\x84\x03\x12\x15a\t\x90Wa\t\x8Fa\tQV[[`\0a\t\x9E\x84\x82\x85\x01a\t[V[\x91PP\x92\x91PPV[`\0\x81\x90P\x91\x90PV[a\t\xBA\x81a\t\xA7V[\x82RPPV[`\0` \x82\x01\x90Pa\t\xD5`\0\x83\x01\x84a\t\xB1V[\x92\x91PPV[`\0\x81\x90P\x91\x90PV[a\t\xEE\x81a\t\xDBV[\x81\x14a\t\xF9W`\0\x80\xFD[PV[`\0\x815\x90Pa\n\x0B\x81a\t\xE5V[\x92\x91PPV[`\0\x80`\xA0\x83\x85\x03\x12\x15a\n(Wa\n'a\tQV[[`\0a\n6\x85\x82\x86\x01a\t[V[\x92PP`\x80a\nG\x85\x82\x86\x01a\t\xFCV[\x91PP\x92P\x92\x90PV[`\0a\n`` \x84\x01\x84a\t\xFCV[\x90P\x92\x91PPV[a\nq\x81a\t\xDBV[\x82RPPV[`\0g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[a\n\x94\x81a\nwV[\x81\x14a\n\x9FW`\0\x80\xFD[PV[`\0\x815\x90Pa\n\xB1\x81a\n\x8BV[\x92\x91PPV[`\0a\n\xC6` \x84\x01\x84a\n\xA2V[\x90P\x92\x91PPV[`\0\x81\x90P\x91\x90PV[`\0a\n\xF3a\n\xEEa\n\xE9\x84a\nwV[a\n\xCEV[a\nwV[\x90P\x91\x90PV[a\x0B\x03\x81a\n\xD8V[\x82RPPV[`\0s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[`\0a\x0B4\x82a\x0B\tV[\x90P\x91\x90PV[a\x0BD\x81a\x0B)V[\x81\x14a\x0BOW`\0\x80\xFD[PV[`\0\x815\x90Pa\x0Ba\x81a\x0B;V[\x92\x91PPV[`\0a\x0Bv` \x84\x01\x84a\x0BRV[\x90P\x92\x91PPV[a\x0B\x87\x81a\x0B)V[\x82RPPV[`\x80\x82\x01a\x0B\x9E`\0\x83\x01\x83a\nQV[a\x0B\xAB`\0\x85\x01\x82a\nhV[Pa\x0B\xB9` \x83\x01\x83a\n\xB7V[a\x0B\xC6` \x85\x01\x82a\n\xFAV[Pa\x0B\xD4`@\x83\x01\x83a\nQV[a\x0B\xE1`@\x85\x01\x82a\nhV[Pa\x0B\xEF``\x83\x01\x83a\x0BgV[a\x0B\xFC``\x85\x01\x82a\x0B~V[PPPPV[`\0`\x80\x82\x01\x90Pa\x0C\x17`\0\x83\x01\x84a\x0B\x8DV[\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\x0C3Wa\x0C2a\tQV[[`\0a\x0CA\x84\x82\x85\x01a\x0BRV[\x91PP\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\x0C`Wa\x0C_a\tQV[[`\0a\x0Cn\x84\x82\x85\x01a\n\xA2V[\x91PP\x92\x91PPV[a\x0C\x80\x81a\t\xDBV[\x82RPPV[`\0`@\x82\x01\x90Pa\x0C\x9B`\0\x83\x01\x85a\t\xB1V[a\x0C\xA8` \x83\x01\x84a\x0CwV[\x93\x92PPPV[`\0\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x7FCannot access OwnedCounter owned`\0\x82\x01R\x7F by another address\0\0\0\0\0\0\0\0\0\0\0\0\0` \x82\x01RPV[`\0a\r\x1C`3\x83a\x0C\xAFV[\x91Pa\r'\x82a\x0C\xC0V[`@\x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\rK\x81a\r\x0FV[\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0`\0R`\x11`\x04R`$`\0\xFD[`\0a\r\x8C\x82a\t\xDBV[\x91Pa\r\x97\x83a\t\xDBV[\x92P\x82\x82\x01\x90P\x80\x82\x11\x15a\r\xAFWa\r\xAEa\rRV[[\x92\x91PPV[`\0a\r\xC0\x82a\t\xDBV[\x91P\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x03a\r\xF2Wa\r\xF1a\rRV[[`\x01\x82\x01\x90P\x91\x90PV[`\0\x81\x90P\x92\x91PPV[PV[`\0a\x0E\x18`\0\x83a\r\xFDV[\x91Pa\x0E#\x82a\x0E\x08V[`\0\x82\x01\x90P\x91\x90PV[`\0a\x0E9\x82a\x0E\x0BV[\x91P\x81\x90P\x91\x90PV[\x7FPrecompile call failed\0\0\0\0\0\0\0\0\0\0`\0\x82\x01RPV[`\0a\x0Ey`\x16\x83a\x0C\xAFV[\x91Pa\x0E\x84\x82a\x0ECV[` \x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x0E\xA8\x81a\x0ElV[\x90P\x91\x90PV[\x7FInvalid output length\0\0\0\0\0\0\0\0\0\0\0`\0\x82\x01RPV[`\0a\x0E\xE5`\x15\x83a\x0C\xAFV[\x91Pa\x0E\xF0\x82a\x0E\xAFV[` \x82\x01\x90P\x91\x90PV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x0F\x14\x81a\x0E\xD8V[\x90P\x91\x90PV[a\x0F$\x81a\nwV[\x81\x14a\x0F/W`\0\x80\xFD[PV[`\0\x81Q\x90Pa\x0FA\x81a\x0F\x1BV[\x92\x91PPV[`\0` \x82\x84\x03\x12\x15a\x0F]Wa\x0F\\a\tQV[[`\0a\x0Fk\x84\x82\x85\x01a\x0F2V[\x91PP\x92\x91PPV[`\0\x81\x15\x15\x90P\x91\x90PV[a\x0F\x89\x81a\x0FtV[\x82RPPV[`\0` \x82\x01\x90Pa\x0F\xA4`\0\x83\x01\x84a\x0F\x80V[\x92\x91PPV[`\0\x81Q\x90P\x91\x90PV[`\0[\x83\x81\x10\x15a\x0F\xD3W\x80\x82\x01Q\x81\x84\x01R` \x81\x01\x90Pa\x0F\xB8V[`\0\x84\x84\x01RPPPPV[`\0a\x0F\xEA\x82a\x0F\xAAV[a\x0F\xF4\x81\x85a\r\xFDV[\x93Pa\x10\x04\x81\x85` \x86\x01a\x0F\xB5V[\x80\x84\x01\x91PP\x92\x91PPV[`\0a\x10\x1C\x82\x84a\x0F\xDFV[\x91P\x81\x90P\x92\x91PPV[`\0\x81Q\x90P\x91\x90PV[`\0`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[`\0a\x10N\x82a\x10'V[a\x10X\x81\x85a\x0C\xAFV[\x93Pa\x10h\x81\x85` \x86\x01a\x0F\xB5V[a\x10q\x81a\x102V[\x84\x01\x91PP\x92\x91PPV[`\0` \x82\x01\x90P\x81\x81\x03`\0\x83\x01Ra\x10\x96\x81\x84a\x10CV[\x90P\x92\x91PPV\xFECannot decide winner before deadlineCannot set winner with less votes than threshold",
     );
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address owner; }
+struct VotingInfo { uint256 threshold; Time.Timestamp deadline; uint256 nonce; address owner; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -266,7 +539,7 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
         #[allow(missing_docs)]
         pub threshold: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
-        pub deadline: alloy::sol_types::private::primitives::aliases::U256,
+        pub deadline: <Time::Timestamp as alloy::sol_types::SolType>::RustType,
         #[allow(missing_docs)]
         pub nonce: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
@@ -283,14 +556,14 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
         #[doc(hidden)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Uint<256>,
+            Time::Timestamp,
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Address,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
             alloy::sol_types::private::primitives::aliases::U256,
-            alloy::sol_types::private::primitives::aliases::U256,
+            <Time::Timestamp as alloy::sol_types::SolType>::RustType,
             alloy::sol_types::private::primitives::aliases::U256,
             alloy::sol_types::private::Address,
         );
@@ -336,9 +609,9 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.threshold),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.deadline),
+                    <Time::Timestamp as alloy_sol_types::SolType>::tokenize(
+                        &self.deadline,
+                    ),
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.nonce),
@@ -419,7 +692,7 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "VotingInfo(uint256 threshold,uint256 deadline,uint256 nonce,address owner)",
+                    "VotingInfo(uint256 threshold,uint64 deadline,uint256 nonce,address owner)",
                 )
             }
             #[inline]
@@ -439,9 +712,9 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
                         256,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.threshold)
                         .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.deadline)
+                    <Time::Timestamp as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.deadline,
+                        )
                         .0,
                     <alloy::sol_types::sol_data::Uint<
                         256,
@@ -465,9 +738,7 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.threshold,
                     )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                    + <Time::Timestamp as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.deadline,
                     )
                     + <alloy::sol_types::sol_data::Uint<
@@ -491,9 +762,7 @@ struct VotingInfo { uint256 threshold; uint256 deadline; uint256 nonce; address 
                     &rust.threshold,
                     out,
                 );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                <Time::Timestamp as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.deadline,
                     out,
                 );
@@ -769,7 +1038,7 @@ event Winner(bytes32 indexed votingId, uint256 indexed choice);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `register((uint256,uint256,uint256,address))` and selector `0x8f253c75`.
+    /**Function with signature `register((uint256,uint64,uint256,address))` and selector `0x995d5d91`.
 ```solidity
 function register(VotingInfo memory v) external;
 ```*/
@@ -779,7 +1048,7 @@ function register(VotingInfo memory v) external;
         #[allow(missing_docs)]
         pub v: <VotingInfo as alloy::sol_types::SolType>::RustType,
     }
-    ///Container type for the return parameters of the [`register((uint256,uint256,uint256,address))`](registerCall) function.
+    ///Container type for the return parameters of the [`register((uint256,uint64,uint256,address))`](registerCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct registerReturn {}
@@ -866,8 +1135,8 @@ function register(VotingInfo memory v) external;
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "register((uint256,uint256,uint256,address))";
-            const SELECTOR: [u8; 4] = [143u8, 37u8, 60u8, 117u8];
+            const SIGNATURE: &'static str = "register((uint256,uint64,uint256,address))";
+            const SELECTOR: [u8; 4] = [153u8, 93u8, 93u8, 145u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -892,7 +1161,7 @@ function register(VotingInfo memory v) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `setWinner((uint256,uint256,uint256,address),uint256)` and selector `0x9747a952`.
+    /**Function with signature `setWinner((uint256,uint64,uint256,address),uint256)` and selector `0xe8021822`.
 ```solidity
 function setWinner(VotingInfo memory v, uint256 choice) external;
 ```*/
@@ -904,7 +1173,7 @@ function setWinner(VotingInfo memory v, uint256 choice) external;
         #[allow(missing_docs)]
         pub choice: alloy::sol_types::private::primitives::aliases::U256,
     }
-    ///Container type for the return parameters of the [`setWinner((uint256,uint256,uint256,address),uint256)`](setWinnerCall) function.
+    ///Container type for the return parameters of the [`setWinner((uint256,uint64,uint256,address),uint256)`](setWinnerCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setWinnerReturn {}
@@ -998,8 +1267,8 @@ function setWinner(VotingInfo memory v, uint256 choice) external;
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "setWinner((uint256,uint256,uint256,address),uint256)";
-            const SELECTOR: [u8; 4] = [151u8, 71u8, 169u8, 82u8];
+            const SIGNATURE: &'static str = "setWinner((uint256,uint64,uint256,address),uint256)";
+            const SELECTOR: [u8; 4] = [232u8, 2u8, 24u8, 34u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -1029,7 +1298,7 @@ function setWinner(VotingInfo memory v, uint256 choice) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `vote((uint256,uint256,uint256,address),uint256)` and selector `0x152d18c4`.
+    /**Function with signature `vote((uint256,uint64,uint256,address),uint256)` and selector `0xa7d4c473`.
 ```solidity
 function vote(VotingInfo memory v, uint256 choice) external;
 ```*/
@@ -1041,7 +1310,7 @@ function vote(VotingInfo memory v, uint256 choice) external;
         #[allow(missing_docs)]
         pub choice: alloy::sol_types::private::primitives::aliases::U256,
     }
-    ///Container type for the return parameters of the [`vote((uint256,uint256,uint256,address),uint256)`](voteCall) function.
+    ///Container type for the return parameters of the [`vote((uint256,uint64,uint256,address),uint256)`](voteCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct voteReturn {}
@@ -1135,8 +1404,8 @@ function vote(VotingInfo memory v, uint256 choice) external;
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "vote((uint256,uint256,uint256,address),uint256)";
-            const SELECTOR: [u8; 4] = [21u8, 45u8, 24u8, 196u8];
+            const SIGNATURE: &'static str = "vote((uint256,uint64,uint256,address),uint256)";
+            const SELECTOR: [u8; 4] = [167u8, 212u8, 196u8, 115u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -1166,7 +1435,7 @@ function vote(VotingInfo memory v, uint256 choice) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `votingId((uint256,uint256,uint256,address))` and selector `0x39db6659`.
+    /**Function with signature `votingId((uint256,uint64,uint256,address))` and selector `0x24c6e3c4`.
 ```solidity
 function votingId(VotingInfo memory v) external pure returns (bytes32);
 ```*/
@@ -1178,7 +1447,7 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`votingId((uint256,uint256,uint256,address))`](votingIdCall) function.
+    ///Container type for the return parameters of the [`votingId((uint256,uint64,uint256,address))`](votingIdCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct votingIdReturn {
@@ -1268,8 +1537,8 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "votingId((uint256,uint256,uint256,address))";
-            const SELECTOR: [u8; 4] = [57u8, 219u8, 102u8, 89u8];
+            const SIGNATURE: &'static str = "votingId((uint256,uint64,uint256,address))";
+            const SELECTOR: [u8; 4] = [36u8, 198u8, 227u8, 196u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -1314,10 +1583,10 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
         ///
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
-            [21u8, 45u8, 24u8, 196u8],
-            [57u8, 219u8, 102u8, 89u8],
-            [143u8, 37u8, 60u8, 117u8],
-            [151u8, 71u8, 169u8, 82u8],
+            [36u8, 198u8, 227u8, 196u8],
+            [153u8, 93u8, 93u8, 145u8],
+            [167u8, 212u8, 196u8, 115u8],
+            [232u8, 2u8, 24u8, 34u8],
         ];
     }
     #[automatically_derived]
@@ -1356,19 +1625,6 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
                 bool,
             ) -> alloy_sol_types::Result<VotingCalls>] = &[
                 {
-                    fn vote(
-                        data: &[u8],
-                        validate: bool,
-                    ) -> alloy_sol_types::Result<VotingCalls> {
-                        <voteCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                                validate,
-                            )
-                            .map(VotingCalls::vote)
-                    }
-                    vote
-                },
-                {
                     fn votingId(
                         data: &[u8],
                         validate: bool,
@@ -1393,6 +1649,19 @@ function votingId(VotingInfo memory v) external pure returns (bytes32);
                             .map(VotingCalls::register)
                     }
                     register
+                },
+                {
+                    fn vote(
+                        data: &[u8],
+                        validate: bool,
+                    ) -> alloy_sol_types::Result<VotingCalls> {
+                        <voteCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                                validate,
+                            )
+                            .map(VotingCalls::vote)
+                    }
+                    vote
                 },
                 {
                     fn setWinner(
