@@ -1,17 +1,17 @@
 use std::time::SystemTime;
 
-use crate::{network::PodReceiptResponse, provider::PodProvider, Address, U256};
-use alloy_provider::Provider;
-use alloy_rpc_types::Filter;
-use alloy_sol_types::SolEvent;
+use crate::{
+    network::{PodNetwork, PodReceiptResponse},
+    provider::PodProvider,
+    Address, U256,
+};
 use anyhow::Context;
 
-use pod_contracts::auction::Auction;
+use pod_contracts::auction::Auction::AuctionInstance;
 use pod_types::Timestamp;
 
 pub struct AuctionClient {
-    provider: PodProvider,
-    contract: Address,
+    auction: AuctionInstance<(), PodProvider, PodNetwork>,
 }
 
 pub struct Bid {
@@ -22,35 +22,32 @@ pub struct Bid {
 
 impl AuctionClient {
     pub fn new(provider: PodProvider, contract: Address) -> Self {
-        AuctionClient { provider, contract }
+        AuctionClient {
+            auction: AuctionInstance::new(contract, provider),
+        }
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn wait_for_auction_end(&self, deadline: SystemTime) -> anyhow::Result<()> {
         Ok(self
-            .provider
+            .auction
+            .provider()
             .wait_past_perfect_time(deadline.into())
             .await?)
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn fetch_bids(&self, auction_id: U256) -> anyhow::Result<Vec<Bid>> {
-        let filter = Filter::new()
-            .address(self.contract)
-            .event_signature(Auction::BidSubmitted::SIGNATURE_HASH)
-            .topic1(auction_id);
-
         let logs = self
-            .provider
-            .get_logs(&filter)
+            .auction
+            .BidSubmitted_filter()
+            .topic1(auction_id)
+            .query()
             .await
-            .context("getting logs")?;
+            .context("fetching bid logs")?;
 
         logs.into_iter()
-            .map(|log| {
-                let event = Auction::BidSubmitted::decode_log(&log.inner, true)
-                    .context("failed to decode bid log")?
-                    .data;
+            .map(|(event, _)| {
                 Ok(Bid {
                     amount: event.value,
                     bidder: event.bidder,
@@ -67,15 +64,14 @@ impl AuctionClient {
         bid: U256,
         data: Vec<u8>,
     ) -> anyhow::Result<PodReceiptResponse> {
-        let auction = Auction::AuctionInstance::new(self.contract, self.provider.clone());
-
         let deadline_ts = Timestamp::from(deadline);
         let deadline = deadline_ts
             .as_micros()
             .try_into()
             .context("deadline seconds must fit in u64")?;
 
-        let pending_tx = auction
+        let pending_tx = self
+            .auction
             .submitBid(auction_id, deadline, bid, data.into())
             .max_priority_fee_per_gas(0)
             .send()
