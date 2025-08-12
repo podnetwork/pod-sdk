@@ -24,7 +24,7 @@ async function sendTransaction() {
     to: TO_ADDRESS,
     value: parseEther("0.002"),
     gasLimit: 21000,
-    maxPriorityFeePerGas: parseEther("0.0000001"),
+    maxPriorityFeePerGas: 0,
     maxFeePerGas: parseEther("0.0000003"),
   };
 
