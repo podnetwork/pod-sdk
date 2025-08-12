@@ -34,12 +34,12 @@ Learn by projects and examples
 ! gridstack end
 
 ! gridstack  
-! grid href="/smart-contract-development/solidity-sdk-reference"
+! grid href="/solidity-sdk"
 ## Solidity SDK
 Learn how to write smart contracts for pod using Solidity.
 ! grid end  
 
-! grid href="./reference/json-rpc" 
+! grid href="./json-rpc" 
 ## JSON-RPC
 Learn about pod's JSON-RPC interface.
 ! grid end
