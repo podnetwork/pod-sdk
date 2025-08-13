@@ -11,7 +11,7 @@ use pod_contracts::auction::Auction::AuctionInstance;
 use pod_types::Timestamp;
 
 pub struct AuctionClient {
-    auction: AuctionInstance<(), PodProvider, PodNetwork>,
+    auction: AuctionInstance<PodProvider, PodNetwork>,
 }
 
 pub struct Bid {

@@ -3242,7 +3242,7 @@ dependencies = [
 [[package]]
 name = "pod-examples-solidity"
 version = "0.1.0"
-source = "git+https://github.com/podnetwork/pod-sdk?rev=17b6d8a18100a2247142db16416a831e045d6f93#17b6d8a18100a2247142db16416a831e045d6f93"
+source = "git+https://github.com/podnetwork/pod-sdk?rev=cab43b2075fb683f3eb5c34cf7b738f420b0c31d#cab43b2075fb683f3eb5c34cf7b738f420b0c31d"
 dependencies = [
  "alloy",
  "serde",
@@ -3276,7 +3276,7 @@ dependencies = [
  "async-trait",
  "futures",
  "hex",
- "pod-examples-solidity 0.1.0 (git+https://github.com/podnetwork/pod-sdk?rev=17b6d8a18100a2247142db16416a831e045d6f93)",
+ "pod-examples-solidity 0.1.0 (git+https://github.com/podnetwork/pod-sdk?rev=cab43b2075fb683f3eb5c34cf7b738f420b0c31d)",
  "pod-types",
  "serde",
  "tokio-test",
