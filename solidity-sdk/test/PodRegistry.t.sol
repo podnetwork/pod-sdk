@@ -46,14 +46,23 @@ contract PodRegistryTest is Test {
 
     function test_AddValidator_RevertIfZeroAddress() public {
         vm.prank(owner);
-        vm.expectRevert("pod: validator is the zero address");
+        vm.expectRevert(abi.encodeWithSignature("ValidatorIsZeroAddress()"));
         registry.addValidator(address(0));
     }
 
     function test_AddValidator_RevertIfAlreadyExists() public {
         vm.prank(owner);
-        vm.expectRevert("pod: validator already exists");
+        vm.expectRevert(abi.encodeWithSignature("ValidatorAlreadyExists()"));
         registry.addValidator(validator1);
+    }
+
+    function test_Initialize_RevertIfTooManyValidators() public {
+        address[] memory initialValidators = new address[](255);
+        for (uint8 i = 0; i < 255; i++) {
+            initialValidators[i] = address(uint160(1000 + i));
+        }
+        vm.expectRevert(abi.encodeWithSignature("TooManyInitialValidators()"));
+        new PodRegistry(initialValidators);
     }
 
     function test_AddValidator_RevertIfMaxCountReached() public {
@@ -63,7 +72,7 @@ contract PodRegistryTest is Test {
             registry.addValidator(newValidator);
         }
 
-        vm.expectRevert("pod: max validator count reached");
+        vm.expectRevert(abi.encodeWithSignature("MaxValidatorCountReached()"));
         registry.addValidator(address(9999));
         vm.stopPrank();
     }
@@ -82,6 +91,16 @@ contract PodRegistryTest is Test {
         assertEq(registry.getHistoryLength(), beforeHistory + 1);
     }
 
+    function test_BanValidator_DoesNotCreateSnapshotWhenValidatorIsInactive() public {
+        vm.prank(validator1);
+        registry.deactivate();
+
+        uint256 beforeHistory = registry.getHistoryLength();
+        vm.prank(owner);
+        registry.banValidator(validator1);
+        assertEq(registry.getHistoryLength(), beforeHistory);
+    }
+
     function test_BanValidator_RevertIfNotOwner() public {
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", address(this)));
         registry.banValidator(validator1);
@@ -89,7 +108,7 @@ contract PodRegistryTest is Test {
 
     function test_BanValidator_RevertIfNotExists() public {
         vm.prank(owner);
-        vm.expectRevert("pod: validator does not exist");
+        vm.expectRevert(abi.encodeWithSignature("ValidatorDoesNotExist()"));
         registry.banValidator(validator3);
     }
 
@@ -98,7 +117,7 @@ contract PodRegistryTest is Test {
         registry.banValidator(validator1);
 
         vm.prank(owner);
-        vm.expectRevert("pod: validator is already banned");
+        vm.expectRevert(abi.encodeWithSignature("ValidatorAlreadyBanned()"));
         registry.banValidator(validator1);
     }
 
@@ -129,7 +148,7 @@ contract PodRegistryTest is Test {
         registry.banValidator(validator1);
 
         vm.prank(validator1);
-        vm.expectRevert("pod: caller has been banned");
+        vm.expectRevert(abi.encodeWithSignature("CallerHasBeenBanned()"));
         registry.reactivate();
 
         vm.prank(owner);
@@ -177,13 +196,13 @@ contract PodRegistryTest is Test {
         registry.deactivate();
 
         vm.prank(validator1);
-        vm.expectRevert("pod: caller is already inactive");
+        vm.expectRevert(abi.encodeWithSignature("CallerAlreadyInactive()"));
         registry.deactivate();
     }
 
     function test_Reactivate_RevertIfAlreadyActive() public {
         vm.prank(validator1);
-        vm.expectRevert("pod: caller is already active");
+        vm.expectRevert(abi.encodeWithSignature("CallerAlreadyActive()"));
         registry.reactivate();
     }
 
@@ -192,7 +211,7 @@ contract PodRegistryTest is Test {
         registry.banValidator(validator1);
 
         vm.prank(validator1);
-        vm.expectRevert("pod: caller has been banned");
+        vm.expectRevert(abi.encodeWithSignature("CallerHasBeenBanned()"));
         registry.reactivate();
     }
 
@@ -201,19 +220,19 @@ contract PodRegistryTest is Test {
         registry.banValidator(validator1);
 
         vm.prank(validator1);
-        vm.expectRevert("pod: caller has been banned");
+        vm.expectRevert(abi.encodeWithSignature("CallerHasBeenBanned()"));
         registry.reactivate();
     }
 
     function test_Deactivate_RevertIfNotValidator() public {
         vm.prank(address(1337));
-        vm.expectRevert("pod: caller is not a validator");
+        vm.expectRevert(abi.encodeWithSignature("CallerNotValidator()"));
         registry.deactivate();
     }
 
     function test_Reactivate_RevertIfNotValidator() public {
         vm.prank(address(1337));
-        vm.expectRevert("pod: caller is not a validator");
+        vm.expectRevert(abi.encodeWithSignature("CallerNotValidator()"));
         registry.reactivate();
     }
 
@@ -276,6 +295,15 @@ contract PodRegistryTest is Test {
 
         uint256 weight = registry.computeWeight(subset);
         assertEq(weight, 2);
+    }
+
+    function test_ComputeWeight_WithSubsetLargerThan255() public view {
+        address[] memory subset = new address[](256);
+        for (uint16 i = 0; i < 256; i++) {
+            subset[i] = validator1;
+        }
+        uint256 weight = registry.computeWeight(subset);
+        assertEq(weight, 1);
     }
 
     function test_ComputeWeight_IgnoresInactiveValidators() public {
@@ -341,7 +369,7 @@ contract PodRegistryTest is Test {
         subset[0] = validator1;
         subset[1] = validator2;
 
-        vm.expectRevert("pod: snapshot too old");
+        vm.expectRevert(abi.encodeWithSignature("SnapshotTooOld()"));
         registry.computeWeight(subset, latestBlock, 0);
     }
 
@@ -359,7 +387,7 @@ contract PodRegistryTest is Test {
         subset[0] = validator1;
         subset[1] = validator3;
 
-        vm.expectRevert("pod: snapshot too new");
+        vm.expectRevert(abi.encodeWithSignature("SnapshotTooNew()"));
         registry.computeWeight(subset, blockAtAdd, 2);
     }
 
@@ -367,7 +395,7 @@ contract PodRegistryTest is Test {
         address[] memory subset = new address[](1);
         subset[0] = validator1;
 
-        vm.expectRevert("pod: invalid snapshot index");
+        vm.expectRevert(abi.encodeWithSignature("InvalidSnapshotIndex()"));
         registry.computeWeight(subset, block.number, 999);
     }
 
