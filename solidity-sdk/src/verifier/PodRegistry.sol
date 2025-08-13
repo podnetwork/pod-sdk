@@ -68,19 +68,25 @@ contract PodRegistry is IPodRegistry, Ownable {
     uint8 public validatorCount;
 
     constructor(address[] memory initialValidators) Ownable(msg.sender) {
+        require(
+            initialValidators.length < MAX_VALIDATOR_COUNT,
+            "pod: too many initial validators"
+        );
+        validatorCount = uint8(initialValidators.length);
+
         for (uint8 i = 0; i < initialValidators.length; i++) {
-            _addValidator(initialValidators[i]);
+            _addValidatorOnInit(initialValidators[i], i);
         }
 
         _createSnapshot();
     }
 
-    function addValidator(address validator) external onlyOwner {
-        _addValidator(validator);
-        _createSnapshot();
+    function _addValidatorOnInit(address validator, uint8 index) internal {
+        validatorIndex[validator] = index + 1;
+        activeValidatorBitmap |= (1 << index);
     }
 
-    function _addValidator(address validator) internal {
+    function addValidator(address validator) external onlyOwner {
         require(validator != address(0), "pod: validator is the zero address");
         require(
             validatorIndex[validator] == 0,
@@ -92,16 +98,13 @@ contract PodRegistry is IPodRegistry, Ownable {
         );
         uint8 index = ++validatorCount;
         validatorIndex[validator] = index;
-        _activateValidator(index);
+        if (!_isValidatorActive(index)) {
+            _activateValidator(index);
+        }
         emit ValidatorAdded(validator);
     }
 
     function banValidator(address validator) external onlyOwner {
-        _banValidator(validator);
-        _createSnapshot();
-    }
-
-    function _banValidator(address validator) internal {
         uint8 index = validatorIndex[validator];
         require(index != 0, "pod: validator does not exist");
         require(
@@ -133,7 +136,6 @@ contract PodRegistry is IPodRegistry, Ownable {
         require(_isValidatorActive(index), "pod: caller is already inactive");
         _deactivateValidator(index);
         emit ValidatorDeactivated(msg.sender);
-        _createSnapshot();
     }
 
     function reactivate() external {
@@ -143,7 +145,6 @@ contract PodRegistry is IPodRegistry, Ownable {
         require(!_isValidatorActive(index), "pod: caller is already active");
         _activateValidator(index);
         emit ValidatorReactivated(msg.sender);
-        _createSnapshot();
     }
 
     function _createSnapshot() internal {
@@ -246,10 +247,12 @@ contract PodRegistry is IPodRegistry, Ownable {
 
     function _activateValidator(uint8 index) internal {
         activeValidatorBitmap |= (1 << (index - 1));
+        _createSnapshot();
     }
 
     function _deactivateValidator(uint8 index) internal {
         activeValidatorBitmap &= ~(1 << (index - 1));
+        _createSnapshot();
     }
 
     function _isValidatorActive(uint8 index) internal view returns (bool) {
