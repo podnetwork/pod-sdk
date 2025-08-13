@@ -21,8 +21,7 @@ In case when the contract isn't already deploy on the pod devnet, change directo
 following command:
 
 ```bash
-POD_PRIVATE_KEY= make -C contract deploy
-forge create  src/Auction.sol:Auction --evm-version prague --private-key <PRIVATE KEY OF A FUNDED ACCOUNT ON POD> --rpc-url wss://rpc.v2.pod.network --broadcast
+forge create  src/Auction.sol:Auction --private-key <PRIVATE KEY OF A FUNDED ACCOUNT ON POD> --rpc-url wss://rpc.v2.pod.network --broadcast
 ```
 
 > [!NOTE] The private key should be of an account that has enough funds to pay for the gas of the deployment

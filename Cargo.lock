@@ -3243,12 +3243,9 @@ dependencies = [
  "humantime",
  "op-alloy",
  "pod-sdk",
- "pod-types",
  "rand 0.9.1",
- "serde",
  "serde_json",
  "tokio",
- "tracing",
 ]
 
 [[package]]

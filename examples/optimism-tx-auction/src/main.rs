@@ -8,16 +8,14 @@ use alloy::{
     eips::{BlockId, BlockNumberOrTag::Latest, Encodable2718},
     network::{TransactionBuilder, TxSigner},
 };
-use anyhow::{Context, ensure};
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
 use op_alloy::{consensus::OpTxEnvelope, network::Optimism, rpc_types::OpTransactionRequest};
-use optimism_tx_auction::bindings::{self};
 use pod_sdk::{
-    Address, PrivateKeySigner, Provider, ProviderBuilder, U256, alloy_rpc_types::Block,
-    provider::PodProviderBuilder,
+    alloy_rpc_types::Block, auctions::client::AuctionClient, provider::PodProviderBuilder, Address, PrivateKeySigner, Provider, ProviderBuilder, Timestamp, U256
 };
-use tokio::time::timeout;
+use tokio::{task::JoinHandle, time::timeout};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -90,7 +88,6 @@ async fn main() -> anyhow::Result<()> {
 
     let op_provider = Box::new(
         ProviderBuilder::new_with_network::<Optimism>()
-            .with_call_batching()
             .connect(&cli.rpc_url)
             .await
             .with_context(|| format!("connecting to an Optimism provider @ {}", cli.rpc_url))?,
@@ -105,11 +102,10 @@ async fn main() -> anyhow::Result<()> {
 
     let latest_block =
         latest_block.ok_or_else(|| anyhow::anyhow!("Failed to fetch the latest block"))?;
-
     let (deadline, block_number) = calculate_deadline_and_block_number(latest_block).await?;
     println!(
         "Bidding for block {block_number} with auction deadline {}",
-        humantime::format_rfc3339_seconds(UNIX_EPOCH + Duration::from_secs(deadline))
+        humantime::format_rfc3339_seconds(deadline)
     );
 
     let tx = OpTransactionRequest::default()
@@ -147,23 +143,17 @@ async fn main() -> anyhow::Result<()> {
                 .on_url(&cli.pod_rpc_url)
                 .await
                 .with_context(|| format!("connecting to a Pod provider @ {}", cli.pod_rpc_url))?;
-            let auction =
-                bindings::Auction::AuctionInstance::new(cli.contract_address, pod_provider);
+            let auction = AuctionClient::new(pod_provider, cli.contract_address);
 
-            let pending_tx = auction
-                .submitBid(
-                    U256::from(deadline),
-                    U256::from(deadline),
+            let receipt = auction
+                .submit_bid(
+                            U256::from(Timestamp::from(deadline).as_micros()),
+                    deadline,
                     U256::from(max_priority_fee),
                     enc.into(),
                 )
-                .max_priority_fee_per_gas(0)
-                .send()
                 .await
-                .context("sending TX to pod")?;
-
-            let receipt = pending_tx.get_receipt().await?;
-            ensure!(receipt.status(), "Failed to submit TX bid on pod");
+                .context("submitting TX bid on pod auction")?;
 
             println!(
                 "[{}] TX {:#} from {:#} fee {max_priority_fee} (pod TX: https://explorer.v2.pod.network/tx/{} )",
@@ -188,7 +178,7 @@ async fn main() -> anyhow::Result<()> {
                 let tx = tx.clone();
                 let max_priority_fee = rand::random_range(0..gas_price / 5);
 
-                let pending_bid = tokio::spawn(async move {
+                let pending_bid: JoinHandle<Result<()>> = tokio::spawn(async move {
                     let nonce = op_provider
                         .get_transaction_count(op_signer.address())
                         .await
@@ -207,33 +197,17 @@ async fn main() -> anyhow::Result<()> {
                         .on_url(&pod_rpc_url)
                         .await
                         .with_context(|| format!("connecting to a Pod provider @ {pod_rpc_url}"))?;
-                    let auction =
-                        bindings::Auction::AuctionInstance::new(cli.contract_address, pod_provider);
+                    let auction = AuctionClient::new(pod_provider, cli.contract_address);
 
-                    let pending_tx = auction
-                        .submitBid(
-                            U256::from(deadline),
-                            U256::from(deadline),
+                    let receipt = auction
+                        .submit_bid(
+                            U256::from(Timestamp::from(deadline).as_micros()),
+                            deadline,
                             U256::from(max_priority_fee),
-                            signed_tx.encoded_2718().into(),
+                            signed_tx.encoded_2718(),
                         )
-                        .max_priority_fee_per_gas(0)
-                        .send()
                         .await
-                        .context("sending TX to pod")?;
-
-                    println!(
-                        "[{}] Sent bid with pod TX {:#}. awaiting confirmation",
-                        humantime::format_rfc3339_seconds(SystemTime::now()),
-                        pending_tx.tx_hash()
-                    );
-
-                    let receipt = timeout(Duration::from_secs(15), pending_tx.get_receipt())
-                        .await
-                        .context("getting TX receipt from pod")?
-                        .context("getting TX receipt from pod")?;
-
-                    ensure!(receipt.status(), "Failed to submit TX bid on pod");
+                        .context("submitting TX bid on pod auction")?;
 
                     println!(
                         "[{}] TX {:#} from {:#} fee {max_priority_fee} (pod TX: https://explorer.v2.pod.network/tx/{} )",
@@ -264,7 +238,7 @@ async fn main() -> anyhow::Result<()> {
 /// Makes sure the deadline matches the block timestamp parity.
 async fn calculate_deadline_and_block_number<T>(
     latest_block: Block<T>,
-) -> anyhow::Result<(u64, u64)> {
+) -> anyhow::Result<(SystemTime, u64)> {
     let blocks_timestamp_even = (latest_block.header.timestamp % 2) == 0;
 
     let mut deadline = (SystemTime::now() + Duration::from_secs(5))
@@ -279,7 +253,7 @@ async fn calculate_deadline_and_block_number<T>(
     let block_timestamp = deadline + 2; // block is built 2s after the deadline
     let block_number =
         latest_block.header.number + (block_timestamp - latest_block.header.timestamp) / 2;
-    Ok((deadline, block_number))
+    Ok((UNIX_EPOCH + Duration::from_secs(deadline), block_number))
 }
 
 async fn wait_for_block<P: Provider<Optimism>>(
