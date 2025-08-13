@@ -23,14 +23,19 @@ The contract features:
 
 ! codeblock title="Solidity"
 
-```javascript
+```solidity
+import {requireTimeBefore, Time} from "pod-sdk/Time.sol";
+
 contract Auction {
+    using Time for Time.Timestamp;
+
     // Event emitted when a bid is submitted
     event BidSubmitted(
         uint256 indexed auction_id,
         address indexed bidder,
-        uint256 indexed deadline,
-        uint256 value
+        Time.Timestamp indexed deadline,
+        uint256 value,
+        bytes data
     );
 
     /**
@@ -39,10 +44,11 @@ contract Auction {
      * @param deadline The deadline for the auction
      * @param value The bid value
      * @param data Additional data for the bid
+     * @notice deadline in microseconds
      */
     function submitBid(
         uint256 auction_id,
-        uint256 deadline,
+        Time.Timestamp deadline,
         uint256 value,
         bytes calldata data
     ) public {
@@ -50,7 +56,7 @@ contract Auction {
         requireTimeBefore(deadline, "Auction deadline passed");
 
         // Emit the bid submission event
-        emit BidSubmitted(auction_id, msg.sender, deadline, value);
+        emit BidSubmitted(auction_id, msg.sender, deadline, value, data);
     }
 }
 ```

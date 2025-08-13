@@ -41,10 +41,11 @@ The `hasVoted` variable stores whether a voter has voted for a proposal or not. 
 ! codeblock title="Solidity"
 
 ```solidity
-import {requireTimeBefore, requireTimeAfter} from "pod-sdk/Time.sol";
+import {requireTimeBefore, requireTimeAfter, Time} from "pod-sdk/Time.sol";
 import {FastTypes} from "pod-sdk/FastTypes.sol";
 
 contract Voting {
+    using Time for Time.Timestamp;
     using FastTypes for FastTypes.SharedCounter;
     using FastTypes for FastTypes.OwnedCounter;
 
@@ -58,7 +59,7 @@ contract Voting {
     /// @param deadline The proposal deadline in seconds
     /// @param voters The proposal participants
     /// @return proposalId The unique proposal ID
-    function createProposal(uint256 deadline, uint256 threshold, address[] calldata voters, bytes calldata data)
+    function createProposal(Time.Timestamp deadline, uint256 threshold, address[] calldata voters, bytes calldata data)
         public
         returns (bytes32 proposalId)
     {
@@ -160,7 +161,7 @@ async fn create_proposal(
 
     let pendix_tx = voting
         .createProposal(
-            U256::from(deadline.as_seconds()),
+            deadline.as_micros() as u64,
             U256::from(threshold),
             participants.clone(),
             data_bytes.into(),

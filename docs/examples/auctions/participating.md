@@ -109,7 +109,7 @@ use alloy_rpc_types_eth::TransactionReceipt;
 pub async fn submit_bid<P: Provider>(
     auction: &Auction<P>,
     auction_id: U256,
-    deadline: U256,
+    deadline: u64,
     value: U256,
     data: Vec<u8>,
 ) -> Result<TransactionReceipt> {
@@ -153,7 +153,7 @@ async fn subscribe_logs_for_auction_until_deadline<P: Provider>(
     pod_provider: &P,
     contract_address: Address,
     auction_id: U256,
-    deadline: U256,
+    deadline: u64,
 ) -> Result<()> {
     use alloy_rpc_types_eth::{BlockNumber, Filter, ValueOrArray};
     use alloy_primitives::H256;
@@ -164,7 +164,7 @@ async fn subscribe_logs_for_auction_until_deadline<P: Provider>(
     //     so the next call to `get_block_number()` is guaranteed
     //     to be a block whose timestamp >= `deadline`.
     println!("Waiting for on-chain time to pass the deadline {deadline}...");
-    pod_provider.wait_past_perfect_time(deadline.as_u64()).await?;
+    pod_provider.wait_past_perfect_time(deadline).await?;
     println!("On-chain time is now past {deadline}.");
 
     // (B) Capture the current block number as `block_end`

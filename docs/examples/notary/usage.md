@@ -118,7 +118,7 @@ async fn timestamp(
     let document_hash = keccak256(doc);
 
     let pendix_tx = notary
-        .timestamp(document_hash, U256::from(timestamp.as_micros()))
+        .timestamp(document_hash, timestamp.as_micros() as u64)
         .send()
         .await?;
 

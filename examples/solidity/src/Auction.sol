@@ -10,6 +10,11 @@ contract Auction {
     );
 
     /**
+     * @notice Submit a bid for an auction
+     * @param auction_id The ID of the auction
+     * @param deadline The deadline for the auction
+     * @param value The bid value
+     * @param data Additional data for the bid
      * @notice deadline in microseconds
      */
     function submitBid(uint256 auction_id, Time.Timestamp deadline, uint256 value, bytes calldata data) public {

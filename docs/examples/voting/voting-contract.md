@@ -22,7 +22,7 @@ enum VoterState { Unregistered, Registered, Voted }
 
 ```solidity
 struct Poll {
-    uint256 deadline;
+    Time.Timestamp deadline;
     uint256 maxChoice;
     address owner;
     mapping(address => VoterState) voters;
@@ -62,7 +62,7 @@ The contract has **no** publicly accessible state. Instead, it exposes a method 
 
 #### Events
 
-- `PollCreated(bytes32 pollId, uint256 deadline)`
+- `PollCreated(bytes32 pollId, Time.Timestamp deadline)`
 - `Voted(bytes32 pollId, address voter, uint256 choice)`
 - `Winner(bytes32 pollId, uint256 choice)`
 
@@ -75,7 +75,7 @@ real-time. For example, an application can obtain the ID of the poll created by 
 ##### createPoll
 
 ```solidity
-function createPoll(uint256 deadline, uint256 maxChoice, address[] calldata voters) public returns (bytes32)
+function createPoll(Time.Timestamp deadline, uint256 maxChoice, address[] calldata voters) public returns (bytes32)
 ```
 
 Used to create a new poll.
@@ -135,9 +135,10 @@ It's a helper function that applications can call to gain insight into the poll 
 ```solidity
 pragma solidity ^0.8.28;
 
-import {requireTimeBefore, requireTimeAfter} from "pod-sdk/pod/Time.sol";
+import {requireTimeBefore, requireTimeAfter, Time} from "pod-sdk/Time.sol";
 
 contract Voting {
+    using Time for Time.Timestamp;
     enum VoterState {
         Unregistered,
         Registered,
@@ -145,7 +146,7 @@ contract Voting {
     }
 
     struct Poll {
-        uint256 deadline;
+        Time.Timestamp deadline;
         uint256 maxChoice;
         address owner;
         mapping(address => VoterState) voters;
@@ -158,12 +159,12 @@ contract Voting {
     // Maps poll ID to poll data
     mapping(bytes32 => Poll) private polls;
 
-    event PollCreated(bytes32 indexed pollId, uint256 deadline);
+    event PollCreated(bytes32 indexed pollId, Time.Timestamp deadline);
     event Voted(bytes32 indexed pollId, address indexed voter, uint256 indexed choice);
     event Winner(bytes32 indexed pollId, uint256 indexed choice);
 
     function getPollId(
-        uint256 deadline,
+        Time.Timestamp deadline,
         uint256 maxChoice,
         address owner,
         address[] calldata voters
@@ -178,7 +179,7 @@ contract Voting {
     }
 
     function createPoll(
-        uint256 deadline,
+        Time.Timestamp deadline,
         uint256 maxChoice,
         address[] calldata voters
     ) public returns (bytes32 pollId){
