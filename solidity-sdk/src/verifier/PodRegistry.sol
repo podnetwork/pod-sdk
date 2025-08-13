@@ -9,22 +9,31 @@ interface IPodRegistry {
         uint256 bitmap;
     }
 
+    error TooManyInitialValidators();
+    error ValidatorIsZeroAddress();
+    error ValidatorAlreadyExists();
+    error MaxValidatorCountReached();
+    error ValidatorDoesNotExist();
+    error ValidatorAlreadyBanned();
+    error ValidatorNotBanned();
+    error CallerNotValidator();
+    error CallerAlreadyInactive();
+    error CallerHasBeenBanned();
+    error CallerAlreadyActive();
+    error InvalidSnapshotIndex();
+    error SnapshotTooNew();
+    error SnapshotTooOld();
+    error NoHistoricalSnapshots();
+
     event ValidatorAdded(address indexed validator);
     event ValidatorBanned(address indexed validator);
     event ValidatorUnbanned(address indexed validator);
     event ValidatorDeactivated(address indexed validator);
     event ValidatorReactivated(address indexed validator);
-    event SnapshotCreated(
-        uint256 indexed activeAsOfBlockNumber,
-        uint256 bitmap
-    );
+    event SnapshotCreated(uint256 indexed activeAsOfBlockNumber, uint256 bitmap);
 
-    function validatorIndex(
-        address validator
-    ) external view returns (uint8 index);
-    function bannedValidators(
-        address validator
-    ) external view returns (bool isBanned);
+    function validatorIndex(address validator) external view returns (uint8 index);
+    function bannedValidators(address validator) external view returns (bool isBanned);
 
     function validatorCount() external view returns (uint8 index);
     function activeValidatorBitmap() external view returns (uint256 bitmap);
@@ -35,24 +44,17 @@ interface IPodRegistry {
     function deactivate() external;
     function reactivate() external;
 
-    function computeWeight(
-        address[] memory subset
-    ) external view returns (uint256 weight);
-    function computeWeight(
-        address[] memory subset,
-        uint256 blockNumber,
-        uint256 snapshotIndex
-    ) external view returns (uint256 weight);
+    function computeWeight(address[] memory subset) external view returns (uint256 weight);
+    function computeWeight(address[] memory subset, uint256 blockNumber, uint256 snapshotIndex)
+        external
+        view
+        returns (uint256 weight);
 
-    function findSnapshotIndex(
-        uint256 blockNumber
-    ) external view returns (uint256 index);
+    function findSnapshotIndex(uint256 blockNumber) external view returns (uint256 index);
 
     function getActiveValidatorCount() external view returns (uint8 count);
     function getFaultTolerance() external view returns (uint8);
-    function getSnapshot(
-        uint256 index
-    ) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap);
+    function getSnapshot(uint256 index) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap);
     function getHistoryLength() external view returns (uint256);
 }
 
@@ -68,10 +70,9 @@ contract PodRegistry is IPodRegistry, Ownable {
     uint8 public validatorCount;
 
     constructor(address[] memory initialValidators) Ownable(msg.sender) {
-        require(
-            initialValidators.length < MAX_VALIDATOR_COUNT,
-            "pod: too many initial validators"
-        );
+        if (initialValidators.length >= MAX_VALIDATOR_COUNT) {
+            revert TooManyInitialValidators();
+        }
         validatorCount = uint8(initialValidators.length);
 
         for (uint8 i = 0; i < initialValidators.length; i++) {
@@ -87,15 +88,15 @@ contract PodRegistry is IPodRegistry, Ownable {
     }
 
     function addValidator(address validator) external onlyOwner {
-        require(validator != address(0), "pod: validator is the zero address");
-        require(
-            validatorIndex[validator] == 0,
-            "pod: validator already exists"
-        );
-        require(
-            validatorCount < MAX_VALIDATOR_COUNT,
-            "pod: max validator count reached"
-        );
+        if (validator == address(0)) {
+            revert ValidatorIsZeroAddress();
+        }
+        if (validatorIndex[validator] != 0) {
+            revert ValidatorAlreadyExists();
+        }
+        if (validatorCount >= MAX_VALIDATOR_COUNT) {
+            revert MaxValidatorCountReached();
+        }
         uint8 index = ++validatorCount;
         validatorIndex[validator] = index;
         if (!_isValidatorActive(index)) {
@@ -106,11 +107,12 @@ contract PodRegistry is IPodRegistry, Ownable {
 
     function banValidator(address validator) external onlyOwner {
         uint8 index = validatorIndex[validator];
-        require(index != 0, "pod: validator does not exist");
-        require(
-            !bannedValidators[validator],
-            "pod: validator is already banned"
-        );
+        if (index == 0) {
+            revert ValidatorDoesNotExist();
+        }
+        if (bannedValidators[validator]) {
+            revert ValidatorAlreadyBanned();
+        }
 
         if (_isValidatorActive(index)) {
             _deactivateValidator(index);
@@ -121,45 +123,49 @@ contract PodRegistry is IPodRegistry, Ownable {
     }
 
     function unbanValidator(address validator) external onlyOwner {
-        require(
-            validatorIndex[validator] != 0,
-            "pod: validator does not exist"
-        );
-        require(bannedValidators[validator], "pod: validator is not banned");
+        if (validatorIndex[validator] == 0) {
+            revert ValidatorDoesNotExist();
+        }
+        if (!bannedValidators[validator]) {
+            revert ValidatorNotBanned();
+        }
         bannedValidators[validator] = false;
         emit ValidatorUnbanned(validator);
     }
 
     function deactivate() external {
         uint8 index = validatorIndex[msg.sender];
-        require(index != 0, "pod: caller is not a validator");
-        require(_isValidatorActive(index), "pod: caller is already inactive");
+        if (index == 0) {
+            revert CallerNotValidator();
+        }
+        if (!_isValidatorActive(index)) {
+            revert CallerAlreadyInactive();
+        }
         _deactivateValidator(index);
         emit ValidatorDeactivated(msg.sender);
     }
 
     function reactivate() external {
         uint8 index = validatorIndex[msg.sender];
-        require(index != 0, "pod: caller is not a validator");
-        require(!bannedValidators[msg.sender], "pod: caller has been banned");
-        require(!_isValidatorActive(index), "pod: caller is already active");
+        if (index == 0) {
+            revert CallerNotValidator();
+        }
+        if (bannedValidators[msg.sender]) {
+            revert CallerHasBeenBanned();
+        }
+        if (_isValidatorActive(index)) {
+            revert CallerAlreadyActive();
+        }
         _activateValidator(index);
         emit ValidatorReactivated(msg.sender);
     }
 
     function _createSnapshot() internal {
-        history.push(
-            Snapshot({
-                activeAsOfBlockNumber: block.number,
-                bitmap: activeValidatorBitmap
-            })
-        );
+        history.push(Snapshot({activeAsOfBlockNumber: block.number, bitmap: activeValidatorBitmap}));
         emit SnapshotCreated(block.number, activeValidatorBitmap);
     }
 
-    function computeWeight(
-        address[] memory subset
-    ) public view returns (uint256 weight) {
+    function computeWeight(address[] memory subset) public view returns (uint256 weight) {
         if (history.length == 0) {
             return 0;
         }
@@ -167,22 +173,21 @@ contract PodRegistry is IPodRegistry, Ownable {
         return computeWeight(subset, block.number, history.length - 1);
     }
 
-    function computeWeight(
-        address[] memory subset,
-        uint256 blockNumber,
-        uint256 snapshotIndex
-    ) public view returns (uint256 weight) {
-        require(snapshotIndex < history.length, "pod: invalid snapshot index");
+    function computeWeight(address[] memory subset, uint256 blockNumber, uint256 snapshotIndex)
+        public
+        view
+        returns (uint256 weight)
+    {
+        if (snapshotIndex >= history.length) {
+            revert InvalidSnapshotIndex();
+        }
         Snapshot memory snapshot = history[snapshotIndex];
-        require(
-            snapshot.activeAsOfBlockNumber <= blockNumber,
-            "pod: snapshot too new"
-        );
-        require(
-            snapshotIndex == history.length - 1 ||
-                history[snapshotIndex + 1].activeAsOfBlockNumber > blockNumber,
-            "pod: snapshot too old"
-        );
+        if (snapshot.activeAsOfBlockNumber > blockNumber) {
+            revert SnapshotTooNew();
+        }
+        if (snapshotIndex != history.length - 1 && history[snapshotIndex + 1].activeAsOfBlockNumber <= blockNumber) {
+            revert SnapshotTooOld();
+        }
 
         uint256 counted = 0;
 
@@ -201,10 +206,10 @@ contract PodRegistry is IPodRegistry, Ownable {
         }
     }
 
-    function findSnapshotIndex(
-        uint256 blockNumber
-    ) external view returns (uint256 index) {
-        require(history.length > 0, "pod: no historical snapshots");
+    function findSnapshotIndex(uint256 blockNumber) external view returns (uint256 index) {
+        if (history.length == 0) {
+            revert NoHistoricalSnapshots();
+        }
 
         uint256 low = 0;
         uint256 high = history.length - 1;
@@ -234,9 +239,7 @@ contract PodRegistry is IPodRegistry, Ownable {
         return getActiveValidatorCount() / 3;
     }
 
-    function getSnapshot(
-        uint256 index
-    ) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap) {
+    function getSnapshot(uint256 index) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap) {
         Snapshot memory s = history[index];
         return (s.activeAsOfBlockNumber, s.bitmap);
     }
