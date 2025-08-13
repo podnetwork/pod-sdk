@@ -13,7 +13,8 @@ use clap::{Parser, Subcommand};
 use futures::StreamExt;
 use op_alloy::{consensus::OpTxEnvelope, network::Optimism, rpc_types::OpTransactionRequest};
 use pod_sdk::{
-    alloy_rpc_types::Block, auctions::client::AuctionClient, provider::PodProviderBuilder, Address, PrivateKeySigner, Provider, ProviderBuilder, Timestamp, U256
+    Address, PrivateKeySigner, Provider, ProviderBuilder, Timestamp, U256, alloy_rpc_types::Block,
+    auctions::client::AuctionClient, provider::PodProviderBuilder,
 };
 use tokio::{task::JoinHandle, time::timeout};
 
@@ -135,7 +136,6 @@ async fn main() -> anyhow::Result<()> {
 
             let signature = op_signer.sign_transaction(&mut tx).await?;
             let signed_tx: OpTxEnvelope = Signed::new_unhashed(tx, signature).into();
-            let enc = signed_tx.encoded_2718();
             let pod_signer = pod_signer.unwrap_or(op_signer.clone());
 
             let pod_provider = PodProviderBuilder::with_recommended_settings()
@@ -147,10 +147,10 @@ async fn main() -> anyhow::Result<()> {
 
             let receipt = auction
                 .submit_bid(
-                            U256::from(Timestamp::from(deadline).as_micros()),
+                    U256::from(Timestamp::from(deadline).as_micros()),
                     deadline,
                     U256::from(max_priority_fee),
-                    enc.into(),
+                    signed_tx.encoded_2718(),
                 )
                 .await
                 .context("submitting TX bid on pod auction")?;
