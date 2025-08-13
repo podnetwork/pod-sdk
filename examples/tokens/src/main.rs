@@ -112,7 +112,7 @@ async fn watch(
             continue;
         }
 
-        let event = Tokens::Transfer::decode_log(&log.inner.inner, true)
+        let event = Tokens::Transfer::decode_log(&log.inner.inner)
             .context("Failed to decode Transfer event – is the ABI up-to-date?")?;
 
         println!(
@@ -135,7 +135,7 @@ async fn address_balance(
         .await?;
     let tokens = Tokens::new(contract_address, pod_provider.clone());
 
-    Ok(tokens.balanceOf(address).call().await?._0)
+    Ok(tokens.balanceOf(address).call().await?)
 }
 
 /// Wrapper for `transfer(to, amount)` that returns the transaction receipt.
