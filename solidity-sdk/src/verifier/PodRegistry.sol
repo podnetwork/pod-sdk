@@ -18,7 +18,7 @@ interface IPodRegistry {
     error ValidatorNotBanned();
     error CallerNotValidator();
     error CallerAlreadyInactive();
-    error CallerHasBeenBanned();
+    error CallerAlreadyBanned();
     error CallerAlreadyActive();
     error InvalidSnapshotIndex();
     error SnapshotTooNew();
@@ -151,7 +151,7 @@ contract PodRegistry is IPodRegistry, Ownable {
             revert CallerNotValidator();
         }
         if (bannedValidators[msg.sender]) {
-            revert CallerHasBeenBanned();
+            revert CallerAlreadyBanned();
         }
         if (_isValidatorActive(index)) {
             revert CallerAlreadyActive();

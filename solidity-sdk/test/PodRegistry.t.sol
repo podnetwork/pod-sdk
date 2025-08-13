@@ -148,7 +148,7 @@ contract PodRegistryTest is Test {
         registry.banValidator(validator1);
 
         vm.prank(validator1);
-        vm.expectRevert(abi.encodeWithSignature("CallerHasBeenBanned()"));
+        vm.expectRevert(abi.encodeWithSignature("CallerAlreadyBanned()"));
         registry.reactivate();
 
         vm.prank(owner);
@@ -211,7 +211,7 @@ contract PodRegistryTest is Test {
         registry.banValidator(validator1);
 
         vm.prank(validator1);
-        vm.expectRevert(abi.encodeWithSignature("CallerHasBeenBanned()"));
+        vm.expectRevert(abi.encodeWithSignature("CallerAlreadyBanned()"));
         registry.reactivate();
     }
 
@@ -220,7 +220,7 @@ contract PodRegistryTest is Test {
         registry.banValidator(validator1);
 
         vm.prank(validator1);
-        vm.expectRevert(abi.encodeWithSignature("CallerHasBeenBanned()"));
+        vm.expectRevert(abi.encodeWithSignature("CallerAlreadyBanned()"));
         registry.reactivate();
     }
 
