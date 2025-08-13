@@ -209,7 +209,7 @@ async fn watch(auction_id: U256, deadline: u64, rpc_url: String) -> Result<()> {
                 data: log.inner.data().clone(),
             };
 
-            if let Ok(event) = Auction::BidSubmitted::decode_log(&primitive_log, true) {
+            if let Ok(event) = Auction::BidSubmitted::decode_log(&primitive_log) {
                 // Send event to main task
                 if tx.send((event, log.inner.transaction_hash)).await.is_err() {
                     // Channel closed, exit task

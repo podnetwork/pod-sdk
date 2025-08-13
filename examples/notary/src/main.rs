@@ -133,7 +133,7 @@ async fn watch(
             eprintln!("got invalid event!");
             continue;
         }
-        let event = Notary::DocumentTimestamped::decode_log(&log.inner.inner, true)
+        let event = Notary::DocumentTimestamped::decode_log(&log.inner.inner)
             .context("decoding event failed. deployed contract version might not match")?;
 
         let timestamp = humantime::format_rfc3339(decode_timestamp(event.timestamp)?);
@@ -213,7 +213,7 @@ async fn get_timestamp(
 
     let notary = Notary::new(contract_address, pod_provider);
 
-    let timestamp = notary.timestamps(hash).call().await?._0;
+    let timestamp = notary.timestamps(hash).call().await?;
     if timestamp == 0 {
         return Ok(None);
     }
