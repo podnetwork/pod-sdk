@@ -35,6 +35,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.3.0
 
       - name: Show Forge version
         run: |
@@ -75,6 +77,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.3.0
 
       - name: Show Forge version
         run: |
@@ -108,6 +112,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.3.0
 
       - name: Show Forge version
         run: |
@@ -147,6 +153,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.3.0
 
       - name: Show Forge version
         run: |
@@ -186,6 +194,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.3.0
 
       - name: Show Forge version
         run: |

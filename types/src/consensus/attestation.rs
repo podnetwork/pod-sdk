@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, PrimitiveSignature};
+use alloy_primitives::{Address, Signature};
 use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize};
 
@@ -48,7 +48,7 @@ impl<T: Hashable> Hashable for Indexed<T> {
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Attestation<T> {
     pub public_key: Address,
-    pub signature: PrimitiveSignature,
+    pub signature: Signature,
     pub attested: T,
 }
 
@@ -82,14 +82,14 @@ impl<T: Hashable> Hashable for Attestation<T> {
 pub struct TimestampedHeadlessAttestation {
     pub timestamp: Timestamp,
     pub public_key: Address,
-    pub signature: PrimitiveSignature,
+    pub signature: Signature,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct HeadlessAttestation {
     pub public_key: Address,
-    pub signature: PrimitiveSignature,
+    pub signature: Signature,
 }
 
 impl<T> From<Attestation<T>> for HeadlessAttestation {

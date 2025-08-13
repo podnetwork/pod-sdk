@@ -78,6 +78,7 @@
 //! # })
 //! ```
 
+pub mod auctions;
 pub mod network;
 pub mod provider;
 

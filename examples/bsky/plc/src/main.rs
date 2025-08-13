@@ -29,7 +29,7 @@ use tracing::info;
 
 struct AppState {
     provider: PodProvider,
-    contract: Mutex<PLCRegistryInstance<(), PodProvider, PodNetwork>>,
+    contract: Mutex<PLCRegistryInstance<PodProvider, PodNetwork>>,
 }
 
 impl AppState {
