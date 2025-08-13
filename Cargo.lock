@@ -987,7 +987,7 @@ dependencies = [
  "clap",
  "futures",
  "hex",
- "pod-examples-solidity",
+ "pod-examples-solidity 0.1.0",
  "pod-sdk",
  "pod-types",
  "tokio",
@@ -3028,7 +3028,7 @@ dependencies = [
  "anyhow",
  "clap",
  "dotenv",
- "pod-examples-solidity",
+ "pod-examples-solidity 0.1.0",
  "pod-optimistic-auction",
  "pod-sdk",
  "pod-types",
@@ -3240,6 +3240,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pod-examples-solidity"
+version = "0.1.0"
+source = "git+https://github.com/podnetwork/pod-sdk?rev=cab43b2075fb683f3eb5c34cf7b738f420b0c31d#cab43b2075fb683f3eb5c34cf7b738f420b0c31d"
+dependencies = [
+ "alloy",
+ "serde",
+]
+
+[[package]]
 name = "pod-optimistic-auction"
 version = "0.1.0"
 dependencies = [
@@ -3267,9 +3276,11 @@ dependencies = [
  "async-trait",
  "futures",
  "hex",
+ "pod-examples-solidity 0.1.0 (git+https://github.com/podnetwork/pod-sdk?rev=cab43b2075fb683f3eb5c34cf7b738f420b0c31d)",
  "pod-types",
  "serde",
  "tokio-test",
+ "tracing",
 ]
 
 [[package]]
@@ -3690,7 +3701,7 @@ dependencies = [
  "env_logger",
  "futures",
  "hex",
- "pod-examples-solidity",
+ "pod-examples-solidity 0.1.0",
  "pod-sdk",
  "pod-types",
  "tokio",

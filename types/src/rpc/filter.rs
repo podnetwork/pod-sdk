@@ -16,13 +16,14 @@ pub struct LogFilter {
     pub topics: [Option<Hash>; 4],
     #[serde(
         alias = "fromBlock",
+        default,
         deserialize_with = "deserialize_block_timestamp",
         serialize_with = "serialize_block_timestamp"
     )]
-    #[serde(default)]
     pub from: Timestamp,
     #[serde(
         alias = "toBlock",
+        default,
         deserialize_with = "deserialize_block_timestamp_end",
         serialize_with = "serialize_block_timestamp_end"
     )]
