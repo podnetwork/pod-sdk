@@ -53,6 +53,8 @@ interface IPodRegistry {
     function findSnapshotIndex(uint256 blockNumber) external view returns (uint256 index);
 
     function getActiveValidatorCount() external view returns (uint8 count);
+    function getActiveValidators() external view returns (address[] memory);
+    function getValidatorsAt(uint256 blockNumber) external view returns (address[] memory);
     function getFaultTolerance() external view returns (uint8);
     function getSnapshot(uint256 index) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap);
     function getHistoryLength() external view returns (uint256);
@@ -64,6 +66,7 @@ contract PodRegistry is IPodRegistry, Ownable {
     Snapshot[] public history;
 
     mapping(address => uint8) public validatorIndex;
+    mapping(uint8 => address) public validatorAddress;
     mapping(address => bool) public bannedValidators;
 
     uint256 public activeValidatorBitmap;
@@ -85,6 +88,7 @@ contract PodRegistry is IPodRegistry, Ownable {
     function _addValidatorOnInit(address validator, uint8 index) internal {
         validatorIndex[validator] = index + 1;
         activeValidatorBitmap |= (1 << index);
+        validatorAddress[index + 1] = validator;
     }
 
     function addValidator(address validator) external onlyOwner {
@@ -99,6 +103,7 @@ contract PodRegistry is IPodRegistry, Ownable {
         }
         uint8 index = ++validatorCount;
         validatorIndex[validator] = index;
+        validatorAddress[index] = validator;
         if (!_isValidatorActive(index)) {
             _activateValidator(index);
         }
@@ -206,7 +211,7 @@ contract PodRegistry is IPodRegistry, Ownable {
         }
     }
 
-    function findSnapshotIndex(uint256 blockNumber) external view returns (uint256 index) {
+    function findSnapshotIndex(uint256 blockNumber) public view returns (uint256 index) {
         if (history.length == 0) {
             revert NoHistoricalSnapshots();
         }
@@ -227,12 +232,32 @@ contract PodRegistry is IPodRegistry, Ownable {
     }
 
     function getActiveValidatorCount() public view returns (uint8 count) {
-        count = 0;
-        uint256 bitmap = activeValidatorBitmap;
+        return _popCount(activeValidatorBitmap);
+    }
+
+    function _popCount(uint256 bitmap) internal pure returns (uint8 count) {
         while (bitmap != 0) {
             count++;
             bitmap &= bitmap - 1;
         }
+    }
+
+    function getValidatorsAt(uint256 blockNumber) public view returns (address[] memory) {
+        uint256 index = findSnapshotIndex(blockNumber);
+        uint256 bitmap = history[index].bitmap;
+        uint8 count = _popCount(bitmap);
+        address[] memory validators = new address[](count);
+        uint8 j = 0;
+        for (uint8 i = 0; i < validatorCount; i++) {
+            if (_isBitSet(bitmap, i)) {
+                validators[j++] = validatorAddress[i + 1];
+            }
+        }
+        return validators;
+    }
+
+    function getActiveValidators() external view returns (address[] memory) {
+        return getValidatorsAt(block.number);
     }
 
     function getFaultTolerance() external view returns (uint8) {
@@ -259,6 +284,10 @@ contract PodRegistry is IPodRegistry, Ownable {
     }
 
     function _isValidatorActive(uint8 index) internal view returns (bool) {
-        return (activeValidatorBitmap & (1 << (index - 1))) != 0;
+        return _isBitSet(activeValidatorBitmap, index - 1);
+    }
+
+    function _isBitSet(uint256 bitmap, uint8 i) internal pure returns (bool) {
+        return (bitmap & (1 << i)) != 0;
     }
 }

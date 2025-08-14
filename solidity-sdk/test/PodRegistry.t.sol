@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/verifier/PodRegistry.sol";
+import "forge-std/console.sol";
 
 contract PodRegistryTest is Test {
     PodRegistry public registry;
@@ -523,5 +524,26 @@ contract PodRegistryTest is Test {
         vm.stopPrank();
 
         assertEq(registry.getFaultTolerance(), 1); // 4/3 = 1
+    }
+
+    function test_GetActiveValidators() public view {
+        address[] memory validators = registry.getActiveValidators();
+        assertEq(validators.length, 2);
+        assertEq(validators[0], validator1);
+        assertEq(validators[1], validator2);
+    }
+
+    function test_GetValidatorsAt() public {
+        vm.startPrank(owner);
+        vm.roll(100);
+        registry.addValidator(validator3);
+        registry.banValidator(validator1);
+        vm.roll(block.number + 100);
+        registry.addValidator(validator4);
+        vm.stopPrank();
+        address[] memory validators = registry.getValidatorsAt(100);
+        assertEq(validators.length, 2);
+        assertEq(validators[0], validator2);
+        assertEq(validators[1], validator3);
     }
 }
