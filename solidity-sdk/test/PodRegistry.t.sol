@@ -344,7 +344,7 @@ contract PodRegistryTest is Test {
         registry.addValidator(validator3);
         uint256 snapshotIndex = registry.getHistoryLength() - 1;
         uint256 snapshotBlock;
-        (snapshotBlock,) = registry.getSnapshot(snapshotIndex);
+        (snapshotBlock,) = registry.getSnapshotAt(snapshotIndex);
 
         address[] memory subset = new address[](3);
         subset[0] = validator1;
@@ -455,11 +455,11 @@ contract PodRegistryTest is Test {
         assertEq(indexAfterLast, 2);
 
         // Validate that returned snapshots are correct
-        (uint256 blockNum1, uint256 bitmap1) = registry.getSnapshot(indexAtAdd);
+        (uint256 blockNum1, uint256 bitmap1) = registry.getSnapshotAt(indexAtAdd);
         assertEq(blockNum1, blockAtAdd);
         assertTrue(bitmap1 & (1 << (3 - 1)) != 0); // validator3 should be active here
 
-        (uint256 blockNum2, uint256 bitmap2) = registry.getSnapshot(indexAfterLast);
+        (uint256 blockNum2, uint256 bitmap2) = registry.getSnapshotAt(indexAfterLast);
         assertEq(blockNum2, blockAtBan);
         assertTrue(bitmap2 & (1 << (3 - 1)) != 0); // validator3 still active
         assertFalse(bitmap2 & (1 << (1 - 1)) != 0); // validator1 banned
@@ -501,7 +501,7 @@ contract PodRegistryTest is Test {
         vm.prank(owner);
         registry.addValidator(validator3);
         uint256 index = registry.getHistoryLength() - 1;
-        (uint256 blockNumber, uint256 bitmap) = registry.getSnapshot(index);
+        (uint256 blockNumber, uint256 bitmap) = registry.getSnapshotAt(index);
         assertGt(blockNumber, 0);
         assertTrue(bitmap & (1 << (3 - 1)) != 0);
     }
@@ -511,19 +511,6 @@ contract PodRegistryTest is Test {
         vm.prank(owner);
         registry.addValidator(validator3);
         assertEq(registry.getHistoryLength(), before + 1);
-    }
-
-    function test_GetFaultTolerance() public view {
-        assertEq(registry.getFaultTolerance(), 0); // 2/3 = 0
-    }
-
-    function test_GetFaultTolerance_WithMoreValidators() public {
-        vm.startPrank(owner);
-        registry.addValidator(validator3);
-        registry.addValidator(validator4);
-        vm.stopPrank();
-
-        assertEq(registry.getFaultTolerance(), 1); // 4/3 = 1
     }
 
     function test_GetActiveValidators() public view {
@@ -541,7 +528,8 @@ contract PodRegistryTest is Test {
         vm.roll(block.number + 100);
         registry.addValidator(validator4);
         vm.stopPrank();
-        address[] memory validators = registry.getValidatorsAt(100);
+        uint256 index = registry.findSnapshotIndex(100);
+        address[] memory validators = registry.getValidatorsAt(index);
         assertEq(validators.length, 2);
         assertEq(validators[0], validator2);
         assertEq(validators[1], validator3);

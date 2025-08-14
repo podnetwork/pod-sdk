@@ -33,9 +33,10 @@ interface IPodRegistry {
     event SnapshotCreated(uint256 indexed activeAsOfBlockNumber, uint256 bitmap);
 
     function validatorIndex(address validator) external view returns (uint8 index);
+    function validatorAddress(uint8 index) external view returns (address validator);
     function bannedValidators(address validator) external view returns (bool isBanned);
 
-    function validatorCount() external view returns (uint8 index);
+    function validatorCount() external view returns (uint8 count);
     function activeValidatorBitmap() external view returns (uint256 bitmap);
 
     function addValidator(address validator) external;
@@ -53,10 +54,10 @@ interface IPodRegistry {
     function findSnapshotIndex(uint256 blockNumber) external view returns (uint256 index);
 
     function getActiveValidatorCount() external view returns (uint8 count);
+    function getValidatorCountAt(uint256 index) external view returns (uint8 count);
     function getActiveValidators() external view returns (address[] memory);
-    function getValidatorsAt(uint256 blockNumber) external view returns (address[] memory);
-    function getFaultTolerance() external view returns (uint8);
-    function getSnapshot(uint256 index) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap);
+    function getValidatorsAt(uint256 index) external view returns (address[] memory);
+    function getSnapshotAt(uint256 index) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap);
     function getHistoryLength() external view returns (uint256);
 }
 
@@ -235,6 +236,11 @@ contract PodRegistry is IPodRegistry, Ownable {
         return _popCount(activeValidatorBitmap);
     }
 
+    function getValidatorCountAt(uint256 index) public view returns (uint8 count) {
+        uint256 bitmap = history[index].bitmap;
+        return _popCount(bitmap);
+    }
+
     function _popCount(uint256 bitmap) internal pure returns (uint8 count) {
         while (bitmap != 0) {
             count++;
@@ -242,8 +248,7 @@ contract PodRegistry is IPodRegistry, Ownable {
         }
     }
 
-    function getValidatorsAt(uint256 blockNumber) public view returns (address[] memory) {
-        uint256 index = findSnapshotIndex(blockNumber);
+    function getValidatorsAt(uint256 index) public view returns (address[] memory) {
         uint256 bitmap = history[index].bitmap;
         uint8 count = _popCount(bitmap);
         address[] memory validators = new address[](count);
@@ -257,14 +262,10 @@ contract PodRegistry is IPodRegistry, Ownable {
     }
 
     function getActiveValidators() external view returns (address[] memory) {
-        return getValidatorsAt(block.number);
+        return getValidatorsAt(history.length - 1);
     }
 
-    function getFaultTolerance() external view returns (uint8) {
-        return getActiveValidatorCount() / 3;
-    }
-
-    function getSnapshot(uint256 index) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap) {
+    function getSnapshotAt(uint256 index) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap) {
         Snapshot memory s = history[index];
         return (s.activeAsOfBlockNumber, s.bitmap);
     }
