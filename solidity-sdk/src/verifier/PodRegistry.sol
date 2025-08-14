@@ -5,7 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IPodRegistry {
     struct Snapshot {
-        uint256 activeAsOfBlockNumber;
+        uint256 activeAsOfTimestamp;
         uint256 bitmap;
     }
 
@@ -30,7 +30,7 @@ interface IPodRegistry {
     event ValidatorUnbanned(address indexed validator);
     event ValidatorDeactivated(address indexed validator);
     event ValidatorReactivated(address indexed validator);
-    event SnapshotCreated(uint256 indexed activeAsOfBlockNumber, uint256 bitmap);
+    event SnapshotCreated(uint256 indexed activeAsOfTimestamp, uint256 bitmap);
 
     function validatorIndex(address validator) external view returns (uint8 index);
     function validatorAddress(uint8 index) external view returns (address validator);
@@ -46,18 +46,19 @@ interface IPodRegistry {
     function reactivate() external;
 
     function computeWeight(address[] memory subset) external view returns (uint256 weight);
-    function computeWeight(address[] memory subset, uint256 blockNumber, uint256 snapshotIndex)
+    function computeWeight(address[] memory subset, uint256 timestamp, uint256 snapshotIndex)
         external
         view
         returns (uint256 weight);
 
-    function findSnapshotIndex(uint256 blockNumber) external view returns (uint256 index);
+    function findSnapshotIndex(uint256 timestamp) external view returns (uint256 index);
 
     function getActiveValidatorCount() external view returns (uint8 count);
     function getValidatorCountAt(uint256 index) external view returns (uint8 count);
     function getActiveValidators() external view returns (address[] memory);
+    function getActiveValidators(uint256 timestamp) external view returns (address[] memory);
     function getValidatorsAt(uint256 index) external view returns (address[] memory);
-    function getSnapshotAt(uint256 index) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap);
+    function getSnapshotAt(uint256 index) external view returns (uint256 activeAsOfTimestamp, uint256 bitmap);
     function getHistoryLength() external view returns (uint256);
 }
 
@@ -167,8 +168,8 @@ contract PodRegistry is IPodRegistry, Ownable {
     }
 
     function _createSnapshot() internal {
-        history.push(Snapshot({activeAsOfBlockNumber: block.number, bitmap: activeValidatorBitmap}));
-        emit SnapshotCreated(block.number, activeValidatorBitmap);
+        history.push(Snapshot({activeAsOfTimestamp: block.timestamp, bitmap: activeValidatorBitmap}));
+        emit SnapshotCreated(block.timestamp, activeValidatorBitmap);
     }
 
     function computeWeight(address[] memory subset) public view returns (uint256 weight) {
@@ -176,10 +177,10 @@ contract PodRegistry is IPodRegistry, Ownable {
             return 0;
         }
 
-        return computeWeight(subset, block.number, history.length - 1);
+        return computeWeight(subset, block.timestamp, history.length - 1);
     }
 
-    function computeWeight(address[] memory subset, uint256 blockNumber, uint256 snapshotIndex)
+    function computeWeight(address[] memory subset, uint256 timestamp, uint256 snapshotIndex)
         public
         view
         returns (uint256 weight)
@@ -188,10 +189,10 @@ contract PodRegistry is IPodRegistry, Ownable {
             revert InvalidSnapshotIndex();
         }
         Snapshot memory snapshot = history[snapshotIndex];
-        if (snapshot.activeAsOfBlockNumber > blockNumber) {
+        if (snapshot.activeAsOfTimestamp > timestamp) {
             revert SnapshotTooNew();
         }
-        if (snapshotIndex != history.length - 1 && history[snapshotIndex + 1].activeAsOfBlockNumber <= blockNumber) {
+        if (snapshotIndex != history.length - 1 && history[snapshotIndex + 1].activeAsOfTimestamp <= timestamp) {
             revert SnapshotTooOld();
         }
 
@@ -212,7 +213,7 @@ contract PodRegistry is IPodRegistry, Ownable {
         }
     }
 
-    function findSnapshotIndex(uint256 blockNumber) public view returns (uint256 index) {
+    function findSnapshotIndex(uint256 timestamp) public view returns (uint256 index) {
         if (history.length == 0) {
             revert NoHistoricalSnapshots();
         }
@@ -222,7 +223,7 @@ contract PodRegistry is IPodRegistry, Ownable {
 
         while (low < high) {
             uint256 mid = (low + high + 1) / 2;
-            if (history[mid].activeAsOfBlockNumber <= blockNumber) {
+            if (history[mid].activeAsOfTimestamp <= timestamp) {
                 low = mid;
             } else {
                 high = mid - 1;
@@ -262,12 +263,25 @@ contract PodRegistry is IPodRegistry, Ownable {
     }
 
     function getActiveValidators() external view returns (address[] memory) {
+        if (history.length == 0) {
+            return new address[](0);
+        }
+
         return getValidatorsAt(history.length - 1);
     }
 
-    function getSnapshotAt(uint256 index) external view returns (uint256 activeAsOfBlockNumber, uint256 bitmap) {
+    function getActiveValidators(uint256 timestamp) external view returns (address[] memory) {
+        if (history.length == 0) {
+            return new address[](0);
+        }
+
+        uint256 snapshotIndex = findSnapshotIndex(timestamp);
+        return getValidatorsAt(snapshotIndex);
+    }
+
+    function getSnapshotAt(uint256 index) external view returns (uint256 activeAsOfTimestamp, uint256 bitmap) {
         Snapshot memory s = history[index];
-        return (s.activeAsOfBlockNumber, s.bitmap);
+        return (s.activeAsOfTimestamp, s.bitmap);
     }
 
     function getHistoryLength() external view returns (uint256) {

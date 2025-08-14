@@ -254,25 +254,25 @@ contract PodRegistryTest is Test {
 
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
-        emit IPodRegistry.SnapshotCreated(block.number, (1 << (1 - 1)) | (1 << (2 - 1)) | (1 << (3 - 1)));
+        emit IPodRegistry.SnapshotCreated(block.timestamp, (1 << (1 - 1)) | (1 << (2 - 1)) | (1 << (3 - 1)));
         registry.addValidator(validator3);
         assertEq(registry.getHistoryLength(), initialHistory + 1);
 
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
-        emit IPodRegistry.SnapshotCreated(block.number, (1 << (1 - 1)) | (1 << (2 - 1)));
+        emit IPodRegistry.SnapshotCreated(block.timestamp, (1 << (1 - 1)) | (1 << (2 - 1)));
         registry.banValidator(validator3);
         assertEq(registry.getHistoryLength(), initialHistory + 2);
 
         vm.prank(validator1);
         vm.expectEmit(true, false, false, true);
-        emit IPodRegistry.SnapshotCreated(block.number, (1 << (2 - 1)));
+        emit IPodRegistry.SnapshotCreated(block.timestamp, (1 << (2 - 1)));
         registry.deactivate();
         assertEq(registry.getHistoryLength(), initialHistory + 3);
 
         vm.prank(validator1);
         vm.expectEmit(true, false, false, true);
-        emit IPodRegistry.SnapshotCreated(block.number, (1 << (1 - 1)) | (1 << (2 - 1)));
+        emit IPodRegistry.SnapshotCreated(block.timestamp, (1 << (1 - 1)) | (1 << (2 - 1)));
         registry.reactivate();
         assertEq(registry.getHistoryLength(), initialHistory + 4);
     }
@@ -323,19 +323,19 @@ contract PodRegistryTest is Test {
         vm.prank(owner);
         registry.addValidator(validator3); // snapshot
 
-        vm.roll(block.number + 5);
+        vm.warp(block.timestamp + 5);
         vm.prank(owner);
         registry.banValidator(validator1); // another snapshot
 
-        uint256 oldBlock = block.number - 3;
-        uint256 snapshotIndex = registry.findSnapshotIndex(oldBlock);
+        uint256 oldTimestamp = block.timestamp - 3;
+        uint256 snapshotIndex = registry.findSnapshotIndex(oldTimestamp);
 
         address[] memory subset = new address[](3);
         subset[0] = validator1;
         subset[1] = validator2;
         subset[2] = validator3;
 
-        uint256 weight = registry.computeWeight(subset, oldBlock, snapshotIndex);
+        uint256 weight = registry.computeWeight(subset, oldTimestamp, snapshotIndex);
         assertEq(weight, 3);
     }
 
@@ -343,15 +343,15 @@ contract PodRegistryTest is Test {
         vm.prank(owner);
         registry.addValidator(validator3);
         uint256 snapshotIndex = registry.getHistoryLength() - 1;
-        uint256 snapshotBlock;
-        (snapshotBlock,) = registry.getSnapshotAt(snapshotIndex);
+        uint256 snapshotTimestamp;
+        (snapshotTimestamp,) = registry.getSnapshotAt(snapshotIndex);
 
         address[] memory subset = new address[](3);
         subset[0] = validator1;
         subset[1] = validator2;
         subset[2] = validator3;
 
-        uint256 weight = registry.computeWeight(subset, snapshotBlock, snapshotIndex);
+        uint256 weight = registry.computeWeight(subset, snapshotTimestamp, snapshotIndex);
         assertEq(weight, 3);
     }
 
@@ -360,36 +360,36 @@ contract PodRegistryTest is Test {
         registry.addValidator(validator3); // snapshot at index 1
 
         vm.prank(owner);
-        vm.roll(block.number + 5);
+        vm.warp(block.timestamp + 5);
         registry.banValidator(validator1); // snapshot at index 2
 
-        // Use snapshot 0 for current block (too old)
-        uint256 latestBlock = block.number;
+        // Use snapshot 0 for current timestamp (too old)
+        uint256 latestTimestamp = block.timestamp;
 
         address[] memory subset = new address[](2);
         subset[0] = validator1;
         subset[1] = validator2;
 
         vm.expectRevert(abi.encodeWithSignature("SnapshotTooOld()"));
-        registry.computeWeight(subset, latestBlock, 0);
+        registry.computeWeight(subset, latestTimestamp, 0);
     }
 
     function test_ComputeWeight_RevertIfSnapshotTooNew() public {
         vm.prank(owner);
         registry.addValidator(validator3); // snapshot at index 1
-        uint256 blockAtAdd = block.number;
+        uint256 timestampAtAdd = block.timestamp;
 
-        vm.roll(block.number + 5);
+        vm.warp(block.timestamp + 5);
         vm.prank(owner);
         registry.banValidator(validator1); // snapshot at index 2
 
-        // Use snapshot 2 for blockAtAdd (too new)
+        // Use snapshot 2 for timestampAtAdd (too new)
         address[] memory subset = new address[](2);
         subset[0] = validator1;
         subset[1] = validator3;
 
         vm.expectRevert(abi.encodeWithSignature("SnapshotTooNew()"));
-        registry.computeWeight(subset, blockAtAdd, 2);
+        registry.computeWeight(subset, timestampAtAdd, 2);
     }
 
     function test_ComputeWeight_RevertIfSnapshotIndexOutOfBounds() public {
@@ -397,7 +397,7 @@ contract PodRegistryTest is Test {
         subset[0] = validator1;
 
         vm.expectRevert(abi.encodeWithSignature("InvalidSnapshotIndex()"));
-        registry.computeWeight(subset, block.number, 999);
+        registry.computeWeight(subset, block.timestamp, 999);
     }
 
     function test_ComputeWeight_NoHistoryReturnsZero() public {
@@ -414,22 +414,22 @@ contract PodRegistryTest is Test {
     }
 
     function test_FindSnapshotIndex() public {
-        vm.roll(101);
+        vm.warp(101);
         // Initial snapshot from constructor
-        uint256 initialIndex = registry.findSnapshotIndex(block.number);
+        uint256 initialIndex = registry.findSnapshotIndex(block.timestamp);
         assertEq(initialIndex, 0);
 
-        // Roll blocks and add a new validator (creates snapshot)
-        vm.roll(block.number + 5);
+        // Warp time and add a new validator (creates snapshot)
+        vm.warp(block.timestamp + 5);
         vm.prank(owner);
         registry.addValidator(validator3);
-        uint256 blockAtAdd = block.number;
+        uint256 timestampAtAdd = block.timestamp;
 
-        // Roll blocks and ban validator1 (creates another snapshot)
-        vm.roll(block.number + 10);
+        // Warp time and ban validator1 (creates another snapshot)
+        vm.warp(block.timestamp + 10);
         vm.prank(owner);
         registry.banValidator(validator1);
-        uint256 blockAtBan = block.number;
+        uint256 timestampAtBan = block.timestamp;
 
         // History should now have 3 snapshots:
         // index 0 -> constructor snapshot
@@ -437,37 +437,37 @@ contract PodRegistryTest is Test {
         // index 2 -> after banning validator1
         assertEq(registry.getHistoryLength(), 3);
 
-        // Case 1: Block way before first snapshot → index 0
-        uint256 indexBeforeFirst = registry.findSnapshotIndex(blockAtAdd - 100);
+        // Case 1: Timestamp way before first snapshot → index 0
+        uint256 indexBeforeFirst = registry.findSnapshotIndex(timestampAtAdd - 100);
         assertEq(indexBeforeFirst, 0);
 
-        // Case 2: Block exactly at first add snapshot → index 1
-        uint256 indexAtAdd = registry.findSnapshotIndex(blockAtAdd);
+        // Case 2: Timestamp exactly at first add snapshot → index 1
+        uint256 indexAtAdd = registry.findSnapshotIndex(timestampAtAdd);
         assertEq(indexAtAdd, 1);
 
-        // Case 3: Block between add and ban → index 1
-        uint256 midBlock = blockAtAdd + 5;
-        uint256 indexMid = registry.findSnapshotIndex(midBlock);
+        // Case 3: Timestamp between add and ban → index 1
+        uint256 midTimestamp = timestampAtAdd + 5;
+        uint256 indexMid = registry.findSnapshotIndex(midTimestamp);
         assertEq(indexMid, 1);
 
-        // Case 4: Block after last snapshot → index 2
-        uint256 indexAfterLast = registry.findSnapshotIndex(block.number + 50);
+        // Case 4: Timestamp after last snapshot → index 2
+        uint256 indexAfterLast = registry.findSnapshotIndex(block.timestamp + 50);
         assertEq(indexAfterLast, 2);
 
         // Validate that returned snapshots are correct
-        (uint256 blockNum1, uint256 bitmap1) = registry.getSnapshotAt(indexAtAdd);
-        assertEq(blockNum1, blockAtAdd);
+        (uint256 timestamp1, uint256 bitmap1) = registry.getSnapshotAt(indexAtAdd);
+        assertEq(timestamp1, timestampAtAdd);
         assertTrue(bitmap1 & (1 << (3 - 1)) != 0); // validator3 should be active here
 
-        (uint256 blockNum2, uint256 bitmap2) = registry.getSnapshotAt(indexAfterLast);
-        assertEq(blockNum2, blockAtBan);
+        (uint256 timestamp2, uint256 bitmap2) = registry.getSnapshotAt(indexAfterLast);
+        assertEq(timestamp2, timestampAtBan);
         assertTrue(bitmap2 & (1 << (3 - 1)) != 0); // validator3 still active
         assertFalse(bitmap2 & (1 << (1 - 1)) != 0); // validator1 banned
     }
 
     function test_FindSnapshotIndex_BeforeFirstSnapshot() public {
-        vm.roll(101);
-        uint256 index = registry.findSnapshotIndex(block.number - 100); // way before
+        vm.warp(101);
+        uint256 index = registry.findSnapshotIndex(block.timestamp - 100); // way before
         assertEq(index, 0);
     }
 
@@ -475,25 +475,25 @@ contract PodRegistryTest is Test {
         vm.prank(owner);
         registry.addValidator(validator3);
 
-        vm.roll(block.number + 10);
+        vm.warp(block.timestamp + 10);
         vm.prank(owner);
         registry.banValidator(validator1);
 
-        uint256 index = registry.findSnapshotIndex(block.number + 50); // after last
+        uint256 index = registry.findSnapshotIndex(block.timestamp + 50); // after last
         assertEq(index, registry.getHistoryLength() - 1);
     }
 
     function test_FindSnapshotIndex_SingleSnapshot() public view {
-        uint256 index = registry.findSnapshotIndex(block.number);
+        uint256 index = registry.findSnapshotIndex(block.timestamp);
         assertEq(index, 0);
     }
 
     function test_FindSnapshotIndex_ExactMatchLastSnapshot() public {
-        vm.roll(block.number + 10);
+        vm.warp(block.timestamp + 10);
         vm.prank(owner);
         registry.addValidator(validator3);
-        uint256 latestSnapshotBlock = block.number;
-        uint256 index = registry.findSnapshotIndex(latestSnapshotBlock);
+        uint256 latestSnapshotTimestamp = block.timestamp;
+        uint256 index = registry.findSnapshotIndex(latestSnapshotTimestamp);
         assertEq(index, registry.getHistoryLength() - 1);
     }
 
@@ -501,8 +501,8 @@ contract PodRegistryTest is Test {
         vm.prank(owner);
         registry.addValidator(validator3);
         uint256 index = registry.getHistoryLength() - 1;
-        (uint256 blockNumber, uint256 bitmap) = registry.getSnapshotAt(index);
-        assertGt(blockNumber, 0);
+        (uint256 timestamp, uint256 bitmap) = registry.getSnapshotAt(index);
+        assertGt(timestamp, 0);
         assertTrue(bitmap & (1 << (3 - 1)) != 0);
     }
 
@@ -522,10 +522,10 @@ contract PodRegistryTest is Test {
 
     function test_GetValidatorsAt() public {
         vm.startPrank(owner);
-        vm.roll(100);
+        vm.warp(100);
         registry.addValidator(validator3);
         registry.banValidator(validator1);
-        vm.roll(block.number + 100);
+        vm.warp(block.timestamp + 100);
         registry.addValidator(validator4);
         vm.stopPrank();
         uint256 index = registry.findSnapshotIndex(100);
