@@ -7,6 +7,7 @@ import {ECDSA} from "../src/verifier/ECDSA.sol";
 import {MerkleTree} from "../src/verifier/MerkleTree.sol";
 import {PodRegistry} from "../src/verifier/PodRegistry.sol";
 import {console} from "forge-std/console.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract PodECDSATest is Test {
     PodRegistry public podRegistry;
@@ -58,7 +59,8 @@ contract PodECDSATest is Test {
             proof: MerkleTree.Proof({path: path})
         });
 
-        PodECDSA.PodConfig memory podConfig = PodECDSA.PodConfig({quorum: 86, registry: podRegistry});
+        PodECDSA.PodConfig memory podConfig =
+            PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: podRegistry});
         assertTrue(PodECDSA.verifyCertificate(podConfig, certificate));
     }
 
@@ -115,7 +117,8 @@ contract PodECDSATest is Test {
             proof: MerkleTree.MultiProof({path: path, flags: flags})
         });
 
-        PodECDSA.PodConfig memory podConfig = PodECDSA.PodConfig({quorum: 86, registry: podRegistry});
+        PodECDSA.PodConfig memory podConfig =
+            PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: podRegistry});
         assertTrue(PodECDSA.verifyMultiCertificate(podConfig, certificate));
     }
 
@@ -166,7 +169,8 @@ contract PodECDSATest is Test {
             certificate: PodECDSA.Certificate({leaf: leaf, certifiedReceipt: receipt, proof: proof})
         });
 
-        PodECDSA.PodConfig memory podConfig = PodECDSA.PodConfig({quorum: 86, registry: podRegistry});
+        PodECDSA.PodConfig memory podConfig =
+            PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: podRegistry});
 
         assertTrue(PodECDSA.verifyCertifiedLog(podConfig, certifiedLog));
     }
@@ -206,7 +210,8 @@ contract PodECDSATest is Test {
             medianTimestamp: medianTimestamp
         });
 
-        PodECDSA.PodConfig memory podConfig = PodECDSA.PodConfig({quorum: 86, registry: podRegistry});
+        PodECDSA.PodConfig memory podConfig =
+            PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: podRegistry});
         assertTrue(PodECDSA.verifyCertifiedReceipt(podConfig, receipt, 1));
         assertTrue(podRegistry.getHistoryLength() == 2);
     }
@@ -243,9 +248,58 @@ contract PodECDSATest is Test {
         vm.warp(block.timestamp + medianTimestamp);
         vm.stopPrank();
 
-        PodECDSA.PodConfig memory podConfig = PodECDSA.PodConfig({quorum: 86, registry: podRegistry});
+        PodECDSA.PodConfig memory podConfig =
+            PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: podRegistry});
         assertTrue(PodECDSA.verifyCertifiedReceipt(podConfig, receipt, snapshotIndex));
         assertTrue(PodECDSA.verifyCertifiedReceipt(podConfig, receipt));
         assertTrue(podRegistry.getHistoryLength() == 4);
+    }
+
+    function test_verifyBeforeTresholdFails() public view {
+        bytes32 receiptRoot = 0x32bf7ef0c0291bc3b73afd18a62cca74ff8ee51c801b8b619c360e1c1dac9c84;
+        uint256 threshold = Math.mulDiv(validatorPrivateKeys.length, 2, 3, Math.Rounding.Ceil);
+        bytes[] memory signatures = new bytes[](threshold - 1);
+        uint256[] memory attestationTimestamps = new uint256[](threshold - 1);
+        for (uint256 i = 0; i < threshold - 1; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], receiptRoot);
+            signatures[i] = ECDSA._serialize_signature(v, r, s);
+            attestationTimestamps[i] = i + 1;
+        }
+
+        bytes memory aggregateSignature = ECDSA.aggregate_signatures(signatures);
+
+        PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
+            receiptRoot: receiptRoot,
+            aggregateSignature: aggregateSignature,
+            medianTimestamp: attestationTimestamps[attestationTimestamps.length / 2]
+        });
+
+        PodECDSA.PodConfig memory podConfig =
+            PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: podRegistry});
+        assertFalse(PodECDSA.verifyCertifiedReceipt(podConfig, receipt));
+    }
+
+    function test_verifyExactlyThresholdPasses() public view {
+        bytes32 receiptRoot = 0x32bf7ef0c0291bc3b73afd18a62cca74ff8ee51c801b8b619c360e1c1dac9c84;
+        uint256 threshold = Math.mulDiv(validatorPrivateKeys.length, 4, 5, Math.Rounding.Ceil);
+        bytes[] memory signatures = new bytes[](threshold);
+        uint256[] memory attestationTimestamps = new uint256[](threshold);
+        for (uint256 i = 0; i < threshold; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], receiptRoot);
+            signatures[i] = ECDSA._serialize_signature(v, r, s);
+            attestationTimestamps[i] = i + 1;
+        }
+
+        bytes memory aggregateSignature = ECDSA.aggregate_signatures(signatures);
+
+        PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
+            receiptRoot: receiptRoot,
+            aggregateSignature: aggregateSignature,
+            medianTimestamp: attestationTimestamps[attestationTimestamps.length / 2]
+        });
+
+        PodECDSA.PodConfig memory podConfig =
+            PodECDSA.PodConfig({thresholdNumerator: 4, thresholdDenominator: 5, registry: podRegistry});
+        assertTrue(PodECDSA.verifyCertifiedReceipt(podConfig, receipt));
     }
 }

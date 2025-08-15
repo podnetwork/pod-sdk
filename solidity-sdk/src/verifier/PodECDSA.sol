@@ -5,10 +5,12 @@ import {ECDSA} from "./ECDSA.sol";
 import {MerkleTree} from "./MerkleTree.sol";
 import {IPodRegistry} from "./PodRegistry.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 library PodECDSA {
     struct PodConfig {
-        uint256 quorum;
+        uint256 thresholdNumerator;
+        uint256 thresholdDenominator;
         IPodRegistry registry;
     }
 
@@ -63,8 +65,15 @@ library PodECDSA {
         address[] memory validators =
             ECDSA.recoverSigners(certifiedReceipt.receiptRoot, certifiedReceipt.aggregateSignature);
 
-        return podConfig.registry.computeWeight(validators, certifiedReceipt.medianTimestamp, snapshotIndex)
-            >= podConfig.quorum;
+        uint256 weight = podConfig.registry.computeWeight(validators, certifiedReceipt.medianTimestamp, snapshotIndex);
+        uint256 threshold = Math.mulDiv(
+            podConfig.registry.getValidatorCountAt(snapshotIndex),
+            podConfig.thresholdNumerator,
+            podConfig.thresholdDenominator,
+            Math.Rounding.Ceil
+        );
+
+        return weight >= threshold;
     }
 
     function verifyCertificate(PodConfig calldata podConfig, Certificate calldata certificate)
