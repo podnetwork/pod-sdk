@@ -53,7 +53,6 @@ contract PodECDSATest is Test {
             certifiedReceipt: PodECDSA.CertifiedReceipt({
                 receiptRoot: receiptRoot,
                 aggregateSignature: aggregateSignature,
-                attestationTimestamps: attestationTimestamps,
                 medianTimestamp: attestationTimestamps[attestationTimestamps.length / 2]
             }),
             proof: MerkleTree.Proof({path: path})
@@ -111,7 +110,6 @@ contract PodECDSATest is Test {
             certifiedReceipt: PodECDSA.CertifiedReceipt({
                 receiptRoot: receiptRoot,
                 aggregateSignature: aggregateSignature,
-                attestationTimestamps: attestationTimestamps,
                 medianTimestamp: attestationTimestamps[attestationTimestamps.length / 2]
             }),
             proof: MerkleTree.MultiProof({path: path, flags: flags})
@@ -136,7 +134,6 @@ contract PodECDSATest is Test {
         PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
             receiptRoot: receiptRoot,
             aggregateSignature: aggregateSignature,
-            attestationTimestamps: attestationTimestamps,
             medianTimestamp: attestationTimestamps[attestationTimestamps.length / 2]
         });
 
@@ -206,7 +203,6 @@ contract PodECDSATest is Test {
         PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
             receiptRoot: receiptRoot,
             aggregateSignature: aggregateSignature,
-            attestationTimestamps: attestationTimestamps,
             medianTimestamp: medianTimestamp
         });
 
@@ -232,7 +228,6 @@ contract PodECDSATest is Test {
         PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
             receiptRoot: receiptRoot,
             aggregateSignature: aggregateSignature,
-            attestationTimestamps: attestationTimestamps,
             medianTimestamp: medianTimestamp
         });
 

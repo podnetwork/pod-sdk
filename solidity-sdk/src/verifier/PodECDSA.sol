@@ -21,7 +21,6 @@ library PodECDSA {
     struct CertifiedReceipt {
         bytes32 receiptRoot;
         bytes aggregateSignature;
-        uint256[] attestationTimestamps;
         uint256 medianTimestamp;
     }
 
