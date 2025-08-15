@@ -79,6 +79,7 @@ fn get_certified_log(log: &VerifiableLog) -> Result<CertifiedLog> {
             certifiedReceipt: CertifiedReceipt {
                 receiptRoot: log.pod_metadata.receipt.hash_custom(),
                 aggregateSignature: log.aggregate_signatures().into(),
+                medianTimestamp: U256::from(log.inner.block_timestamp.unwrap()),
             },
             leaf,
             proof: Proof { path: proof.path },
@@ -234,7 +235,7 @@ impl AuctionClient {
     //     Ok(())
     // }
 
-    pub async fn read_state(&self, auction_id: U256, deadline: u64) -> Result<()> {
+    pub async fn read_state(&self, auction_id: U256, deadline: U256) -> Result<()> {
         let state = self
             .consumer_contract
             .read(auction_id, deadline)
@@ -414,7 +415,9 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    auction_client_1.read_state(auction_id, deadline).await?;
+    auction_client_1
+        .read_state(auction_id, U256::from(deadline))
+        .await?;
 
     // TODO: uncomment if you wish to use, to use this, we need to comment the write + blame ill announced calls
     // let _ = auction_client_1.blame_no_show(certified_log1).await;
