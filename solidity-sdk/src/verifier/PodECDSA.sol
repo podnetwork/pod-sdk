@@ -21,6 +21,8 @@ library PodECDSA {
     struct CertifiedReceipt {
         bytes32 receiptRoot;
         bytes aggregateSignature;
+        uint256[] attestationTimestamps;
+        uint256 medianTimestamp;
     }
 
     struct Certificate {
@@ -50,9 +52,20 @@ library PodECDSA {
         view
         returns (bool)
     {
+        uint256 snapshotIndex = podConfig.registry.findSnapshotIndex(certifiedReceipt.medianTimestamp);
+        return verifyCertifiedReceipt(podConfig, certifiedReceipt, snapshotIndex);
+    }
+
+    function verifyCertifiedReceipt(
+        PodConfig calldata podConfig,
+        CertifiedReceipt calldata certifiedReceipt,
+        uint256 snapshotIndex
+    ) public view returns (bool) {
         address[] memory validators =
             ECDSA.recoverSigners(certifiedReceipt.receiptRoot, certifiedReceipt.aggregateSignature);
-        return podConfig.registry.computeWeight(validators) >= podConfig.quorum;
+
+        return podConfig.registry.computeWeight(validators, certifiedReceipt.medianTimestamp, snapshotIndex)
+            >= podConfig.quorum;
     }
 
     function verifyCertificate(PodConfig calldata podConfig, Certificate calldata certificate)
@@ -60,7 +73,16 @@ library PodECDSA {
         view
         returns (bool)
     {
-        return verifyCertifiedReceipt(podConfig, certificate.certifiedReceipt)
+        uint256 snapshotIndex = podConfig.registry.findSnapshotIndex(certificate.certifiedReceipt.medianTimestamp);
+        return verifyCertificate(podConfig, certificate, snapshotIndex);
+    }
+
+    function verifyCertificate(PodConfig calldata podConfig, Certificate calldata certificate, uint256 snapshotIndex)
+        public
+        view
+        returns (bool)
+    {
+        return verifyCertifiedReceipt(podConfig, certificate.certifiedReceipt, snapshotIndex)
             && MerkleTree.verify(certificate.certifiedReceipt.receiptRoot, certificate.leaf, certificate.proof);
     }
 
@@ -69,11 +91,30 @@ library PodECDSA {
         view
         returns (bool)
     {
-        return verifyCertifiedReceipt(podConfig, certificate.certifiedReceipt)
+        uint256 snapshotIndex = podConfig.registry.findSnapshotIndex(certificate.certifiedReceipt.medianTimestamp);
+        return verifyMultiCertificate(podConfig, certificate, snapshotIndex);
+    }
+
+    function verifyMultiCertificate(
+        PodConfig calldata podConfig,
+        MultiCertificate calldata certificate,
+        uint256 snapshotIndex
+    ) public view returns (bool) {
+        return verifyCertifiedReceipt(podConfig, certificate.certifiedReceipt, snapshotIndex)
             && MerkleTree.verifyMulti(certificate.certifiedReceipt.receiptRoot, certificate.leaves, certificate.proof);
     }
 
     function verifyCertifiedLog(PodConfig calldata podConfig, CertifiedLog calldata certifiedLog)
+        public
+        view
+        returns (bool)
+    {
+        uint256 snapshotIndex =
+            podConfig.registry.findSnapshotIndex(certifiedLog.certificate.certifiedReceipt.medianTimestamp);
+        return verifyCertifiedLog(podConfig, certifiedLog, snapshotIndex);
+    }
+
+    function verifyCertifiedLog(PodConfig calldata podConfig, CertifiedLog calldata certifiedLog, uint256 snapshotIndex)
         public
         view
         returns (bool)
@@ -86,6 +127,6 @@ library PodECDSA {
 
         require(leaf == certifiedLog.certificate.leaf, "Invalid certificate");
 
-        return verifyCertificate(podConfig, certifiedLog.certificate);
+        return verifyCertificate(podConfig, certifiedLog.certificate, snapshotIndex);
     }
 }
