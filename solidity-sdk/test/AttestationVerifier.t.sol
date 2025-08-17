@@ -29,7 +29,7 @@ contract AttestationVerifierTest is Test {
 
     function testInvalidSignature() public view {
         bytes32 message = keccak256("Hello Pod");
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey + 1, message); // sai signer
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey + 1, message); 
         bytes memory signature = abi.encodePacked(r, s, v);
 
         bytes memory attestation = abi.encode(signer, message, signature);
