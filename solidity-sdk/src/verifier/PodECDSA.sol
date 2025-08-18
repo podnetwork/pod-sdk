@@ -67,7 +67,7 @@ library PodECDSA {
 
         uint256 weight = podConfig.registry.computeWeight(validators, certifiedReceipt.medianTimestamp, snapshotIndex);
         uint256 threshold = Math.mulDiv(
-            podConfig.registry.getValidatorCountAt(snapshotIndex),
+            podConfig.registry.getValidatorCountAtIndex(snapshotIndex),
             podConfig.thresholdNumerator,
             podConfig.thresholdDenominator,
             Math.Rounding.Ceil

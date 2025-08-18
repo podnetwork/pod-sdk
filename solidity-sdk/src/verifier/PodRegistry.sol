@@ -93,18 +93,11 @@ interface IPodRegistry {
     function validatorIndex(address validator) external view returns (uint8 index);
 
     /**
-     * @notice Get the address of a validator by their index
-     * @param index The 1-based index of the validator
-     * @return validator The address of the validator at the given index (address(0) if not found)
-     */
-    function validatorAddress(uint8 index) external view returns (address validator);
-
-    /**
      * @notice Check if a validator is banned
      * @param validator The address of the validator
      * @return isBanned True if the validator is banned, false otherwise
      */
-    function bannedValidators(address validator) external view returns (bool isBanned);
+    function isValidatorBanned(address validator) external view returns (bool isBanned);
 
     /**
      * @notice Get the total number of validators in the registry. Counts banned and active validators too.
@@ -200,7 +193,7 @@ interface IPodRegistry {
      * @param snapshotIndex The snapshot index to query
      * @return count The number of validators at the specified snapshot
      */
-    function getValidatorCountAt(uint256 snapshotIndex) external view returns (uint8 count);
+    function getValidatorCountAtIndex(uint256 snapshotIndex) external view returns (uint8 count);
 
     /**
      * @notice Get all currently active validators
@@ -213,22 +206,25 @@ interface IPodRegistry {
      * @param timestamp The timestamp to query
      * @return Array of addresses of validators active at the specified timestamp
      */
-    function getActiveValidators(uint256 timestamp) external view returns (address[] memory);
+    function getActiveValidatorsAtTimestamp(uint256 timestamp) external view returns (address[] memory);
 
     /**
      * @notice Get all validators at a specific snapshot
-     * @param index The snapshot index to query
+     * @param snapshotIndex The snapshot index to query
      * @return Array of addresses of validators at the specified snapshot
      */
-    function getValidatorsAt(uint256 index) external view returns (address[] memory);
+    function getValidatorsAtIndex(uint256 snapshotIndex) external view returns (address[] memory);
 
     /**
      * @notice Get snapshot details at a specific index
-     * @param index The snapshot index to query
+     * @param snapshotIndex The snapshot index to query
      * @return activeAsOfTimestamp The timestamp when the snapshot was created
      * @return bitmap The bitmap of active validators at this snapshot
      */
-    function getSnapshotAt(uint256 index) external view returns (uint256 activeAsOfTimestamp, uint256 bitmap);
+    function getSnapshotAtIndex(uint256 snapshotIndex)
+        external
+        view
+        returns (uint256 activeAsOfTimestamp, uint256 bitmap);
 
     /**
      * @notice Get the total number of snapshots in the history
@@ -257,20 +253,17 @@ contract PodRegistry is IPodRegistry, Ownable {
     /// @notice Mapping from validator address to their 1-based index
     mapping(address => uint8) public validatorIndex;
 
-    /// @notice Mapping from validator 1-based index to their address
-    mapping(uint8 => address) public validatorAddress;
-
-    /// @notice Mapping from validator address to banned status
-    mapping(address => bool) public bannedValidators;
+    /**
+     * @notice Array of validators in the registry. We also use `validators.length + 1` to track the 1-based
+     * index of the next validator to add.
+     */
+    address[] public validators;
 
     /// @notice Bitmap of the currently active validators
     uint256 public activeValidatorBitmap;
 
-    /**
-     * @notice Total count of validators in the registry. We also use `validatorCount` to
-     *  track the index of the next validator to add.
-     */
-    uint8 public validatorCount;
+    /// @notice Bitmap of the currently banned validators
+    uint256 public bannedValidatorBitmap;
 
     /**
      * @notice Initialize the registry with a set of initial validators. Only creates one snapshot
@@ -282,43 +275,42 @@ contract PodRegistry is IPodRegistry, Ownable {
         if (initialValidators.length >= MAX_VALIDATOR_COUNT) {
             revert TooManyInitialValidators();
         }
-        validatorCount = uint8(initialValidators.length);
 
         for (uint8 i = 0; i < initialValidators.length; i++) {
-            _addValidatorOnInit(initialValidators[i], i);
+            _addValidator(initialValidators[i], i + 1);
+            activeValidatorBitmap |= (1 << i);
         }
 
         _createSnapshot();
     }
 
     /**
-     * @notice Add a validator during contract initialization. Does not create a snapshot.
+     * @notice Add a validator to the registry
      * @param validator The address of the validator to add
-     * @param index The 0-based index for the validator
-     * @dev Internal function used only during construction
+     * @param index The 1-based index of the validator
+     * @dev Internal function called by addValidator
      */
-    function _addValidatorOnInit(address validator, uint8 index) internal {
-        validatorIndex[validator] = index + 1;
-        activeValidatorBitmap |= (1 << index);
-        validatorAddress[index + 1] = validator;
-    }
-
-    /**
-     * @inheritdoc IPodRegistry
-     */
-    function addValidator(address validator) external onlyOwner {
+    function _addValidator(address validator, uint8 index) internal {
         if (validator == address(0)) {
             revert ValidatorIsZeroAddress();
         }
         if (validatorIndex[validator] != 0) {
             revert ValidatorAlreadyExists();
         }
-        if (validatorCount >= MAX_VALIDATOR_COUNT) {
+
+        validatorIndex[validator] = index;
+        validators.push(validator);
+    }
+
+    /**
+     * @inheritdoc IPodRegistry
+     */
+    function addValidator(address validator) external onlyOwner {
+        if (validators.length >= MAX_VALIDATOR_COUNT) {
             revert MaxValidatorCountReached();
         }
-        uint8 index = ++validatorCount;
-        validatorIndex[validator] = index;
-        validatorAddress[index] = validator;
+        uint8 index = uint8(validators.length + 1);
+        _addValidator(validator, index);
         if (!_isValidatorActive(index)) {
             _activateValidator(index);
         }
@@ -333,7 +325,7 @@ contract PodRegistry is IPodRegistry, Ownable {
         if (index == 0) {
             revert ValidatorDoesNotExist();
         }
-        if (bannedValidators[validator]) {
+        if (_isValidatorBanned(index)) {
             revert ValidatorAlreadyBanned();
         }
 
@@ -341,7 +333,7 @@ contract PodRegistry is IPodRegistry, Ownable {
             _deactivateValidator(index);
         }
 
-        bannedValidators[validator] = true;
+        bannedValidatorBitmap = _setBit(bannedValidatorBitmap, index - 1);
         emit ValidatorBanned(validator);
     }
 
@@ -349,13 +341,14 @@ contract PodRegistry is IPodRegistry, Ownable {
      * @inheritdoc IPodRegistry
      */
     function unbanValidator(address validator) external onlyOwner {
-        if (validatorIndex[validator] == 0) {
+        uint8 index = validatorIndex[validator];
+        if (index == 0) {
             revert ValidatorDoesNotExist();
         }
-        if (!bannedValidators[validator]) {
+        if (!_isValidatorBanned(index)) {
             revert ValidatorNotBanned();
         }
-        bannedValidators[validator] = false;
+        bannedValidatorBitmap = _clearBit(bannedValidatorBitmap, index - 1);
         emit ValidatorUnbanned(validator);
     }
 
@@ -382,7 +375,7 @@ contract PodRegistry is IPodRegistry, Ownable {
         if (index == 0) {
             revert CallerNotValidator();
         }
-        if (bannedValidators[msg.sender]) {
+        if (_isValidatorBanned(index)) {
             revert CallerAlreadyBanned();
         }
         if (_isValidatorActive(index)) {
@@ -440,9 +433,8 @@ contract PodRegistry is IPodRegistry, Ownable {
                 continue;
             }
 
-            uint256 mask = 1 << (index - 1);
-            if ((snapshot.bitmap & mask) != 0 && (counted & mask) == 0) {
-                counted |= mask;
+            if (_isBitSet(snapshot.bitmap, index - 1) && !_isBitSet(counted, index - 1)) {
+                counted = _setBit(counted, index - 1);
                 weight++;
             }
         }
@@ -451,7 +443,7 @@ contract PodRegistry is IPodRegistry, Ownable {
     /**
      * @inheritdoc IPodRegistry
      */
-    function findSnapshotIndex(uint256 timestamp) public view returns (uint256 index) {
+    function findSnapshotIndex(uint256 timestamp) public view returns (uint256 snapshotIndex) {
         if (history.length == 0) {
             revert NoHistoricalSnapshots();
         }
@@ -481,7 +473,7 @@ contract PodRegistry is IPodRegistry, Ownable {
     /**
      * @inheritdoc IPodRegistry
      */
-    function getValidatorCountAt(uint256 snapshotIndex) public view returns (uint8 count) {
+    function getValidatorCountAtIndex(uint256 snapshotIndex) public view returns (uint8 count) {
         uint256 bitmap = history[snapshotIndex].bitmap;
         return _popCount(bitmap);
     }
@@ -502,17 +494,17 @@ contract PodRegistry is IPodRegistry, Ownable {
     /**
      * @inheritdoc IPodRegistry
      */
-    function getValidatorsAt(uint256 snapshotIndex) public view returns (address[] memory) {
+    function getValidatorsAtIndex(uint256 snapshotIndex) public view returns (address[] memory) {
         uint256 bitmap = history[snapshotIndex].bitmap;
         uint8 count = _popCount(bitmap);
-        address[] memory validators = new address[](count);
+        address[] memory subset = new address[](count);
         uint8 j = 0;
-        for (uint8 i = 0; i < validatorCount; i++) {
+        for (uint8 i = 0; i < validators.length; i++) {
             if (_isBitSet(bitmap, i)) {
-                validators[j++] = validatorAddress[i + 1];
+                subset[j++] = validators[i];
             }
         }
-        return validators;
+        return subset;
     }
 
     /**
@@ -523,27 +515,49 @@ contract PodRegistry is IPodRegistry, Ownable {
             return new address[](0);
         }
 
-        return getValidatorsAt(history.length - 1);
+        return getValidatorsAtIndex(history.length - 1);
     }
 
     /**
      * @inheritdoc IPodRegistry
      */
-    function getActiveValidators(uint256 timestamp) external view returns (address[] memory) {
+    function getActiveValidatorsAtTimestamp(uint256 timestamp) external view returns (address[] memory) {
         if (history.length == 0) {
             return new address[](0);
         }
 
         uint256 snapshotIndex = findSnapshotIndex(timestamp);
-        return getValidatorsAt(snapshotIndex);
+        return getValidatorsAtIndex(snapshotIndex);
     }
 
     /**
      * @inheritdoc IPodRegistry
      */
-    function getSnapshotAt(uint256 snapshotIndex) external view returns (uint256 activeAsOfTimestamp, uint256 bitmap) {
+    function isValidatorBanned(address validator) external view returns (bool isBanned) {
+        uint8 index = validatorIndex[validator];
+        if (index == 0) {
+            return false;
+        }
+        return _isValidatorBanned(index);
+    }
+
+    /**
+     * @inheritdoc IPodRegistry
+     */
+    function getSnapshotAtIndex(uint256 snapshotIndex)
+        external
+        view
+        returns (uint256 activeAsOfTimestamp, uint256 bitmap)
+    {
         Snapshot memory s = history[snapshotIndex];
         return (s.activeAsOfTimestamp, s.bitmap);
+    }
+
+    /**
+     * @inheritdoc IPodRegistry
+     */
+    function validatorCount() external view returns (uint8 count) {
+        return uint8(validators.length);
     }
 
     /**
@@ -559,7 +573,7 @@ contract PodRegistry is IPodRegistry, Ownable {
      * @dev Creates a new snapshot after activation
      */
     function _activateValidator(uint8 index) internal {
-        activeValidatorBitmap |= (1 << (index - 1));
+        activeValidatorBitmap = _setBit(activeValidatorBitmap, index - 1);
         _createSnapshot();
     }
 
@@ -569,7 +583,7 @@ contract PodRegistry is IPodRegistry, Ownable {
      * @dev Creates a new snapshot after deactivation
      */
     function _deactivateValidator(uint8 index) internal {
-        activeValidatorBitmap &= ~(1 << (index - 1));
+        activeValidatorBitmap = _clearBit(activeValidatorBitmap, index - 1);
         _createSnapshot();
     }
 
@@ -583,6 +597,15 @@ contract PodRegistry is IPodRegistry, Ownable {
     }
 
     /**
+     * @notice Check if a validator is currently banned
+     * @param index The 1-based index of the validator to check
+     * @return True if the validator is banned, false otherwise
+     */
+    function _isValidatorBanned(uint8 index) internal view returns (bool) {
+        return _isBitSet(bannedValidatorBitmap, index - 1);
+    }
+
+    /**
      * @notice Check if a specific bit is set in a bitmap
      * @param bitmap The bitmap to check
      * @param i The 0-based bit position to check
@@ -590,5 +613,13 @@ contract PodRegistry is IPodRegistry, Ownable {
      */
     function _isBitSet(uint256 bitmap, uint8 i) internal pure returns (bool) {
         return (bitmap & (1 << i)) != 0;
+    }
+
+    function _setBit(uint256 bitmap, uint8 i) internal pure returns (uint256) {
+        return bitmap | (1 << i);
+    }
+
+    function _clearBit(uint256 bitmap, uint8 i) internal pure returns (uint256) {
+        return bitmap & ~(1 << i);
     }
 }

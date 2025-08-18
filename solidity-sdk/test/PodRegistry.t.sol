@@ -125,13 +125,13 @@ contract PodRegistryTest is Test {
     function test_UnbanValidator() public {
         vm.prank(owner);
         registry.banValidator(validator1);
-        assertTrue(registry.bannedValidators(validator1));
+        assertTrue(registry.isValidatorBanned(validator1));
 
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
         emit IPodRegistry.ValidatorUnbanned(validator1);
         registry.unbanValidator(validator1);
-        assertFalse(registry.bannedValidators(validator1));
+        assertFalse(registry.isValidatorBanned(validator1));
     }
 
     function test_UnbanValidator_DoesNotCreateSnapshot() public {
@@ -344,7 +344,7 @@ contract PodRegistryTest is Test {
         registry.addValidator(validator3);
         uint256 snapshotIndex = registry.getHistoryLength() - 1;
         uint256 snapshotTimestamp;
-        (snapshotTimestamp,) = registry.getSnapshotAt(snapshotIndex);
+        (snapshotTimestamp,) = registry.getSnapshotAtIndex(snapshotIndex);
 
         address[] memory subset = new address[](3);
         subset[0] = validator1;
@@ -455,11 +455,11 @@ contract PodRegistryTest is Test {
         assertEq(indexAfterLast, 2);
 
         // Validate that returned snapshots are correct
-        (uint256 timestamp1, uint256 bitmap1) = registry.getSnapshotAt(indexAtAdd);
+        (uint256 timestamp1, uint256 bitmap1) = registry.getSnapshotAtIndex(indexAtAdd);
         assertEq(timestamp1, timestampAtAdd);
         assertTrue(bitmap1 & (1 << (3 - 1)) != 0); // validator3 should be active here
 
-        (uint256 timestamp2, uint256 bitmap2) = registry.getSnapshotAt(indexAfterLast);
+        (uint256 timestamp2, uint256 bitmap2) = registry.getSnapshotAtIndex(indexAfterLast);
         assertEq(timestamp2, timestampAtBan);
         assertTrue(bitmap2 & (1 << (3 - 1)) != 0); // validator3 still active
         assertFalse(bitmap2 & (1 << (1 - 1)) != 0); // validator1 banned
@@ -501,7 +501,7 @@ contract PodRegistryTest is Test {
         vm.prank(owner);
         registry.addValidator(validator3);
         uint256 index = registry.getHistoryLength() - 1;
-        (uint256 timestamp, uint256 bitmap) = registry.getSnapshotAt(index);
+        (uint256 timestamp, uint256 bitmap) = registry.getSnapshotAtIndex(index);
         assertGt(timestamp, 0);
         assertTrue(bitmap & (1 << (3 - 1)) != 0);
     }
@@ -520,7 +520,7 @@ contract PodRegistryTest is Test {
         assertEq(validators[1], validator2);
     }
 
-    function test_GetValidatorsAt() public {
+    function test_GetValidatorsAtIndex() public {
         vm.startPrank(owner);
         vm.warp(100);
         registry.addValidator(validator3);
@@ -529,7 +529,7 @@ contract PodRegistryTest is Test {
         registry.addValidator(validator4);
         vm.stopPrank();
         uint256 index = registry.findSnapshotIndex(100);
-        address[] memory validators = registry.getValidatorsAt(index);
+        address[] memory validators = registry.getValidatorsAtIndex(index);
         assertEq(validators.length, 2);
         assertEq(validators[0], validator2);
         assertEq(validators[1], validator3);
