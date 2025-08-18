@@ -21,7 +21,6 @@ contract PodAuctionConsumerTest is Test {
     address constant SMALLER_BIDDER = 0x13791790Bef192d14712D627f13A55c4ABEe52a4;
     address constant HIGHER_BIDDER = 0xb8AA43999C2b3Cbb10FbE2092432f98D8F35Dcd7;
     address constant BONDED_ADDRESS = address(0x123def);
-    uint256 constant U = 10 minutes;
     uint256 constant NUMBER_OF_VALIDATORS = 128;
 
     function getRequiredSigs(uint256 thresholdNumerator, uint256 thresholdDenominator, Math.Rounding rounding)
@@ -66,7 +65,7 @@ contract PodAuctionConsumerTest is Test {
         vm.prank(SMALLER_BIDDER);
         consumer.write(certifiedLog);
 
-        vm.warp(block.timestamp + 2 * U);
+        vm.warp(block.timestamp + consumer.TWO_TIMES_DISPUTE_PERIOD());
         PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, DEADLINE);
 
         assertEq(state.winner.bid, 100);
@@ -109,7 +108,7 @@ contract PodAuctionConsumerTest is Test {
         uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
         PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(requiredSigs, true);
 
-        vm.warp(block.timestamp + U + 1 seconds);
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD() + 1 seconds);
 
         vm.prank(SMALLER_BIDDER);
         vm.expectRevert("Writing period ended");
@@ -139,7 +138,7 @@ contract PodAuctionConsumerTest is Test {
 
         vm.prank(HIGHER_BIDDER);
         consumer.blameIllAnnounced(certifiedLogHigherBid);
-        vm.warp(block.timestamp + 2 * U);
+        vm.warp(block.timestamp + consumer.TWO_TIMES_DISPUTE_PERIOD());
         PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, DEADLINE);
         assertEq(state.winner.bid, 1000);
         assertEq(state.winner.bidder, HIGHER_BIDDER);
@@ -164,7 +163,7 @@ contract PodAuctionConsumerTest is Test {
         vm.prank(SMALLER_BIDDER);
         consumer.write(certifiedLogSmallerBid);
 
-        vm.warp(block.timestamp + 2 * U);
+        vm.warp(block.timestamp + consumer.TWO_TIMES_DISPUTE_PERIOD());
 
         requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
         PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
@@ -196,7 +195,7 @@ contract PodAuctionConsumerTest is Test {
         requiredSigs = getRequiredSigs(1, 3, Math.Rounding.Ceil);
         PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
 
-        vm.warp(block.timestamp + U);
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD());
 
         assert(consumer.isBonded(SMALLER_BIDDER));
 
@@ -205,7 +204,7 @@ contract PodAuctionConsumerTest is Test {
         vm.prank(BONDED_ADDRESS);
         consumer.blameNoShow(certifiedLogHigherBid);
 
-        vm.warp(block.timestamp + U);
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD());
         PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, DEADLINE);
         assertEq(state.winner.bid, 0);
         assertEq(state.winner.bidder, address(0));
@@ -218,7 +217,7 @@ contract PodAuctionConsumerTest is Test {
         uint256 requiredSigs = getRequiredSigs(1, 3, Math.Rounding.Floor);
         PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(requiredSigs, true);
 
-        vm.warp(block.timestamp + U);
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD());
 
         vm.prank(BONDED_ADDRESS);
         vm.expectRevert("Invalid proof or quorum not reached");
@@ -232,7 +231,7 @@ contract PodAuctionConsumerTest is Test {
         vm.prank(SMALLER_BIDDER);
         consumer.write(certifiedLogSmallerBid);
 
-        vm.warp(block.timestamp + U);
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD());
 
         requiredSigs = getRequiredSigs(1, 3, Math.Rounding.Ceil);
         PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
@@ -243,12 +242,12 @@ contract PodAuctionConsumerTest is Test {
     }
 
     function test_BlameNoShow_Fail_DisputePeriodEnded() public {
-        vm.warp(block.timestamp + 2 * U);
+        vm.warp(block.timestamp + consumer.TWO_TIMES_DISPUTE_PERIOD());
 
         uint256 requiredSigs = getRequiredSigs(1, 3, Math.Rounding.Ceil);
         PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
 
-        vm.warp(block.timestamp + 2 * U);
+        vm.warp(block.timestamp + consumer.TWO_TIMES_DISPUTE_PERIOD());
 
         vm.prank(BONDED_ADDRESS);
         vm.expectRevert("Dispute period ended");
@@ -271,7 +270,7 @@ contract PodAuctionConsumerTest is Test {
 
         PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(requiredSigs, true);
 
-        vm.warp(block.timestamp + U);
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD());
 
         vm.prank(BONDED_ADDRESS);
         consumer.blameNoShow(certifiedLogHigherBid);

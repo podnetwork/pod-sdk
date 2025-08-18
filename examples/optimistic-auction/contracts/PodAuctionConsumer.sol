@@ -7,7 +7,8 @@ import {IPodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
 import {AbsBonding} from "./AbsBonding.sol";
 
 contract PodAuctionConsumer is AbsBonding {
-    uint256 public constant U = 10 minutes; // Waiting period for announcement or blaming
+    uint256 public constant DISPUTE_PERIOD = 10 minutes;
+    uint256 public constant TWO_TIMES_DISPUTE_PERIOD = 2 * DISPUTE_PERIOD;
     bytes32 public constant LOG_TOPIC_0 = 0xfa9544cad94ab8507946215078af54be3ed0a1f19911d5dab2037baf8e064fb0;
 
     struct Bid {
@@ -64,7 +65,7 @@ contract PodAuctionConsumer is AbsBonding {
         bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadline);
         State storage s = state[uniqueAuctionId];
         require(block.timestamp >= deadline, "Writing period has not started");
-        require(block.timestamp < deadline + U, "Writing period ended");
+        require(block.timestamp < deadline + DISPUTE_PERIOD, "Writing period ended");
         require(s.winner.bid == 0, "Bid already exists");
         require(msg.sender == bidder, "Invalid caller");
 
@@ -84,7 +85,7 @@ contract PodAuctionConsumer is AbsBonding {
      */
     function read(uint256 auctionId, uint256 deadline) external view returns (State memory) {
         bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadline);
-        require(block.timestamp >= deadline + 2 * U, "Dispute period NOT ended");
+        require(block.timestamp >= deadline + TWO_TIMES_DISPUTE_PERIOD, "Dispute period NOT ended");
         return state[uniqueAuctionId];
     }
 
@@ -97,7 +98,7 @@ contract PodAuctionConsumer is AbsBonding {
         bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadline);
         State storage s = state[uniqueAuctionId];
         require(s.winner.bid != 0, "Bid not written");
-        require(block.timestamp < deadline + 2 * U, "Dispute period ended");
+        require(block.timestamp < deadline + TWO_TIMES_DISPUTE_PERIOD, "Dispute period ended");
 
         bool verified = PodECDSA.verifyCertifiedLog(
             PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: podRegistry}), certifiedLog
@@ -120,8 +121,8 @@ contract PodAuctionConsumer is AbsBonding {
         State storage s = state[uniqueAuctionId];
 
         require(s.winner.bid == 0, "Bid already exists");
-        require(block.timestamp >= deadline + U, "Still in waiting period");
-        require(block.timestamp < deadline + 2 * U, "Dispute period ended");
+        require(block.timestamp >= deadline + DISPUTE_PERIOD, "Still in waiting period");
+        require(block.timestamp < deadline + TWO_TIMES_DISPUTE_PERIOD, "Dispute period ended");
         require(s.blamed.bid < bid, "Invalid blamed bid");
 
         bool verified = PodECDSA.verifyCertifiedLog(
