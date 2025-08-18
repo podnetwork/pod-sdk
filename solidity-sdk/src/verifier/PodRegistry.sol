@@ -279,7 +279,7 @@ contract PodRegistry is IPodRegistry, Ownable {
         }
 
         for (uint8 i = 0; i < initialValidators.length; i++) {
-            _addValidator(initialValidators[i], i + 1);
+            _addValidator(initialValidators[i]);
             activeValidatorBitmap |= (1 << i);
         }
 
@@ -289,10 +289,9 @@ contract PodRegistry is IPodRegistry, Ownable {
     /**
      * @notice Add a validator to the registry
      * @param validator The address of the validator to add
-     * @param index The 1-based index of the validator
      * @dev Internal function called by addValidator
      */
-    function _addValidator(address validator, uint8 index) internal {
+    function _addValidator(address validator) internal {
         if (validator == address(0)) {
             revert ValidatorIsZeroAddress();
         }
@@ -300,8 +299,8 @@ contract PodRegistry is IPodRegistry, Ownable {
             revert ValidatorAlreadyExists();
         }
 
-        validatorIndex[validator] = index;
         validators.push(validator);
+        validatorIndex[validator] = uint8(validators.length);
     }
 
     /**
@@ -311,11 +310,9 @@ contract PodRegistry is IPodRegistry, Ownable {
         if (validators.length >= MAX_VALIDATOR_COUNT) {
             revert MaxValidatorCountReached();
         }
-        uint8 index = uint8(validators.length + 1);
-        _addValidator(validator, index);
-        if (!_isValidatorActive(index)) {
-            _activateValidator(index);
-        }
+        _addValidator(validator);
+        uint8 index = uint8(validators.length);
+        _activateValidator(index);
         emit ValidatorAdded(validator);
     }
 
