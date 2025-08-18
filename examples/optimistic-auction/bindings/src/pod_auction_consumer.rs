@@ -1537,8 +1537,9 @@ interface PodAuctionConsumer {
 
     constructor(address _podRegistry, uint256 _bondAmount);
 
+    function DISPUTE_PERIOD() external view returns (uint256);
     function LOG_TOPIC_0() external view returns (bytes32);
-    function U() external view returns (uint256);
+    function TWO_TIMES_DISPUTE_PERIOD() external view returns (uint256);
     function blameIllAnnounced(PodECDSA.CertifiedLog memory certifiedLog) external;
     function blameNoShow(PodECDSA.CertifiedLog memory certifiedLog) external;
     function bond() external payable;
@@ -1577,6 +1578,19 @@ interface PodAuctionConsumer {
   },
   {
     "type": "function",
+    "name": "DISPUTE_PERIOD",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "LOG_TOPIC_0",
     "inputs": [],
     "outputs": [
@@ -1590,7 +1604,7 @@ interface PodAuctionConsumer {
   },
   {
     "type": "function",
-    "name": "U",
+    "name": "TWO_TIMES_DISPUTE_PERIOD",
     "inputs": [],
     "outputs": [
       {
@@ -3582,6 +3596,153 @@ constructor(address _podRegistry, uint256 _bondAmount);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `DISPUTE_PERIOD()` and selector `0xa5bbe22b`.
+```solidity
+function DISPUTE_PERIOD() external view returns (uint256);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct DISPUTE_PERIODCall;
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`DISPUTE_PERIOD()`](DISPUTE_PERIODCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct DISPUTE_PERIODReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<DISPUTE_PERIODCall> for UnderlyingRustTuple<'_> {
+                fn from(value: DISPUTE_PERIODCall) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for DISPUTE_PERIODCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<DISPUTE_PERIODReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: DISPUTE_PERIODReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for DISPUTE_PERIODReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for DISPUTE_PERIODCall {
+            type Parameters<'a> = ();
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "DISPUTE_PERIOD()";
+            const SELECTOR: [u8; 4] = [165u8, 187u8, 226u8, 43u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: DISPUTE_PERIODReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: DISPUTE_PERIODReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `LOG_TOPIC_0()` and selector `0xe9751b37`.
 ```solidity
 function LOG_TOPIC_0() external view returns (bytes32);
@@ -3725,19 +3886,19 @@ function LOG_TOPIC_0() external view returns (bytes32);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `U()` and selector `0x2688454a`.
+    /**Function with signature `TWO_TIMES_DISPUTE_PERIOD()` and selector `0xc5dcc691`.
 ```solidity
-function U() external view returns (uint256);
+function TWO_TIMES_DISPUTE_PERIOD() external view returns (uint256);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct UCall;
+    pub struct TWO_TIMES_DISPUTE_PERIODCall;
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`U()`](UCall) function.
+    ///Container type for the return parameters of the [`TWO_TIMES_DISPUTE_PERIOD()`](TWO_TIMES_DISPUTE_PERIODCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct UReturn {
+    pub struct TWO_TIMES_DISPUTE_PERIODReturn {
         #[allow(missing_docs)]
         pub _0: alloy::sol_types::private::primitives::aliases::U256,
     }
@@ -3767,14 +3928,16 @@ function U() external view returns (uint256);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UCall> for UnderlyingRustTuple<'_> {
-                fn from(value: UCall) -> Self {
+            impl ::core::convert::From<TWO_TIMES_DISPUTE_PERIODCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: TWO_TIMES_DISPUTE_PERIODCall) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for UCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for TWO_TIMES_DISPUTE_PERIODCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self
                 }
@@ -3800,21 +3963,23 @@ function U() external view returns (uint256);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UReturn> for UnderlyingRustTuple<'_> {
-                fn from(value: UReturn) -> Self {
+            impl ::core::convert::From<TWO_TIMES_DISPUTE_PERIODReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: TWO_TIMES_DISPUTE_PERIODReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for UReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for TWO_TIMES_DISPUTE_PERIODReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolCall for UCall {
+        impl alloy_sol_types::SolCall for TWO_TIMES_DISPUTE_PERIODCall {
             type Parameters<'a> = ();
             type Token<'a> = <Self::Parameters<
                 'a,
@@ -3824,8 +3989,8 @@ function U() external view returns (uint256);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "U()";
-            const SELECTOR: [u8; 4] = [38u8, 136u8, 69u8, 74u8];
+            const SIGNATURE: &'static str = "TWO_TIMES_DISPUTE_PERIOD()";
+            const SELECTOR: [u8; 4] = [197u8, 220u8, 198u8, 145u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -3850,7 +4015,7 @@ function U() external view returns (uint256);
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(|r| {
-                        let r: UReturn = r.into();
+                        let r: TWO_TIMES_DISPUTE_PERIODReturn = r.into();
                         r._0
                     })
             }
@@ -3862,7 +4027,7 @@ function U() external view returns (uint256);
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(|r| {
-                        let r: UReturn = r.into();
+                        let r: TWO_TIMES_DISPUTE_PERIODReturn = r.into();
                         r._0
                     })
             }
@@ -5897,9 +6062,11 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
     #[derive()]
     pub enum PodAuctionConsumerCalls {
         #[allow(missing_docs)]
+        DISPUTE_PERIOD(DISPUTE_PERIODCall),
+        #[allow(missing_docs)]
         LOG_TOPIC_0(LOG_TOPIC_0Call),
         #[allow(missing_docs)]
-        U(UCall),
+        TWO_TIMES_DISPUTE_PERIOD(TWO_TIMES_DISPUTE_PERIODCall),
         #[allow(missing_docs)]
         blameIllAnnounced(blameIllAnnouncedCall),
         #[allow(missing_docs)]
@@ -5939,7 +6106,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
             [14u8, 205u8, 153u8, 14u8],
-            [38u8, 136u8, 69u8, 74u8],
             [56u8, 114u8, 51u8, 236u8],
             [60u8, 207u8, 214u8, 11u8],
             [74u8, 165u8, 232u8, 133u8],
@@ -5952,6 +6118,8 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
             [128u8, 243u8, 35u8, 167u8],
             [141u8, 165u8, 203u8, 91u8],
             [154u8, 98u8, 194u8, 163u8],
+            [165u8, 187u8, 226u8, 43u8],
+            [197u8, 220u8, 198u8, 145u8],
             [233u8, 117u8, 27u8, 55u8],
             [242u8, 253u8, 227u8, 139u8],
         ];
@@ -5960,14 +6128,19 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
     impl alloy_sol_types::SolInterface for PodAuctionConsumerCalls {
         const NAME: &'static str = "PodAuctionConsumerCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 16usize;
+        const COUNT: usize = 17usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
+                Self::DISPUTE_PERIOD(_) => {
+                    <DISPUTE_PERIODCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::LOG_TOPIC_0(_) => {
                     <LOG_TOPIC_0Call as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::U(_) => <UCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::TWO_TIMES_DISPUTE_PERIOD(_) => {
+                    <TWO_TIMES_DISPUTE_PERIODCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::blameIllAnnounced(_) => {
                     <blameIllAnnouncedCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -6023,15 +6196,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                             .map(PodAuctionConsumerCalls::blameIllAnnounced)
                     }
                     blameIllAnnounced
-                },
-                {
-                    fn U(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
-                        <UCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(PodAuctionConsumerCalls::U)
-                    }
-                    U
                 },
                 {
                     fn podRegistry(
@@ -6150,6 +6314,28 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                     blameNoShow
                 },
                 {
+                    fn DISPUTE_PERIOD(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
+                        <DISPUTE_PERIODCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(PodAuctionConsumerCalls::DISPUTE_PERIOD)
+                    }
+                    DISPUTE_PERIOD
+                },
+                {
+                    fn TWO_TIMES_DISPUTE_PERIOD(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
+                        <TWO_TIMES_DISPUTE_PERIODCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(PodAuctionConsumerCalls::TWO_TIMES_DISPUTE_PERIOD)
+                    }
+                    TWO_TIMES_DISPUTE_PERIOD
+                },
+                {
                     fn LOG_TOPIC_0(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
@@ -6201,17 +6387,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                             .map(PodAuctionConsumerCalls::blameIllAnnounced)
                     }
                     blameIllAnnounced
-                },
-                {
-                    fn U(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
-                        <UCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(PodAuctionConsumerCalls::U)
-                    }
-                    U
                 },
                 {
                     fn podRegistry(
@@ -6346,6 +6521,28 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                     blameNoShow
                 },
                 {
+                    fn DISPUTE_PERIOD(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
+                        <DISPUTE_PERIODCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodAuctionConsumerCalls::DISPUTE_PERIOD)
+                    }
+                    DISPUTE_PERIOD
+                },
+                {
+                    fn TWO_TIMES_DISPUTE_PERIOD(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
+                        <TWO_TIMES_DISPUTE_PERIODCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodAuctionConsumerCalls::TWO_TIMES_DISPUTE_PERIOD)
+                    }
+                    TWO_TIMES_DISPUTE_PERIOD
+                },
+                {
                     fn LOG_TOPIC_0(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
@@ -6381,13 +6578,20 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[inline]
         fn abi_encoded_size(&self) -> usize {
             match self {
+                Self::DISPUTE_PERIOD(inner) => {
+                    <DISPUTE_PERIODCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::LOG_TOPIC_0(inner) => {
                     <LOG_TOPIC_0Call as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
-                Self::U(inner) => {
-                    <UCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                Self::TWO_TIMES_DISPUTE_PERIOD(inner) => {
+                    <TWO_TIMES_DISPUTE_PERIODCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::blameIllAnnounced(inner) => {
                     <blameIllAnnouncedCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -6446,14 +6650,23 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[inline]
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
+                Self::DISPUTE_PERIOD(inner) => {
+                    <DISPUTE_PERIODCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::LOG_TOPIC_0(inner) => {
                     <LOG_TOPIC_0Call as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
                 }
-                Self::U(inner) => {
-                    <UCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                Self::TWO_TIMES_DISPUTE_PERIOD(inner) => {
+                    <TWO_TIMES_DISPUTE_PERIODCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::blameIllAnnounced(inner) => {
                     <blameIllAnnouncedCall as alloy_sol_types::SolCall>::abi_encode_raw(
@@ -6956,15 +7169,23 @@ See the [wrapper's documentation](`PodAuctionConsumerInstance`) for more details
         ) -> alloy_contract::SolCallBuilder<&P, C, N> {
             alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
         }
+        ///Creates a new call builder for the [`DISPUTE_PERIOD`] function.
+        pub fn DISPUTE_PERIOD(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, DISPUTE_PERIODCall, N> {
+            self.call_builder(&DISPUTE_PERIODCall)
+        }
         ///Creates a new call builder for the [`LOG_TOPIC_0`] function.
         pub fn LOG_TOPIC_0(
             &self,
         ) -> alloy_contract::SolCallBuilder<&P, LOG_TOPIC_0Call, N> {
             self.call_builder(&LOG_TOPIC_0Call)
         }
-        ///Creates a new call builder for the [`U`] function.
-        pub fn U(&self) -> alloy_contract::SolCallBuilder<&P, UCall, N> {
-            self.call_builder(&UCall)
+        ///Creates a new call builder for the [`TWO_TIMES_DISPUTE_PERIOD`] function.
+        pub fn TWO_TIMES_DISPUTE_PERIOD(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, TWO_TIMES_DISPUTE_PERIODCall, N> {
+            self.call_builder(&TWO_TIMES_DISPUTE_PERIODCall)
         }
         ///Creates a new call builder for the [`blameIllAnnounced`] function.
         pub fn blameIllAnnounced(
