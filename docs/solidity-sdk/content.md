@@ -10,10 +10,7 @@ toc:
   balance: Balance
   uint256-set: Uint256Set
   address-set: AddressSet
-  require-time-before: requireTimeBefore
-  require-time-after: requireTimeAfter
-  require-time-at-least: requireTimeAtLeast
-  require-time-at-most: requireTimeAtMost
+  time: Time
 ---
 
 # Solidity SDK Reference
@@ -192,8 +189,6 @@ bool isZero = ts.isZero();
 
 Helpers to assert time-based conditions using validators' local timestamps and quorum checks.
 
-! anchor require-time-before
-
 #### requireTimeBefore
 
 ```solidity
@@ -216,8 +211,6 @@ Requires that the current timestamp is before the specified time.
 See [Auctions](/examples/auctions) for an example that uses `requireTimeBefore`.
 
 ---
-
-! anchor require-time-after
 
 #### requireTimeAfter
 
@@ -242,8 +235,6 @@ See [Voting](/examples/voting) for an example that uses `requireTimeAfter`.
 
 ---
 
-! anchor require-time-at-least
-
 #### requireTimeAtLeast
 
 ```solidity
@@ -266,8 +257,6 @@ Requires that the current timestamp is greater than or equal to the specified ti
 See [Optimistic Auction](/examples/optimistic-auction) for an example that uses `requireTimeAtLeast`.
 
 ---
-
-! anchor require-time-at-most
 
 #### requireTimeAtMost
 
