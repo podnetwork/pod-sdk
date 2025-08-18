@@ -176,6 +176,8 @@ interface IPodRegistry {
      * Since this is a view function, it can be called off-chain to compute the correct snapshotIndex
      * corresponding to a particular timestamp.
      * Then, the function computeWeight can be called on-chain with the correct snapshotIndex.
+     * The function also supports a fast path: scan the last few snapshots linearly before falling
+     *  back to binary search. This is useful when we expect to validate recent certificates.
      * @param timestamp The timestamp to find a snapshot for
      * @return snapshotIndex The index of the most recent snapshot at or before the timestamp
      * @dev Uses binary search for efficient lookup
@@ -446,6 +448,16 @@ contract PodRegistry is IPodRegistry, Ownable {
     function findSnapshotIndex(uint256 timestamp) public view returns (uint256 snapshotIndex) {
         if (history.length == 0) {
             revert NoHistoricalSnapshots();
+        }
+
+        for (uint256 i = 0; i < 3; i++) {
+            if (i >= history.length) {
+                break;
+            }
+            uint256 idx = history.length - 1 - i;
+            if (history[idx].activeAsOfTimestamp <= timestamp) {
+                return idx;
+            }
         }
 
         uint256 low = 0;
