@@ -1,5 +1,5 @@
 menu:
-  - heading: getting-started
+  - heading: getting started
   - href: /
     label: Welcome to pod
   - href: /devnet
@@ -9,7 +9,9 @@ menu:
   - href: /overview
     label: Coming from Ethereum?
 
-  - heading: examples 
+  - heading: examples
+  - href: /examples
+    label: Overview
   - href: /examples/tokens
     label: Tokens
   - href: /examples/nfts
