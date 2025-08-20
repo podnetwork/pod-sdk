@@ -54,7 +54,7 @@ contract PodECDSATest is Test {
             certifiedReceipt: PodECDSA.CertifiedReceipt({
                 receiptRoot: receiptRoot,
                 aggregateSignature: aggregateSignature,
-                medianTimestamp: attestationTimestamps[attestationTimestamps.length / 2]
+                sortedAttestationTimestamps: attestationTimestamps
             }),
             proof: MerkleTree.Proof({path: path})
         });
@@ -112,7 +112,7 @@ contract PodECDSATest is Test {
             certifiedReceipt: PodECDSA.CertifiedReceipt({
                 receiptRoot: receiptRoot,
                 aggregateSignature: aggregateSignature,
-                medianTimestamp: attestationTimestamps[attestationTimestamps.length / 2]
+                sortedAttestationTimestamps: attestationTimestamps
             }),
             proof: MerkleTree.MultiProof({path: path, flags: flags})
         });
@@ -137,7 +137,7 @@ contract PodECDSATest is Test {
         PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
             receiptRoot: receiptRoot,
             aggregateSignature: aggregateSignature,
-            medianTimestamp: attestationTimestamps[attestationTimestamps.length / 2]
+            sortedAttestationTimestamps: attestationTimestamps
         });
 
         bytes32[] memory topics = new bytes32[](4);
@@ -207,7 +207,7 @@ contract PodECDSATest is Test {
         PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
             receiptRoot: receiptRoot,
             aggregateSignature: aggregateSignature,
-            medianTimestamp: medianTimestamp
+            sortedAttestationTimestamps: attestationTimestamps
         });
 
         PodECDSA.PodConfig memory podConfig =
@@ -216,7 +216,7 @@ contract PodECDSATest is Test {
         assertTrue(podRegistry.getHistoryLength() == 2);
     }
 
-    function test_verifyOld() public {
+    function test_verifyWithOldSnapshot() public {
         bytes32 receiptRoot = 0x32bf7ef0c0291bc3b73afd18a62cca74ff8ee51c801b8b619c360e1c1dac9c84;
         bytes[] memory signatures = new bytes[](validatorPrivateKeys.length);
         uint256[] memory attestationTimestamps = new uint256[](validatorPrivateKeys.length);
@@ -233,7 +233,7 @@ contract PodECDSATest is Test {
         PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
             receiptRoot: receiptRoot,
             aggregateSignature: aggregateSignature,
-            medianTimestamp: medianTimestamp
+            sortedAttestationTimestamps: attestationTimestamps
         });
 
         uint256 snapshotIndex = podRegistry.findSnapshotIndex(medianTimestamp);
@@ -255,7 +255,7 @@ contract PodECDSATest is Test {
         assertTrue(podRegistry.getHistoryLength() == 4);
     }
 
-    function test_verifyBeforeTresholdFails() public view {
+    function test_verify_RevertIfNoTresholdSignatures() public view {
         bytes32 receiptRoot = 0x32bf7ef0c0291bc3b73afd18a62cca74ff8ee51c801b8b619c360e1c1dac9c84;
         uint256 threshold = Math.mulDiv(validatorPrivateKeys.length, 2, 3, Math.Rounding.Ceil);
         bytes[] memory signatures = new bytes[](threshold - 1);
@@ -271,7 +271,7 @@ contract PodECDSATest is Test {
         PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
             receiptRoot: receiptRoot,
             aggregateSignature: aggregateSignature,
-            medianTimestamp: attestationTimestamps[attestationTimestamps.length / 2]
+            sortedAttestationTimestamps: attestationTimestamps
         });
 
         PodECDSA.PodConfig memory podConfig =
@@ -279,7 +279,7 @@ contract PodECDSATest is Test {
         assertFalse(PodECDSA.verifyCertifiedReceipt(podConfig, receipt));
     }
 
-    function test_verifyExactlyThresholdPasses() public view {
+    function test_verifyExactThresholdSignatures() public view {
         bytes32 receiptRoot = 0x32bf7ef0c0291bc3b73afd18a62cca74ff8ee51c801b8b619c360e1c1dac9c84;
         uint256 threshold = Math.mulDiv(validatorPrivateKeys.length, 4, 5, Math.Rounding.Ceil);
         bytes[] memory signatures = new bytes[](threshold);
@@ -295,11 +295,80 @@ contract PodECDSATest is Test {
         PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
             receiptRoot: receiptRoot,
             aggregateSignature: aggregateSignature,
-            medianTimestamp: attestationTimestamps[attestationTimestamps.length / 2]
+            sortedAttestationTimestamps: attestationTimestamps
         });
 
         PodECDSA.PodConfig memory podConfig =
             PodECDSA.PodConfig({thresholdNumerator: 4, thresholdDenominator: 5, registry: podRegistry});
         assertTrue(PodECDSA.verifyCertifiedReceipt(podConfig, receipt));
+    }
+
+    function test_verify_RevertIfUnsortedMedianTimestamp() public {
+        bytes32 receiptRoot = 0x32bf7ef0c0291bc3b73afd18a62cca74ff8ee51c801b8b619c360e1c1dac9c84;
+        bytes[] memory signatures = new bytes[](validatorPrivateKeys.length);
+        uint256[] memory attestationTimestamps = new uint256[](validatorPrivateKeys.length);
+        for (uint256 i = 0; i < validatorPrivateKeys.length; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], receiptRoot);
+            signatures[i] = ECDSA._serialize_signature(v, r, s);
+            attestationTimestamps[i] = i + 1;
+        }
+
+        attestationTimestamps[0] = 2;
+        attestationTimestamps[1] = 1;
+
+        bytes memory aggregateSignature = ECDSA.aggregate_signatures(signatures);
+
+        PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
+            receiptRoot: receiptRoot,
+            aggregateSignature: aggregateSignature,
+            sortedAttestationTimestamps: attestationTimestamps
+        });
+
+        PodECDSA.PodConfig memory podConfig =
+            PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: podRegistry});
+
+        vm.expectRevert(abi.encodeWithSignature("InvalidTimestamps()"));
+        PodECDSA.verifyCertifiedReceipt(podConfig, receipt);
+    }
+
+    function _getReceipt() internal view returns (PodECDSA.CertifiedReceipt memory) {
+        bytes32 receiptRoot = 0x32bf7ef0c0291bc3b73afd18a62cca74ff8ee51c801b8b619c360e1c1dac9c84;
+        bytes[] memory signatures = new bytes[](validatorPrivateKeys.length);
+        uint256[] memory attestationTimestamps = new uint256[](validatorPrivateKeys.length);
+        for (uint256 i = 0; i < validatorPrivateKeys.length; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], receiptRoot);
+            signatures[i] = ECDSA._serialize_signature(v, r, s);
+            attestationTimestamps[i] = i + 1;
+        }
+
+        bytes memory aggregateSignature = ECDSA.aggregate_signatures(signatures);
+
+        PodECDSA.CertifiedReceipt memory receipt = PodECDSA.CertifiedReceipt({
+            receiptRoot: receiptRoot,
+            aggregateSignature: aggregateSignature,
+            sortedAttestationTimestamps: attestationTimestamps
+        });
+
+        return receipt;
+    }
+
+    function test_verify_RevertIfInvalidThreshold() public {
+        PodECDSA.CertifiedReceipt memory receipt = _getReceipt();
+        PodECDSA.PodConfig memory podConfig =
+            PodECDSA.PodConfig({thresholdNumerator: 101, thresholdDenominator: 100, registry: podRegistry});
+        vm.expectRevert(abi.encodeWithSignature("InvalidThreshold()"));
+        PodECDSA.verifyCertifiedReceipt(podConfig, receipt);
+
+        podConfig = PodECDSA.PodConfig({thresholdNumerator: 100, thresholdDenominator: 101, registry: podRegistry});
+        vm.expectRevert(abi.encodeWithSignature("InvalidThreshold()"));
+        PodECDSA.verifyCertifiedReceipt(podConfig, receipt);
+
+        podConfig = PodECDSA.PodConfig({thresholdNumerator: 0, thresholdDenominator: 0, registry: podRegistry});
+        vm.expectRevert();
+        PodECDSA.verifyCertifiedReceipt(podConfig, receipt);
+
+        podConfig = PodECDSA.PodConfig({thresholdNumerator: 87, thresholdDenominator: 55, registry: podRegistry});
+        vm.expectRevert(abi.encodeWithSignature("InvalidThreshold()"));
+        PodECDSA.verifyCertifiedReceipt(podConfig, receipt);
     }
 }

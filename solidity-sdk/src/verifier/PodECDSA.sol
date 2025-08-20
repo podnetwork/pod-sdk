@@ -9,8 +9,8 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 library PodECDSA {
     struct PodConfig {
-        uint256 thresholdNumerator;
-        uint256 thresholdDenominator;
+        uint8 thresholdNumerator;
+        uint8 thresholdDenominator;
         IPodRegistry registry;
     }
 
@@ -23,7 +23,7 @@ library PodECDSA {
     struct CertifiedReceipt {
         bytes32 receiptRoot;
         bytes aggregateSignature;
-        uint256 medianTimestamp;
+        uint256[] sortedAttestationTimestamps;
     }
 
     struct Certificate {
@@ -44,8 +44,37 @@ library PodECDSA {
         MerkleTree.MultiProof proof;
     }
 
+    error InvalidTimestamps();
+    error InvalidCertificate();
+    error InvalidThreshold();
+
     function hashLog(Log calldata log) public pure returns (bytes32) {
         return keccak256(abi.encode(log));
+    }
+
+    function _getMedianTimestamp(uint256[] memory sortedAttestationTimestamps) internal pure returns (uint256) {
+        if (sortedAttestationTimestamps.length == 0) {
+            return 0;
+        }
+
+        if (sortedAttestationTimestamps.length == 1) {
+            return sortedAttestationTimestamps[0];
+        }
+
+        for (uint256 i = 0; i < sortedAttestationTimestamps.length - 1; i++) {
+            if (sortedAttestationTimestamps[i] > sortedAttestationTimestamps[i + 1]) {
+                revert InvalidTimestamps();
+            }
+        }
+
+        if (sortedAttestationTimestamps.length % 2 == 1) {
+            return sortedAttestationTimestamps[sortedAttestationTimestamps.length / 2];
+        } else {
+            return (
+                sortedAttestationTimestamps[sortedAttestationTimestamps.length / 2]
+                    + sortedAttestationTimestamps[sortedAttestationTimestamps.length / 2 - 1]
+            ) / 2;
+        }
     }
 
     function verifyCertifiedReceipt(PodConfig calldata podConfig, CertifiedReceipt calldata certifiedReceipt)
@@ -53,7 +82,8 @@ library PodECDSA {
         view
         returns (bool)
     {
-        uint256 snapshotIndex = podConfig.registry.findSnapshotIndex(certifiedReceipt.medianTimestamp);
+        uint256 medianTimestamp = _getMedianTimestamp(certifiedReceipt.sortedAttestationTimestamps);
+        uint256 snapshotIndex = podConfig.registry.findSnapshotIndex(medianTimestamp);
         return verifyCertifiedReceipt(podConfig, certifiedReceipt, snapshotIndex);
     }
 
@@ -62,10 +92,19 @@ library PodECDSA {
         CertifiedReceipt calldata certifiedReceipt,
         uint256 snapshotIndex
     ) public view returns (bool) {
+        if (
+            podConfig.thresholdNumerator > podConfig.thresholdDenominator || podConfig.thresholdNumerator > 100
+                || podConfig.thresholdDenominator > 100
+        ) {
+            revert InvalidThreshold();
+        }
+
         address[] memory validators =
             ECDSA.recoverSigners(certifiedReceipt.receiptRoot, certifiedReceipt.aggregateSignature);
 
-        uint256 weight = podConfig.registry.computeWeight(validators, certifiedReceipt.medianTimestamp, snapshotIndex);
+        uint256 medianTimestamp = _getMedianTimestamp(certifiedReceipt.sortedAttestationTimestamps);
+        uint256 weight = podConfig.registry.computeWeight(validators, medianTimestamp, snapshotIndex);
+
         uint256 threshold = Math.mulDiv(
             podConfig.registry.getValidatorCountAtIndex(snapshotIndex),
             podConfig.thresholdNumerator,
@@ -81,7 +120,8 @@ library PodECDSA {
         view
         returns (bool)
     {
-        uint256 snapshotIndex = podConfig.registry.findSnapshotIndex(certificate.certifiedReceipt.medianTimestamp);
+        uint256 medianTimestamp = _getMedianTimestamp(certificate.certifiedReceipt.sortedAttestationTimestamps);
+        uint256 snapshotIndex = podConfig.registry.findSnapshotIndex(medianTimestamp);
         return verifyCertificate(podConfig, certificate, snapshotIndex);
     }
 
@@ -99,7 +139,8 @@ library PodECDSA {
         view
         returns (bool)
     {
-        uint256 snapshotIndex = podConfig.registry.findSnapshotIndex(certificate.certifiedReceipt.medianTimestamp);
+        uint256 medianTimestamp = _getMedianTimestamp(certificate.certifiedReceipt.sortedAttestationTimestamps);
+        uint256 snapshotIndex = podConfig.registry.findSnapshotIndex(medianTimestamp);
         return verifyMultiCertificate(podConfig, certificate, snapshotIndex);
     }
 
@@ -117,8 +158,9 @@ library PodECDSA {
         view
         returns (bool)
     {
-        uint256 snapshotIndex =
-            podConfig.registry.findSnapshotIndex(certifiedLog.certificate.certifiedReceipt.medianTimestamp);
+        uint256 medianTimestamp =
+            _getMedianTimestamp(certifiedLog.certificate.certifiedReceipt.sortedAttestationTimestamps);
+        uint256 snapshotIndex = podConfig.registry.findSnapshotIndex(medianTimestamp);
         return verifyCertifiedLog(podConfig, certifiedLog, snapshotIndex);
     }
 
@@ -133,7 +175,9 @@ library PodECDSA {
             bytes(string.concat("log_hashes[", Strings.toString(certifiedLog.logIndex), "]")), logHash
         );
 
-        require(leaf == certifiedLog.certificate.leaf, "Invalid certificate");
+        if (leaf != certifiedLog.certificate.leaf) {
+            revert InvalidCertificate();
+        }
 
         return verifyCertificate(podConfig, certifiedLog.certificate, snapshotIndex);
     }

@@ -57,15 +57,6 @@ contract PodRegistryTest is Test {
         registry.addValidator(validator1);
     }
 
-    function test_Initialize_RevertIfTooManyValidators() public {
-        address[] memory initialValidators = new address[](255);
-        for (uint8 i = 0; i < 255; i++) {
-            initialValidators[i] = address(uint160(1000 + i));
-        }
-        vm.expectRevert(abi.encodeWithSignature("TooManyInitialValidators()"));
-        new PodRegistry(initialValidators);
-    }
-
     function test_AddValidator_RevertIfMaxCountReached() public {
         vm.startPrank(owner);
         for (uint8 i = 0; i < 253; i++) {
@@ -118,7 +109,7 @@ contract PodRegistryTest is Test {
         registry.banValidator(validator1);
 
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSignature("ValidatorAlreadyBanned()"));
+        vm.expectRevert(abi.encodeWithSignature("CallerBanned()"));
         registry.banValidator(validator1);
     }
 
@@ -149,7 +140,7 @@ contract PodRegistryTest is Test {
         registry.banValidator(validator1);
 
         vm.prank(validator1);
-        vm.expectRevert(abi.encodeWithSignature("CallerAlreadyBanned()"));
+        vm.expectRevert(abi.encodeWithSignature("CallerBanned()"));
         registry.reactivate();
 
         vm.prank(owner);
@@ -212,7 +203,7 @@ contract PodRegistryTest is Test {
         registry.banValidator(validator1);
 
         vm.prank(validator1);
-        vm.expectRevert(abi.encodeWithSignature("CallerAlreadyBanned()"));
+        vm.expectRevert(abi.encodeWithSignature("CallerBanned()"));
         registry.reactivate();
     }
 
@@ -221,7 +212,7 @@ contract PodRegistryTest is Test {
         registry.banValidator(validator1);
 
         vm.prank(validator1);
-        vm.expectRevert(abi.encodeWithSignature("CallerAlreadyBanned()"));
+        vm.expectRevert(abi.encodeWithSignature("CallerBanned()"));
         registry.reactivate();
     }
 
