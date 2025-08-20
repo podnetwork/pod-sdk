@@ -4,7 +4,7 @@ layout: simple
 
 ! content id="txInfo"
 
-! anchor txInfo
+! anchor txInfo go-up
 ## Transaction Information
 
 Fetches information about the current transaction.
@@ -37,7 +37,7 @@ None.
 
 ### Gas Cost
 
-Base fee: 100
+Static gas: 100
 
 ! content end
 

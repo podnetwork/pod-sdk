@@ -4,7 +4,7 @@ layout: simple
 
 ! content id="externalCall"
 
-! anchor externalCall
+! anchor externalCall go-up
 ## External Call
 
 Calls a smart contract on another EVM-compatible chain via the configured validators's RPC URL. Input specifies chain ID, transaction fields, and a block tag/number; output is the raw result of the remote `eth_call`.
@@ -64,7 +64,7 @@ Raw bytes returned by the remote `eth_call`.
 
 ### Gas Cost
 
-Base fee: 100
+Static gas: 100
 
 ! content end
 

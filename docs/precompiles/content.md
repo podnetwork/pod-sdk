@@ -5,6 +5,7 @@ layout: blank
 url: /precompiles
 
 toc:
+  precompiles-overview: Overview
   timestamp: timestamp
   requireQuorum: requireQuorum
   txInfo: txInfo

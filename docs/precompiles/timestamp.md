@@ -4,7 +4,7 @@ layout: simple
 
 ! content id="timestamp"
 
-! anchor timestamp
+! anchor timestamp go-up
 ## Timestamp
 
 Fetches the current system timestamp as microseconds since the UNIX epoch.
@@ -33,7 +33,7 @@ None.
 
 ### Gas Cost
 
-Base fee: 100
+Static gas: 100
 
 ! content end
 

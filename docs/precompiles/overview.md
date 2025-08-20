@@ -2,6 +2,7 @@
 layout: single
 ---
 
+! anchor precompiles-overview
 # Precompiles
 In pod, precompiles work similarly to Ethereum. We currently support all precompiles available in the Prague version of the EVM, plus some Pod-specific ones listed in the table below.
 

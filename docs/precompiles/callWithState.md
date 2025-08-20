@@ -4,7 +4,7 @@ layout: simple
 
 ! content id="callWithState"
 
-! anchor callWithState
+! anchor callWithState go-up
 ## Call With State
 
 Simulates an EVM call against a supplied header and state on a specified chain. Executes the provided call in an ephemeral VM and returns the call's raw return bytes.
@@ -100,9 +100,9 @@ struct AccountProof {
 
 ### Gas Cost
 
-Base fee: 500
+Static gas: 500
 
-Dynamic fee: gas used by the simulated EVM call
+Dynamic gas: gas used by the simulated EVM call
 
 ! content end
 
