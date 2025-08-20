@@ -84,7 +84,7 @@ A collection of `uint256` values, where every sender can decrement (spend) his v
 
  * **increment(address owner, bytes32 key, uint256 value)** Increase the balance of `owner` for `key` by `value`. Anyone can call.
  * **decrement(address owner, bytes32 key, uint256 value)** Decrease balance of `owner` for `key` by value. Only owner can call.
- * **requireGte(adress owner, bytes32 key, string errorMessage)** Require that the balance of `owner` for `key` is at least `value`. Only owner can call.
+ * **requireGte(address owner, bytes32 key, string errorMessage)** Require that the balance of `owner` for `key` is at least `value`. Only owner can call.
 
 See [Tokens](/examples/tokens) or [NFTs](/examples/nfts) for examples using the `Balance` type.
 
