@@ -91,10 +91,6 @@ toc:
 
 ---
 
-! import ./pod_metrics.md
-
----
-
 ! import ./best-practices.md
 
 ---
