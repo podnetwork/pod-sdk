@@ -2,6 +2,8 @@
 layout: single
 ---
 
+---
+
 ! anchor requireQuorum
 
 ! content id="requireQuorum"
@@ -18,9 +20,9 @@ Two-round, quorum-based validation. Round 1: each validator checks the single AB
 | [0; 31] (32 bytes) | input     | Boolean to be evaluated by validators |
 ! table end
 
-### Returns
+### Output
 
-No return data.
+None.
 
 ### Errors
 
@@ -35,7 +37,7 @@ Base fee: 100
 
 ### Example
 
-! codeblock title="Require Quorum usage example"
+! codeblock title="solidity-sdk/src/Quorum.sol"
 ! codeblock import solidity "./src/Quorum.sol" lines="4-7,12-13"
 ! codeblock end
 
