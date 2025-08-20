@@ -61,4 +61,5 @@ contract PodRegistry is IPodRegistry, Ownable {
     function getFaultTolerance() external view returns (uint8) {
         return validatorCount / 3;
     }
+
 }
