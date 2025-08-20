@@ -79,7 +79,7 @@ fn get_certified_log(log: &VerifiableLog) -> Result<CertifiedLog> {
             certifiedReceipt: CertifiedReceipt {
                 receiptRoot: log.pod_metadata.receipt.hash_custom(),
                 aggregateSignature: log.aggregate_signatures().into(),
-                medianTimestamp: U256::from(log.inner.block_timestamp.unwrap()),
+                sortedAttestationTimestamps: log.get_sorted_attestation_timestamps(),
             },
             leaf,
             proof: Proof { path: proof.path },

@@ -348,7 +348,7 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
 library PodECDSA {
     struct Certificate { CertifiedReceipt certifiedReceipt; bytes32 leaf; MerkleTree.Proof proof; }
     struct CertifiedLog { Log log; uint256 logIndex; Certificate certificate; }
-    struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256 medianTimestamp; }
+    struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256[] sortedAttestationTimestamps; }
     struct Log { address addr; bytes32[] topics; bytes data; }
 }
 ```*/
@@ -865,7 +865,7 @@ struct CertifiedLog { Log log; uint256 logIndex; Certificate certificate; }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256 medianTimestamp; }
+struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256[] sortedAttestationTimestamps; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -875,7 +875,9 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256
         #[allow(missing_docs)]
         pub aggregateSignature: alloy::sol_types::private::Bytes,
         #[allow(missing_docs)]
-        pub medianTimestamp: alloy::sol_types::private::primitives::aliases::U256,
+        pub sortedAttestationTimestamps: alloy::sol_types::private::Vec<
+            alloy::sol_types::private::primitives::aliases::U256,
+        >,
     }
     #[allow(
         non_camel_case_types,
@@ -889,13 +891,15 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::FixedBytes<32>,
             alloy::sol_types::sol_data::Bytes,
-            alloy::sol_types::sol_data::Uint<256>,
+            alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<256>>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
             alloy::sol_types::private::FixedBytes<32>,
             alloy::sol_types::private::Bytes,
-            alloy::sol_types::private::primitives::aliases::U256,
+            alloy::sol_types::private::Vec<
+                alloy::sol_types::private::primitives::aliases::U256,
+            >,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -912,7 +916,11 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256
         #[doc(hidden)]
         impl ::core::convert::From<CertifiedReceipt> for UnderlyingRustTuple<'_> {
             fn from(value: CertifiedReceipt) -> Self {
-                (value.receiptRoot, value.aggregateSignature, value.medianTimestamp)
+                (
+                    value.receiptRoot,
+                    value.aggregateSignature,
+                    value.sortedAttestationTimestamps,
+                )
             }
         }
         #[automatically_derived]
@@ -922,7 +930,7 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256
                 Self {
                     receiptRoot: tuple.0,
                     aggregateSignature: tuple.1,
-                    medianTimestamp: tuple.2,
+                    sortedAttestationTimestamps: tuple.2,
                 }
             }
         }
@@ -941,9 +949,11 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256
                     <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
                         &self.aggregateSignature,
                     ),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.medianTimestamp),
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Uint<256>,
+                    > as alloy_sol_types::SolType>::tokenize(
+                        &self.sortedAttestationTimestamps,
+                    ),
                 )
             }
             #[inline]
@@ -1018,7 +1028,7 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "CertifiedReceipt(bytes32 receiptRoot,bytes aggregateSignature,uint256 medianTimestamp)",
+                    "CertifiedReceipt(bytes32 receiptRoot,bytes aggregateSignature,uint256[] sortedAttestationTimestamps)",
                 )
             }
             #[inline]
@@ -1042,10 +1052,10 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256
                             &self.aggregateSignature,
                         )
                         .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Uint<256>,
                     > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.medianTimestamp,
+                            &self.sortedAttestationTimestamps,
                         )
                         .0,
                 ]
@@ -1065,10 +1075,10 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256
                     + <alloy::sol_types::sol_data::Bytes as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.aggregateSignature,
                     )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
+                    + <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Uint<256>,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.medianTimestamp,
+                        &rust.sortedAttestationTimestamps,
                     )
             }
             #[inline]
@@ -1089,10 +1099,10 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256
                     &rust.aggregateSignature,
                     out,
                 );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
+                <alloy::sol_types::sol_data::Array<
+                    alloy::sol_types::sol_data::Uint<256>,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.medianTimestamp,
+                    &rust.sortedAttestationTimestamps,
                     out,
                 );
             }
@@ -1506,7 +1516,7 @@ library PodECDSA {
     struct CertifiedReceipt {
         bytes32 receiptRoot;
         bytes aggregateSignature;
-        uint256 medianTimestamp;
+        uint256[] sortedAttestationTimestamps;
     }
     struct Log {
         address addr;
@@ -1672,9 +1682,9 @@ interface PodAuctionConsumer {
                     "internalType": "bytes"
                   },
                   {
-                    "name": "medianTimestamp",
-                    "type": "uint256",
-                    "internalType": "uint256"
+                    "name": "sortedAttestationTimestamps",
+                    "type": "uint256[]",
+                    "internalType": "uint256[]"
                   }
                 ]
               },
@@ -1760,9 +1770,9 @@ interface PodAuctionConsumer {
                     "internalType": "bytes"
                   },
                   {
-                    "name": "medianTimestamp",
-                    "type": "uint256",
-                    "internalType": "uint256"
+                    "name": "sortedAttestationTimestamps",
+                    "type": "uint256[]",
+                    "internalType": "uint256[]"
                   }
                 ]
               },
@@ -2055,9 +2065,9 @@ interface PodAuctionConsumer {
                     "internalType": "bytes"
                   },
                   {
-                    "name": "medianTimestamp",
-                    "type": "uint256",
-                    "internalType": "uint256"
+                    "name": "sortedAttestationTimestamps",
+                    "type": "uint256[]",
+                    "internalType": "uint256[]"
                   }
                 ]
               },
@@ -4035,7 +4045,7 @@ function TWO_TIMES_DISPUTE_PERIOD() external view returns (uint256);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    /**Function with signature `blameIllAnnounced(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256),bytes32,(bytes32[]))))` and selector `0x0ecd990e`.
+    /**Function with signature `blameIllAnnounced(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256[]),bytes32,(bytes32[]))))` and selector `0xbb10a9b8`.
 ```solidity
 function blameIllAnnounced(PodECDSA.CertifiedLog memory certifiedLog) external;
 ```*/
@@ -4045,7 +4055,7 @@ function blameIllAnnounced(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[allow(missing_docs)]
         pub certifiedLog: <PodECDSA::CertifiedLog as alloy::sol_types::SolType>::RustType,
     }
-    ///Container type for the return parameters of the [`blameIllAnnounced(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256),bytes32,(bytes32[]))))`](blameIllAnnouncedCall) function.
+    ///Container type for the return parameters of the [`blameIllAnnounced(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256[]),bytes32,(bytes32[]))))`](blameIllAnnouncedCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct blameIllAnnouncedReturn {}
@@ -4143,8 +4153,8 @@ function blameIllAnnounced(PodECDSA.CertifiedLog memory certifiedLog) external;
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "blameIllAnnounced(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256),bytes32,(bytes32[]))))";
-            const SELECTOR: [u8; 4] = [14u8, 205u8, 153u8, 14u8];
+            const SIGNATURE: &'static str = "blameIllAnnounced(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256[]),bytes32,(bytes32[]))))";
+            const SELECTOR: [u8; 4] = [187u8, 16u8, 169u8, 184u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -4183,7 +4193,7 @@ function blameIllAnnounced(PodECDSA.CertifiedLog memory certifiedLog) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    /**Function with signature `blameNoShow(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256),bytes32,(bytes32[]))))` and selector `0x9a62c2a3`.
+    /**Function with signature `blameNoShow(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256[]),bytes32,(bytes32[]))))` and selector `0xcf4c7f91`.
 ```solidity
 function blameNoShow(PodECDSA.CertifiedLog memory certifiedLog) external;
 ```*/
@@ -4193,7 +4203,7 @@ function blameNoShow(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[allow(missing_docs)]
         pub certifiedLog: <PodECDSA::CertifiedLog as alloy::sol_types::SolType>::RustType,
     }
-    ///Container type for the return parameters of the [`blameNoShow(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256),bytes32,(bytes32[]))))`](blameNoShowCall) function.
+    ///Container type for the return parameters of the [`blameNoShow(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256[]),bytes32,(bytes32[]))))`](blameNoShowCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct blameNoShowReturn {}
@@ -4287,8 +4297,8 @@ function blameNoShow(PodECDSA.CertifiedLog memory certifiedLog) external;
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "blameNoShow(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256),bytes32,(bytes32[]))))";
-            const SELECTOR: [u8; 4] = [154u8, 98u8, 194u8, 163u8];
+            const SIGNATURE: &'static str = "blameNoShow(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256[]),bytes32,(bytes32[]))))";
+            const SELECTOR: [u8; 4] = [207u8, 76u8, 127u8, 145u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -5915,7 +5925,7 @@ function withdraw() external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    /**Function with signature `write(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256),bytes32,(bytes32[]))))` and selector `0x52070195`.
+    /**Function with signature `write(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256[]),bytes32,(bytes32[]))))` and selector `0xa09b80b9`.
 ```solidity
 function write(PodECDSA.CertifiedLog memory certifiedLog) external;
 ```*/
@@ -5925,7 +5935,7 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[allow(missing_docs)]
         pub certifiedLog: <PodECDSA::CertifiedLog as alloy::sol_types::SolType>::RustType,
     }
-    ///Container type for the return parameters of the [`write(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256),bytes32,(bytes32[]))))`](writeCall) function.
+    ///Container type for the return parameters of the [`write(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256[]),bytes32,(bytes32[]))))`](writeCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct writeReturn {}
@@ -6019,8 +6029,8 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "write(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256),bytes32,(bytes32[]))))";
-            const SELECTOR: [u8; 4] = [82u8, 7u8, 1u8, 149u8];
+            const SIGNATURE: &'static str = "write(((address,bytes32[],bytes),uint256,((bytes32,bytes,uint256[]),bytes32,(bytes32[]))))";
+            const SELECTOR: [u8; 4] = [160u8, 155u8, 128u8, 185u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -6105,11 +6115,9 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         ///
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
-            [14u8, 205u8, 153u8, 14u8],
             [56u8, 114u8, 51u8, 236u8],
             [60u8, 207u8, 214u8, 11u8],
             [74u8, 165u8, 232u8, 133u8],
-            [82u8, 7u8, 1u8, 149u8],
             [93u8, 246u8, 166u8, 188u8],
             [97u8, 213u8, 133u8, 218u8],
             [100u8, 201u8, 236u8, 111u8],
@@ -6117,9 +6125,11 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
             [117u8, 8u8, 9u8, 151u8],
             [128u8, 243u8, 35u8, 167u8],
             [141u8, 165u8, 203u8, 91u8],
-            [154u8, 98u8, 194u8, 163u8],
+            [160u8, 155u8, 128u8, 185u8],
             [165u8, 187u8, 226u8, 43u8],
+            [187u8, 16u8, 169u8, 184u8],
             [197u8, 220u8, 198u8, 145u8],
+            [207u8, 76u8, 127u8, 145u8],
             [233u8, 117u8, 27u8, 55u8],
             [242u8, 253u8, 227u8, 139u8],
         ];
@@ -6187,17 +6197,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                 &[u8],
             ) -> alloy_sol_types::Result<PodAuctionConsumerCalls>] = &[
                 {
-                    fn blameIllAnnounced(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
-                        <blameIllAnnouncedCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(PodAuctionConsumerCalls::blameIllAnnounced)
-                    }
-                    blameIllAnnounced
-                },
-                {
                     fn podRegistry(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
@@ -6225,15 +6224,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                             .map(PodAuctionConsumerCalls::isBonded)
                     }
                     isBonded
-                },
-                {
-                    fn write(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
-                        <writeCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(PodAuctionConsumerCalls::write)
-                    }
-                    write
                 },
                 {
                     fn unbond(
@@ -6303,15 +6293,13 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                     owner
                 },
                 {
-                    fn blameNoShow(
+                    fn write(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
-                        <blameNoShowCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(PodAuctionConsumerCalls::blameNoShow)
+                        <writeCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(PodAuctionConsumerCalls::write)
                     }
-                    blameNoShow
+                    write
                 },
                 {
                     fn DISPUTE_PERIOD(
@@ -6325,6 +6313,17 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                     DISPUTE_PERIOD
                 },
                 {
+                    fn blameIllAnnounced(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
+                        <blameIllAnnouncedCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(PodAuctionConsumerCalls::blameIllAnnounced)
+                    }
+                    blameIllAnnounced
+                },
+                {
                     fn TWO_TIMES_DISPUTE_PERIOD(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
@@ -6334,6 +6333,17 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                             .map(PodAuctionConsumerCalls::TWO_TIMES_DISPUTE_PERIOD)
                     }
                     TWO_TIMES_DISPUTE_PERIOD
+                },
+                {
+                    fn blameNoShow(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
+                        <blameNoShowCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(PodAuctionConsumerCalls::blameNoShow)
+                    }
+                    blameNoShow
                 },
                 {
                     fn LOG_TOPIC_0(
@@ -6378,17 +6388,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                 &[u8],
             ) -> alloy_sol_types::Result<PodAuctionConsumerCalls>] = &[
                 {
-                    fn blameIllAnnounced(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
-                        <blameIllAnnouncedCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(PodAuctionConsumerCalls::blameIllAnnounced)
-                    }
-                    blameIllAnnounced
-                },
-                {
                     fn podRegistry(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
@@ -6420,17 +6419,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                             .map(PodAuctionConsumerCalls::isBonded)
                     }
                     isBonded
-                },
-                {
-                    fn write(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
-                        <writeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(PodAuctionConsumerCalls::write)
-                    }
-                    write
                 },
                 {
                     fn unbond(
@@ -6510,15 +6498,15 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                     owner
                 },
                 {
-                    fn blameNoShow(
+                    fn write(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
-                        <blameNoShowCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                        <writeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(PodAuctionConsumerCalls::blameNoShow)
+                            .map(PodAuctionConsumerCalls::write)
                     }
-                    blameNoShow
+                    write
                 },
                 {
                     fn DISPUTE_PERIOD(
@@ -6532,6 +6520,17 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                     DISPUTE_PERIOD
                 },
                 {
+                    fn blameIllAnnounced(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
+                        <blameIllAnnouncedCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodAuctionConsumerCalls::blameIllAnnounced)
+                    }
+                    blameIllAnnounced
+                },
+                {
                     fn TWO_TIMES_DISPUTE_PERIOD(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
@@ -6541,6 +6540,17 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                             .map(PodAuctionConsumerCalls::TWO_TIMES_DISPUTE_PERIOD)
                     }
                     TWO_TIMES_DISPUTE_PERIOD
+                },
+                {
+                    fn blameNoShow(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
+                        <blameNoShowCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodAuctionConsumerCalls::blameNoShow)
+                    }
+                    blameNoShow
                 },
                 {
                     fn LOG_TOPIC_0(

@@ -293,9 +293,11 @@ contract PodAuctionConsumerTest is Test {
         );
 
         bytes[] memory signatures = new bytes[](numberOfRequiredSignatures);
+        uint256[] memory sortedAttestationTimestamps = new uint256[](numberOfRequiredSignatures);
         for (uint256 i = 0; i < numberOfRequiredSignatures; i++) {
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], receiptRoot);
             signatures[i] = ECDSA._serialize_signature(v, r, s);
+            sortedAttestationTimestamps[i] = i + 1;
         }
 
         bytes memory aggregateSignature = ECDSA.aggregate_signatures(signatures);
@@ -303,7 +305,7 @@ contract PodAuctionConsumerTest is Test {
         PodECDSA.CertifiedReceipt memory certifiedReceipt = PodECDSA.CertifiedReceipt({
             receiptRoot: receiptRoot,
             aggregateSignature: aggregateSignature,
-            medianTimestamp: 2
+            sortedAttestationTimestamps: sortedAttestationTimestamps
         });
 
         PodECDSA.Log memory log =
