@@ -9,6 +9,7 @@ toc:
   requireQuorum: requireQuorum
   txInfo: txInfo
   externalCall: externalCall
+  callWithState: callWithState
 ---
 
 ! import ./overview.md
@@ -17,3 +18,4 @@ toc:
 ! import ./requireQuorum.md
 ! import ./txInfo.md
 ! import ./externalCall.md
+! import ./callWithState.md
