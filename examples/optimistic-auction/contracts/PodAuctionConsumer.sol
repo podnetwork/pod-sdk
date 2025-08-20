@@ -37,15 +37,19 @@ contract PodAuctionConsumer is AbsBonding {
         _;
     }
 
-    /**
-     * @notice deadline in seconds
-     */
-    function getUniqueAuctionId(uint256 auctionId, uint256 deadline) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(auctionId, deadline));
+    function _convertToSeconds(uint256 timestamp) internal pure returns (uint256) {
+        return timestamp / 1e6;
     }
 
     /**
      * @notice deadline in seconds
+     */
+    function getUniqueAuctionId(uint256 auctionId, uint256 deadlineInSeconds) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(auctionId, deadlineInSeconds));
+    }
+
+    /**
+     * @notice deadline in microseconds
      */
     function decodeBid(PodECDSA.Log calldata log)
         internal
@@ -56,16 +60,16 @@ contract PodAuctionConsumer is AbsBonding {
         require(log.topics[0] == LOG_TOPIC_0, "Invalid log topic");
         auctionId = uint256(log.topics[1]);
         bidder = address(uint160(uint256(log.topics[2])));
-        deadline = uint256(log.topics[3]);
+        deadline = _convertToSeconds(uint256(log.topics[3]));
         bid = abi.decode(log.data, (uint256));
     }
 
     function write(PodECDSA.CertifiedLog calldata certifiedLog) external validLog(certifiedLog.log) onlyBonded {
-        (uint256 auctionId, address bidder, uint256 deadline, uint256 bid) = decodeBid(certifiedLog.log);
-        bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadline);
+        (uint256 auctionId, address bidder, uint256 deadlineInSeconds, uint256 bid) = decodeBid(certifiedLog.log);
+        bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadlineInSeconds);
         State storage s = state[uniqueAuctionId];
-        require(block.timestamp >= deadline, "Writing period has not started");
-        require(block.timestamp < deadline + DISPUTE_PERIOD, "Writing period ended");
+        require(block.timestamp >= deadlineInSeconds, "Writing period has not started");
+        require(block.timestamp < deadlineInSeconds + DISPUTE_PERIOD, "Writing period ended");
         require(s.winner.bid == 0, "Bid already exists");
         require(msg.sender == bidder, "Invalid caller");
 
@@ -84,8 +88,9 @@ contract PodAuctionConsumer is AbsBonding {
      * @notice deadline in microseconds
      */
     function read(uint256 auctionId, uint256 deadline) external view returns (State memory) {
-        bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadline);
-        require(block.timestamp >= deadline + TWO_TIMES_DISPUTE_PERIOD, "Dispute period NOT ended");
+        uint256 deadlineInSeconds = _convertToSeconds(deadline);
+        bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadlineInSeconds);
+        require(block.timestamp >= deadlineInSeconds + TWO_TIMES_DISPUTE_PERIOD, "Dispute period NOT ended");
         return state[uniqueAuctionId];
     }
 
@@ -94,11 +99,11 @@ contract PodAuctionConsumer is AbsBonding {
         validLog(certifiedLog.log)
         onlyBonded
     {
-        (uint256 auctionId, address bidder, uint256 deadline, uint256 bid) = decodeBid(certifiedLog.log);
-        bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadline);
+        (uint256 auctionId, address bidder, uint256 deadlineInSeconds, uint256 bid) = decodeBid(certifiedLog.log);
+        bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadlineInSeconds);
         State storage s = state[uniqueAuctionId];
         require(s.winner.bid != 0, "Bid not written");
-        require(block.timestamp < deadline + TWO_TIMES_DISPUTE_PERIOD, "Dispute period ended");
+        require(block.timestamp < deadlineInSeconds + TWO_TIMES_DISPUTE_PERIOD, "Dispute period ended");
 
         bool verified = PodECDSA.verifyCertifiedLog(
             PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: podRegistry}), certifiedLog
@@ -116,13 +121,13 @@ contract PodAuctionConsumer is AbsBonding {
     }
 
     function blameNoShow(PodECDSA.CertifiedLog calldata certifiedLog) external validLog(certifiedLog.log) onlyBonded {
-        (uint256 auctionId, address bidder, uint256 deadline, uint256 bid) = decodeBid(certifiedLog.log);
-        bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadline);
+        (uint256 auctionId, address bidder, uint256 deadlineInSeconds, uint256 bid) = decodeBid(certifiedLog.log);
+        bytes32 uniqueAuctionId = getUniqueAuctionId(auctionId, deadlineInSeconds);
         State storage s = state[uniqueAuctionId];
 
         require(s.winner.bid == 0, "Bid already exists");
-        require(block.timestamp >= deadline + DISPUTE_PERIOD, "Still in waiting period");
-        require(block.timestamp < deadline + TWO_TIMES_DISPUTE_PERIOD, "Dispute period ended");
+        require(block.timestamp >= deadlineInSeconds + DISPUTE_PERIOD, "Still in waiting period");
+        require(block.timestamp < deadlineInSeconds + TWO_TIMES_DISPUTE_PERIOD, "Dispute period ended");
         require(s.blamed.bid < bid, "Invalid blamed bid");
 
         bool verified = PodECDSA.verifyCertifiedLog(

@@ -31,6 +31,10 @@ contract PodAuctionConsumerTest is Test {
         return Math.mulDiv(thresholdNumerator, NUMBER_OF_VALIDATORS, thresholdDenominator, rounding);
     }
 
+    function _convertToSeconds(uint256 timestamp) internal pure returns (uint256) {
+        return timestamp / 1e6;
+    }
+
     function setUp() public {
         address[] memory initialValidators = new address[](NUMBER_OF_VALIDATORS);
 
@@ -55,7 +59,7 @@ contract PodAuctionConsumerTest is Test {
         vm.prank(BONDED_ADDRESS);
         consumer.bond{value: 1 ether}();
 
-        vm.warp(DEADLINE);
+        vm.warp(_convertToSeconds(DEADLINE));
     }
 
     function test_Write_Success() public {
