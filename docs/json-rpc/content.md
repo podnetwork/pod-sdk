@@ -87,11 +87,7 @@ toc:
 
 ---
 
-! import ./pod_listAccountReceipts.md
-
----
-
-! import ./pod_listConfirmedReceipts.md
+! import ./pod_listReceipts.md
 
 ---
 
