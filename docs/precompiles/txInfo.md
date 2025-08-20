@@ -1,19 +1,20 @@
 ---
-layout: single
+layout: simple
 ---
-
----
-
-! anchor txInfo
 
 ! content id="txInfo"
 
+! anchor txInfo
 ## Transaction Information
 
 Fetches information about the current transaction.
 Current implementation provides:
 - nonce
 - transaction hash
+
+### Address
+
+0x7687A3413739715807812b529f2d5f7Ef9057697
 
 ### Inputs
 
@@ -38,10 +39,17 @@ None.
 
 Base fee: 100
 
+! content end
+
+
+! content
+! sticky
+
 ### Example
 
 ! codeblock title="solidity-sdk/src/Context.sol"
 ! codeblock import solidity "./src/Context.sol" lines="4-5,11-15,20-30"
 ! codeblock end
 
+! sticky end
 ! content end

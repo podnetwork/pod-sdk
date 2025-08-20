@@ -1,16 +1,17 @@
 ---
-layout: single
+layout: simple
 ---
-
----
-
-! anchor callWithState
 
 ! content id="callWithState"
 
+! anchor callWithState
 ## Call With State
 
 Simulates an EVM call against a supplied header and state on a specified chain. Executes the provided call in an ephemeral VM and returns the call's raw return bytes.
+
+### Address
+
+0xB4BBff8874b41f97535bC8dAFBaAff0DC5c72E5A
 
 ### Inputs
 
