@@ -20,6 +20,8 @@ Two-round, quorum-based validation. Round 1: each validator checks the single AB
 | [0; 31] (32 bytes) | input     | Boolean to be evaluated by validators |
 ! table end
 
+> Note: `input` must be deterministic across validators for the same state and call data.
+
 ### Output
 
 None.
@@ -40,7 +42,5 @@ Base fee: 100
 ! codeblock title="solidity-sdk/src/Quorum.sol"
 ! codeblock import solidity "./src/Quorum.sol" lines="4-7,12-13"
 ! codeblock end
-
-Notes: `input` must be deterministic across validators for the same state and call data.
 
 ! content end

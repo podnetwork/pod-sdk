@@ -5,11 +5,13 @@ layout: blank
 url: /precompiles
 
 toc:
-  requireQuorum: requireQuorum
   timestamp: timestamp
+  requireQuorum: requireQuorum
+  txInfo: txInfo
 ---
 
 ! import ./overview.md
 ! import ./precompiles-table.md
-! import ./requireQuorum.md
 ! import ./timestamp.md
+! import ./requireQuorum.md
+! import ./txInfo.md

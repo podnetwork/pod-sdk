@@ -37,7 +37,7 @@ Base fee: 100
 ### Example
 
 ! codeblock title="solidity-sdk/src/Time.sol"
-! codeblock import solidity "./src/Time.sol" lines="30-38"
+! codeblock import solidity "./src/Time.sol" lines="6-7,30-38"
 ! codeblock end
 
 ! content end
