@@ -8,6 +8,7 @@ toc:
   timestamp: timestamp
   requireQuorum: requireQuorum
   txInfo: txInfo
+  externalCall: externalCall
 ---
 
 ! import ./overview.md
@@ -15,3 +16,4 @@ toc:
 ! import ./timestamp.md
 ! import ./requireQuorum.md
 ! import ./txInfo.md
+! import ./externalCall.md
