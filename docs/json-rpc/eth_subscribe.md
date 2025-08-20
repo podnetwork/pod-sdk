@@ -6,15 +6,15 @@ layout: simple
 
 ## Subscribe
 
-Creates a subscription for specific events. This endpoint streams the new events, for historical data use the other endpoints (pod_listAccountReceipts, pod_listConfirmedReceipts, pod_pastPerfectTime, eth_getLogs). Each subscription type has different parameter requirements.
+Creates a subscription for specific events. This endpoint streams the new events, for historical data use the other endpoints (pod_listReceipts, pod_pastPerfectTime, eth_getLogs). Each subscription type has different parameter requirements.
 
 ### Parameters
 
 ! table style1
-| Parameter | Type   | Description                                                                                                 |
-| --------- | ------ | ----------------------------------------------------------------------------------------------------------- |
-| `[0]`     | string | Subscription type (required): `logs`, `pod_accountReceipts`, `pod_confirmedReceipts`, `pod_pastPerfectTime` |
-| `[1]`     | object | Parameters object (varies by subscription type)                                                             |
+| Parameter | Type   | Description                                                                 |
+| --------- | ------ | --------------------------------------------------------------------------- |
+| `[0]`     | string | Subscription type (required): `logs`, `pod_receipts`, `pod_pastPerfectTime` |
+| `[1]`     | object | Parameters object (varies by subscription type)                             |
 ! table end
 
 ### Subscription Types and Parameters:
@@ -33,22 +33,14 @@ Creates a subscription for specific events. This endpoint streams the new events
 
 ! codeblock end
 
-! codeblock title="pod_accountReceipts"
+! codeblock title="pod_receipts"
 
 ```json
 {
-	"address": "0x13791790Bef192d14712D627f13A55c4ABEe52a4",
-	"since": 1687245924000000 // Timestamp in microseconds
-}
-```
-
-! codeblock end
-
-! codeblock title="pod_confirmedReceipts"
-
-```json
-{
-	"since": 1687245924000000 // Timestamp in microseconds
+  // optional account to filter receipts by (matches either sender or recipient)
+  "address": "0x13791790Bef192d14712D627f13A55c4ABEe52a4",
+  // Timestamp in microseconds
+  "since": 1687245924000000
 }
 ```
 
@@ -227,7 +219,7 @@ Each subscription type returns different data in its subscription messages.
 
 ! codeblock end
 
-! codeblock title="pod_accountReceipts and pod_confirmedReceipts"
+! codeblock title="pod_receipts"
 
 ```json
 {
@@ -318,7 +310,7 @@ Each subscription type returns different data in its subscription messages.
 	"jsonrpc": "2.0",
 	"error": {
 		"code": -32602,
-		"message": "invalid parameters, expected [\"pod_accountReceipts\", {\"address\": <address>, \"since\": <since>}]"
+		"message": "invalid parameters, expected [\"pod_receipts\", {\"address\": <address>, \"since\": <since>}]"
 	},
 	"id": 1
 }
