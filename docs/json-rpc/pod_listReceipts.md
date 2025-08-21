@@ -11,9 +11,8 @@ layout: simple
             },
             body: JSON.stringify({
                 jsonrpc: '2.0',
-                method: 'pod_listAccountReceipts',
+                method: 'pod_listReceipts',
                 params: {
-                    address: '0x13791790Bef192d14712D627f13A55c4ABEe52a4',
                     since: 0
                 },
                 id: 1
@@ -22,23 +21,24 @@ layout: simple
     }
 </script>
 
-! content id="pod_listAccountReceipts"
+! content id="pod_listReceipts"
 
-## List Account Receipts
+## List Confirmed Receipts
 
-Retrieves transaction receipts originating from or directed to a specific address.
+Retrieves confirmed transaction receipts after a specified timestamp. Allows filtering receipts by originating or destination address.
 
 ### Parameters
 
 ! table style1
-| Key                | Type    | Description                                                                      |
-| ------------------ | ------- | -------------------------------------------------------------------------------- |
-| `[1]`              | string  | 20-byte address                                                                  |
-| `[2]`              | string  | Timestamp specified in microseconds representing the start of the range to query |
-| `[3]`              | object  | (optional) Pagination object                                                     |
-| `[3].cursor`       | string  | (optional) Cursor for pagination                                                 |
-| `[3].limit`        | integer | (optional) Number of results to return                                           |
-| `[3].newest_first` | boolean | (optional) Whether to start the query from the most recent receipts              |
+| Key                       | Type    | Description                                                                      |
+| ------------------------- | ------- | -------------------------------------------------------------------------------- |
+|                           | object  |                                                                                  |
+| `since`                   | string  | Timestamp specified in microseconds representing the start of the range to query |
+| `address`                 | string  | (optional) Address to filter receipts by (matches `from` or `to` fields)         |
+| `pagination`              | object  | (optional) Pagination object                                                     |
+| `pagination.cursor`       | string  | (optional) Cursor to start the query from                                        |
+| `pagination.limit`        | integer | (optional) Maximum number of receipts to return                                  |
+| `pagination.newest_first` | boolean | (optional) Whether to start the query from the most recent receipts              |
 ! table end
 
 > Note: If cursor is provided, newest_first must NOT be provided.
@@ -75,9 +75,8 @@ curl -X POST https://rpc.v1.dev.pod.network \
     -H "Content-Type: application/json" \
     -d '{
         "jsonrpc": "2.0",
-        "method": "pod_listAccountReceipts",
+        "method": "pod_listReceipts",
         "params": {
-            "address": "0x13791790Bef192d14712D627f13A55c4ABEe52a4",
             "since": 0
         },
         "id": 1
@@ -92,9 +91,8 @@ await fetch('https://rpc.v1.dev.pod.network/', {
 	},
 	body: JSON.stringify({
 		jsonrpc: '2.0',
-		method: 'pod_listAccountReceipts',
+		method: 'pod_listReceipts',
 		params: {
-			address: '0x13791790Bef192d14712D627f13A55c4ABEe52a4',
 			since: 0
 		},
 		id: 1
@@ -113,9 +111,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .header("Content-Type", "application/json")
         .json(&json!({
             "jsonrpc": "2.0",
-            "method": "pod_listAccountReceipts",
+            "method": "pod_listReceipts",
             "params": {
-                "address": "0x13791790Bef192d14712D627f13A55c4ABEe52a4",
                 "since": 0
             },
             "id": 1
