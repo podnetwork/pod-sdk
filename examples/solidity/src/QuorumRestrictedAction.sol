@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 /// @notice Demonstrates gating function execution on quorum over a boolean predicate.
 /// @dev Uses the `POD_REQUIRE_QUORUM` precompile to enforce quorum on pod.
 contract QuorumRestrictedAction {
-
     address constant REQUIRE_QUORUM = address(uint160(uint256(keccak256("POD_REQUIRE_QUORUM"))));
     uint256 public etherThreshold = 1 ether;
 
