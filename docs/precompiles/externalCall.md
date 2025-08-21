@@ -74,38 +74,10 @@ Static gas: 100
 
 ### Example
 
-! codeblock title=""
-```solidity
-address internal constant EXTERNAL_CALL_PRECOMPILE = address(uint160(uint256(keccak256("POD_EXTERNAL_ETH_CALL"))));
+This example uses the POD_EXTERNAL_ETH_CALL precompile to run an eth_call on Ethereum mainnet, returning the USDC balance for a given account.
 
-uint256 internal constant ETH_CHAIN_ID = 1;
-address internal constant USDC_CONTRACT = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-
-function getUSDCBalanceEthereum(address account) public view returns (uint256) {
-    bytes memory data = bytes.concat(IERC20.balanceOf.selector, abi.encode(account));
-
-    ExternalEthCallArgs memory callArgs = ExternalEthCallArgs({
-        chainId: ETH_CHAIN_ID,
-        ethCallArgs: EthCallArgs({
-            blockNumber: bytes("latest"),
-            transaction: Transaction({
-                from: address(0),
-                to: USDC_CONTRACT,
-                data: data,
-                gas: 0,
-                gasPrice: 0,
-                value: 0
-            })
-        })
-    });
-
-    bytes memory inputData = abi.encode(callArgs);
-
-    (bool success, bytes memory output) = EXTERNAL_CALL_PRECOMPILE.staticcall{ gas: gasleft() }(inputData);
-    require(success, "Precompile call failed");
-    return abi.decode(output, (uint256));
-}
-```
+! codeblock title="examples/solidity/src/EthereumERC20Balance.sol"
+! codeblock import solidity "./src/EthereumERC20Balance.sol"
 ! codeblock end
 
 ! sticky end
