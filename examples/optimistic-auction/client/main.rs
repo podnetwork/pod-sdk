@@ -220,7 +220,7 @@ impl AuctionClient {
         {
             Ok(tx) => tx,
             Err(e) => {
-                println!("{:?}", e);
+                println!("{e:?}");
                 return Ok(());
             }
         };
@@ -351,9 +351,9 @@ async fn main() -> Result<()> {
     let deadline = now + 5 * MICROSECONDS_PER_SECOND;
 
     #[allow(clippy::identity_op)]
-    let writing_period_ends = deadline + (WAITING_PERIOD + 1) * MICROSECONDS_PER_SECOND;
+    let writing_period_ends = deadline + (WAITING_PERIOD) * MICROSECONDS_PER_SECOND;
     #[allow(clippy::identity_op)]
-    let dispute_period_ends = writing_period_ends + (WAITING_PERIOD + 1) * MICROSECONDS_PER_SECOND;
+    let dispute_period_ends = writing_period_ends + WAITING_PERIOD * MICROSECONDS_PER_SECOND;
 
     let data = vec![0x12, 0x34, 0x56];
 
