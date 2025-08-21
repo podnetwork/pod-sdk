@@ -129,8 +129,8 @@ impl AuctionClient {
         let tx = self
             .auction_contract
             .submitBid(auction_id, deadline, value, data.into())
-            .gas(1000000)
-            .gas_price(1000000000)
+            .max_fee_per_gas(1_000_000_000u128)
+            .max_priority_fee_per_gas(0)
             .send()
             .await
             .unwrap();
@@ -189,6 +189,8 @@ impl AuctionClient {
         let blame_tx = match self
             .consumer_contract
             .blameIllAnnounced(certified_log)
+            .max_fee_per_gas(1_000_000_000u128)
+            .max_priority_fee_per_gas(0)
             .send()
             .await
         {
@@ -208,32 +210,32 @@ impl AuctionClient {
         Ok(())
     }
 
-    // TODO: uncomment if you wish to use
-    // pub async fn blame_no_show(&self, certified_log: CertifiedLog) -> Result<()> {
-    //     let blame_tx = match self
-    //         .consumer_contract
-    //         .blameNoShow(certified_log)
-    //         .send()
-    //         .await
-    //     {
-    //         Ok(tx) => tx,
-    //         Err(e) => {
-    //             println!("{:?}", e);
-    //             return Ok(());
-    //         }
-    //     };
+    #[allow(dead_code)]
+    pub async fn blame_no_show(&self, certified_log: CertifiedLog) -> Result<()> {
+        let blame_tx = match self
+            .consumer_contract
+            .blameNoShow(certified_log)
+            .send()
+            .await
+        {
+            Ok(tx) => tx,
+            Err(e) => {
+                println!("{:?}", e);
+                return Ok(());
+            }
+        };
 
-    //     println!(
-    //         "Waiting for receipt - BLAME NO SHOW... {:?}",
-    //         blame_tx.tx_hash()
-    //     );
-    //     sleep(Duration::from_millis(100));
+        println!(
+            "Waiting for receipt - BLAME NO SHOW... {:?}",
+            blame_tx.tx_hash()
+        );
+        sleep(Duration::from_millis(100));
 
-    //     check_receipt_status::<_, _, Ethereum>(self.consumer_provider.clone(), *blame_tx.tx_hash())
-    //         .await?;
+        check_receipt_status::<_, Ethereum>(self.consumer_provider.clone(), *blame_tx.tx_hash())
+            .await?;
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
 
     pub async fn read_state(&self, auction_id: U256, deadline: U256) -> Result<()> {
         let state = self
@@ -274,6 +276,8 @@ impl AuctionClient {
 }
 
 async fn advance_time<P: Provider>(provider: P, timestamp: u64) -> Result<()> {
+    let timestamp = timestamp / MICROSECONDS_PER_SECOND;
+
     provider
         .raw_request::<_, ()>(
             std::borrow::Cow::Borrowed("evm_setNextBlockTimestamp"),
@@ -342,14 +346,14 @@ async fn main() -> Result<()> {
     let now = (std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
         .as_micros() as u64)
-        + (4 * WAITING_PERIOD * args.iteration);
+        + (4 * WAITING_PERIOD * MICROSECONDS_PER_SECOND * args.iteration);
 
     let deadline = now + 5 * MICROSECONDS_PER_SECOND;
 
     #[allow(clippy::identity_op)]
-    let writing_period_ends = deadline + WAITING_PERIOD + 1 * MICROSECONDS_PER_SECOND;
+    let writing_period_ends = deadline + (WAITING_PERIOD + 1) * MICROSECONDS_PER_SECOND;
     #[allow(clippy::identity_op)]
-    let dispute_period_ends = writing_period_ends + WAITING_PERIOD + 1 * MICROSECONDS_PER_SECOND;
+    let dispute_period_ends = writing_period_ends + (WAITING_PERIOD + 1) * MICROSECONDS_PER_SECOND;
 
     let data = vec![0x12, 0x34, 0x56];
 
@@ -399,7 +403,9 @@ async fn main() -> Result<()> {
 
     sleep(Duration::from_secs(1));
 
+    // TODO: comment the next 10 lines if you wish to use the blame no show function
     auction_client_1.write(certified_log1).await?;
+    sleep(Duration::from_secs(1));
 
     advance_time(
         auction_client_1.consumer_provider.clone(),
@@ -408,6 +414,9 @@ async fn main() -> Result<()> {
     .await?;
 
     let _ = auction_client_2.blame_ill_announced(certified_log2).await;
+
+    // TODO: uncomment if you wish to use, to use this, we need to comment the write + blame ill announced calls
+    // let _ = auction_client_1.blame_no_show(certified_log1).await;
 
     advance_time(
         auction_client_1.consumer_provider.clone(),
@@ -418,9 +427,6 @@ async fn main() -> Result<()> {
     auction_client_1
         .read_state(auction_id, U256::from(deadline))
         .await?;
-
-    // TODO: uncomment if you wish to use, to use this, we need to comment the write + blame ill announced calls
-    // let _ = auction_client_1.blame_no_show(certified_log1).await;
 
     Ok(())
 }
