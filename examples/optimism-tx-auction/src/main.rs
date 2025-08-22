@@ -22,7 +22,7 @@ use tokio::{task::JoinHandle, time::timeout};
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Address of the auction contract on pod
-    #[arg(long)]
+    #[arg(long, default_value = "0xedd0670497e00ded712a398563ea938a29dd28c7")]
     contract_address: Address,
 
     /// RPC URL for the Pod network
@@ -87,6 +87,8 @@ enum Commands {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
+    println!("💡 Connecting to L2 node at {}", cli.rpc_url);
+    println!("💡 Connecting to pod node at {}", cli.pod_rpc_url);
     let op_provider = Box::new(
         ProviderBuilder::new_with_network::<Optimism>()
             .connect(&cli.rpc_url)
@@ -104,6 +106,7 @@ async fn main() -> anyhow::Result<()> {
     let latest_block =
         latest_block.ok_or_else(|| anyhow::anyhow!("Failed to fetch the latest block"))?;
     let (deadline, block_number) = calculate_deadline_and_block_number(latest_block).await?;
+    let auction_id = U256::from(Timestamp::from(deadline).as_micros());
     println!(
         "Bidding for block {block_number} with auction deadline {}",
         humantime::format_rfc3339_seconds(deadline)
@@ -147,7 +150,7 @@ async fn main() -> anyhow::Result<()> {
 
             let receipt = auction
                 .submit_bid(
-                    U256::from(Timestamp::from(deadline).as_micros()),
+                    auction_id,
                     deadline,
                     U256::from(max_priority_fee),
                     signed_tx.encoded_2718(),
@@ -201,7 +204,7 @@ async fn main() -> anyhow::Result<()> {
 
                     let receipt = auction
                         .submit_bid(
-                            U256::from(Timestamp::from(deadline).as_micros()),
+                            auction_id,
                             deadline,
                             U256::from(max_priority_fee),
                             signed_tx.encoded_2718(),
@@ -228,6 +231,11 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     }
+
+    println!(
+        "\n💡 View the auction at https://explorer.v2.pod.network/auctions/0x{auction_id:064x}/{}",
+        Timestamp::from(deadline).as_micros(),
+    );
 
     wait_for_block(&op_provider, block_number).await?;
 
