@@ -44,14 +44,16 @@ The contract assumes that the `deadline` for an `auction_id` is known between th
 ! codeblock title="Auction.sol"
 
 ```solidity
-import {requireTimeBefore} from "pod-sdk/Time.sol";
+import {requireTimeBefore, Time} from "pod-sdk/Time.sol";
 
 contract Auction {
+    using Time for Time.Timestamp;
+
     // Event emitted when a bid is submitted
     event BidSubmitted(
         uint256 indexed auction_id,
         address indexed bidder,
-        uint256 indexed deadline,
+        Time.Timestamp indexed deadline,
         uint256 value,
         bytes data
     );
@@ -65,7 +67,7 @@ contract Auction {
      */
     function submitBid(
         uint256 auction_id,
-        uint256 deadline,
+        Time.Timestamp deadline,
         uint256 value,
         bytes calldata data
     ) public {
@@ -104,7 +106,7 @@ pub async fn submit_bid<P: Provider>(
     pod_provider: &P,
     contract_address: Address,
     auction_id: U256,
-    deadline: U256,
+    deadline: u64,
     value: U256,
     data: Vec<u8>,
 ) -> Result<TransactionReceipt> {
@@ -149,21 +151,23 @@ async fn subscribe_logs_for_auction_until_deadline<P: Provider>(
     pod_provider: &P,
     contract_address: Address,
     auction_id: U256,
-    deadline: U257,
+    deadline: u64,
 ) -> Result<()> {
     println!("Waiting for on-chain time to pass the deadline {deadline}...");
-    pod_provider.wait_past_perfect_time(deadline.as_u64()).await?;
+    pod_provider.wait_past_perfect_time(deadline).await?;
     println!("On-chain time is now past {deadline}.");
 
     let bid_submitted_sig = AuctionContract::events::BidSubmitted::SIGNATURE_HASH;
 
     let auction_id_topic = H256::from_uint(&auction_id);
 
+    let deadline_topic = H256::from_uint(&U256::from(deadline));
+
     let filter = Filter::new()
         .address(contract_address)
         .topic0(ValueOrArray::Value(bid_submitted_sig))
         .topic1(ValueOrArray::Value(auction_id_topic))
-        .topic2(ValueOrArray::Value(deadline));
+        .topic2(ValueOrArray::Value(deadline_topic));
 
     let logs = pod_provider.get_logs(&filter).await?;
     for log in logs {
