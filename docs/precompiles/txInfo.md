@@ -1,0 +1,55 @@
+---
+layout: simple
+---
+
+! content id="txInfo"
+
+! anchor txInfo go-up
+## Transaction Information
+
+Fetches information about the current transaction.
+Current implementation provides:
+- nonce
+- transaction hash
+
+### Address
+
+0x7687A3413739715807812b529f2d5f7Ef9057697
+
+### Inputs
+
+None.
+
+### Output
+
+! table style1
+| Byte range         | Name      | Description                                |
+| ------------------ | --------- | ------------------------------------------ |
+| [0; 31] (32 bytes) | nonce     | `uint64` transaction nonce, right aligned  |
+| [32; 63] (32 bytes)| txHash    | transaction hash                           |
+! table end
+
+> Note: If the precompile is used in a call, txHash is 0x00
+
+### Errors
+
+- Out of gas if provided gas is less than base cost.
+
+### Gas Cost
+
+Static gas: 100
+
+! content end
+
+
+! content
+! sticky
+
+### Example
+
+! codeblock title="solidity-sdk/src/Context.sol"
+! codeblock import solidity "./src/Context.sol" lines="4-5,11-15,20-30"
+! codeblock end
+
+! sticky end
+! content end

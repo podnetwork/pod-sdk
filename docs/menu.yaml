@@ -23,6 +23,8 @@ menu:
   
 
   - heading: Building on pod
+  - href: /precompiles
+    label: Precompiles
   - href: /json-rpc
     label: JSON-RPC
   - href: /solidity-sdk

@@ -1,0 +1,1 @@
+../../../examples/solidity/src/QuorumRestrictedAction.sol
