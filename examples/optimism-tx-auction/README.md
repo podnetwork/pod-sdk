@@ -2,14 +2,27 @@
 
 <img width="1012" height="512" alt="Screenshot 2025-08-22 at 2 55 36 PM" src="https://github.com/user-attachments/assets/db2f3ab9-0dbf-40a7-a922-53c35625b71f" />
 
-L2 sequencers order transactions as they arrive, which leads to [spamming by searchers](https://writings.flashbots.net/mev-and-the-limits-of-scaling) trying to capture MEV (Miner Extractable Value). This spamming wastes the L2 throughput and makes it slower and expensive for normal users. Rollup-Boost addresses this issue by auctioning the transaction ordering based on priority fees. This not only fixes the spam problem but also the protocol to [capture MEV revenue internally](https://www.paradigm.xyz/2024/06/priority-is-all-you-need) instead of leaking it completely to external searchers.
+L2 sequencers order transactions as they arrive, which leads to
+[spamming by searchers](https://writings.flashbots.net/mev-and-the-limits-of-scaling) trying to capture MEV (Miner
+Extractable Value). This spamming wastes the L2 throughput and makes it slower and expensive for normal users.
+Rollup-Boost addresses this issue by auctioning the transaction ordering based on priority fees. This not only fixes the
+spam problem but also the protocol to
+[capture MEV revenue internally](https://www.paradigm.xyz/2024/06/priority-is-all-you-need) instead of leaking it
+completely to external searchers.
 
-The priority auction takes place within an external builder service that operates inside a Trusted Execution Environment (TEE). The TEE ensures the [privacy of the bids and guarantees correct ordering](https://writings.flashbots.net/introducing-rollup-boost) based on priority fees. However, the external builder has the power to censor bids, rigging the auction results completely.
+The priority auction takes place within an external builder service that operates inside a Trusted Execution Environment
+(TEE). The TEE ensures the
+[privacy of the bids and guarantees correct ordering](https://writings.flashbots.net/introducing-rollup-boost) based on
+priority fees. However, the external builder has the power to censor bids, rigging the auction results completely.
 
-pod enshrines the Rollup-Boost stack by providing censorship resistance for the priority auctions. Transactions are streamed to a network of nodes, and the TEE builder verifies a certificate issued by the network that guarantees the bid set is complete. The protocol ensures that an adversary needs to control at least 1/3 of the nodes to be able to censor transactions. 
+pod enshrines the Rollup-Boost stack by providing censorship resistance for the priority auctions. Transactions are
+streamed to a network of nodes, and the TEE builder verifies a certificate issued by the network that guarantees the bid
+set is complete. The protocol ensures that an adversary needs to control at least 1/3 of the nodes to be able to censor
+transactions.
 
-Below is a proof of concept implementation to test the integration of Rollup-Boost with pod for conducting censorship-resistant, verifiable priority auctions. For motivation and further explanation, see: https://www.notion.so/pod-network/L2-transaction-auction-on-pod-21ea9700b29b808caa0feb5330324b81.
-
+Below is a proof of concept implementation to test the integration of Rollup-Boost with pod for conducting
+censorship-resistant, verifiable priority auctions. For motivation and further explanation, see:
+https://www.notion.so/pod-network/L2-transaction-auction-on-pod-21ea9700b29b808caa0feb5330324b81.
 
 ### Requirements:
 
@@ -66,7 +79,7 @@ Then, enter the `op-rbuilder` directory and run the builder:
 
 ```bash
 RUST_LOG="info,client=debug" cargo run -p op-rbuilder --bin op-rbuilder -- node \
-                                    --pod.rpc-url=wss://rpc.v2.pod.network --pod.enabled --pod.contract-address=<AUCTION CONTRACT ADDRESS> \
+                                    --pod.enabled \
                                     --chain $HOME/.playground/devnet/l2-genesis.json \
                                     --http --http.port 2222 \
                                     --authrpc.addr 0.0.0.0 --authrpc.port 4444 --authrpc.jwtsecret $HOME/.playground/devnet/jwtsecret \
@@ -88,37 +101,41 @@ To bid the layer 2 transactions on a pod auction, we will use the [CLI](./src/bi
 To bid transactions for all the keys for a certain block with random max priority fee, run:
 
 ```bash
-cargo run -- --contract-address <AUCTION CONTRACT ADDRESS> bid-batch --amount 500
+cargo run -- bid-batch --amount 500
 ```
 
 You should see output similar to:
 
 ```text
-Bidding for block 2521 with auction deadline 2025-07-23T08:03:59Z
-[2025-07-23T08:03:54Z] TX 0x3c67…c523 from 0x90F7…b906 fee 171604 (pod TX: https://explorer.v2.pod.network/tx/0x9a049f8c3f2a1536789ba372e1c8c18c1e27797a330ebc41581b847168671c2e )
-[2025-07-23T08:03:54Z] TX 0x749e…3308 from 0x7099…79C8 fee 178028 (pod TX: https://explorer.v2.pod.network/tx/0xe1066c2656583079a4bfb3813e9fdc11751a7e84c7fac6a200aa58e67c1b6349 )
-[2025-07-23T08:03:54Z] TX 0x0a61…2b31 from 0x2361…1E8f fee 74026 (pod TX: https://explorer.v2.pod.network/tx/0x682dd9f2f904b57e8b6ec2813b61cce8c72904bf37187550791c038a1c87e600 )
-[2025-07-23T08:03:54Z] TX 0x145d…7b9c from 0x976E…0aa9 fee 39144 (pod TX: https://explorer.v2.pod.network/tx/0xe4ae8a374891bb05762b91015f20db8e01ad3f223f269858965143823250d2b3 )
-[2025-07-23T08:03:54Z] TX 0x65b1…9f2a from 0x15d3…6A65 fee 148078 (pod TX: https://explorer.v2.pod.network/tx/0x344cb82a7f9dfff6c3489dc7d48a01faf256d37e842c9d82fe9970b15006fc29 )
-[2025-07-23T08:03:54Z] TX 0x638c…a8d7 from 0x9965…A4dc fee 170570 (pod TX: https://explorer.v2.pod.network/tx/0x48cd1b254ff0822e6c8553eb6cfea2f0c97a908a6cebf600f280e121c3cce309 )
-[2025-07-23T08:03:54Z] TX 0x20b6…ad38 from 0x14dC…9955 fee 82899 (pod TX: https://explorer.v2.pod.network/tx/0xf753ce29bb26af089c030b770c04b0d2e1ea73af72de515f9d9f5777282c24c9 )
-[2025-07-23T08:03:54Z] TX 0x5d6e…85b9 from 0x3C44…93BC fee 140953 (pod TX: https://explorer.v2.pod.network/tx/0x2bd52b38333861b4cad12ad403021b3a37fb79770748321af58877c0e3bdd6a9 )
-[2025-07-23T08:03:54Z] TX 0x41a1…7a09 from 0xa0Ee…9720 fee 120221 (pod TX: https://explorer.v2.pod.network/tx/0xe7e27c5516a696492111aa1f33b2f42f7c2704c44b125b2bf96d41bc86569a43 )
+💡 Connecting to L2 node at ws://localhost:8547
+💡 Connecting to pod node at wss://rpc.v2.pod.network
+Bidding for block 124 with auction deadline 2025-08-25T10:53:58Z
+[2025-08-25T10:53:53Z] TX 0x7c92…9493 from 0x976E…0aa9 fee 112044933 (pod TX: https://explorer.v2.pod.network/tx/0x84149ef39748af39dc26bcfc395dbeb1d974f5bfdfb5d3e018afe85db8b43de0 )
+[2025-08-25T10:53:53Z] TX 0xec4b…0434 from 0x2361…1E8f fee 108186466 (pod TX: https://explorer.v2.pod.network/tx/0xa4469545cb251f4d0cd7721a8907eec2caf93d98795a0f296101fcad80b05132 )
+[2025-08-25T10:53:53Z] TX 0x09ef…0cde from 0x14dC…9955 fee 44012549 (pod TX: https://explorer.v2.pod.network/tx/0x40765b0ad665853643596bb8c3d9f94356eef885fec99716845c1658bb0e743d )
+[2025-08-25T10:53:53Z] TX 0xfac4…379f from 0x7099…79C8 fee 54600518 (pod TX: https://explorer.v2.pod.network/tx/0x4aac096a98b89869c9a2eee4c6ecf9a406fa554f9638af35c601c507a6e2286b )
+[2025-08-25T10:53:53Z] TX 0x2dc8…9e0d from 0x9965…A4dc fee 50482081 (pod TX: https://explorer.v2.pod.network/tx/0xfb7cc9102e02c0a2c791c20701bc3f814080a71b3873a44e4482fffe85ff8356 )
+[2025-08-25T10:53:53Z] TX 0x68e4…a8bd from 0x15d3…6A65 fee 41311075 (pod TX: https://explorer.v2.pod.network/tx/0xf521d66818cdd43b3ed1c1ab5e38a1cc687320f88d18189a723772dab39ba5ea )
+[2025-08-25T10:53:53Z] TX 0x7f8a…a7a3 from 0xa0Ee…9720 fee 101023612 (pod TX: https://explorer.v2.pod.network/tx/0xf310e37364526f57d4d8f615820fd2d1482a5453220adecb69cbafd0732217d7 )
+[2025-08-25T10:53:53Z] TX 0xf67a…bf26 from 0x90F7…b906 fee 45143191 (pod TX: https://explorer.v2.pod.network/tx/0xd13990ed7096d6cd8f56c55bc3e634373ae9f6583c407ad919ee9abcf3cee194 )
+[2025-08-25T10:53:53Z] TX 0x536d…e529 from 0x3C44…93BC fee 59001141 (pod TX: https://explorer.v2.pod.network/tx/0x7ca4b499e821a30a1233fa3bdd8f273b0ce8dc20440b722791800d1344d5dfed )
 
-Waiting for block 2521 to be built...
+💡 View the auction at https://explorer.v2.pod.network/auctions/0x00000000000000000000000000000000000000000000000000063d2e5f5d3d80/1756119238000000
 
-[2025-07-23T08:04:01Z]] Block 2521 built. 11 transactions:
-TX 0xd251…a56c from 0xDeaD…0001 fee 0
-TX 0x749e…3308 from 0x7099…79C8 fee 178028
-TX 0x3c67…c523 from 0x90F7…b906 fee 171604
-TX 0x638c…a8d7 from 0x9965…A4dc fee 170570
-TX 0x65b1…9f2a from 0x15d3…6A65 fee 148078
-TX 0x5d6e…85b9 from 0x3C44…93BC fee 140953
-TX 0x41a1…7a09 from 0xa0Ee…9720 fee 120221
-TX 0x20b6…ad38 from 0x14dC…9955 fee 82899
-TX 0x0a61…2b31 from 0x2361…1E8f fee 74026
-TX 0x145d…7b9c from 0x976E…0aa9 fee 39144
-TX 0xa67a…b8c5 from 0xf39F…2266 fee 0
+Waiting for block 124 to be built...
+
+[2025-08-25T10:54:00Z]] Block 124 built. 11 transactions:
+TX 0x90b1…e5d3 from 0xDeaD…0001 fee 0
+TX 0x7c92…9493 from 0x976E…0aa9 fee 112044933
+TX 0xec4b…0434 from 0x2361…1E8f fee 108186466
+TX 0x7f8a…a7a3 from 0xa0Ee…9720 fee 101023612
+TX 0x536d…e529 from 0x3C44…93BC fee 59001141
+TX 0xfac4…379f from 0x7099…79C8 fee 54600518
+TX 0x2dc8…9e0d from 0x9965…A4dc fee 50482081
+TX 0xf67a…bf26 from 0x90F7…b906 fee 45143191
+TX 0x09ef…0cde from 0x14dC…9955 fee 44012549
+TX 0x68e4…a8bd from 0x15d3…6A65 fee 41311075
+TX 0xf617…ab6e from 0xf39F…2266 fee 0
 ```
 
 ### Bidding single transaction
@@ -126,7 +143,7 @@ TX 0xa67a…b8c5 from 0xf39F…2266 fee 0
 To bid a single transfer transaction for with a random max priority fee, run:
 
 ```bash
-cargo run -- --contract-address <AUCTION CONTRACT ADDRESS> bid-transfer  --private-key <PRIVATE KEY FUNDED ON L2> --pod-private-key <PRIVATE KEY FUNDED ON POD> --to <ADDRESS TO SEND TO> --amount <AMOUNT>
+cargo run -- bid-transfer  --private-key <PRIVATE KEY FUNDED ON L2> --pod-private-key <PRIVATE KEY FUNDED ON POD> --to <ADDRESS TO SEND TO> --amount <AMOUNT>
 ```
 
 You should see output similar to:
