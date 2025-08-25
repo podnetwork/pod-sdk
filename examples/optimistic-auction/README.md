@@ -54,6 +54,10 @@ For pod
 cast send <ADDRESS> --value 10ether --private-key <FAUCET_KEY> --rpc-url localhost:8545 --legacy
 ```
 
+The consumer contract depends on the pod registry. Since we want to deploy the consumer contract on anvil,
+we also need the registry. The script below automatically deploys the registry but we need the appropriate 
+committee addresses. Make sure the `POD_COMMITTEE_KEYS` is set to a list of validator addresses separated by a comma.
+
 The next step is to deploy the consumer contract on anvil.
 
 ```shell

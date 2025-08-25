@@ -8,10 +8,15 @@ bytecode_hash = "none"
 cbor_metadata = false
 remappings = [
     "pod-sdk/=../../solidity-sdk/src/",
-    "pod-sdk-scripts/=../../solidity-sdk/script/",
-    "optimistic-auction/=../optimistic-auction/contracts/",
+    "pod-protocol/=../../protocol/src",
+    "pod-protocol-scripts/=../../protocol/script/",
+    "optimistic-auction/=../optimistic-auction/contracts/"
 ]
-allow_paths = ["../../solidity-sdk", "../optimistic-auction"]
+allow_paths = [
+    "../../solidity-sdk",
+    "../../protocol",
+    "../optimistic-auction"
+]
 
 [fmt]
 exclude = ["lib/**"]

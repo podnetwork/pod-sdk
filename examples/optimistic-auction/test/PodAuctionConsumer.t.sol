@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {PodTest} from "pod-sdk/test/podTest.sol";
+import {Test} from "forge-std/Test.sol";
 import {PodECDSA, ECDSA} from "pod-sdk/verifier/PodECDSA.sol";
 import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
-import {PodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
+import {PodRegistry} from "pod-protocol/PodRegistry.sol";
 import {PodAuctionConsumer} from "../contracts/PodAuctionConsumer.sol";
-import {Time} from "pod-sdk/Time.sol";
+import {console} from "forge-std/console.sol";
+import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
 
-contract PodAuctionConsumerTest is PodTest {
-    using Time for Time.Timestamp;
-
+contract PodAuctionConsumerTest is Test {
     PodAuctionConsumer consumer;
     PodRegistry podRegistry;
 
@@ -18,25 +17,36 @@ contract PodAuctionConsumerTest is PodTest {
 
     address constant OWNER = address(0x123abc);
     uint256 constant AUCTION_ID = 1;
-    uint64 constant DEADLINE = 3485693721;
+    uint256 constant DEADLINE = 3485693721;
     address constant SMALLER_BIDDER = 0x13791790Bef192d14712D627f13A55c4ABEe52a4;
     address constant HIGHER_BIDDER = 0xb8AA43999C2b3Cbb10FbE2092432f98D8F35Dcd7;
     address constant BONDED_ADDRESS = address(0x123def);
-    uint64 constant U = 10 minutes * Time.MICROSECONDS_PER_SECOND;
     uint256 constant NUMBER_OF_VALIDATORS = 128;
-    uint256 constant F = NUMBER_OF_VALIDATORS / 3;
+
+    function getRequiredSigs(uint256 thresholdNumerator, uint256 thresholdDenominator, Math.Rounding rounding)
+        internal
+        pure
+        returns (uint256)
+    {
+        return Math.mulDiv(thresholdNumerator, NUMBER_OF_VALIDATORS, thresholdDenominator, rounding);
+    }
+
+    function _convertToSeconds(uint256 timestamp) internal pure returns (uint256) {
+        return timestamp / 1e6;
+    }
 
     function setUp() public {
-        vm.prank(OWNER);
-        podRegistry = new PodRegistry(new address[](0));
+        address[] memory initialValidators = new address[](NUMBER_OF_VALIDATORS);
 
         validatorPrivateKeys = new uint256[](NUMBER_OF_VALIDATORS);
 
         for (uint256 i = 0; i < NUMBER_OF_VALIDATORS; i++) {
             validatorPrivateKeys[i] = uint256(i + 1);
-            vm.prank(OWNER);
-            podRegistry.addValidator(vm.addr(validatorPrivateKeys[i]));
+            initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
         }
+
+        vm.prank(OWNER);
+        podRegistry = new PodRegistry(initialValidators);
 
         consumer = new PodAuctionConsumer(address(podRegistry), 1 ether);
         vm.deal(SMALLER_BIDDER, 2 ether);
@@ -49,36 +59,34 @@ contract PodAuctionConsumerTest is PodTest {
         vm.prank(BONDED_ADDRESS);
         consumer.bond{value: 1 ether}();
 
-        podWarp(Time.fromMicros(DEADLINE));
-        podMockQuorum();
-    }
-
-    function tearDown() public {
-        vm.clearMockedCalls();
+        vm.warp(_convertToSeconds(DEADLINE));
     }
 
     function test_Write_Success() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(requiredSigs, true);
 
         vm.prank(SMALLER_BIDDER);
         consumer.write(certifiedLog);
 
-        podWarp(Time.currentTime().addMicros(2 * U));
+        vm.warp(block.timestamp + consumer.TWO_TIMES_DISPUTE_PERIOD());
+        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, DEADLINE);
 
-        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, Time.fromMicros(DEADLINE));
         assertEq(state.winner.bid, 100);
         assertEq(state.winner.bidder, SMALLER_BIDDER);
     }
 
     function test_Write_Fail_BidderNotBonded() public {
         vm.prank(makeAddr("not_bonded"));
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(requiredSigs, true);
         vm.expectRevert("Not bonded");
         consumer.write(certifiedLog);
     }
 
     function test_Write_Fail_BidderNotWriter() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(requiredSigs, true);
 
         vm.prank(BONDED_ADDRESS);
         vm.expectRevert("Invalid caller");
@@ -86,12 +94,14 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_Write_Fail_BidAlreadyWritten() public {
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(requiredSigs, true);
 
         vm.prank(SMALLER_BIDDER);
         consumer.write(certifiedLogSmallerBid);
 
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F + 1, false);
+        requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
 
         vm.prank(HIGHER_BIDDER);
         vm.expectRevert("Bid already exists");
@@ -99,9 +109,10 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_Write_Fail_WritingPeriodEnded() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(requiredSigs, true);
 
-        podWarp(Time.currentTime().addMicros(U + 1 seconds * Time.MICROSECONDS_PER_SECOND));
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD() + 1 seconds);
 
         vm.prank(SMALLER_BIDDER);
         vm.expectRevert("Writing period ended");
@@ -109,27 +120,30 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_Write_Fail_InvalidCommittee() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Floor);
+        console.log("requiredSigs", requiredSigs);
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(requiredSigs, true);
         vm.expectRevert("Invalid proof or quorum not reached");
         vm.prank(SMALLER_BIDDER);
         consumer.write(certifiedLog);
     }
 
     function test_BlameIllAnnounced_Success() public {
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(requiredSigs, true);
 
         vm.prank(SMALLER_BIDDER);
         consumer.write(certifiedLogSmallerBid);
 
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F + 1, false);
+        requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
 
         assert(consumer.isBonded(SMALLER_BIDDER));
 
         vm.prank(HIGHER_BIDDER);
         consumer.blameIllAnnounced(certifiedLogHigherBid);
-        podWarp(Time.currentTime().addMicros(2 * U));
-
-        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, Time.fromMicros(DEADLINE));
+        vm.warp(block.timestamp + consumer.TWO_TIMES_DISPUTE_PERIOD());
+        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, DEADLINE);
         assertEq(state.winner.bid, 1000);
         assertEq(state.winner.bidder, HIGHER_BIDDER);
         assertEq(state.blamed.bid, 100);
@@ -138,7 +152,8 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_BlameIllAnnounced_Fail_BidNotWritten() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(requiredSigs, true);
 
         vm.prank(BONDED_ADDRESS);
         vm.expectRevert("Bid not written");
@@ -146,14 +161,16 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_BlameIllAnnounced_Fail_DisputePeriodEnded() public {
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(requiredSigs, true);
 
         vm.prank(SMALLER_BIDDER);
         consumer.write(certifiedLogSmallerBid);
 
-        podWarp(Time.currentTime().addMicros(2 * U));
+        vm.warp(block.timestamp + consumer.TWO_TIMES_DISPUTE_PERIOD());
 
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F + 1, false);
+        requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
 
         vm.prank(BONDED_ADDRESS);
         vm.expectRevert("Dispute period ended");
@@ -161,12 +178,14 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_BlameIllAnnounced_Fail_InvalidCommittee() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(2 * F + 1, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(requiredSigs, true);
 
         vm.prank(SMALLER_BIDDER);
         consumer.write(certifiedLog);
 
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(2 * F, false);
+        requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Floor);
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
 
         vm.prank(BONDED_ADDRESS);
         vm.expectRevert("Invalid proof or quorum not reached");
@@ -174,11 +193,13 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_BlameNoShow_Success() public {
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(requiredSigs, true);
 
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
+        requiredSigs = getRequiredSigs(1, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
 
-        podWarp(Time.currentTime().addMicros(U));
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD());
 
         assert(consumer.isBonded(SMALLER_BIDDER));
 
@@ -187,9 +208,8 @@ contract PodAuctionConsumerTest is PodTest {
         vm.prank(BONDED_ADDRESS);
         consumer.blameNoShow(certifiedLogHigherBid);
 
-        podWarp(Time.currentTime().addMicros(2 * U));
-
-        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, Time.fromMicros(DEADLINE));
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD());
+        PodAuctionConsumer.State memory state = consumer.read(AUCTION_ID, DEADLINE);
         assertEq(state.winner.bid, 0);
         assertEq(state.winner.bidder, address(0));
         assertEq(state.blamed.bid, 1000);
@@ -198,9 +218,10 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_BlameNoShow_Fail_InvalidCommittee() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(F, true);
+        uint256 requiredSigs = getRequiredSigs(1, 3, Math.Rounding.Floor);
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(requiredSigs, true);
 
-        podWarp(Time.currentTime().addMicros(U));
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD());
 
         vm.prank(BONDED_ADDRESS);
         vm.expectRevert("Invalid proof or quorum not reached");
@@ -208,14 +229,16 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_BlameNoShow_Fail_BidAlreadyExists() public {
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(2 * F + 1, true);
+        uint256 requiredSigs = getRequiredSigs(2, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(requiredSigs, true);
 
         vm.prank(SMALLER_BIDDER);
         consumer.write(certifiedLogSmallerBid);
 
-        podWarp(Time.currentTime().addMicros(U));
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD());
 
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
+        requiredSigs = getRequiredSigs(1, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
 
         vm.prank(BONDED_ADDRESS);
         vm.expectRevert("Bid already exists");
@@ -223,11 +246,12 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_BlameNoShow_Fail_DisputePeriodEnded() public {
-        podWarp(Time.currentTime().addMicros(2 * U));
+        vm.warp(block.timestamp + consumer.TWO_TIMES_DISPUTE_PERIOD());
 
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
+        uint256 requiredSigs = getRequiredSigs(1, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
 
-        podWarp(Time.currentTime().addMicros(2 * U));
+        vm.warp(block.timestamp + consumer.TWO_TIMES_DISPUTE_PERIOD());
 
         vm.prank(BONDED_ADDRESS);
         vm.expectRevert("Dispute period ended");
@@ -235,7 +259,8 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_BlameNoShow_Fail_StillInWaitingPeriod() public {
-        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(F + 1, false);
+        uint256 requiredSigs = getRequiredSigs(1, 3, Math.Rounding.Ceil);
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(requiredSigs, false);
 
         vm.prank(BONDED_ADDRESS);
         vm.expectRevert("Still in waiting period");
@@ -243,11 +268,13 @@ contract PodAuctionConsumerTest is PodTest {
     }
 
     function test_BlameNoShow_Fail_InvalidBid() public {
-        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(F + 1, false);
+        uint256 requiredSigs = getRequiredSigs(1, 3, Math.Rounding.Ceil);
 
-        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(F + 1, true);
+        PodECDSA.CertifiedLog memory certifiedLogHigherBid = createCertifiedLog(requiredSigs, false);
 
-        podWarp(Time.currentTime().addMicros(U));
+        PodECDSA.CertifiedLog memory certifiedLogSmallerBid = createCertifiedLog(requiredSigs, true);
+
+        vm.warp(block.timestamp + consumer.DISPUTE_PERIOD());
 
         vm.prank(BONDED_ADDRESS);
         consumer.blameNoShow(certifiedLogHigherBid);
@@ -270,15 +297,20 @@ contract PodAuctionConsumerTest is PodTest {
         );
 
         bytes[] memory signatures = new bytes[](numberOfRequiredSignatures);
+        uint256[] memory sortedAttestationTimestamps = new uint256[](numberOfRequiredSignatures);
         for (uint256 i = 0; i < numberOfRequiredSignatures; i++) {
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], receiptRoot);
             signatures[i] = ECDSA._serialize_signature(v, r, s);
+            sortedAttestationTimestamps[i] = i + 1;
         }
 
         bytes memory aggregateSignature = ECDSA.aggregate_signatures(signatures);
 
-        PodECDSA.CertifiedReceipt memory certifiedReceipt =
-            PodECDSA.CertifiedReceipt({receiptRoot: receiptRoot, aggregateSignature: aggregateSignature});
+        PodECDSA.CertifiedReceipt memory certifiedReceipt = PodECDSA.CertifiedReceipt({
+            receiptRoot: receiptRoot,
+            aggregateSignature: aggregateSignature,
+            sortedAttestationTimestamps: sortedAttestationTimestamps
+        });
 
         PodECDSA.Log memory log =
             PodECDSA.Log({addr: 0x217F5658c6ecC27D439922263AD9Bb8e992e0373, topics: topics, data: data});

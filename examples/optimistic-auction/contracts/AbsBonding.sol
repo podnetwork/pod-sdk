@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {Ownable} from "openzeppelin-contracts/access/Ownable.sol";
 
 abstract contract AbsBonding is Ownable {
-    uint256 public immutable bondAmount;
+    uint256 public immutable BOND_AMOUNT;
 
     mapping(address => bool) public isBonded;
 
@@ -13,7 +13,7 @@ abstract contract AbsBonding is Ownable {
     event Slashed(address indexed validator);
 
     constructor(uint256 _bondAmount) Ownable(msg.sender) {
-        bondAmount = _bondAmount;
+        BOND_AMOUNT = _bondAmount;
     }
 
     modifier onlyBonded() {
@@ -23,7 +23,7 @@ abstract contract AbsBonding is Ownable {
 
     function bond() external payable {
         require(!isBonded[msg.sender], "Already bonded");
-        require(msg.value >= bondAmount, "Not enough bond");
+        require(msg.value >= BOND_AMOUNT, "Not enough bond");
 
         isBonded[msg.sender] = true;
         emit Bonded(msg.sender);
@@ -31,7 +31,7 @@ abstract contract AbsBonding is Ownable {
 
     function unbond() external onlyBonded {
         isBonded[msg.sender] = false;
-        payable(msg.sender).transfer(bondAmount);
+        payable(msg.sender).transfer(BOND_AMOUNT);
 
         emit Unbonded(msg.sender);
     }
