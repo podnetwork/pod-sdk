@@ -61,7 +61,9 @@ sorting by the _max priority fee_. Clone the repository and run the builder with
 ### Prefunding accounts
 
 For the purpose of demonstation, the CLI has hardcoded few private keys that need to be prefunded. The same accounts
-will be used on pod to pay gas for bidding on the auction contract. To prefund them on pod, run:
+will be used on pod to pay gas for bidding on the auction contract. In case the accounts lack funds, they can be
+prefunded with prefund.sh script. To do this, we need an account on pod with some funds. An account can be funded from
+devnet faucet on https://faucet.dev.pod.network. Then, run the script with:
 
 ```bash
 POD_PRIVATE_KEY=<PRIVATE KEY OF A FUNDED ACCOUNT ON POD> POD_RPC_URL=wss://rpc.v2.pod.network ./prefund.sh
