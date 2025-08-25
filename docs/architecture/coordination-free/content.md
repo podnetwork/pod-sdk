@@ -38,7 +38,7 @@ pod network is built on the idea that **most application-level invariants can be
 **Examples in pod**:
 
 - [Payments](/examples/tokens): Double-spending is prevented without consensus by requiring validators to sign off on unique transaction nonces and verifying the client has enough balance. Clients gather a threshold of signatures asynchronously.
-- [Auctions](/examples/auctions): The order in which bids are sent to an auction does not matter, as long as the bid was sent before deadline.
+- [Auction](/examples/auction): The order in which bids are sent to an auction does not matter, as long as the bid was sent before deadline.
 - [Voting](/examples/voting): Similarly, the order in which votes are submitted does not matter.
 
 ## What Can Be Coordination-free?
