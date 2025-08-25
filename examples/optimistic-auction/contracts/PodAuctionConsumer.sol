@@ -2,8 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {PodECDSA} from "pod-sdk/verifier/PodECDSA.sol";
-import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
-import {IPodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
+import {IPodRegistry} from "pod-protocol/interfaces/IPodRegistry.sol";
 import {AbsBonding} from "./AbsBonding.sol";
 
 contract PodAuctionConsumer is AbsBonding {
@@ -44,8 +43,16 @@ contract PodAuctionConsumer is AbsBonding {
     /**
      * @notice deadline in seconds
      */
-    function getUniqueAuctionId(uint256 auctionId, uint256 deadlineInSeconds) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(auctionId, deadlineInSeconds));
+    function getUniqueAuctionId(uint256 auctionId, uint256 deadlineInSeconds)
+        internal
+        pure
+        returns (bytes32 hashedVal)
+    {
+        assembly {
+            mstore(0x00, auctionId)
+            mstore(0x20, deadlineInSeconds)
+            hashedVal := keccak256(0x00, 0x40)
+        }
     }
 
     /**

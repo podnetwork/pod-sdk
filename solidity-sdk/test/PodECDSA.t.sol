@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {PodECDSA} from "../src/verifier/PodECDSA.sol";
 import {ECDSA} from "../src/verifier/ECDSA.sol";
 import {MerkleTree} from "../src/verifier/MerkleTree.sol";
-import {PodRegistry} from "../src/verifier/PodRegistry.sol";
+import {PodRegistry} from "pod-protocol/PodRegistry.sol";
 import {console} from "forge-std/console.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -350,6 +350,17 @@ contract PodECDSATest is Test {
         });
 
         return receipt;
+    }
+
+    function test_getMedianTimestamp() public pure {
+        uint256[] memory timestamps = new uint256[](3);
+        timestamps[0] = 1;
+        timestamps[1] = 2;
+        timestamps[2] = 3;
+        assertEq(PodECDSA._getMedianTimestamp(timestamps), 2);
+        timestamps = new uint256[](1);
+        timestamps[0] = 5;
+        assertEq(PodECDSA._getMedianTimestamp(timestamps), 5);
     }
 
     function test_verify_RevertIfInvalidThreshold() public {

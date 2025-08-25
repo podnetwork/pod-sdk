@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {ECDSA} from "./ECDSA.sol";
 import {MerkleTree} from "./MerkleTree.sol";
-import {IPodRegistry} from "./PodRegistry.sol";
+import {IPodRegistry} from "pod-protocol/interfaces/IPodRegistry.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -54,11 +54,7 @@ library PodECDSA {
 
     function _getMedianTimestamp(uint256[] memory sortedAttestationTimestamps) internal pure returns (uint256) {
         if (sortedAttestationTimestamps.length == 0) {
-            return 0;
-        }
-
-        if (sortedAttestationTimestamps.length == 1) {
-            return sortedAttestationTimestamps[0];
+            revert InvalidTimestamps();
         }
 
         for (uint256 i = 0; i < sortedAttestationTimestamps.length - 1; i++) {
