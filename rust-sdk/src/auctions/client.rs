@@ -5,13 +5,14 @@ use crate::{
     provider::PodProvider,
     Address, U256,
 };
+use alloy_eips::BlockNumberOrTag;
 use anyhow::Context;
 
 use pod_contracts::auction::Auction::AuctionInstance;
 use pod_types::Timestamp;
 
 pub struct AuctionClient {
-    auction: AuctionInstance<PodProvider, PodNetwork>,
+    pub auction: AuctionInstance<PodProvider, PodNetwork>,
 }
 
 pub struct Bid {
@@ -42,6 +43,31 @@ impl AuctionClient {
             .auction
             .BidSubmitted_filter()
             .topic1(auction_id)
+            .to_block(BlockNumberOrTag::Latest)
+            .query()
+            .await
+            .context("fetching bid logs")?;
+
+        logs.into_iter()
+            .map(|(event, _)| {
+                Ok(Bid {
+                    amount: event.value,
+                    bidder: event.bidder,
+                    data: event.data.to_vec(),
+                })
+            })
+            .collect()
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub async fn fetch_bids_for_deadline(&self, deadline: SystemTime) -> anyhow::Result<Vec<Bid>> {
+        let deadline_us = Timestamp::from(deadline).as_micros();
+
+        let logs = self
+            .auction
+            .BidSubmitted_filter()
+            .topic3(U256::from(deadline_us))
+            .to_block(BlockNumberOrTag::Latest)
             .query()
             .await
             .context("fetching bid logs")?;
