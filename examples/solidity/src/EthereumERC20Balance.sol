@@ -2,26 +2,11 @@
 pragma solidity ^0.8.0;
 
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import {Transaction, EthCallArgs, externalEthCall} from "pod-sdk/ExternalEthCall.sol";
 
-/// @dev Encodes an Ethereum transaction call used by the precompile.
-struct Transaction {
-    address from;
-    address to;
-    uint256 gas;
-    uint256 gasPrice;
-    uint256 value;
-    bytes data;
-}
-
-/// @dev Encapsulates call arguments and block selector for `eth_call`.
-struct EthCallArgs {
-    Transaction transaction;
-    bytes blockNumber;
-}
 
 /// @title EthereumERC20Balance
 contract EthereumERC20Balance {
-    address internal constant EXTERNAL_CALL_PRECOMPILE = address(uint160(uint256(keccak256("POD_EXTERNAL_ETH_CALL"))));
     uint256 internal constant ETH_CHAIN_ID = 1;
     address internal constant ETH_USDC_CONTRACT = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
@@ -44,9 +29,7 @@ contract EthereumERC20Balance {
             blockNumber: bytes("latest")
         });
 
-        bytes memory inputData = abi.encode(ETH_CHAIN_ID, callArgs);
-        (bool success, bytes memory output) = EXTERNAL_CALL_PRECOMPILE.staticcall{gas: gasleft()}(inputData);
-        require(success, "Precompile call failed");
-        return abi.decode(output, (uint256));
+        bytes memory result = externalEthCall(ETH_CHAIN_ID, callArgs);
+        return abi.decode(result, (uint256));
     }
 }
