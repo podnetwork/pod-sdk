@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {Transaction, EthCallArgs, externalEthCall} from "pod-sdk/ExternalEthCall.sol";
 
-
 /// @title EthereumERC20Balance
 contract EthereumERC20Balance {
     uint256 internal constant ETH_CHAIN_ID = 1;

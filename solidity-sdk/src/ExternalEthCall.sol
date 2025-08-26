@@ -38,7 +38,8 @@ struct EthCallArgs {
  * @return The result of the external call. Reverts if the call fails.
  */
 function externalEthCall(uint256 chainId, EthCallArgs memory callArgs) view returns (bytes memory) {
-    (bool success, bytes memory output) = POD_EXTERNAL_ETH_CALL.staticcall{gas: gasleft()}(abi.encode(chainId, callArgs));
+    (bool success, bytes memory output) =
+        POD_EXTERNAL_ETH_CALL.staticcall{gas: gasleft()}(abi.encode(chainId, callArgs));
     require(success, "Precompile call failed");
     return output;
 }
