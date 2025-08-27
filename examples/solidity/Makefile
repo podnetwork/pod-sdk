@@ -1,7 +1,17 @@
-generate:
-	forge bind --crate-name pod-examples-solidity --crate-version 0.2.0 --bindings-path ./bindings --alloy-version 1.0.24 --force --no-metadata --overwrite --skip script
+DESCRIPTION="Bindings for pod Solidity contracts examples"
+LICENSE="MIT OR Apache-2.0"
+VERSION=0.2.0
+CMD=forge bind --crate-name pod-examples-solidity \
+    --crate-version ${VERSION}\
+    --crate-description ${DESCRIPTION}\
+    --crate-license ${LICENSE}\
+    --bindings-path ./bindings --alloy-version 1.0.24 --force --no-metadata --skip script
 
+generate:
+	${CMD} --overwrite
 check:
-	forge bind --crate-name pod-examples-solidity --crate-version 0.2.0 --bindings-path ./bindings --alloy-version 1.0.24 --force --no-metadata --skip script
+	${CMD}
+
 .PHONY: generate
 .PHONY: check
+

@@ -2,6 +2,8 @@
 name = "pod-examples-solidity"
 version = "0.2.0"
 edition = "2021"
+description = "Bindings for pod Solidity contracts examples"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 alloy = { version = "1.0.24", features = ["sol-types", "contract"] }
