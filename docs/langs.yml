@@ -4,3 +4,5 @@ langs:
   - lang: rust
     label: Rust
     default: true
+  - lang: solidity
+    label: Solidity
