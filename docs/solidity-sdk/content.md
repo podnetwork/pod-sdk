@@ -6,7 +6,7 @@ url: /solidity-sdk
 
 toc:
   quorum: requireQuorum
-  external-call: External ethCall
+  external-call: ExternalEthCall
   context: Context
 ---
 
