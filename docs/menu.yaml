@@ -16,6 +16,8 @@ menu:
     newTab: true
   - href: /architecture/coordination-free
     label: What makes pod fast?
+  - href: /architecture/censorship-resistance
+    label: Censorship Resistance 
   - href: https://pod.network/blog/gas-pricing-in-a-world-without-consensus 
     label: Gas Pricing
     newTab: true 
