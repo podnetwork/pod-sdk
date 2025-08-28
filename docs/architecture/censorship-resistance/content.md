@@ -27,10 +27,10 @@ from submission to confirmation, identifying points where censorship can occur.
 The leader selects transactions from the mempool, batches them into a block, and sends 
 them to validators. After several voting rounds, validators finalize the block and its 
 transactions. Leaders have complete discretion over which transactions to include and 
-can selectively exclude transactions. A censored transaction can be censored until 
-an honest leader is elected who will includes it in the next block. This can take
+can selectively exclude transactions. A transaction can be censored until 
+an honest leader is elected who will includes it in his proposed block. This can take
 seconds to minutes depending on the consensus protocol and the network config. 
-For a complete comparison of censorship-resistance provided by different consensus protocols 
+For a complete comparison of censorship-resistance provided by different consensus protocols, 
 including DAG-based protocols or existing consensus protocols with amendments like inclusion lists, 
 see the [full report](https://www.commonprefix.com/static/clients/flashbots/flashbots_report.pdf).
 
@@ -45,7 +45,7 @@ to the active validators, who validate them locally and return attestations. Onc
 receives sufficient attestations (>2/3 of validators), the transaction is confirmed. 
 This design ensures all honest transactions are confirmed within one network round trip 
 (2 delta). To delay or censor a transaction, even temporarily, an adversary would need 
-to control at least 1/3 of the network.
+to control at least 1/3 of the network. 
 
 For a deeper dive into censorship resistance offered by existing consensus protocols, 
 review the presentation below or refer to the full technical report 
