@@ -11,7 +11,7 @@ liquidations, voting, and dispute periods. For example, in an auction,
 an adversary could selectively censor bids from other participants, submit 
 their own bid at a minimal value, and win the auction for almost free. 
 
-<iframe src="https://player.vimeo.com/video/1034094359" width="853" height="480" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+<div class='embed-container'><iframe src="https://player.vimeo.com/video/1034094359" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>
 
 **pod provides strong censorship resistance**, confirming transactions within one 
 network round trip (2 delta). To censor a transaction, an adversary would need 
@@ -51,4 +51,4 @@ For a deeper dive into censorship resistance offered by existing consensus proto
 review the presentation below or refer to the full technical report 
 [here](https://www.commonprefix.com/static/clients/flashbots/flashbots_report.pdf).
 
-<iframe src="https://www.youtube.com/embed/O4MUHwJMgkI" width="853" height="480" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+<div class='embed-container'><iframe src="https://www.youtube.com/embed/O4MUHwJMgkI" width="853" height="480" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>
