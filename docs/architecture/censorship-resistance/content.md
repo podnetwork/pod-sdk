@@ -28,19 +28,20 @@ The leader selects transactions from the mempool, batches them into a block, and
 them to validators. After several voting rounds, validators finalize the block and its 
 transactions. Leaders have complete discretion over which transactions to include and 
 can selectively exclude transactions. A censored transaction can be censored until 
-an honest leader is elected who will includes it in the next block. 
+an honest leader is elected who will includes it in the next block. This can take
+seconds to minutes depending on the consensus protocol and the network config. 
 For a complete comparison of censorship-resistance provided by different consensus protocols 
 including DAG-based protocols or existing consensus protocols with amendments like inclusion lists, 
 see the [full report](https://www.commonprefix.com/static/clients/flashbots/flashbots_report.pdf).
 
 **Optimistic/ZK Layer-2s (L2s).** L2s today rely on centralized sequencers to propose all L2 blocks. 
-Like blockchains, compromised sequencers can censor transactions forever. Some L2s enable 
+A compromised sequencers can censor transactions forever. Some L2s enable 
 force-inclusion through L1s, requiring L1-posted transactions to be included after a delay 
-(Arbitrum requires a 1-day delay). This means transaction censorship depends on L1 censorship 
+(Arbitrum requires a 1-day delay). This implies that the transaction censorship depends on L1 censorship 
 plus the inclusion delay.
 
-**pod.** pod operates without leaders or proposers. Transactions are streamed directly 
-to active validators, who validate them locally and return attestations. Once a user 
+**pod.** pod operates without leaders or sequencers. Transactions are streamed directly 
+to the active validators, who validate them locally and return attestations. Once a user 
 receives sufficient attestations (>2/3 of validators), the transaction is confirmed. 
 This design ensures all honest transactions are confirmed within one network round trip 
 (2 delta). To delay or censor a transaction, even temporarily, an adversary would need 
