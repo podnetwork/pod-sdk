@@ -9,6 +9,7 @@ import {RankedFeed} from "../src/RankedFeed.sol";
 import {Voting} from "../src/Voting.sol";
 import {PodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
 import {PodAuctionConsumer} from "optimistic-auction/PodAuctionConsumer.sol";
+import {TestBridge} from "../src/TestBridge.sol";
 
 contract Deployer is BaseDeployer {
     function run() public {
@@ -37,6 +38,9 @@ contract Deployer is BaseDeployer {
             PodAuctionConsumer auctionConsumer = new PodAuctionConsumer(address(podRegistry), bondAmount);
 
             console.log("PodAuctionConsumer deployed at:", address(auctionConsumer));
+
+            TestBridge testBridge = new TestBridge();
+            console.log("TestBridgePrecompile deployed at:", address(testBridge));
         }
 
         vm.stopBroadcast();
