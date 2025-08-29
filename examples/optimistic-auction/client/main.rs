@@ -79,7 +79,7 @@ fn get_certified_log(log: &VerifiableLog) -> Result<CertifiedLog> {
             certifiedReceipt: CertifiedReceipt {
                 receiptRoot: log.pod_metadata.receipt.hash_custom(),
                 aggregateSignature: log.aggregate_signatures().into(),
-                sortedAttestationTimestamps: log.get_sorted_attestation_timestamps(),
+                sortedAttestationTimestamps: log.get_sorted_attestation_timestamps_in_seconds(),
             },
             leaf,
             proof: Proof { path: proof.path },
@@ -351,7 +351,7 @@ async fn main() -> Result<()> {
     let deadline = now + 5 * MICROSECONDS_PER_SECOND;
 
     #[allow(clippy::identity_op)]
-    let writing_period_ends = deadline + (WAITING_PERIOD) * MICROSECONDS_PER_SECOND;
+    let writing_period_ends = deadline + WAITING_PERIOD * MICROSECONDS_PER_SECOND;
     #[allow(clippy::identity_op)]
     let dispute_period_ends = writing_period_ends + WAITING_PERIOD * MICROSECONDS_PER_SECOND;
 
