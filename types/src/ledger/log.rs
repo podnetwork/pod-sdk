@@ -1,8 +1,10 @@
 use std::ops::Deref;
 
+use alloy_primitives::Uint;
 pub use alloy_primitives::{Log, LogData};
 use alloy_rpc_types::Log as RPCLog;
 use alloy_sol_types::SolValue;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -119,6 +121,28 @@ impl VerifiableLog {
                 acc.extend_from_slice(&sig);
                 acc
             })
+    }
+
+    fn sort_attestations_by_timestamp(&self) -> Vec<&TimestampedHeadlessAttestation> {
+        self.pod_metadata
+            .attestations
+            .iter()
+            .sorted_by_key(|a| a.timestamp.as_seconds())
+            .collect()
+    }
+
+    pub fn get_sorted_attestation_timestamps(&self) -> Vec<Uint<256, 4>> {
+        self.sort_attestations_by_timestamp()
+            .iter()
+            .map(|a| a.timestamp.as_seconds().try_into().unwrap())
+            .collect()
+    }
+
+    pub fn get_sorted_attestation_signatures(&self) -> Vec<[u8; 65]> {
+        self.sort_attestations_by_timestamp()
+            .iter()
+            .map(|a| a.signature.as_bytes())
+            .collect()
     }
 
     pub fn verify_proof(&self, receipt_root: Hash, proof: MerkleProof) -> bool {
