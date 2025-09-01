@@ -78,12 +78,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.1
-
-
-      - name: Show Forge version
-        run: |
-          forge --version
+          version: v1.3.1 
 
       - name: Run Forge fmt
         run: |
@@ -116,10 +111,6 @@ jobs:
         with:
           version: v1.3.1
 
-      - name: Show Forge version
-        run: |
-          forge --version
-
       - name: Run Forge fmt
         run: |
           forge fmt --check
@@ -150,10 +141,6 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.3.1
-
-      - name: Show Forge version
-        run: |
-          forge --version
 
       - name: Run Forge fmt
         run: |
@@ -192,10 +179,6 @@ jobs:
         with:
           version: v1.3.1
 
-      - name: Show Forge version
-        run: |
-          forge --version
-
       - name: Run Forge fmt
         run: |
           forge fmt --check
@@ -232,10 +215,6 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.3.1
-
-      - name: Show Forge version
-        run: |
-          forge --version
 
       - name: Run Forge fmt
         run: |
