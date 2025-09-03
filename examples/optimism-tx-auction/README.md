@@ -20,10 +20,6 @@ streamed to a network of nodes, and the TEE builder verifies a certificate issue
 set is complete. The protocol ensures that an adversary needs to control at least 1/3 of the nodes to be able to censor
 transactions.
 
-Below is a proof of concept implementation to test the integration of Rollup-Boost with pod for conducting
-censorship-resistant, verifiable priority auctions. For motivation and further explanation, see:
-https://www.notion.so/pod-network/L2-transaction-auction-on-pod-21ea9700b29b808caa0feb5330324b81.
-
 ### Requirements:
 
 - go v1.24+
