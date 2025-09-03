@@ -3,7 +3,7 @@
 <img width="1012" height="512" alt="Screenshot 2025-08-22 at 2 55 36 PM" src="https://github.com/user-attachments/assets/db2f3ab9-0dbf-40a7-a922-53c35625b71f" />
 
 L2 sequencers order transactions as they arrive, which leads to
-[spamming by searchers](https://writings.flashbots.net/mev-and-the-limits-of-scaling) trying to capture MEV (Miner
+[spamming by searchers](https://writings.flashbots.net/mev-and-the-limits-of-scaling) trying to capture MEV (Maximum
 Extractable Value). This spamming wastes the L2 throughput and makes it slower and expensive for normal users.
 Rollup-Boost addresses this issue by auctioning the transaction ordering based on priority fees. This not only fixes the
 spam problem but also the protocol to
@@ -13,7 +13,7 @@ completely to external searchers.
 The priority auction takes place within an external builder service that operates inside a Trusted Execution Environment
 (TEE). The TEE ensures the
 [privacy of the bids and guarantees correct ordering](https://writings.flashbots.net/introducing-rollup-boost) based on
-priority fees. However, the external builder has the power to censor bids, rigging the auction results completely.
+priority fees. However, the external builder has the power to censor bids, thereby completely rigging the auction results.
 
 pod enshrines the Rollup-Boost stack by providing censorship resistance for the priority auctions. Transactions are
 streamed to a network of nodes, and the TEE builder verifies a certificate issued by the network that guarantees the bid
