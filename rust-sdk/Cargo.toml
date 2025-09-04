@@ -16,8 +16,7 @@ path = "src/lib.rs"
 
 [dependencies]
 pod-types = { path = "../types", version = "0.2.0" }
-# TODO: use `path` and `version` when we publish the bindings crate.
-pod-contracts = { package = "pod-examples-solidity", git = "https://github.com/podnetwork/pod-sdk", rev = "cab43b2075fb683f3eb5c34cf7b738f420b0c31d" }
+pod-contracts = { path = "../examples/solidity/bindings", package = "pod-examples-solidity", version = "0.2.0" }
 
 alloy-primitives = { version = "1.3.0", features = ["k256", "serde"] }
 alloy-sol-types = "1.3.0"
