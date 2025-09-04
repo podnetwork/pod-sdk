@@ -8,25 +8,25 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract WrappedToken is ERC20Burnable, ERC20Pausable, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant PAUSE_ROLE = keccak256("PAUSE_ROLE");
-    uint8 private immutable _decimals;
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    uint8 private immutable DECIMALS;
 
     constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) {
-        _decimals = decimals_;
+        DECIMALS = decimals_;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(PAUSE_ROLE, msg.sender);
+        _grantRole(PAUSER_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, msg.sender);
     }
 
     function decimals() public view override returns (uint8) {
-        return _decimals;
+        return DECIMALS;
     }
 
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
         _mint(to, amount); // will revert when paused because ERC20Pausable guards _update
     }
 
-    function pause() external onlyRole(PAUSE_ROLE) {
+    function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 

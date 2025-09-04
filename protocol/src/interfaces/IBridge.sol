@@ -11,14 +11,16 @@ interface IBridge {
     error InvalidToAddress();
     error InvalidTokenConfig();
     error DailyLimitExhausted();
+    error MirrorTokenNotFound();
+    error RequestAlreadyProcessed();
 
     event Deposit(uint256 indexed id, address indexed token, uint256 amount, address to);
-    event Withdraw(uint256 indexed id, address indexed mirrorToken, address indexed token, uint256 amount, address to);
+    event Claim(uint256 indexed id, address indexed mirrorToken, address indexed token, uint256 amount, address to);
 
     struct TokenLimits {
         uint256 minAmount; // The minimum amount of tokens that can be deposited.
         uint256 deposit; // The daily deposit limit for the token.
-        uint256 withdraw; // The daily withdrawal limit for the token.
+        uint256 claim; // The daily claim limit for the token.
     }
 
     struct TokenUsage {
@@ -29,7 +31,7 @@ interface IBridge {
     struct TokenData {
         TokenLimits limits;
         TokenUsage deposit;
-        TokenUsage withdraw;
+        TokenUsage claim;
     }
 
     /// @dev Request information.

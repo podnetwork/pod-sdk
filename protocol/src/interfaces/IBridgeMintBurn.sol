@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {IBridge} from "./IBridge.sol";
 
 interface IBridgeMintBurn is IBridge {
-    function createMirrorToken(
+    function createAndWhitelistMirrorToken(
         string memory tokenName,
         string memory tokenSymbol,
         address existingToken,
@@ -12,4 +12,8 @@ interface IBridgeMintBurn is IBridge {
         uint8 mirrorTokenDecimals,
         TokenLimits calldata limits
     ) external returns (address);
+
+    error MultipleDepositsWithSameId();
+    error NoDepositsFound();
+    error PrecompileCallFailed();
 }

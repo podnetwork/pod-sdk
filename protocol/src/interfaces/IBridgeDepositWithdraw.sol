@@ -5,4 +5,7 @@ import {IBridge} from "./IBridge.sol";
 
 interface IBridgeDepositWithdraw is IBridge {
     function whiteListToken(address token, address mirrorToken, TokenLimits calldata limits) external;
+
+    error InvalidDepositLog();
+    error InvalidCertificate();
 }

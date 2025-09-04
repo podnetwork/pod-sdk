@@ -6,18 +6,24 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {console} from "forge-std/console.sol";
 
 abstract contract Bridge is IBridge, AccessControl, Pausable {
     using SafeERC20 for IERC20;
 
     /// @dev The role ID for addresses that can pause the contract.
-    bytes32 public constant PAUSE_ROLE = keccak256("PAUSE_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    /// @dev The topic 0 (event signature) of the deposit event.
+    bytes32 constant DEPOSIT_TOPIC_0 = keccak256("Deposit(uint256,address,uint256,address)");
 
     /// @dev Map token address to token info.
     mapping(address => TokenData) public tokenData;
 
     /// @dev Map mirror token address to token address.
     mapping(address => address) public mirrorTokens;
+
+    /// @dev Map request hash to processed requests.
+    mapping(bytes32 => bool) public processedRequests;
 
     /// @dev Array of all the whitelisted tokens.
     /// @notice A token in the list might not be active.
@@ -31,10 +37,10 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(PAUSER_ROLE, msg.sender);
     }
 
     function handleDeposit(address token, uint256 amount) internal virtual;
-    function handleBridging(address token, uint256 amount, address to, bytes calldata data) internal virtual;
     function handleMigrate(address _newContract) internal virtual;
 
     /// @dev Modifier to check that contract is not already migrated.
@@ -45,13 +51,15 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
         _;
     }
 
-    /// @dev Modifier to make a function callable only when the token and amount is correct.
-    modifier isValidTokenAmount(address token, uint256 amount, bool isDeposit) {
+    function _isValidTokenAmount(address token, uint256 amount, bool isDeposit) internal returns (bool) {
         TokenData storage t = tokenData[token];
 
-        if (isDeposit && t.limits.deposit != 0) {
-            // Reset daily limit if the day is passed after last update.
-            if (block.timestamp > t.deposit.lastUpdated + 1 days) {
+        if (t.limits.minAmount == 0 || amount < t.limits.minAmount) {
+            return false;
+        }
+
+        if (isDeposit) {
+            if (block.timestamp >= t.deposit.lastUpdated + 1 days) {
                 t.deposit.lastUpdated = block.timestamp;
                 t.deposit.consumed = 0;
             }
@@ -60,34 +68,37 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
                 revert DailyLimitExhausted();
             }
             t.deposit.consumed += amount;
-        } else if (!isDeposit && t.limits.withdraw != 0) {
-            if (block.timestamp > t.withdraw.lastUpdated + 1 days) {
-                t.withdraw.lastUpdated = block.timestamp;
-                t.withdraw.consumed = 0;
+        } else if (!isDeposit) {
+            if (block.timestamp >= t.claim.lastUpdated + 1 days) {
+                t.claim.lastUpdated = block.timestamp;
+                t.claim.consumed = 0;
             }
 
-            if (t.withdraw.consumed + amount > t.limits.withdraw) {
+            if (t.claim.consumed + amount > t.limits.claim) {
                 revert DailyLimitExhausted();
             }
-            t.withdraw.consumed += amount;
+            t.claim.consumed += amount;
         }
-        _;
+        return true;
     }
 
-    function deposit(address token, uint256 amount, address to)
-        external
-        whenNotPaused
-        isValidTokenAmount(token, amount, true)
-        returns (uint256 id)
-    {
+    function deposit(address token, uint256 amount, address to) external whenNotPaused returns (uint256 id) {
+        if (!_isValidTokenAmount(token, amount, true)) revert InvalidTokenAmount();
         if (to == address(0)) revert InvalidToAddress();
         id = depositIndex++;
         handleDeposit(token, amount);
         emit Deposit(id, token, amount, to);
     }
 
-    function _hashRequest(uint256 id, address token, uint256 amount, address to) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(id, token, amount, to));
+    function _hashRequest(uint256 id, address token, uint256 amount, address to) internal pure returns (bytes32 hash) {
+        assembly {
+            let ptr := mload(0x40)
+            mstore(ptr, id)
+            mstore(add(ptr, 0x20), shl(96, token))
+            mstore(add(ptr, 0x34), amount)
+            mstore(add(ptr, 0x54), shl(96, to))
+            hash := keccak256(ptr, 0x68)
+        }
     }
 
     function _configureTokenData(address token, TokenLimits calldata limits, bool newToken) internal {
@@ -97,9 +108,9 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
         }
 
         TokenUsage memory depositUsage = TokenUsage(0, block.timestamp);
-        TokenUsage memory withdrawUsage = TokenUsage(0, block.timestamp);
+        TokenUsage memory claimUsage = TokenUsage(0, block.timestamp);
         // configuring token also resets the daily volume limit
-        TokenData memory data = TokenData(limits, depositUsage, withdrawUsage);
+        TokenData memory data = TokenData(limits, depositUsage, claimUsage);
         tokenData[token] = data;
     }
 
@@ -123,7 +134,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     }
 
     /// @inheritdoc IBridge
-    function pause() external onlyRole(PAUSE_ROLE) {
+    function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
