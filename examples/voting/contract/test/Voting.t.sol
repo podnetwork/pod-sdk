@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {console} from "forge-std/console.sol";
 import {Voting} from "../src/Voting.sol";
-import {PodTest} from "pod-sdk/test/podTest.sol";
+import {PodTest} from "pod-sdk/test/PodTest.sol";
 import {Time} from "pod-sdk/Time.sol";
 
 contract VotingTest is PodTest {
