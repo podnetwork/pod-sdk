@@ -16,8 +16,7 @@ library Time {
 pub mod Time {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct Timestamp(u64);
@@ -28,34 +27,27 @@ pub mod Time {
             #[inline]
             fn stv_to_tokens(
                 &self,
-            ) -> <alloy::sol_types::sol_data::Uint<
-                64,
-            > as alloy_sol_types::SolType>::Token<'_> {
+            ) -> <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::Token<'_>
+            {
                 alloy_sol_types::private::SolTypeValue::<
                     alloy::sol_types::sol_data::Uint<64>,
                 >::stv_to_tokens(self)
             }
             #[inline]
             fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::SolType>::tokenize(self)
-                    .0
+                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(self).0
             }
             #[inline]
-            fn stv_abi_encode_packed_to(
-                &self,
-                out: &mut alloy_sol_types::private::Vec<u8>,
-            ) {
+            fn stv_abi_encode_packed_to(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
                 <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::SolType>::abi_encode_packed_to(self, out)
             }
             #[inline]
             fn stv_abi_packed_encoded_size(&self) -> usize {
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::SolType>::abi_encoded_size(self)
+                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::abi_encoded_size(
+                    self,
+                )
             }
         }
         #[automatically_derived]
@@ -100,13 +92,11 @@ pub mod Time {
         #[automatically_derived]
         impl alloy_sol_types::SolType for Timestamp {
             type RustType = u64;
-            type Token<'a> = <alloy::sol_types::sol_data::Uint<
-                64,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> =
+                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::Token<'a>;
             const SOL_NAME: &'static str = Self::NAME;
-            const ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
-                64,
-            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const ENCODED_SIZE: Option<usize> =
+                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::ENCODED_SIZE;
             const PACKED_ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
                 64,
             > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
@@ -116,15 +106,15 @@ pub mod Time {
             }
             #[inline]
             fn type_check(token: &Self::Token<'_>) -> alloy_sol_types::Result<()> {
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::SolType>::type_check(token)
+                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::type_check(
+                    token,
+                )
             }
             #[inline]
             fn detokenize(token: Self::Token<'_>) -> Self::RustType {
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::SolType>::detokenize(token)
+                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::detokenize(
+                    token,
+                )
             }
         }
         #[automatically_derived]
@@ -145,37 +135,38 @@ pub mod Time {
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, out)
             }
             #[inline]
-            fn encode_topic(
-                rust: &Self::RustType,
-            ) -> alloy_sol_types::abi::token::WordToken {
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic(rust)
+            fn encode_topic(rust: &Self::RustType) -> alloy_sol_types::abi::token::WordToken {
+                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::EventTopic>::encode_topic(
+                    rust,
+                )
             }
         }
     };
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`Time`](self) contract instance.
 
-See the [wrapper's documentation](`TimeInstance`) for more details.*/
+    See the [wrapper's documentation](`TimeInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(address: alloy_sol_types::private::Address, provider: P) -> TimeInstance<P, N> {
+    >(
+        address: alloy_sol_types::private::Address,
+        provider: P,
+    ) -> TimeInstance<P, N> {
         TimeInstance::<P, N>::new(address, provider)
     }
     /**A [`Time`](self) instance.
 
-Contains type-safe methods for interacting with an on-chain instance of the
-[`Time`](self) contract located at a given `address`, using a given
-provider `P`.
+    Contains type-safe methods for interacting with an on-chain instance of the
+    [`Time`](self) contract located at a given `address`, using a given
+    provider `P`.
 
-If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-be used to deploy a new instance of the contract.
+    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+    be used to deploy a new instance of the contract.
 
-See the [module-level documentation](self) for all the available methods.*/
+    See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct TimeInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -191,18 +182,14 @@ See the [module-level documentation](self) for all the available methods.*/
     }
     /// Instantiation and getters/setters.
     #[automatically_derived]
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > TimeInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        TimeInstance<P, N>
+    {
         /**Creates a new wrapper around an on-chain [`Time`](self) contract instance.
 
-See the [wrapper's documentation](`TimeInstance`) for more details.*/
+        See the [wrapper's documentation](`TimeInstance`) for more details.*/
         #[inline]
-        pub const fn new(
-            address: alloy_sol_types::private::Address,
-            provider: P,
-        ) -> Self {
+        pub const fn new(address: alloy_sol_types::private::Address, provider: P) -> Self {
             Self {
                 address,
                 provider,
@@ -243,10 +230,9 @@ See the [wrapper's documentation](`TimeInstance`) for more details.*/
     }
     /// Function calls.
     #[automatically_derived]
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > TimeInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        TimeInstance<P, N>
+    {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -260,10 +246,9 @@ See the [wrapper's documentation](`TimeInstance`) for more details.*/
     }
     /// Event filters.
     #[automatically_derived]
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > TimeInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        TimeInstance<P, N>
+    {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
@@ -487,12 +472,11 @@ pub mod Voting {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"`\x80`@R4\x80\x15a\0\x0FW__\xFD[P`\x046\x10a\0JW_5`\xE0\x1C\x80c\xB4\xB0q>\x14a\0NW\x80c\xB8)\x96o\x14a\0jW\x80c\xCFu\xEE*\x14a\0\x9AW\x80c\xE7Q\xF2q\x14a\0\xCAW[__\xFD[a\0h`\x04\x806\x03\x81\x01\x90a\0c\x91\x90a\x0C~V[a\0\xE6V[\0[a\0\x84`\x04\x806\x03\x81\x01\x90a\0\x7F\x91\x90a\r\xB4V[a\x02\xE5V[`@Qa\0\x91\x91\x90a\x0E4V[`@Q\x80\x91\x03\x90\xF3[a\0\xB4`\x04\x806\x03\x81\x01\x90a\0\xAF\x91\x90a\x0E\xD5V[a\x03CV[`@Qa\0\xC1\x91\x90a\x0E4V[`@Q\x80\x91\x03\x90\xF3[a\0\xE4`\x04\x806\x03\x81\x01\x90a\0\xDF\x91\x90a\x0FxV[a\x05\xE9V[\0[___\x84\x81R` \x01\x90\x81R` \x01_ \x90Pa\x011\x81_\x01_\x90T\x90a\x01\0\n\x90\x04g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`@Q\x80``\x01`@R\x80`7\x81R` \x01a\x18\x8A`7\x919a\x07ZV[`\x01`\x02\x81\x11\x15a\x01EWa\x01Da\x0F\xA3V[[\x81`\x03\x01_3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01_ _\x90T\x90a\x01\0\n\x90\x04`\xFF\x16`\x02\x81\x11\x15a\x01\xA3Wa\x01\xA2a\x0F\xA3V[[\x14a\x01\xE3W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x01\xDA\x90a\x10*V[`@Q\x80\x91\x03\x90\xFD[_a\x01\xFA\x843`\x02a\x07\x8B\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x14a\x02:W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x021\x90a\x10\x92V[`@Q\x80\x91\x03\x90\xFD[a\x02S\x833`\x01`\x02a\x08Q\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[a\x02\x91\x83\x83`@Q` \x01a\x02i\x92\x91\x90a\x10\xBFV[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 `\x01\x80a\t(\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83\x7F\xD8\xA9\\\xA0^\x9A&V\xFE!\xD862\x9D\x9C\xD7x0\xE7\xFE\xF7\xAC\xB7\xC0\xFD;\xF5B\x1E\xA7\xAD\x9A\x84`@Qa\x02\xD8\x91\x90a\x10\xE6V[`@Q\x80\x91\x03\x90\xA3PPPV[_\x84\x84\x84\x84`@Q` \x01a\x02\xFB\x92\x91\x90a\x11\xB5V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 `@Q` \x01a\x03#\x93\x92\x91\x90a\x12\x15V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90P\x94\x93PPPPV[_a\x03\x83\x87`@Q\x80`@\x01`@R\x80`\x1E\x81R` \x01\x7FDeadline must be in the future\0\0\x81RPa\x07ZV[_\x86\x11a\x03\xC5W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x03\xBC\x90a\x12\x94V[`@Q\x80\x91\x03\x90\xFD[_\x85\x85\x90P\x11a\x04\nW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x04\x01\x90a\x12\xFCV[`@Q\x80\x91\x03\x90\xFD[_a\x04\x17\x883\x88\x88a\x02\xE5V[\x90P___\x83\x81R` \x01\x90\x81R` \x01_ \x90P_\x81`\x05\x01T\x14a\x04rW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x04i\x90a\x13dV[`@Q\x80\x91\x03\x90\xFD[\x88\x81_\x01_a\x01\0\n\x81T\x81g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x02\x19\x16\x90\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x02\x17\x90UP3\x81`\x02\x01_a\x01\0\n\x81T\x81s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x02\x19\x16\x90\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x02\x17\x90UP\x86\x86\x90P\x81`\x05\x01\x81\x90UP__\x90P[\x87\x87\x90P\x81\x10\x15a\x05\x94W`\x01\x82`\x03\x01_\x8A\x8A\x85\x81\x81\x10a\x05\x13Wa\x05\x12a\x13\x82V[[\x90P` \x02\x01` \x81\x01\x90a\x05(\x91\x90a\x13\xAFV[s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01_ _a\x01\0\n\x81T\x81`\xFF\x02\x19\x16\x90\x83`\x02\x81\x11\x15a\x05\x82Wa\x05\x81a\x0F\xA3V[[\x02\x17\x90UP\x80\x80`\x01\x01\x91PPa\x04\xEEV[P\x88g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82\x7F\xDD\x1DC\xA4\x15\xE6\xCFP-\xCD{3=2\x0FAh)\xC0\xF6\xA4:\xA9\xE3-\x81\xCD\x9A:qG\xE6\x87\x87`@Qa\x05\xD2\x92\x91\x90a\x144V[`@Q\x80\x91\x03\x90\xA3\x81\x92PPP\x96\x95PPPPPPV[___\x83\x81R` \x01\x90\x81R` \x01_ \x90Pa\x064\x81_\x01_\x90T\x90a\x01\0\n\x90\x04g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`@Q\x80``\x01`@R\x80`$\x81R` \x01a\x18f`$\x919a\tUV[\x80`\x06\x01_\x90T\x90a\x01\0\n\x90\x04`\xFF\x16\x15a\x06\x85W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x06|\x90a\x14\xA0V[`@Q\x80\x91\x03\x90\xFD[_\x82`\x01`@Q` \x01a\x06\x9A\x92\x91\x90a\x14\xF7V[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90Pa\x07\x03\x81\x83`\x01\x01T`@Q\x80`@\x01`@R\x80`\x10\x81R` \x01\x7FNot enough votes\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81RP`\x01a\t\x86\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[`\x01\x82`\x06\x01_a\x01\0\n\x81T\x81`\xFF\x02\x19\x16\x90\x83\x15\x15\x02\x17\x90UPa\x07(\x83a\t\xABV[\x82\x7F{\x1B\xCF\x1C\xCF\x90\x1A\x11X\x9A\xFF\xF5PMY\xFD\nSx\x0E\xED*\x95*\xDA\xDE\x03H\x98Q9\xE0`@Q`@Q\x80\x91\x03\x90\xA2PPPV[a\x07\x87a\x07\x81\x83a\x07ia\t\xAEV[g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\n\xDC\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x82a\n\xFCV[PPV[_2s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x07\xFAW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x07\xF1\x90a\x15\x8EV[`@Q\x80\x91\x03\x90\xFD[\x83_\x01_\x84\x81R` \x01\x90\x81R` \x01_ _\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01_ T\x90P\x93\x92PPPV[2s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x08\xBFW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x08\xB6\x90a\x15\x8EV[`@Q\x80\x91\x03\x90\xFD[\x80\x84_\x01_\x85\x81R` \x01\x90\x81R` \x01_ _\x84s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01_ _\x82\x82Ta\t\x1B\x91\x90a\x15\xD9V[\x92PP\x81\x90UPPPPPV[\x80\x83_\x01_\x84\x81R` \x01\x90\x81R` \x01_ _\x82\x82Ta\tI\x91\x90a\x15\xD9V[\x92PP\x81\x90UPPPPV[a\t\x82a\t|\x83a\tda\t\xAEV[g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\x0B\xED\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x82a\n\xFCV[PPV[a\t\xA5\x82\x85_\x01_\x86\x81R` \x01\x90\x81R` \x01_ T\x10\x15\x82a\n\xFCV[PPPPV[PV[___\x7F\xBA(nM\x89\xDA\xBFK(x\xE8\x96B;\xB1#\xD9\xD5\x14>f&\x06\xFD4;gf\xD7\xBC\xF7!_\x1Cs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`@Qa\t\xF6\x90a\x169V[_`@Q\x80\x83\x03\x81\x85Z\xFA\x91PP=\x80_\x81\x14a\n.W`@Q\x91P`\x1F\x19`?=\x01\x16\x82\x01`@R=\x82R=_` \x84\x01>a\n3V[``\x91P[P\x91P\x91P\x81a\nxW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\no\x90a\x16\x97V[`@Q\x80\x91\x03\x90\xFD[` \x81Q\x14a\n\xBCW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\n\xB3\x90a\x16\xFFV[`@Q\x80\x91\x03\x90\xFD[_\x81\x80` \x01\x90Q\x81\x01\x90a\n\xD1\x91\x90a\x17GV[\x90P\x80\x93PPPP\x90V[_\x81g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x10\x90P\x92\x91PPV[_\x7F=\xCD\xF6;A\xC1\x03V}r%\x97j\xD9\x14^\x86lz}\xCC\xC6\xC2w\xEA\x86\xAB\xBD&\x8F\xBA\xC9_\x1Cs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83`@Q` \x01a\x0BG\x91\x90a\x17\x8CV[`@Q` \x81\x83\x03\x03\x81R\x90`@R`@Qa\x0Bc\x91\x90a\x17\xEDV[_`@Q\x80\x83\x03\x81\x85Z\xFA\x91PP=\x80_\x81\x14a\x0B\x9BW`@Q\x91P`\x1F\x19`?=\x01\x16\x82\x01`@R=\x82R=_` \x84\x01>a\x0B\xA0V[``\x91P[PP\x90P\x80\x82\x90a\x0B\xE7W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x0B\xDE\x91\x90a\x18EV[`@Q\x80\x91\x03\x90\xFD[PPPPV[_\x81g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x11\x90P\x92\x91PPV[__\xFD[__\xFD[_\x81\x90P\x91\x90PV[a\x0C'\x81a\x0C\x15V[\x81\x14a\x0C1W__\xFD[PV[_\x815\x90Pa\x0CB\x81a\x0C\x1EV[\x92\x91PPV[_`\xFF\x82\x16\x90P\x91\x90PV[a\x0C]\x81a\x0CHV[\x81\x14a\x0CgW__\xFD[PV[_\x815\x90Pa\x0Cx\x81a\x0CTV[\x92\x91PPV[__`@\x83\x85\x03\x12\x15a\x0C\x94Wa\x0C\x93a\x0C\rV[[_a\x0C\xA1\x85\x82\x86\x01a\x0C4V[\x92PP` a\x0C\xB2\x85\x82\x86\x01a\x0CjV[\x91PP\x92P\x92\x90PV[_g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[a\x0C\xD8\x81a\x0C\xBCV[\x81\x14a\x0C\xE2W__\xFD[PV[_\x815\x90Pa\x0C\xF3\x81a\x0C\xCFV[\x92\x91PPV[_s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[_a\r\"\x82a\x0C\xF9V[\x90P\x91\x90PV[a\r2\x81a\r\x18V[\x81\x14a\r<W__\xFD[PV[_\x815\x90Pa\rM\x81a\r)V[\x92\x91PPV[__\xFD[__\xFD[__\xFD[__\x83`\x1F\x84\x01\x12a\rtWa\rsa\rSV[[\x825\x90Pg\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\r\x91Wa\r\x90a\rWV[[` \x83\x01\x91P\x83` \x82\x02\x83\x01\x11\x15a\r\xADWa\r\xACa\r[V[[\x92P\x92\x90PV[____``\x85\x87\x03\x12\x15a\r\xCCWa\r\xCBa\x0C\rV[[_a\r\xD9\x87\x82\x88\x01a\x0C\xE5V[\x94PP` a\r\xEA\x87\x82\x88\x01a\r?V[\x93PP`@\x85\x015g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x0E\x0BWa\x0E\na\x0C\x11V[[a\x0E\x17\x87\x82\x88\x01a\r_V[\x92P\x92PP\x92\x95\x91\x94P\x92PV[a\x0E.\x81a\x0C\x15V[\x82RPPV[_` \x82\x01\x90Pa\x0EG_\x83\x01\x84a\x0E%V[\x92\x91PPV[_\x81\x90P\x91\x90PV[a\x0E_\x81a\x0EMV[\x81\x14a\x0EiW__\xFD[PV[_\x815\x90Pa\x0Ez\x81a\x0EVV[\x92\x91PPV[__\x83`\x1F\x84\x01\x12a\x0E\x95Wa\x0E\x94a\rSV[[\x825\x90Pg\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x0E\xB2Wa\x0E\xB1a\rWV[[` \x83\x01\x91P\x83`\x01\x82\x02\x83\x01\x11\x15a\x0E\xCEWa\x0E\xCDa\r[V[[\x92P\x92\x90PV[______`\x80\x87\x89\x03\x12\x15a\x0E\xEFWa\x0E\xEEa\x0C\rV[[_a\x0E\xFC\x89\x82\x8A\x01a\x0C\xE5V[\x96PP` a\x0F\r\x89\x82\x8A\x01a\x0ElV[\x95PP`@\x87\x015g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x0F.Wa\x0F-a\x0C\x11V[[a\x0F:\x89\x82\x8A\x01a\r_V[\x94P\x94PP``\x87\x015g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x0F]Wa\x0F\\a\x0C\x11V[[a\x0Fi\x89\x82\x8A\x01a\x0E\x80V[\x92P\x92PP\x92\x95P\x92\x95P\x92\x95V[_` \x82\x84\x03\x12\x15a\x0F\x8DWa\x0F\x8Ca\x0C\rV[[_a\x0F\x9A\x84\x82\x85\x01a\x0C4V[\x91PP\x92\x91PPV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0_R`!`\x04R`$_\xFD[_\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x7Fsender not a voter\0\0\0\0\0\0\0\0\0\0\0\0\0\0_\x82\x01RPV[_a\x10\x14`\x12\x83a\x0F\xD0V[\x91Pa\x10\x1F\x82a\x0F\xE0V[` \x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x10A\x81a\x10\x08V[\x90P\x91\x90PV[\x7Falready voted\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0_\x82\x01RPV[_a\x10|`\r\x83a\x0F\xD0V[\x91Pa\x10\x87\x82a\x10HV[` \x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x10\xA9\x81a\x10pV[\x90P\x91\x90PV[a\x10\xB9\x81a\x0CHV[\x82RPPV[_`@\x82\x01\x90Pa\x10\xD2_\x83\x01\x85a\x0E%V[a\x10\xDF` \x83\x01\x84a\x10\xB0V[\x93\x92PPPV[_` \x82\x01\x90Pa\x10\xF9_\x83\x01\x84a\x10\xB0V[\x92\x91PPV[_\x81\x90P\x92\x91PPV[_\x81\x90P\x91\x90PV[a\x11\x1B\x81a\r\x18V[\x82RPPV[_a\x11,\x83\x83a\x11\x12V[` \x83\x01\x90P\x92\x91PPV[_a\x11F` \x84\x01\x84a\r?V[\x90P\x92\x91PPV[_` \x82\x01\x90P\x91\x90PV[_a\x11e\x83\x85a\x10\xFFV[\x93Pa\x11p\x82a\x11\tV[\x80_[\x85\x81\x10\x15a\x11\xA8Wa\x11\x85\x82\x84a\x118V[a\x11\x8F\x88\x82a\x11!V[\x97Pa\x11\x9A\x83a\x11NV[\x92PP`\x01\x81\x01\x90Pa\x11sV[P\x85\x92PPP\x93\x92PPPV[_a\x11\xC1\x82\x84\x86a\x11ZV[\x91P\x81\x90P\x93\x92PPPV[_\x81\x90P\x91\x90PV[_a\x11\xF0a\x11\xEBa\x11\xE6\x84a\x0C\xBCV[a\x11\xCDV[a\x0C\xBCV[\x90P\x91\x90PV[a\x12\0\x81a\x11\xD6V[\x82RPPV[a\x12\x0F\x81a\r\x18V[\x82RPPV[_``\x82\x01\x90Pa\x12(_\x83\x01\x86a\x11\xF7V[a\x125` \x83\x01\x85a\x12\x06V[a\x12B`@\x83\x01\x84a\x0E%V[\x94\x93PPPPV[\x7FThreshold should not be 0\0\0\0\0\0\0\0_\x82\x01RPV[_a\x12~`\x19\x83a\x0F\xD0V[\x91Pa\x12\x89\x82a\x12JV[` \x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x12\xAB\x81a\x12rV[\x90P\x91\x90PV[\x7FThere must be at least one voter_\x82\x01RPV[_a\x12\xE6` \x83a\x0F\xD0V[\x91Pa\x12\xF1\x82a\x12\xB2V[` \x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x13\x13\x81a\x12\xDAV[\x90P\x91\x90PV[\x7Fproposal already exists\0\0\0\0\0\0\0\0\0_\x82\x01RPV[_a\x13N`\x17\x83a\x0F\xD0V[\x91Pa\x13Y\x82a\x13\x1AV[` \x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x13{\x81a\x13BV[\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0_R`2`\x04R`$_\xFD[_` \x82\x84\x03\x12\x15a\x13\xC4Wa\x13\xC3a\x0C\rV[[_a\x13\xD1\x84\x82\x85\x01a\r?V[\x91PP\x92\x91PPV[_\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x82\x81\x837_\x83\x83\x01RPPPV[_`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[_a\x14\x13\x83\x85a\x13\xDAV[\x93Pa\x14 \x83\x85\x84a\x13\xEAV[a\x14)\x83a\x13\xF8V[\x84\x01\x90P\x93\x92PPPV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x14M\x81\x84\x86a\x14\x08V[\x90P\x93\x92PPPV[\x7FProposal already executed\0\0\0\0\0\0\0_\x82\x01RPV[_a\x14\x8A`\x19\x83a\x0F\xD0V[\x91Pa\x14\x95\x82a\x14VV[` \x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x14\xB7\x81a\x14~V[\x90P\x91\x90PV[_\x81\x90P\x91\x90PV[_a\x14\xE1a\x14\xDCa\x14\xD7\x84a\x14\xBEV[a\x11\xCDV[a\x0CHV[\x90P\x91\x90PV[a\x14\xF1\x81a\x14\xC7V[\x82RPPV[_`@\x82\x01\x90Pa\x15\n_\x83\x01\x85a\x0E%V[a\x15\x17` \x83\x01\x84a\x14\xE8V[\x93\x92PPPV[\x7FCannot access OwnedCounter owned_\x82\x01R\x7F by another address\0\0\0\0\0\0\0\0\0\0\0\0\0` \x82\x01RPV[_a\x15x`3\x83a\x0F\xD0V[\x91Pa\x15\x83\x82a\x15\x1EV[`@\x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x15\xA5\x81a\x15lV[\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0_R`\x11`\x04R`$_\xFD[_a\x15\xE3\x82a\x0EMV[\x91Pa\x15\xEE\x83a\x0EMV[\x92P\x82\x82\x01\x90P\x80\x82\x11\x15a\x16\x06Wa\x16\x05a\x15\xACV[[\x92\x91PPV[_\x81\x90P\x92\x91PPV[PV[_a\x16$_\x83a\x16\x0CV[\x91Pa\x16/\x82a\x16\x16V[_\x82\x01\x90P\x91\x90PV[_a\x16C\x82a\x16\x19V[\x91P\x81\x90P\x91\x90PV[\x7FPrecompile call failed\0\0\0\0\0\0\0\0\0\0_\x82\x01RPV[_a\x16\x81`\x16\x83a\x0F\xD0V[\x91Pa\x16\x8C\x82a\x16MV[` \x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x16\xAE\x81a\x16uV[\x90P\x91\x90PV[\x7FInvalid output length\0\0\0\0\0\0\0\0\0\0\0_\x82\x01RPV[_a\x16\xE9`\x15\x83a\x0F\xD0V[\x91Pa\x16\xF4\x82a\x16\xB5V[` \x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x17\x16\x81a\x16\xDDV[\x90P\x91\x90PV[a\x17&\x81a\x0C\xBCV[\x81\x14a\x170W__\xFD[PV[_\x81Q\x90Pa\x17A\x81a\x17\x1DV[\x92\x91PPV[_` \x82\x84\x03\x12\x15a\x17\\Wa\x17[a\x0C\rV[[_a\x17i\x84\x82\x85\x01a\x173V[\x91PP\x92\x91PPV[_\x81\x15\x15\x90P\x91\x90PV[a\x17\x86\x81a\x17rV[\x82RPPV[_` \x82\x01\x90Pa\x17\x9F_\x83\x01\x84a\x17}V[\x92\x91PPV[_\x81Q\x90P\x91\x90PV[\x82\x81\x83^_\x83\x83\x01RPPPV[_a\x17\xC7\x82a\x17\xA5V[a\x17\xD1\x81\x85a\x16\x0CV[\x93Pa\x17\xE1\x81\x85` \x86\x01a\x17\xAFV[\x80\x84\x01\x91PP\x92\x91PPV[_a\x17\xF8\x82\x84a\x17\xBDV[\x91P\x81\x90P\x92\x91PPV[_\x81Q\x90P\x91\x90PV[_a\x18\x17\x82a\x18\x03V[a\x18!\x81\x85a\x0F\xD0V[\x93Pa\x181\x81\x85` \x86\x01a\x17\xAFV[a\x18:\x81a\x13\xF8V[\x84\x01\x91PP\x92\x91PPV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x18]\x81\x84a\x18\rV[\x90P\x92\x91PPV\xFEProposal deadline has not passed yetProposal deadline has passed or proposal does not exist",
     );
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `ProposalCreated(bytes32,uint64,bytes)` and selector `0xdd1d43a415e6cf502dcd7b333d320f416829c0f6a43aa9e32d81cd9a3a7147e6`.
-```solidity
-event ProposalCreated(bytes32 indexed proposalId, Time.Timestamp indexed deadline, bytes data);
-```*/
+    ```solidity
+    event ProposalCreated(bytes32 indexed proposalId, Time.Timestamp indexed deadline, bytes data);
+    ```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -519,20 +503,19 @@ event ProposalCreated(bytes32 indexed proposalId, Time.Timestamp indexed deadlin
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for ProposalCreated {
             type DataTuple<'a> = (alloy::sol_types::sol_data::Bytes,);
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 Time::Timestamp,
             );
             const SIGNATURE: &'static str = "ProposalCreated(bytes32,uint64,bytes)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                221u8, 29u8, 67u8, 164u8, 21u8, 230u8, 207u8, 80u8, 45u8, 205u8, 123u8,
-                51u8, 61u8, 50u8, 15u8, 65u8, 104u8, 41u8, 192u8, 246u8, 164u8, 58u8,
-                169u8, 227u8, 45u8, 129u8, 205u8, 154u8, 58u8, 113u8, 71u8, 230u8,
-            ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
+                alloy_sol_types::private::B256::new([
+                    221u8, 29u8, 67u8, 164u8, 21u8, 230u8, 207u8, 80u8, 45u8, 205u8, 123u8, 51u8,
+                    61u8, 50u8, 15u8, 65u8, 104u8, 41u8, 192u8, 246u8, 164u8, 58u8, 169u8, 227u8,
+                    45u8, 129u8, 205u8, 154u8, 58u8, 113u8, 71u8, 230u8,
+                ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -551,13 +534,11 @@ event ProposalCreated(bytes32 indexed proposalId, Time.Timestamp indexed deadlin
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
+                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
+                        Self::SIGNATURE,
+                        topics.0,
+                        Self::SIGNATURE_HASH,
+                    ));
                 }
                 Ok(())
             }
@@ -585,15 +566,12 @@ event ProposalCreated(bytes32 indexed proposalId, Time.Timestamp indexed deadlin
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
+                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
                 out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.proposalId);
-                out[2usize] = <Time::Timestamp as alloy_sol_types::EventTopic>::encode_topic(
-                    &self.deadline,
-                );
+                out[2usize] =
+                    <Time::Timestamp as alloy_sol_types::EventTopic>::encode_topic(&self.deadline);
                 Ok(())
             }
         }
@@ -614,12 +592,11 @@ event ProposalCreated(bytes32 indexed proposalId, Time.Timestamp indexed deadlin
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `ProposalExecuted(bytes32)` and selector `0x7b1bcf1ccf901a11589afff5504d59fd0a53780eed2a952adade0348985139e0`.
-```solidity
-event ProposalExecuted(bytes32 indexed proposalId);
-```*/
+    ```solidity
+    event ProposalExecuted(bytes32 indexed proposalId);
+    ```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -642,19 +619,18 @@ event ProposalExecuted(bytes32 indexed proposalId);
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for ProposalExecuted {
             type DataTuple<'a> = ();
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
             const SIGNATURE: &'static str = "ProposalExecuted(bytes32)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                123u8, 27u8, 207u8, 28u8, 207u8, 144u8, 26u8, 17u8, 88u8, 154u8, 255u8,
-                245u8, 80u8, 77u8, 89u8, 253u8, 10u8, 83u8, 120u8, 14u8, 237u8, 42u8,
-                149u8, 42u8, 218u8, 222u8, 3u8, 72u8, 152u8, 81u8, 57u8, 224u8,
-            ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
+                alloy_sol_types::private::B256::new([
+                    123u8, 27u8, 207u8, 28u8, 207u8, 144u8, 26u8, 17u8, 88u8, 154u8, 255u8, 245u8,
+                    80u8, 77u8, 89u8, 253u8, 10u8, 83u8, 120u8, 14u8, 237u8, 42u8, 149u8, 42u8,
+                    218u8, 222u8, 3u8, 72u8, 152u8, 81u8, 57u8, 224u8,
+                ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -662,20 +638,20 @@ event ProposalExecuted(bytes32 indexed proposalId);
                 topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
                 data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
             ) -> Self {
-                Self { proposalId: topics.1 }
+                Self {
+                    proposalId: topics.1,
+                }
             }
             #[inline]
             fn check_signature(
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
+                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
+                        Self::SIGNATURE,
+                        topics.0,
+                        Self::SIGNATURE_HASH,
+                    ));
                 }
                 Ok(())
             }
@@ -695,9 +671,7 @@ event ProposalExecuted(bytes32 indexed proposalId);
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
+                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
                 out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.proposalId);
@@ -721,12 +695,11 @@ event ProposalExecuted(bytes32 indexed proposalId);
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `VoteCast(bytes32,address,uint8)` and selector `0xd8a95ca05e9a2656fe21d836329d9cd77830e7fef7acb7c0fd3bf5421ea7ad9a`.
-```solidity
-event VoteCast(bytes32 indexed proposalId, address indexed voter, uint8 choice);
-```*/
+    ```solidity
+    event VoteCast(bytes32 indexed proposalId, address indexed voter, uint8 choice);
+    ```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -753,20 +726,19 @@ event VoteCast(bytes32 indexed proposalId, address indexed voter, uint8 choice);
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for VoteCast {
             type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<8>,);
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
             );
             const SIGNATURE: &'static str = "VoteCast(bytes32,address,uint8)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                216u8, 169u8, 92u8, 160u8, 94u8, 154u8, 38u8, 86u8, 254u8, 33u8, 216u8,
-                54u8, 50u8, 157u8, 156u8, 215u8, 120u8, 48u8, 231u8, 254u8, 247u8, 172u8,
-                183u8, 192u8, 253u8, 59u8, 245u8, 66u8, 30u8, 167u8, 173u8, 154u8,
-            ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
+                alloy_sol_types::private::B256::new([
+                    216u8, 169u8, 92u8, 160u8, 94u8, 154u8, 38u8, 86u8, 254u8, 33u8, 216u8, 54u8,
+                    50u8, 157u8, 156u8, 215u8, 120u8, 48u8, 231u8, 254u8, 247u8, 172u8, 183u8,
+                    192u8, 253u8, 59u8, 245u8, 66u8, 30u8, 167u8, 173u8, 154u8,
+                ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -785,22 +757,20 @@ event VoteCast(bytes32 indexed proposalId, address indexed voter, uint8 choice);
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
+                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
+                        Self::SIGNATURE,
+                        topics.0,
+                        Self::SIGNATURE_HASH,
+                    ));
                 }
                 Ok(())
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        8,
-                    > as alloy_sol_types::SolType>::tokenize(&self.choice),
+                    <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::tokenize(
+                        &self.choice,
+                    ),
                 )
             }
             #[inline]
@@ -819,9 +789,7 @@ event VoteCast(bytes32 indexed proposalId, address indexed voter, uint8 choice);
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
+                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
                 out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.proposalId);
@@ -848,12 +816,11 @@ event VoteCast(bytes32 indexed proposalId, address indexed voter, uint8 choice);
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `castVote(bytes32,uint8)` and selector `0xb4b0713e`.
-```solidity
-function castVote(bytes32 proposalId, uint8 choice) external;
-```*/
+    ```solidity
+    function castVote(bytes32 proposalId, uint8 choice) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct castVoteCall {
@@ -881,15 +848,10 @@ function castVote(bytes32 proposalId, uint8 choice) external;
                 alloy::sol_types::sol_data::Uint<8>,
             );
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::FixedBytes<32>,
-                u8,
-            );
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>, u8);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -921,9 +883,7 @@ function castVote(bytes32 proposalId, uint8 choice) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -946,9 +906,7 @@ function castVote(bytes32 proposalId, uint8 choice) external;
             }
         }
         impl castVoteReturn {
-            fn _tokenize(
-                &self,
-            ) -> <castVoteCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(&self) -> <castVoteCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
@@ -958,14 +916,10 @@ function castVote(bytes32 proposalId, uint8 choice) external;
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<8>,
             );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = castVoteReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "castVote(bytes32,uint8)";
             const SELECTOR: [u8; 4] = [180u8, 176u8, 113u8, 62u8];
             #[inline]
@@ -991,28 +945,23 @@ function castVote(bytes32 proposalId, uint8 choice) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `createProposal(uint64,uint256,address[],bytes)` and selector `0xcf75ee2a`.
-```solidity
-function createProposal(Time.Timestamp deadline, uint256 threshold, address[] memory voters, bytes memory data) external returns (bytes32 proposalId);
-```*/
+    ```solidity
+    function createProposal(Time.Timestamp deadline, uint256 threshold, address[] memory voters, bytes memory data) external returns (bytes32 proposalId);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct createProposalCall {
@@ -1025,8 +974,7 @@ function createProposal(Time.Timestamp deadline, uint256 threshold, address[] me
         #[allow(missing_docs)]
         pub data: alloy::sol_types::private::Bytes,
     }
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`createProposal(uint64,uint256,address[],bytes)`](createProposalCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1059,9 +1007,7 @@ function createProposal(Time.Timestamp deadline, uint256 threshold, address[] me
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1095,9 +1041,7 @@ function createProposal(Time.Timestamp deadline, uint256 threshold, address[] me
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1106,18 +1050,18 @@ function createProposal(Time.Timestamp deadline, uint256 threshold, address[] me
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<createProposalReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<createProposalReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: createProposalReturn) -> Self {
                     (value.proposalId,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for createProposalReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for createProposalReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { proposalId: tuple.0 }
+                    Self {
+                        proposalId: tuple.0,
+                    }
                 }
             }
         }
@@ -1129,14 +1073,10 @@ function createProposal(Time.Timestamp deadline, uint256 threshold, address[] me
                 alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
                 alloy::sol_types::sol_data::Bytes,
             );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::FixedBytes<32>;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "createProposal(uint64,uint256,address[],bytes)";
             const SELECTOR: [u8; 4] = [207u8, 117u8, 238u8, 42u8];
             #[inline]
@@ -1172,34 +1112,30 @@ function createProposal(Time.Timestamp deadline, uint256 threshold, address[] me
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: createProposalReturn = r.into();
                         r.proposalId
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: createProposalReturn = r.into();
-                        r.proposalId
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: createProposalReturn = r.into();
+                    r.proposalId
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `execute(bytes32)` and selector `0xe751f271`.
-```solidity
-function execute(bytes32 proposalId) external;
-```*/
+    ```solidity
+    function execute(bytes32 proposalId) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct executeCall {
@@ -1225,9 +1161,7 @@ function execute(bytes32 proposalId) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1245,7 +1179,9 @@ function execute(bytes32 proposalId) external;
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for executeCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { proposalId: tuple.0 }
+                    Self {
+                        proposalId: tuple.0,
+                    }
                 }
             }
         }
@@ -1256,9 +1192,7 @@ function execute(bytes32 proposalId) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1281,23 +1215,17 @@ function execute(bytes32 proposalId) external;
             }
         }
         impl executeReturn {
-            fn _tokenize(
-                &self,
-            ) -> <executeCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(&self) -> <executeCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for executeCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = executeReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "execute(bytes32)";
             const SELECTOR: [u8; 4] = [231u8, 81u8, 242u8, 113u8];
             #[inline]
@@ -1320,28 +1248,23 @@ function execute(bytes32 proposalId) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getProposalId(uint64,address,address[])` and selector `0xb829966f`.
-```solidity
-function getProposalId(Time.Timestamp deadline, address proposer, address[] memory voters) external pure returns (bytes32 proposalId);
-```*/
+    ```solidity
+    function getProposalId(Time.Timestamp deadline, address proposer, address[] memory voters) external pure returns (bytes32 proposalId);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct getProposalIdCall {
@@ -1352,8 +1275,7 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
         #[allow(missing_docs)]
         pub voters: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
     }
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`getProposalId(uint64,address,address[])`](getProposalIdCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1384,9 +1306,7 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1419,9 +1339,7 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1439,7 +1357,9 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for getProposalIdReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { proposalId: tuple.0 }
+                    Self {
+                        proposalId: tuple.0,
+                    }
                 }
             }
         }
@@ -1450,14 +1370,10 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
             );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::FixedBytes<32>;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "getProposalId(uint64,address,address[])";
             const SELECTOR: [u8; 4] = [184u8, 41u8, 150u8, 111u8];
             #[inline]
@@ -1490,31 +1406,27 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: getProposalIdReturn = r.into();
                         r.proposalId
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: getProposalIdReturn = r.into();
-                        r.proposalId
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: getProposalIdReturn = r.into();
+                    r.proposalId
+                })
             }
         }
     };
     ///Container for all the [`Voting`](self) function calls.
     #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive()]
     pub enum VotingCalls {
         #[allow(missing_docs)]
         castVote(castVoteCall),
@@ -1553,9 +1465,7 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
                     <createProposalCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::execute(_) => <executeCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::getProposalId(_) => {
-                    <getProposalIdCall as alloy_sol_types::SolCall>::SELECTOR
-                }
+                Self::getProposalId(_) => <getProposalIdCall as alloy_sol_types::SolCall>::SELECTOR,
             }
         }
         #[inline]
@@ -1568,10 +1478,7 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
         }
         #[inline]
         #[allow(non_snake_case)]
-        fn abi_decode_raw(
-            selector: [u8; 4],
-            data: &[u8],
-        ) -> alloy_sol_types::Result<Self> {
+        fn abi_decode_raw(selector: [u8; 4], data: &[u8]) -> alloy_sol_types::Result<Self> {
             static DECODE_SHIMS: &[fn(&[u8]) -> alloy_sol_types::Result<VotingCalls>] = &[
                 {
                     fn castVote(data: &[u8]) -> alloy_sol_types::Result<VotingCalls> {
@@ -1581,23 +1488,15 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
                     castVote
                 },
                 {
-                    fn getProposalId(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<VotingCalls> {
-                        <getProposalIdCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn getProposalId(data: &[u8]) -> alloy_sol_types::Result<VotingCalls> {
+                        <getProposalIdCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(VotingCalls::getProposalId)
                     }
                     getProposalId
                 },
                 {
-                    fn createProposal(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<VotingCalls> {
-                        <createProposalCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn createProposal(data: &[u8]) -> alloy_sol_types::Result<VotingCalls> {
+                        <createProposalCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(VotingCalls::createProposal)
                     }
                     createProposal
@@ -1611,12 +1510,10 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(
-                    alloy_sol_types::Error::unknown_selector(
-                        <Self as alloy_sol_types::SolInterface>::NAME,
-                        selector,
-                    ),
-                );
+                return Err(alloy_sol_types::Error::unknown_selector(
+                    <Self as alloy_sol_types::SolInterface>::NAME,
+                    selector,
+                ));
             };
             DECODE_SHIMS[idx](data)
         }
@@ -1626,57 +1523,45 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
             selector: [u8; 4],
             data: &[u8],
         ) -> alloy_sol_types::Result<Self> {
-            static DECODE_VALIDATE_SHIMS: &[fn(
-                &[u8],
-            ) -> alloy_sol_types::Result<VotingCalls>] = &[
+            static DECODE_VALIDATE_SHIMS: &[fn(&[u8]) -> alloy_sol_types::Result<VotingCalls>] = &[
                 {
                     fn castVote(data: &[u8]) -> alloy_sol_types::Result<VotingCalls> {
-                        <castVoteCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
+                        <castVoteCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
                             .map(VotingCalls::castVote)
                     }
                     castVote
                 },
                 {
-                    fn getProposalId(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<VotingCalls> {
+                    fn getProposalId(data: &[u8]) -> alloy_sol_types::Result<VotingCalls> {
                         <getProposalIdCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(VotingCalls::getProposalId)
+                            data,
+                        )
+                        .map(VotingCalls::getProposalId)
                     }
                     getProposalId
                 },
                 {
-                    fn createProposal(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<VotingCalls> {
+                    fn createProposal(data: &[u8]) -> alloy_sol_types::Result<VotingCalls> {
                         <createProposalCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(VotingCalls::createProposal)
+                            data,
+                        )
+                        .map(VotingCalls::createProposal)
                     }
                     createProposal
                 },
                 {
                     fn execute(data: &[u8]) -> alloy_sol_types::Result<VotingCalls> {
-                        <executeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
+                        <executeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
                             .map(VotingCalls::execute)
                     }
                     execute
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(
-                    alloy_sol_types::Error::unknown_selector(
-                        <Self as alloy_sol_types::SolInterface>::NAME,
-                        selector,
-                    ),
-                );
+                return Err(alloy_sol_types::Error::unknown_selector(
+                    <Self as alloy_sol_types::SolInterface>::NAME,
+                    selector,
+                ));
             };
             DECODE_VALIDATE_SHIMS[idx](data)
         }
@@ -1687,17 +1572,13 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
                     <castVoteCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::createProposal(inner) => {
-                    <createProposalCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <createProposalCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::execute(inner) => {
                     <executeCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::getProposalId(inner) => {
-                    <getProposalIdCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <getProposalIdCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
             }
         }
@@ -1705,32 +1586,22 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
                 Self::castVote(inner) => {
-                    <castVoteCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <castVoteCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::createProposal(inner) => {
-                    <createProposalCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <createProposalCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::execute(inner) => {
                     <executeCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::getProposalId(inner) => {
-                    <getProposalIdCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <getProposalIdCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
             }
         }
     }
     ///Container for all the [`Voting`](self) events.
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq, Hash)]
     pub enum VotingEvents {
         #[allow(missing_docs)]
         ProposalCreated(ProposalCreated),
@@ -1749,19 +1620,19 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                123u8, 27u8, 207u8, 28u8, 207u8, 144u8, 26u8, 17u8, 88u8, 154u8, 255u8,
-                245u8, 80u8, 77u8, 89u8, 253u8, 10u8, 83u8, 120u8, 14u8, 237u8, 42u8,
-                149u8, 42u8, 218u8, 222u8, 3u8, 72u8, 152u8, 81u8, 57u8, 224u8,
+                123u8, 27u8, 207u8, 28u8, 207u8, 144u8, 26u8, 17u8, 88u8, 154u8, 255u8, 245u8,
+                80u8, 77u8, 89u8, 253u8, 10u8, 83u8, 120u8, 14u8, 237u8, 42u8, 149u8, 42u8, 218u8,
+                222u8, 3u8, 72u8, 152u8, 81u8, 57u8, 224u8,
             ],
             [
-                216u8, 169u8, 92u8, 160u8, 94u8, 154u8, 38u8, 86u8, 254u8, 33u8, 216u8,
-                54u8, 50u8, 157u8, 156u8, 215u8, 120u8, 48u8, 231u8, 254u8, 247u8, 172u8,
-                183u8, 192u8, 253u8, 59u8, 245u8, 66u8, 30u8, 167u8, 173u8, 154u8,
+                216u8, 169u8, 92u8, 160u8, 94u8, 154u8, 38u8, 86u8, 254u8, 33u8, 216u8, 54u8, 50u8,
+                157u8, 156u8, 215u8, 120u8, 48u8, 231u8, 254u8, 247u8, 172u8, 183u8, 192u8, 253u8,
+                59u8, 245u8, 66u8, 30u8, 167u8, 173u8, 154u8,
             ],
             [
-                221u8, 29u8, 67u8, 164u8, 21u8, 230u8, 207u8, 80u8, 45u8, 205u8, 123u8,
-                51u8, 61u8, 50u8, 15u8, 65u8, 104u8, 41u8, 192u8, 246u8, 164u8, 58u8,
-                169u8, 227u8, 45u8, 129u8, 205u8, 154u8, 58u8, 113u8, 71u8, 230u8,
+                221u8, 29u8, 67u8, 164u8, 21u8, 230u8, 207u8, 80u8, 45u8, 205u8, 123u8, 51u8, 61u8,
+                50u8, 15u8, 65u8, 104u8, 41u8, 192u8, 246u8, 164u8, 58u8, 169u8, 227u8, 45u8,
+                129u8, 205u8, 154u8, 58u8, 113u8, 71u8, 230u8,
             ],
         ];
     }
@@ -1775,34 +1646,26 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
         ) -> alloy_sol_types::Result<Self> {
             match topics.first().copied() {
                 Some(<ProposalCreated as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <ProposalCreated as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                        )
+                    <ProposalCreated as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
                         .map(Self::ProposalCreated)
                 }
                 Some(<ProposalExecuted as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <ProposalExecuted as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                        )
+                    <ProposalExecuted as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
                         .map(Self::ProposalExecuted)
                 }
                 Some(<VoteCast as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <VoteCast as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
                         .map(Self::VoteCast)
                 }
-                _ => {
-                    alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
-                        name: <Self as alloy_sol_types::SolEventInterface>::NAME,
-                        log: alloy_sol_types::private::Box::new(
-                            alloy_sol_types::private::LogData::new_unchecked(
-                                topics.to_vec(),
-                                data.to_vec().into(),
-                            ),
+                _ => alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
+                    name: <Self as alloy_sol_types::SolEventInterface>::NAME,
+                    log: alloy_sol_types::private::Box::new(
+                        alloy_sol_types::private::LogData::new_unchecked(
+                            topics.to_vec(),
+                            data.to_vec().into(),
                         ),
-                    })
-                }
+                    ),
+                }),
             }
         }
     }
@@ -1816,9 +1679,7 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
                 Self::ProposalExecuted(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
-                Self::VoteCast(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
+                Self::VoteCast(inner) => alloy_sol_types::private::IntoLogData::to_log_data(inner),
             }
         }
         fn into_log_data(self) -> alloy_sol_types::private::LogData {
@@ -1838,53 +1699,53 @@ function getProposalId(Time.Timestamp deadline, address proposer, address[] memo
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`Voting`](self) contract instance.
 
-See the [wrapper's documentation](`VotingInstance`) for more details.*/
+    See the [wrapper's documentation](`VotingInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(address: alloy_sol_types::private::Address, provider: P) -> VotingInstance<P, N> {
+    >(
+        address: alloy_sol_types::private::Address,
+        provider: P,
+    ) -> VotingInstance<P, N> {
         VotingInstance::<P, N>::new(address, provider)
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-Returns a new instance of the contract, if the deployment was successful.
+    Returns a new instance of the contract, if the deployment was successful.
 
-For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+    For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
-    pub fn deploy<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    >(
+    pub fn deploy<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>(
         provider: P,
-    ) -> impl ::core::future::Future<
-        Output = alloy_contract::Result<VotingInstance<P, N>>,
-    > {
+    ) -> impl ::core::future::Future<Output = alloy_contract::Result<VotingInstance<P, N>>> {
         VotingInstance::<P, N>::deploy(provider)
     }
     /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-and constructor arguments, if any.
+    and constructor arguments, if any.
 
-This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+    This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+    the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     #[inline]
     pub fn deploy_builder<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(provider: P) -> alloy_contract::RawCallBuilder<P, N> {
+    >(
+        provider: P,
+    ) -> alloy_contract::RawCallBuilder<P, N> {
         VotingInstance::<P, N>::deploy_builder(provider)
     }
     /**A [`Voting`](self) instance.
 
-Contains type-safe methods for interacting with an on-chain instance of the
-[`Voting`](self) contract located at a given `address`, using a given
-provider `P`.
+    Contains type-safe methods for interacting with an on-chain instance of the
+    [`Voting`](self) contract located at a given `address`, using a given
+    provider `P`.
 
-If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-be used to deploy a new instance of the contract.
+    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+    be used to deploy a new instance of the contract.
 
-See the [module-level documentation](self) for all the available methods.*/
+    See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct VotingInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -1895,23 +1756,21 @@ See the [module-level documentation](self) for all the available methods.*/
     impl<P, N> ::core::fmt::Debug for VotingInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("VotingInstance").field(&self.address).finish()
+            f.debug_tuple("VotingInstance")
+                .field(&self.address)
+                .finish()
         }
     }
     /// Instantiation and getters/setters.
     #[automatically_derived]
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > VotingInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        VotingInstance<P, N>
+    {
         /**Creates a new wrapper around an on-chain [`Voting`](self) contract instance.
 
-See the [wrapper's documentation](`VotingInstance`) for more details.*/
+        See the [wrapper's documentation](`VotingInstance`) for more details.*/
         #[inline]
-        pub const fn new(
-            address: alloy_sol_types::private::Address,
-            provider: P,
-        ) -> Self {
+        pub const fn new(address: alloy_sol_types::private::Address, provider: P) -> Self {
             Self {
                 address,
                 provider,
@@ -1920,22 +1779,20 @@ See the [wrapper's documentation](`VotingInstance`) for more details.*/
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-Returns a new instance of the contract, if the deployment was successful.
+        Returns a new instance of the contract, if the deployment was successful.
 
-For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+        For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
         #[inline]
-        pub async fn deploy(
-            provider: P,
-        ) -> alloy_contract::Result<VotingInstance<P, N>> {
+        pub async fn deploy(provider: P) -> alloy_contract::Result<VotingInstance<P, N>> {
             let call_builder = Self::deploy_builder(provider);
             let contract_address = call_builder.deploy().await?;
             Ok(Self::new(contract_address, call_builder.provider))
         }
         /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-and constructor arguments, if any.
+        and constructor arguments, if any.
 
-This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+        This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+        the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
         pub fn deploy_builder(provider: P) -> alloy_contract::RawCallBuilder<P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
@@ -1977,10 +1834,9 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     }
     /// Function calls.
     #[automatically_derived]
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > VotingInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        VotingInstance<P, N>
+    {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -2007,14 +1863,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             voters: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
             data: alloy::sol_types::private::Bytes,
         ) -> alloy_contract::SolCallBuilder<&P, createProposalCall, N> {
-            self.call_builder(
-                &createProposalCall {
-                    deadline,
-                    threshold,
-                    voters,
-                    data,
-                },
-            )
+            self.call_builder(&createProposalCall {
+                deadline,
+                threshold,
+                voters,
+                data,
+            })
         }
         ///Creates a new call builder for the [`execute`] function.
         pub fn execute(
@@ -2030,21 +1884,18 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             proposer: alloy::sol_types::private::Address,
             voters: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
         ) -> alloy_contract::SolCallBuilder<&P, getProposalIdCall, N> {
-            self.call_builder(
-                &getProposalIdCall {
-                    deadline,
-                    proposer,
-                    voters,
-                },
-            )
+            self.call_builder(&getProposalIdCall {
+                deadline,
+                proposer,
+                voters,
+            })
         }
     }
     /// Event filters.
     #[automatically_derived]
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > VotingInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        VotingInstance<P, N>
+    {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
@@ -2055,15 +1906,11 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             alloy_contract::Event::new_sol(&self.provider, &self.address)
         }
         ///Creates a new event filter for the [`ProposalCreated`] event.
-        pub fn ProposalCreated_filter(
-            &self,
-        ) -> alloy_contract::Event<&P, ProposalCreated, N> {
+        pub fn ProposalCreated_filter(&self) -> alloy_contract::Event<&P, ProposalCreated, N> {
             self.event_filter::<ProposalCreated>()
         }
         ///Creates a new event filter for the [`ProposalExecuted`] event.
-        pub fn ProposalExecuted_filter(
-            &self,
-        ) -> alloy_contract::Event<&P, ProposalExecuted, N> {
+        pub fn ProposalExecuted_filter(&self) -> alloy_contract::Event<&P, ProposalExecuted, N> {
             self.event_filter::<ProposalExecuted>()
         }
         ///Creates a new event filter for the [`VoteCast`] event.
