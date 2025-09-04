@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {PodECDSA, ECDSA} from "pod-sdk/verifier/PodECDSA.sol";
 import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
-import {PodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
+import {PodRegistry} from "pod-protocol/PodRegistry.sol";
 import {PodAuctionConsumer} from "../contracts/PodAuctionConsumer.sol";
 import {console} from "forge-std/console.sol";
 import {Math} from "openzeppelin-contracts/utils/math/Math.sol";

@@ -1547,13 +1547,13 @@ interface PodAuctionConsumer {
 
     constructor(address _podRegistry, uint256 _bondAmount);
 
+    function BOND_AMOUNT() external view returns (uint256);
     function DISPUTE_PERIOD() external view returns (uint256);
     function LOG_TOPIC_0() external view returns (bytes32);
     function TWO_TIMES_DISPUTE_PERIOD() external view returns (uint256);
     function blameIllAnnounced(PodECDSA.CertifiedLog memory certifiedLog) external;
     function blameNoShow(PodECDSA.CertifiedLog memory certifiedLog) external;
     function bond() external payable;
-    function bondAmount() external view returns (uint256);
     function isBonded(address) external view returns (bool);
     function owner() external view returns (address);
     function podRegistry() external view returns (address);
@@ -1585,6 +1585,19 @@ interface PodAuctionConsumer {
       }
     ],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "BOND_AMOUNT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1807,19 +1820,6 @@ interface PodAuctionConsumer {
     "inputs": [],
     "outputs": [],
     "stateMutability": "payable"
-  },
-  {
-    "type": "function",
-    "name": "bondAmount",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -3606,6 +3606,151 @@ constructor(address _podRegistry, uint256 _bondAmount);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `BOND_AMOUNT()` and selector `0xbcacc70a`.
+```solidity
+function BOND_AMOUNT() external view returns (uint256);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct BOND_AMOUNTCall;
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`BOND_AMOUNT()`](BOND_AMOUNTCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct BOND_AMOUNTReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<BOND_AMOUNTCall> for UnderlyingRustTuple<'_> {
+                fn from(value: BOND_AMOUNTCall) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for BOND_AMOUNTCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<BOND_AMOUNTReturn> for UnderlyingRustTuple<'_> {
+                fn from(value: BOND_AMOUNTReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for BOND_AMOUNTReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for BOND_AMOUNTCall {
+            type Parameters<'a> = ();
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "BOND_AMOUNT()";
+            const SELECTOR: [u8; 4] = [188u8, 172u8, 199u8, 10u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: BOND_AMOUNTReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: BOND_AMOUNTReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `DISPUTE_PERIOD()` and selector `0xa5bbe22b`.
 ```solidity
 function DISPUTE_PERIOD() external view returns (uint256);
@@ -4467,151 +4612,6 @@ function bond() external payable;
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `bondAmount()` and selector `0x80f323a7`.
-```solidity
-function bondAmount() external view returns (uint256);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct bondAmountCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`bondAmount()`](bondAmountCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct bondAmountReturn {
-        #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<bondAmountCall> for UnderlyingRustTuple<'_> {
-                fn from(value: bondAmountCall) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for bondAmountCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U256,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<bondAmountReturn> for UnderlyingRustTuple<'_> {
-                fn from(value: bondAmountReturn) -> Self {
-                    (value._0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for bondAmountReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for bondAmountCall {
-            type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::primitives::aliases::U256;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "bondAmount()";
-            const SELECTOR: [u8; 4] = [128u8, 243u8, 35u8, 167u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(ret),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: bondAmountReturn = r.into();
-                        r._0
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: bondAmountReturn = r.into();
-                        r._0
-                    })
             }
         }
     };
@@ -6072,6 +6072,8 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
     #[derive()]
     pub enum PodAuctionConsumerCalls {
         #[allow(missing_docs)]
+        BOND_AMOUNT(BOND_AMOUNTCall),
+        #[allow(missing_docs)]
         DISPUTE_PERIOD(DISPUTE_PERIODCall),
         #[allow(missing_docs)]
         LOG_TOPIC_0(LOG_TOPIC_0Call),
@@ -6083,8 +6085,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         blameNoShow(blameNoShowCall),
         #[allow(missing_docs)]
         bond(bondCall),
-        #[allow(missing_docs)]
-        bondAmount(bondAmountCall),
         #[allow(missing_docs)]
         isBonded(isBondedCall),
         #[allow(missing_docs)]
@@ -6123,11 +6123,11 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
             [100u8, 201u8, 236u8, 111u8],
             [113u8, 80u8, 24u8, 166u8],
             [117u8, 8u8, 9u8, 151u8],
-            [128u8, 243u8, 35u8, 167u8],
             [141u8, 165u8, 203u8, 91u8],
             [160u8, 155u8, 128u8, 185u8],
             [165u8, 187u8, 226u8, 43u8],
             [187u8, 16u8, 169u8, 184u8],
+            [188u8, 172u8, 199u8, 10u8],
             [197u8, 220u8, 198u8, 145u8],
             [207u8, 76u8, 127u8, 145u8],
             [233u8, 117u8, 27u8, 55u8],
@@ -6142,6 +6142,9 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
+                Self::BOND_AMOUNT(_) => {
+                    <BOND_AMOUNTCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::DISPUTE_PERIOD(_) => {
                     <DISPUTE_PERIODCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -6158,9 +6161,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                     <blameNoShowCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::bond(_) => <bondCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::bondAmount(_) => {
-                    <bondAmountCall as alloy_sol_types::SolCall>::SELECTOR
-                }
                 Self::isBonded(_) => <isBondedCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::owner(_) => <ownerCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::podRegistry(_) => {
@@ -6273,17 +6273,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                     read
                 },
                 {
-                    fn bondAmount(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
-                        <bondAmountCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(PodAuctionConsumerCalls::bondAmount)
-                    }
-                    bondAmount
-                },
-                {
                     fn owner(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
@@ -6322,6 +6311,17 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                             .map(PodAuctionConsumerCalls::blameIllAnnounced)
                     }
                     blameIllAnnounced
+                },
+                {
+                    fn BOND_AMOUNT(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
+                        <BOND_AMOUNTCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(PodAuctionConsumerCalls::BOND_AMOUNT)
+                    }
+                    BOND_AMOUNT
                 },
                 {
                     fn TWO_TIMES_DISPUTE_PERIOD(
@@ -6476,17 +6476,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                     read
                 },
                 {
-                    fn bondAmount(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
-                        <bondAmountCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(PodAuctionConsumerCalls::bondAmount)
-                    }
-                    bondAmount
-                },
-                {
                     fn owner(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
@@ -6529,6 +6518,17 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                             .map(PodAuctionConsumerCalls::blameIllAnnounced)
                     }
                     blameIllAnnounced
+                },
+                {
+                    fn BOND_AMOUNT(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<PodAuctionConsumerCalls> {
+                        <BOND_AMOUNTCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(PodAuctionConsumerCalls::BOND_AMOUNT)
+                    }
+                    BOND_AMOUNT
                 },
                 {
                     fn TWO_TIMES_DISPUTE_PERIOD(
@@ -6588,6 +6588,11 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[inline]
         fn abi_encoded_size(&self) -> usize {
             match self {
+                Self::BOND_AMOUNT(inner) => {
+                    <BOND_AMOUNTCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::DISPUTE_PERIOD(inner) => {
                     <DISPUTE_PERIODCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -6615,9 +6620,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                 }
                 Self::bond(inner) => {
                     <bondCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
-                }
-                Self::bondAmount(inner) => {
-                    <bondAmountCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::isBonded(inner) => {
                     <isBondedCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
@@ -6660,6 +6662,12 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[inline]
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
+                Self::BOND_AMOUNT(inner) => {
+                    <BOND_AMOUNTCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::DISPUTE_PERIOD(inner) => {
                     <DISPUTE_PERIODCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -6692,12 +6700,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                 }
                 Self::bond(inner) => {
                     <bondCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
-                }
-                Self::bondAmount(inner) => {
-                    <bondAmountCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
                 }
                 Self::isBonded(inner) => {
                     <isBondedCall as alloy_sol_types::SolCall>::abi_encode_raw(
@@ -7179,6 +7181,12 @@ See the [wrapper's documentation](`PodAuctionConsumerInstance`) for more details
         ) -> alloy_contract::SolCallBuilder<&P, C, N> {
             alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
         }
+        ///Creates a new call builder for the [`BOND_AMOUNT`] function.
+        pub fn BOND_AMOUNT(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, BOND_AMOUNTCall, N> {
+            self.call_builder(&BOND_AMOUNTCall)
+        }
         ///Creates a new call builder for the [`DISPUTE_PERIOD`] function.
         pub fn DISPUTE_PERIOD(
             &self,
@@ -7218,12 +7226,6 @@ See the [wrapper's documentation](`PodAuctionConsumerInstance`) for more details
         ///Creates a new call builder for the [`bond`] function.
         pub fn bond(&self) -> alloy_contract::SolCallBuilder<&P, bondCall, N> {
             self.call_builder(&bondCall)
-        }
-        ///Creates a new call builder for the [`bondAmount`] function.
-        pub fn bondAmount(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<&P, bondAmountCall, N> {
-            self.call_builder(&bondAmountCall)
         }
         ///Creates a new call builder for the [`isBonded`] function.
         pub fn isBonded(

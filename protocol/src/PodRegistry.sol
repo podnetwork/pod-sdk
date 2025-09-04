@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IPodRegistry} from "../interfaces/IPodRegistry.sol";
+import {IPodRegistry} from "./interfaces/IPodRegistry.sol";
 
 /**
  * @title PodRegistry

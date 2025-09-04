@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../src/verifier/PodRegistry.sol";
-import "forge-std/console.sol";
+import {Test} from "forge-std/Test.sol";
+import {PodRegistry} from "../src/PodRegistry.sol";
+import {IPodRegistry} from "../src/interfaces/IPodRegistry.sol";
 
 contract PodRegistryTest is Test {
     PodRegistry public registry;

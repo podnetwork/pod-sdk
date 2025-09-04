@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use alloy_primitives::Uint;
+use alloy_primitives::U256;
 pub use alloy_primitives::{Log, LogData};
 use alloy_rpc_types::Log as RPCLog;
 use alloy_sol_types::SolValue;
@@ -127,11 +127,11 @@ impl VerifiableLog {
         self.pod_metadata
             .attestations
             .iter()
-            .sorted_by_key(|a| a.timestamp.as_seconds())
+            .sorted_by_key(|a| a.timestamp)
             .collect()
     }
 
-    pub fn get_sorted_attestation_timestamps(&self) -> Vec<Uint<256, 4>> {
+    pub fn get_sorted_attestation_timestamps_in_seconds(&self) -> Vec<U256> {
         self.sort_attestations_by_timestamp()
             .iter()
             .map(|a| a.timestamp.as_seconds().try_into().unwrap())

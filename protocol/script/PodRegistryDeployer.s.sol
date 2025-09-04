@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {console} from "forge-std/console.sol";
 import {BaseDeployer} from "./BaseDeployer.s.sol";
 
-import {PodRegistry} from "../src/verifier/PodRegistry.sol";
+import {PodRegistry} from "../src/PodRegistry.sol";
 
 contract PodRegistryDeployer is BaseDeployer {
     function run() public {
