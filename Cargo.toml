@@ -11,5 +11,6 @@ members = [
   "examples/nfts",
   "examples/tokens",
   "examples/bsky/plc",
+  "examples/optimism-tx-auction",
 ]
 resolver = "2"

@@ -6,7 +6,6 @@ import {MerkleTree} from "./MerkleTree.sol";
 import {IPodRegistry} from "pod-protocol/interfaces/IPodRegistry.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {console} from "forge-std/console.sol";
 
 library PodECDSA {
     struct PodConfig {
