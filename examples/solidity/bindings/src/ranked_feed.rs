@@ -123,11 +123,12 @@ pub mod RankedFeed {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"`\x80`@R4\x80\x15a\0\x0FW__\xFD[P`\x046\x10a\x004W_5`\xE0\x1C\x80c\xA1\x98\x1B\xF1\x14a\08W\x80c\xDF\xBA\xA2\xFB\x14a\0TW[__\xFD[a\0R`\x04\x806\x03\x81\x01\x90a\0M\x91\x90a\x04'V[a\0pV[\0[a\0n`\x04\x806\x03\x81\x01\x90a\0i\x91\x90a\x04\xB3V[a\x013V[\0[_a\0\x87\x823`\x01a\x023\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x14a\0\xBEW`@Q\x7F|\x9A\x1C\xF9\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01`@Q\x80\x91\x03\x90\xFD[a\0\xD6\x813`\x01\x80a\x02\xF9\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[a\0\xEC\x81`\x01_a\x03\xBF\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81\x7F\x98\xB6\xB1\x80ul\x84\x9B[\xFB\xBD+\xBD\t\x1F?\xE6K\t5\xAC\x19T\x18\xC0\xB6\x19\xB9\xB6a\xC7\x8D`@Q`@Q\x80\x91\x03\x90\xA3PV[_3\x83\x83`@Q` \x01a\x01I\x93\x92\x91\x90a\x05\xAFV[`@Q` \x81\x83\x03\x03\x81R\x90`@R\x80Q\x90` \x01 \x90P_a\x01x\x823`\x01a\x023\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x14a\x01\xAFW`@Q\x7F|\x9A\x1C\xF9\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01`@Q\x80\x91\x03\x90\xFD[a\x01\xC7\x813`\x01\x80a\x02\xF9\x90\x93\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[a\x01\xDD\x81`\x01_a\x03\xBF\x90\x92\x91\x90c\xFF\xFF\xFF\xFF\x16V[3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81\x7F\xEDno\xDF\x99\xCD^\x97\x14\\~Y\xAD\xE99#\xBE\x19yUzw\xE69\xED\x95\xA2\x03\xC7\xA8\xE8a\x85\x85`@Qa\x02&\x92\x91\x90a\x06$V[`@Q\x80\x91\x03\x90\xA3PPPV[_2s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x02\xA2W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x02\x99\x90a\x06\xC6V[`@Q\x80\x91\x03\x90\xFD[\x83_\x01_\x84\x81R` \x01\x90\x81R` \x01_ _\x83s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01_ T\x90P\x93\x92PPPV[2s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x03gW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x03^\x90a\x06\xC6V[`@Q\x80\x91\x03\x90\xFD[\x80\x84_\x01_\x85\x81R` \x01\x90\x81R` \x01_ _\x84s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81R` \x01\x90\x81R` \x01_ \x81\x90UPPPPPV[\x80\x83_\x01_\x84\x81R` \x01\x90\x81R` \x01_ _\x82\x82Ta\x03\xE0\x91\x90a\x07\x1AV[\x92PP\x81\x90UPPPPV[__\xFD[__\xFD[_\x81\x90P\x91\x90PV[a\x04\x06\x81a\x03\xF4V[\x81\x14a\x04\x10W__\xFD[PV[_\x815\x90Pa\x04!\x81a\x03\xFDV[\x92\x91PPV[_` \x82\x84\x03\x12\x15a\x04<Wa\x04;a\x03\xECV[[_a\x04I\x84\x82\x85\x01a\x04\x13V[\x91PP\x92\x91PPV[__\xFD[__\xFD[__\xFD[__\x83`\x1F\x84\x01\x12a\x04sWa\x04ra\x04RV[[\x825\x90Pg\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x04\x90Wa\x04\x8Fa\x04VV[[` \x83\x01\x91P\x83`\x01\x82\x02\x83\x01\x11\x15a\x04\xACWa\x04\xABa\x04ZV[[\x92P\x92\x90PV[__` \x83\x85\x03\x12\x15a\x04\xC9Wa\x04\xC8a\x03\xECV[[_\x83\x015g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x04\xE6Wa\x04\xE5a\x03\xF0V[[a\x04\xF2\x85\x82\x86\x01a\x04^V[\x92P\x92PP\x92P\x92\x90PV[_s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[_a\x05'\x82a\x04\xFEV[\x90P\x91\x90PV[_\x81``\x1B\x90P\x91\x90PV[_a\x05D\x82a\x05.V[\x90P\x91\x90PV[_a\x05U\x82a\x05:V[\x90P\x91\x90PV[a\x05ma\x05h\x82a\x05\x1DV[a\x05KV[\x82RPPV[_\x81\x90P\x92\x91PPV[\x82\x81\x837_\x83\x83\x01RPPPV[_a\x05\x96\x83\x85a\x05sV[\x93Pa\x05\xA3\x83\x85\x84a\x05}V[\x82\x84\x01\x90P\x93\x92PPPV[_a\x05\xBA\x82\x86a\x05\\V[`\x14\x82\x01\x91Pa\x05\xCB\x82\x84\x86a\x05\x8BV[\x91P\x81\x90P\x94\x93PPPPV[_\x82\x82R` \x82\x01\x90P\x92\x91PPV[_`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[_a\x06\x03\x83\x85a\x05\xD8V[\x93Pa\x06\x10\x83\x85\x84a\x05}V[a\x06\x19\x83a\x05\xE8V[\x84\x01\x90P\x93\x92PPPV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x06=\x81\x84\x86a\x05\xF8V[\x90P\x93\x92PPPV[_\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x7FCannot access OwnedCounter owned_\x82\x01R\x7F by another address\0\0\0\0\0\0\0\0\0\0\0\0\0` \x82\x01RPV[_a\x06\xB0`3\x83a\x06FV[\x91Pa\x06\xBB\x82a\x06VV[`@\x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x06\xDD\x81a\x06\xA4V[\x90P\x91\x90PV[_\x81\x90P\x91\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0_R`\x11`\x04R`$_\xFD[_a\x07$\x82a\x06\xE4V[\x91Pa\x07/\x83a\x06\xE4V[\x92P\x82\x82\x01\x90P\x80\x82\x11\x15a\x07GWa\x07Fa\x06\xEDV[[\x92\x91PPV",
     );
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `AlreadyVoted()` and selector `0x7c9a1cf9`.
-    ```solidity
-    error AlreadyVoted();
-    ```*/
+```solidity
+error AlreadyVoted();
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct AlreadyVoted;
@@ -145,7 +146,9 @@ pub mod RankedFeed {
         type UnderlyingRustTuple<'a> = ();
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+        fn _type_assertion(
+            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+        ) {
             match _t {
                 alloy_sol_types::private::AssertTypeEq::<
                     <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -169,7 +172,9 @@ pub mod RankedFeed {
         #[automatically_derived]
         impl alloy_sol_types::SolError for AlreadyVoted {
             type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "AlreadyVoted()";
             const SELECTOR: [u8; 4] = [124u8, 154u8, 28u8, 249u8];
             #[inline]
@@ -184,18 +189,19 @@ pub mod RankedFeed {
             }
             #[inline]
             fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Self::new)
+                <Self::Parameters<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Self::new)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `PostCreated(bytes32,address,bytes)` and selector `0xed6e6fdf99cd5e97145c7e59ade93923be1979557a77e639ed95a203c7a8e861`.
-    ```solidity
-    event PostCreated(bytes32 indexed post_id, address indexed poster, bytes post_data);
-    ```*/
+```solidity
+event PostCreated(bytes32 indexed post_id, address indexed poster, bytes post_data);
+```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -222,19 +228,20 @@ pub mod RankedFeed {
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for PostCreated {
             type DataTuple<'a> = (alloy::sol_types::sol_data::Bytes,);
-            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
             );
             const SIGNATURE: &'static str = "PostCreated(bytes32,address,bytes)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
-                alloy_sol_types::private::B256::new([
-                    237u8, 110u8, 111u8, 223u8, 153u8, 205u8, 94u8, 151u8, 20u8, 92u8, 126u8, 89u8,
-                    173u8, 233u8, 57u8, 35u8, 190u8, 25u8, 121u8, 85u8, 122u8, 119u8, 230u8, 57u8,
-                    237u8, 149u8, 162u8, 3u8, 199u8, 168u8, 232u8, 97u8,
-                ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                237u8, 110u8, 111u8, 223u8, 153u8, 205u8, 94u8, 151u8, 20u8, 92u8, 126u8,
+                89u8, 173u8, 233u8, 57u8, 35u8, 190u8, 25u8, 121u8, 85u8, 122u8, 119u8,
+                230u8, 57u8, 237u8, 149u8, 162u8, 3u8, 199u8, 168u8, 232u8, 97u8,
+            ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -253,11 +260,13 @@ pub mod RankedFeed {
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
-                        Self::SIGNATURE,
-                        topics.0,
-                        Self::SIGNATURE_HASH,
-                    ));
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
                 }
                 Ok(())
             }
@@ -271,11 +280,7 @@ pub mod RankedFeed {
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (
-                    Self::SIGNATURE_HASH.into(),
-                    self.post_id.clone(),
-                    self.poster.clone(),
-                )
+                (Self::SIGNATURE_HASH.into(), self.post_id.clone(), self.poster.clone())
             }
             #[inline]
             fn encode_topics_raw(
@@ -285,7 +290,9 @@ pub mod RankedFeed {
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
                 out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.post_id);
@@ -312,11 +319,12 @@ pub mod RankedFeed {
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `PostVoted(bytes32,address)` and selector `0x98b6b180756c849b5bfbbd2bbd091f3fe64b0935ac195418c0b619b9b661c78d`.
-    ```solidity
-    event PostVoted(bytes32 indexed post_id, address indexed voter);
-    ```*/
+```solidity
+event PostVoted(bytes32 indexed post_id, address indexed voter);
+```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -341,19 +349,20 @@ pub mod RankedFeed {
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for PostVoted {
             type DataTuple<'a> = ();
-            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
             );
             const SIGNATURE: &'static str = "PostVoted(bytes32,address)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
-                alloy_sol_types::private::B256::new([
-                    152u8, 182u8, 177u8, 128u8, 117u8, 108u8, 132u8, 155u8, 91u8, 251u8, 189u8,
-                    43u8, 189u8, 9u8, 31u8, 63u8, 230u8, 75u8, 9u8, 53u8, 172u8, 25u8, 84u8, 24u8,
-                    192u8, 182u8, 25u8, 185u8, 182u8, 97u8, 199u8, 141u8,
-                ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                152u8, 182u8, 177u8, 128u8, 117u8, 108u8, 132u8, 155u8, 91u8, 251u8,
+                189u8, 43u8, 189u8, 9u8, 31u8, 63u8, 230u8, 75u8, 9u8, 53u8, 172u8, 25u8,
+                84u8, 24u8, 192u8, 182u8, 25u8, 185u8, 182u8, 97u8, 199u8, 141u8,
+            ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -371,11 +380,13 @@ pub mod RankedFeed {
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
-                        Self::SIGNATURE,
-                        topics.0,
-                        Self::SIGNATURE_HASH,
-                    ));
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
                 }
                 Ok(())
             }
@@ -385,11 +396,7 @@ pub mod RankedFeed {
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (
-                    Self::SIGNATURE_HASH.into(),
-                    self.post_id.clone(),
-                    self.voter.clone(),
-                )
+                (Self::SIGNATURE_HASH.into(), self.post_id.clone(), self.voter.clone())
             }
             #[inline]
             fn encode_topics_raw(
@@ -399,7 +406,9 @@ pub mod RankedFeed {
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
                 out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.post_id);
@@ -426,11 +435,12 @@ pub mod RankedFeed {
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `createPost(bytes)` and selector `0xdfbaa2fb`.
-    ```solidity
-    function createPost(bytes memory post_data) external;
-    ```*/
+```solidity
+function createPost(bytes memory post_data) external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct createPostCall {
@@ -456,7 +466,9 @@ pub mod RankedFeed {
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Bytes,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -485,7 +497,9 @@ pub mod RankedFeed {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -508,17 +522,23 @@ pub mod RankedFeed {
             }
         }
         impl createPostReturn {
-            fn _tokenize(&self) -> <createPostCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(
+                &self,
+            ) -> <createPostCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for createPostCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Bytes,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = createPostReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "createPost(bytes)";
             const SELECTOR: [u8; 4] = [223u8, 186u8, 162u8, 251u8];
             #[inline]
@@ -541,23 +561,28 @@ pub mod RankedFeed {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `votePost(bytes32)` and selector `0xa1981bf1`.
-    ```solidity
-    function votePost(bytes32 post_id) external;
-    ```*/
+```solidity
+function votePost(bytes32 post_id) external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct votePostCall {
@@ -583,7 +608,9 @@ pub mod RankedFeed {
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -612,7 +639,9 @@ pub mod RankedFeed {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -635,17 +664,23 @@ pub mod RankedFeed {
             }
         }
         impl votePostReturn {
-            fn _tokenize(&self) -> <votePostCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(
+                &self,
+            ) -> <votePostCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for votePostCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = votePostReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "votePost(bytes32)";
             const SELECTOR: [u8; 4] = [161u8, 152u8, 27u8, 241u8];
             #[inline]
@@ -668,20 +703,25 @@ pub mod RankedFeed {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
     ///Container for all the [`RankedFeed`](self) function calls.
     #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
     pub enum RankedFeedCalls {
         #[allow(missing_docs)]
         createPost(createPostCall),
@@ -696,8 +736,10 @@ pub mod RankedFeed {
         /// No guarantees are made about the order of the selectors.
         ///
         /// Prefer using `SolInterface` methods instead.
-        pub const SELECTORS: &'static [[u8; 4usize]] =
-            &[[161u8, 152u8, 27u8, 241u8], [223u8, 186u8, 162u8, 251u8]];
+        pub const SELECTORS: &'static [[u8; 4usize]] = &[
+            [161u8, 152u8, 27u8, 241u8],
+            [223u8, 186u8, 162u8, 251u8],
+        ];
     }
     #[automatically_derived]
     impl alloy_sol_types::SolInterface for RankedFeedCalls {
@@ -707,7 +749,9 @@ pub mod RankedFeed {
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
-                Self::createPost(_) => <createPostCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::createPost(_) => {
+                    <createPostCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::votePost(_) => <votePostCall as alloy_sol_types::SolCall>::SELECTOR,
             }
         }
@@ -721,28 +765,41 @@ pub mod RankedFeed {
         }
         #[inline]
         #[allow(non_snake_case)]
-        fn abi_decode_raw(selector: [u8; 4], data: &[u8]) -> alloy_sol_types::Result<Self> {
-            static DECODE_SHIMS: &[fn(&[u8]) -> alloy_sol_types::Result<RankedFeedCalls>] = &[
+        fn abi_decode_raw(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<RankedFeedCalls>] = &[
                 {
-                    fn votePost(data: &[u8]) -> alloy_sol_types::Result<RankedFeedCalls> {
+                    fn votePost(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<RankedFeedCalls> {
                         <votePostCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(RankedFeedCalls::votePost)
                     }
                     votePost
                 },
                 {
-                    fn createPost(data: &[u8]) -> alloy_sol_types::Result<RankedFeedCalls> {
-                        <createPostCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                    fn createPost(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<RankedFeedCalls> {
+                        <createPostCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(RankedFeedCalls::createPost)
                     }
                     createPost
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_SHIMS[idx](data)
         }
@@ -754,28 +811,37 @@ pub mod RankedFeed {
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
-            )
-                -> alloy_sol_types::Result<RankedFeedCalls>] = &[
+            ) -> alloy_sol_types::Result<RankedFeedCalls>] = &[
                 {
-                    fn votePost(data: &[u8]) -> alloy_sol_types::Result<RankedFeedCalls> {
-                        <votePostCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn votePost(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<RankedFeedCalls> {
+                        <votePostCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(RankedFeedCalls::votePost)
                     }
                     votePost
                 },
                 {
-                    fn createPost(data: &[u8]) -> alloy_sol_types::Result<RankedFeedCalls> {
-                        <createPostCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn createPost(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<RankedFeedCalls> {
+                        <createPostCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(RankedFeedCalls::createPost)
                     }
                     createPost
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_VALIDATE_SHIMS[idx](data)
         }
@@ -794,16 +860,23 @@ pub mod RankedFeed {
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
                 Self::createPost(inner) => {
-                    <createPostCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <createPostCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::votePost(inner) => {
-                    <votePostCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <votePostCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
             }
         }
     }
     ///Container for all the [`RankedFeed`](self) custom errors.
-    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum RankedFeedErrors {
         #[allow(missing_docs)]
         AlreadyVoted(AlreadyVoted),
@@ -826,7 +899,9 @@ pub mod RankedFeed {
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
-                Self::AlreadyVoted(_) => <AlreadyVoted as alloy_sol_types::SolError>::SELECTOR,
+                Self::AlreadyVoted(_) => {
+                    <AlreadyVoted as alloy_sol_types::SolError>::SELECTOR
+                }
             }
         }
         #[inline]
@@ -839,19 +914,30 @@ pub mod RankedFeed {
         }
         #[inline]
         #[allow(non_snake_case)]
-        fn abi_decode_raw(selector: [u8; 4], data: &[u8]) -> alloy_sol_types::Result<Self> {
-            static DECODE_SHIMS: &[fn(&[u8]) -> alloy_sol_types::Result<RankedFeedErrors>] = &[{
-                fn AlreadyVoted(data: &[u8]) -> alloy_sol_types::Result<RankedFeedErrors> {
-                    <AlreadyVoted as alloy_sol_types::SolError>::abi_decode_raw(data)
-                        .map(RankedFeedErrors::AlreadyVoted)
-                }
-                AlreadyVoted
-            }];
+        fn abi_decode_raw(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<RankedFeedErrors>] = &[
+                {
+                    fn AlreadyVoted(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<RankedFeedErrors> {
+                        <AlreadyVoted as alloy_sol_types::SolError>::abi_decode_raw(data)
+                            .map(RankedFeedErrors::AlreadyVoted)
+                    }
+                    AlreadyVoted
+                },
+            ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_SHIMS[idx](data)
         }
@@ -863,19 +949,26 @@ pub mod RankedFeed {
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
-            )
-                -> alloy_sol_types::Result<RankedFeedErrors>] = &[{
-                fn AlreadyVoted(data: &[u8]) -> alloy_sol_types::Result<RankedFeedErrors> {
-                    <AlreadyVoted as alloy_sol_types::SolError>::abi_decode_raw_validate(data)
-                        .map(RankedFeedErrors::AlreadyVoted)
-                }
-                AlreadyVoted
-            }];
+            ) -> alloy_sol_types::Result<RankedFeedErrors>] = &[
+                {
+                    fn AlreadyVoted(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<RankedFeedErrors> {
+                        <AlreadyVoted as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(RankedFeedErrors::AlreadyVoted)
+                    }
+                    AlreadyVoted
+                },
+            ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_VALIDATE_SHIMS[idx](data)
         }
@@ -891,13 +984,17 @@ pub mod RankedFeed {
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
                 Self::AlreadyVoted(inner) => {
-                    <AlreadyVoted as alloy_sol_types::SolError>::abi_encode_raw(inner, out)
+                    <AlreadyVoted as alloy_sol_types::SolError>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
             }
         }
     }
     ///Container for all the [`RankedFeed`](self) events.
-    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum RankedFeedEvents {
         #[allow(missing_docs)]
         PostCreated(PostCreated),
@@ -914,14 +1011,14 @@ pub mod RankedFeed {
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                152u8, 182u8, 177u8, 128u8, 117u8, 108u8, 132u8, 155u8, 91u8, 251u8, 189u8, 43u8,
-                189u8, 9u8, 31u8, 63u8, 230u8, 75u8, 9u8, 53u8, 172u8, 25u8, 84u8, 24u8, 192u8,
-                182u8, 25u8, 185u8, 182u8, 97u8, 199u8, 141u8,
+                152u8, 182u8, 177u8, 128u8, 117u8, 108u8, 132u8, 155u8, 91u8, 251u8,
+                189u8, 43u8, 189u8, 9u8, 31u8, 63u8, 230u8, 75u8, 9u8, 53u8, 172u8, 25u8,
+                84u8, 24u8, 192u8, 182u8, 25u8, 185u8, 182u8, 97u8, 199u8, 141u8,
             ],
             [
-                237u8, 110u8, 111u8, 223u8, 153u8, 205u8, 94u8, 151u8, 20u8, 92u8, 126u8, 89u8,
-                173u8, 233u8, 57u8, 35u8, 190u8, 25u8, 121u8, 85u8, 122u8, 119u8, 230u8, 57u8,
-                237u8, 149u8, 162u8, 3u8, 199u8, 168u8, 232u8, 97u8,
+                237u8, 110u8, 111u8, 223u8, 153u8, 205u8, 94u8, 151u8, 20u8, 92u8, 126u8,
+                89u8, 173u8, 233u8, 57u8, 35u8, 190u8, 25u8, 121u8, 85u8, 122u8, 119u8,
+                230u8, 57u8, 237u8, 149u8, 162u8, 3u8, 199u8, 168u8, 232u8, 97u8,
             ],
         ];
     }
@@ -935,22 +1032,30 @@ pub mod RankedFeed {
         ) -> alloy_sol_types::Result<Self> {
             match topics.first().copied() {
                 Some(<PostCreated as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <PostCreated as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
+                    <PostCreated as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
                         .map(Self::PostCreated)
                 }
                 Some(<PostVoted as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <PostVoted as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
+                    <PostVoted as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
                         .map(Self::PostVoted)
                 }
-                _ => alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
-                    name: <Self as alloy_sol_types::SolEventInterface>::NAME,
-                    log: alloy_sol_types::private::Box::new(
-                        alloy_sol_types::private::LogData::new_unchecked(
-                            topics.to_vec(),
-                            data.to_vec().into(),
+                _ => {
+                    alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
+                        name: <Self as alloy_sol_types::SolEventInterface>::NAME,
+                        log: alloy_sol_types::private::Box::new(
+                            alloy_sol_types::private::LogData::new_unchecked(
+                                topics.to_vec(),
+                                data.to_vec().into(),
+                            ),
                         ),
-                    ),
-                }),
+                    })
+                }
             }
         }
     }
@@ -961,7 +1066,9 @@ pub mod RankedFeed {
                 Self::PostCreated(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
-                Self::PostVoted(inner) => alloy_sol_types::private::IntoLogData::to_log_data(inner),
+                Self::PostVoted(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
             }
         }
         fn into_log_data(self) -> alloy_sol_types::private::LogData {
@@ -978,7 +1085,7 @@ pub mod RankedFeed {
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`RankedFeed`](self) contract instance.
 
-    See the [wrapper's documentation](`RankedFeedInstance`) for more details.*/
+See the [wrapper's documentation](`RankedFeedInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
@@ -991,41 +1098,43 @@ pub mod RankedFeed {
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-    Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-    For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
-    pub fn deploy<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>(
-        provider: P,
-    ) -> impl ::core::future::Future<Output = alloy_contract::Result<RankedFeedInstance<P, N>>>
-    {
-        RankedFeedInstance::<P, N>::deploy(provider)
-    }
-    /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-    and constructor arguments, if any.
-
-    This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-    the bytecode concatenated with the constructor's ABI-encoded arguments.*/
-    #[inline]
-    pub fn deploy_builder<
+    pub fn deploy<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         provider: P,
-    ) -> alloy_contract::RawCallBuilder<P, N> {
+    ) -> impl ::core::future::Future<
+        Output = alloy_contract::Result<RankedFeedInstance<P, N>>,
+    > {
+        RankedFeedInstance::<P, N>::deploy(provider)
+    }
+    /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
+and constructor arguments, if any.
+
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+    #[inline]
+    pub fn deploy_builder<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    >(provider: P) -> alloy_contract::RawCallBuilder<P, N> {
         RankedFeedInstance::<P, N>::deploy_builder(provider)
     }
     /**A [`RankedFeed`](self) instance.
 
-    Contains type-safe methods for interacting with an on-chain instance of the
-    [`RankedFeed`](self) contract located at a given `address`, using a given
-    provider `P`.
+Contains type-safe methods for interacting with an on-chain instance of the
+[`RankedFeed`](self) contract located at a given `address`, using a given
+provider `P`.
 
-    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-    be used to deploy a new instance of the contract.
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
 
-    See the [module-level documentation](self) for all the available methods.*/
+See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct RankedFeedInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -1036,21 +1145,23 @@ pub mod RankedFeed {
     impl<P, N> ::core::fmt::Debug for RankedFeedInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("RankedFeedInstance")
-                .field(&self.address)
-                .finish()
+            f.debug_tuple("RankedFeedInstance").field(&self.address).finish()
         }
     }
     /// Instantiation and getters/setters.
     #[automatically_derived]
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        RankedFeedInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > RankedFeedInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`RankedFeed`](self) contract instance.
 
-        See the [wrapper's documentation](`RankedFeedInstance`) for more details.*/
+See the [wrapper's documentation](`RankedFeedInstance`) for more details.*/
         #[inline]
-        pub const fn new(address: alloy_sol_types::private::Address, provider: P) -> Self {
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            provider: P,
+        ) -> Self {
             Self {
                 address,
                 provider,
@@ -1059,20 +1170,22 @@ pub mod RankedFeed {
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-        Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-        For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
         #[inline]
-        pub async fn deploy(provider: P) -> alloy_contract::Result<RankedFeedInstance<P, N>> {
+        pub async fn deploy(
+            provider: P,
+        ) -> alloy_contract::Result<RankedFeedInstance<P, N>> {
             let call_builder = Self::deploy_builder(provider);
             let contract_address = call_builder.deploy().await?;
             Ok(Self::new(contract_address, call_builder.provider))
         }
         /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-        and constructor arguments, if any.
+and constructor arguments, if any.
 
-        This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-        the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
         pub fn deploy_builder(provider: P) -> alloy_contract::RawCallBuilder<P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
@@ -1114,9 +1227,10 @@ pub mod RankedFeed {
     }
     /// Function calls.
     #[automatically_derived]
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        RankedFeedInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > RankedFeedInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -1144,9 +1258,10 @@ pub mod RankedFeed {
     }
     /// Event filters.
     #[automatically_derived]
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        RankedFeedInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > RankedFeedInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.

@@ -16,7 +16,8 @@ library Time {
 pub mod Time {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct Timestamp(u64);
@@ -27,27 +28,34 @@ pub mod Time {
             #[inline]
             fn stv_to_tokens(
                 &self,
-            ) -> <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::Token<'_>
-            {
+            ) -> <alloy::sol_types::sol_data::Uint<
+                64,
+            > as alloy_sol_types::SolType>::Token<'_> {
                 alloy_sol_types::private::SolTypeValue::<
                     alloy::sol_types::sol_data::Uint<64>,
                 >::stv_to_tokens(self)
             }
             #[inline]
             fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
-                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(self).0
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::tokenize(self)
+                    .0
             }
             #[inline]
-            fn stv_abi_encode_packed_to(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
                 <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::SolType>::abi_encode_packed_to(self, out)
             }
             #[inline]
             fn stv_abi_packed_encoded_size(&self) -> usize {
-                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::abi_encoded_size(
-                    self,
-                )
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::abi_encoded_size(self)
             }
         }
         #[automatically_derived]
@@ -92,11 +100,13 @@ pub mod Time {
         #[automatically_derived]
         impl alloy_sol_types::SolType for Timestamp {
             type RustType = u64;
-            type Token<'a> =
-                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <alloy::sol_types::sol_data::Uint<
+                64,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SOL_NAME: &'static str = Self::NAME;
-            const ENCODED_SIZE: Option<usize> =
-                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                64,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
             const PACKED_ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
                 64,
             > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
@@ -106,15 +116,15 @@ pub mod Time {
             }
             #[inline]
             fn type_check(token: &Self::Token<'_>) -> alloy_sol_types::Result<()> {
-                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::type_check(
-                    token,
-                )
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::type_check(token)
             }
             #[inline]
             fn detokenize(token: Self::Token<'_>) -> Self::RustType {
-                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::detokenize(
-                    token,
-                )
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::detokenize(token)
             }
         }
         #[automatically_derived]
@@ -135,38 +145,37 @@ pub mod Time {
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, out)
             }
             #[inline]
-            fn encode_topic(rust: &Self::RustType) -> alloy_sol_types::abi::token::WordToken {
-                <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::EventTopic>::encode_topic(
-                    rust,
-                )
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(rust)
             }
         }
     };
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`Time`](self) contract instance.
 
-    See the [wrapper's documentation](`TimeInstance`) for more details.*/
+See the [wrapper's documentation](`TimeInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(
-        address: alloy_sol_types::private::Address,
-        provider: P,
-    ) -> TimeInstance<P, N> {
+    >(address: alloy_sol_types::private::Address, provider: P) -> TimeInstance<P, N> {
         TimeInstance::<P, N>::new(address, provider)
     }
     /**A [`Time`](self) instance.
 
-    Contains type-safe methods for interacting with an on-chain instance of the
-    [`Time`](self) contract located at a given `address`, using a given
-    provider `P`.
+Contains type-safe methods for interacting with an on-chain instance of the
+[`Time`](self) contract located at a given `address`, using a given
+provider `P`.
 
-    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-    be used to deploy a new instance of the contract.
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
 
-    See the [module-level documentation](self) for all the available methods.*/
+See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct TimeInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -182,14 +191,18 @@ pub mod Time {
     }
     /// Instantiation and getters/setters.
     #[automatically_derived]
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        TimeInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > TimeInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`Time`](self) contract instance.
 
-        See the [wrapper's documentation](`TimeInstance`) for more details.*/
+See the [wrapper's documentation](`TimeInstance`) for more details.*/
         #[inline]
-        pub const fn new(address: alloy_sol_types::private::Address, provider: P) -> Self {
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            provider: P,
+        ) -> Self {
             Self {
                 address,
                 provider,
@@ -230,9 +243,10 @@ pub mod Time {
     }
     /// Function calls.
     #[automatically_derived]
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        TimeInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > TimeInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -246,9 +260,10 @@ pub mod Time {
     }
     /// Event filters.
     #[automatically_derived]
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        TimeInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > TimeInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
@@ -373,11 +388,12 @@ pub mod Notary {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"`\x80`@R4\x80\x15a\0\x0FW__\xFD[P`\x046\x10a\x004W_5`\xE0\x1C\x80c\xB5\x87)X\x14a\08W\x80c\xE8\xD6\0\x89\x14a\0hW[__\xFD[a\0R`\x04\x806\x03\x81\x01\x90a\0M\x91\x90a\x06\x10V[a\0\x84V[`@Qa\0_\x91\x90a\x06\x87V[`@Q\x80\x91\x03\x90\xF3[a\0\x82`\x04\x806\x03\x81\x01\x90a\0}\x91\x90a\x06\xCAV[a\0\xA7V[\0[_` R\x80_R`@_ _\x91PT\x90a\x01\0\n\x90\x04g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x81V[a\0\xE6\x81`@Q\x80`@\x01`@R\x80`\x1F\x81R` \x01\x7Ftimestamp must be in the future\0\x81RPa\x02\xB7V[a\x01\x1C__\x84\x81R` \x01\x90\x81R` \x01_ _\x90T\x90a\x01\0\n\x90\x04g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\x02\xE8V[\x15a\x01\xABW\x80__\x84\x81R` \x01\x90\x81R` \x01_ _a\x01\0\n\x81T\x81g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x02\x19\x16\x90\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x02\x17\x90UP3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x82\x7F\xC8P+\x80\xF9\xA4\xED\xDB)\x94=F\xE3oh\x90U\xA2Y\xA8\xBEs{\x8E=,\x90-\xA4*n\x83\x83`@Qa\x01\x9E\x91\x90a\x06\x87V[`@Q\x80\x91\x03\x90\xA3a\x02\xB3V[_a\x01\xD9\x82__\x86\x81R` \x01\x90\x81R` \x01_ _\x90T\x90a\x01\0\n\x90\x04g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\x02\xFDV[\x90P_a\x02\x1C__\x86\x81R` \x01\x90\x81R` \x01_ _\x90T\x90a\x01\0\n\x90\x04g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\x03/\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14a\x02\xB1W\x80__\x85\x81R` \x01\x90\x81R` \x01_ _a\x01\0\n\x81T\x81g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x02\x19\x16\x90\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x02\x17\x90UP3s\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83\x7F\xC8P+\x80\xF9\xA4\xED\xDB)\x94=F\xE3oh\x90U\xA2Y\xA8\xBEs{\x8E=,\x90-\xA4*n\x83\x83`@Qa\x02\xA8\x91\x90a\x06\x87V[`@Q\x80\x91\x03\x90\xA3[P[PPV[a\x02\xE4a\x02\xDE\x83a\x02\xC6a\x03zV[g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\x04\xA8\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x82a\x04\xC8V[PPV[__\x82g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x14\x90P\x91\x90PV[_a\x03\x1B\x82\x84g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\x04\xA8\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[a\x03%W\x81a\x03'V[\x82[\x90P\x92\x91PPV[_a\x03M\x82\x84g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16a\x05\xB9\x90\x91\x90c\xFF\xFF\xFF\xFF\x16V[\x15a\x03eW\x81\x83a\x03^\x91\x90a\x075V[\x90Pa\x03tV[\x82\x82a\x03q\x91\x90a\x075V[\x90P[\x92\x91PPV[___\x7F\xBA(nM\x89\xDA\xBFK(x\xE8\x96B;\xB1#\xD9\xD5\x14>f&\x06\xFD4;gf\xD7\xBC\xF7!_\x1Cs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16`@Qa\x03\xC2\x90a\x07\x9DV[_`@Q\x80\x83\x03\x81\x85Z\xFA\x91PP=\x80_\x81\x14a\x03\xFAW`@Q\x91P`\x1F\x19`?=\x01\x16\x82\x01`@R=\x82R=_` \x84\x01>a\x03\xFFV[``\x91P[P\x91P\x91P\x81a\x04DW`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x04;\x90a\x08\x0BV[`@Q\x80\x91\x03\x90\xFD[` \x81Q\x14a\x04\x88W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x04\x7F\x90a\x08sV[`@Q\x80\x91\x03\x90\xFD[_\x81\x80` \x01\x90Q\x81\x01\x90a\x04\x9D\x91\x90a\x08\xBBV[\x90P\x80\x93PPPP\x90V[_\x81g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x10\x90P\x92\x91PPV[_\x7F=\xCD\xF6;A\xC1\x03V}r%\x97j\xD9\x14^\x86lz}\xCC\xC6\xC2w\xEA\x86\xAB\xBD&\x8F\xBA\xC9_\x1Cs\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83`@Q` \x01a\x05\x13\x91\x90a\t\0V[`@Q` \x81\x83\x03\x03\x81R\x90`@R`@Qa\x05/\x91\x90a\taV[_`@Q\x80\x83\x03\x81\x85Z\xFA\x91PP=\x80_\x81\x14a\x05gW`@Q\x91P`\x1F\x19`?=\x01\x16\x82\x01`@R=\x82R=_` \x84\x01>a\x05lV[``\x91P[PP\x90P\x80\x82\x90a\x05\xB3W`@Q\x7F\x08\xC3y\xA0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x81R`\x04\x01a\x05\xAA\x91\x90a\t\xC9V[`@Q\x80\x91\x03\x90\xFD[PPPPV[_\x81g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x83g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x16\x11\x90P\x92\x91PPV[__\xFD[_\x81\x90P\x91\x90PV[a\x05\xEF\x81a\x05\xDDV[\x81\x14a\x05\xF9W__\xFD[PV[_\x815\x90Pa\x06\n\x81a\x05\xE6V[\x92\x91PPV[_` \x82\x84\x03\x12\x15a\x06%Wa\x06$a\x05\xD9V[[_a\x062\x84\x82\x85\x01a\x05\xFCV[\x91PP\x92\x91PPV[_g\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x82\x16\x90P\x91\x90PV[_\x81\x90P\x91\x90PV[_a\x06qa\x06la\x06g\x84a\x06;V[a\x06NV[a\x06;V[\x90P\x91\x90PV[a\x06\x81\x81a\x06WV[\x82RPPV[_` \x82\x01\x90Pa\x06\x9A_\x83\x01\x84a\x06xV[\x92\x91PPV[a\x06\xA9\x81a\x06;V[\x81\x14a\x06\xB3W__\xFD[PV[_\x815\x90Pa\x06\xC4\x81a\x06\xA0V[\x92\x91PPV[__`@\x83\x85\x03\x12\x15a\x06\xE0Wa\x06\xDFa\x05\xD9V[[_a\x06\xED\x85\x82\x86\x01a\x05\xFCV[\x92PP` a\x06\xFE\x85\x82\x86\x01a\x06\xB6V[\x91PP\x92P\x92\x90PV[\x7FNH{q\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0_R`\x11`\x04R`$_\xFD[_a\x07?\x82a\x06;V[\x91Pa\x07J\x83a\x06;V[\x92P\x82\x82\x03\x90Pg\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x81\x11\x15a\x07jWa\x07ia\x07\x08V[[\x92\x91PPV[_\x81\x90P\x92\x91PPV[PV[_a\x07\x88_\x83a\x07pV[\x91Pa\x07\x93\x82a\x07zV[_\x82\x01\x90P\x91\x90PV[_a\x07\xA7\x82a\x07}V[\x91P\x81\x90P\x91\x90PV[_\x82\x82R` \x82\x01\x90P\x92\x91PPV[\x7FPrecompile call failed\0\0\0\0\0\0\0\0\0\0_\x82\x01RPV[_a\x07\xF5`\x16\x83a\x07\xB1V[\x91Pa\x08\0\x82a\x07\xC1V[` \x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x08\"\x81a\x07\xE9V[\x90P\x91\x90PV[\x7FInvalid output length\0\0\0\0\0\0\0\0\0\0\0_\x82\x01RPV[_a\x08]`\x15\x83a\x07\xB1V[\x91Pa\x08h\x82a\x08)V[` \x82\x01\x90P\x91\x90PV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\x08\x8A\x81a\x08QV[\x90P\x91\x90PV[a\x08\x9A\x81a\x06;V[\x81\x14a\x08\xA4W__\xFD[PV[_\x81Q\x90Pa\x08\xB5\x81a\x08\x91V[\x92\x91PPV[_` \x82\x84\x03\x12\x15a\x08\xD0Wa\x08\xCFa\x05\xD9V[[_a\x08\xDD\x84\x82\x85\x01a\x08\xA7V[\x91PP\x92\x91PPV[_\x81\x15\x15\x90P\x91\x90PV[a\x08\xFA\x81a\x08\xE6V[\x82RPPV[_` \x82\x01\x90Pa\t\x13_\x83\x01\x84a\x08\xF1V[\x92\x91PPV[_\x81Q\x90P\x91\x90PV[\x82\x81\x83^_\x83\x83\x01RPPPV[_a\t;\x82a\t\x19V[a\tE\x81\x85a\x07pV[\x93Pa\tU\x81\x85` \x86\x01a\t#V[\x80\x84\x01\x91PP\x92\x91PPV[_a\tl\x82\x84a\t1V[\x91P\x81\x90P\x92\x91PPV[_\x81Q\x90P\x91\x90PV[_`\x1F\x19`\x1F\x83\x01\x16\x90P\x91\x90PV[_a\t\x9B\x82a\twV[a\t\xA5\x81\x85a\x07\xB1V[\x93Pa\t\xB5\x81\x85` \x86\x01a\t#V[a\t\xBE\x81a\t\x81V[\x84\x01\x91PP\x92\x91PPV[_` \x82\x01\x90P\x81\x81\x03_\x83\x01Ra\t\xE1\x81\x84a\t\x91V[\x90P\x92\x91PPV",
     );
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `DocumentTimestamped(bytes32,address,uint64)` and selector `0xc8502b80f9a4eddb29943d46e36f689055a259a8be737b8e3d2c902da42a6e83`.
-    ```solidity
-    event DocumentTimestamped(bytes32 indexed documentHash, address indexed submitter, Time.Timestamp timestamp);
-    ```*/
+```solidity
+event DocumentTimestamped(bytes32 indexed documentHash, address indexed submitter, Time.Timestamp timestamp);
+```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -404,19 +420,20 @@ pub mod Notary {
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for DocumentTimestamped {
             type DataTuple<'a> = (Time::Timestamp,);
-            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
             );
             const SIGNATURE: &'static str = "DocumentTimestamped(bytes32,address,uint64)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
-                alloy_sol_types::private::B256::new([
-                    200u8, 80u8, 43u8, 128u8, 249u8, 164u8, 237u8, 219u8, 41u8, 148u8, 61u8, 70u8,
-                    227u8, 111u8, 104u8, 144u8, 85u8, 162u8, 89u8, 168u8, 190u8, 115u8, 123u8,
-                    142u8, 61u8, 44u8, 144u8, 45u8, 164u8, 42u8, 110u8, 131u8,
-                ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                200u8, 80u8, 43u8, 128u8, 249u8, 164u8, 237u8, 219u8, 41u8, 148u8, 61u8,
+                70u8, 227u8, 111u8, 104u8, 144u8, 85u8, 162u8, 89u8, 168u8, 190u8, 115u8,
+                123u8, 142u8, 61u8, 44u8, 144u8, 45u8, 164u8, 42u8, 110u8, 131u8,
+            ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -435,19 +452,23 @@ pub mod Notary {
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
-                        Self::SIGNATURE,
-                        topics.0,
-                        Self::SIGNATURE_HASH,
-                    ));
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
                 }
                 Ok(())
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (<Time::Timestamp as alloy_sol_types::SolType>::tokenize(
-                    &self.timestamp,
-                ),)
+                (
+                    <Time::Timestamp as alloy_sol_types::SolType>::tokenize(
+                        &self.timestamp,
+                    ),
+                )
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
@@ -465,7 +486,9 @@ pub mod Notary {
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
                 out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.documentHash);
@@ -492,11 +515,12 @@ pub mod Notary {
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `timestamp(bytes32,uint64)` and selector `0xe8d60089`.
-    ```solidity
-    function timestamp(bytes32 documentHash, Time.Timestamp ts) external;
-    ```*/
+```solidity
+function timestamp(bytes32 documentHash, Time.Timestamp ts) external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct timestampCall {
@@ -519,8 +543,10 @@ pub mod Notary {
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
-            type UnderlyingSolTuple<'a> =
-                (alloy::sol_types::sol_data::FixedBytes<32>, Time::Timestamp);
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::FixedBytes<32>,
+                Time::Timestamp,
+            );
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
                 alloy::sol_types::private::FixedBytes<32>,
@@ -528,7 +554,9 @@ pub mod Notary {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -560,7 +588,9 @@ pub mod Notary {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -583,17 +613,26 @@ pub mod Notary {
             }
         }
         impl timestampReturn {
-            fn _tokenize(&self) -> <timestampCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(
+                &self,
+            ) -> <timestampCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for timestampCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::FixedBytes<32>, Time::Timestamp);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::FixedBytes<32>,
+                Time::Timestamp,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = timestampReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "timestamp(bytes32,uint64)";
             const SELECTOR: [u8; 4] = [232u8, 214u8, 0u8, 137u8];
             #[inline]
@@ -617,27 +656,33 @@ pub mod Notary {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `timestamps(bytes32)` and selector `0xb5872958`.
-    ```solidity
-    function timestamps(bytes32) external view returns (Time.Timestamp);
-    ```*/
+```solidity
+function timestamps(bytes32) external view returns (Time.Timestamp);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct timestampsCall(pub alloy::sol_types::private::FixedBytes<32>);
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`timestamps(bytes32)`](timestampsCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -660,7 +705,9 @@ pub mod Notary {
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -686,11 +733,14 @@ pub mod Notary {
             #[doc(hidden)]
             type UnderlyingSolTuple<'a> = (Time::Timestamp,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> =
-                (<Time::Timestamp as alloy::sol_types::SolType>::RustType,);
+            type UnderlyingRustTuple<'a> = (
+                <Time::Timestamp as alloy::sol_types::SolType>::RustType,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -715,10 +765,14 @@ pub mod Notary {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for timestampsCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = <Time::Timestamp as alloy::sol_types::SolType>::RustType;
             type ReturnTuple<'a> = (Time::Timestamp,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "timestamps(bytes32)";
             const SELECTOR: [u8; 4] = [181u8, 135u8, 41u8, 88u8];
             #[inline]
@@ -741,27 +795,31 @@ pub mod Notary {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: timestampsReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: timestampsReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: timestampsReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
     ///Container for all the [`Notary`](self) function calls.
     #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
     pub enum NotaryCalls {
         #[allow(missing_docs)]
         timestamp(timestampCall),
@@ -776,8 +834,10 @@ pub mod Notary {
         /// No guarantees are made about the order of the selectors.
         ///
         /// Prefer using `SolInterface` methods instead.
-        pub const SELECTORS: &'static [[u8; 4usize]] =
-            &[[181u8, 135u8, 41u8, 88u8], [232u8, 214u8, 0u8, 137u8]];
+        pub const SELECTORS: &'static [[u8; 4usize]] = &[
+            [181u8, 135u8, 41u8, 88u8],
+            [232u8, 214u8, 0u8, 137u8],
+        ];
     }
     #[automatically_derived]
     impl alloy_sol_types::SolInterface for NotaryCalls {
@@ -787,8 +847,12 @@ pub mod Notary {
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
-                Self::timestamp(_) => <timestampCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::timestamps(_) => <timestampsCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::timestamp(_) => {
+                    <timestampCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::timestamps(_) => {
+                    <timestampsCall as alloy_sol_types::SolCall>::SELECTOR
+                }
             }
         }
         #[inline]
@@ -801,11 +865,16 @@ pub mod Notary {
         }
         #[inline]
         #[allow(non_snake_case)]
-        fn abi_decode_raw(selector: [u8; 4], data: &[u8]) -> alloy_sol_types::Result<Self> {
+        fn abi_decode_raw(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
             static DECODE_SHIMS: &[fn(&[u8]) -> alloy_sol_types::Result<NotaryCalls>] = &[
                 {
                     fn timestamps(data: &[u8]) -> alloy_sol_types::Result<NotaryCalls> {
-                        <timestampsCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                        <timestampsCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(NotaryCalls::timestamps)
                     }
                     timestamps
@@ -819,10 +888,12 @@ pub mod Notary {
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_SHIMS[idx](data)
         }
@@ -832,27 +903,35 @@ pub mod Notary {
             selector: [u8; 4],
             data: &[u8],
         ) -> alloy_sol_types::Result<Self> {
-            static DECODE_VALIDATE_SHIMS: &[fn(&[u8]) -> alloy_sol_types::Result<NotaryCalls>] = &[
+            static DECODE_VALIDATE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<NotaryCalls>] = &[
                 {
                     fn timestamps(data: &[u8]) -> alloy_sol_types::Result<NotaryCalls> {
-                        <timestampsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                        <timestampsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(NotaryCalls::timestamps)
                     }
                     timestamps
                 },
                 {
                     fn timestamp(data: &[u8]) -> alloy_sol_types::Result<NotaryCalls> {
-                        <timestampCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                        <timestampCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(NotaryCalls::timestamp)
                     }
                     timestamp
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_VALIDATE_SHIMS[idx](data)
         }
@@ -871,16 +950,23 @@ pub mod Notary {
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
                 Self::timestamp(inner) => {
-                    <timestampCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <timestampCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::timestamps(inner) => {
-                    <timestampsCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <timestampsCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
             }
         }
     }
     ///Container for all the [`Notary`](self) events.
-    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum NotaryEvents {
         #[allow(missing_docs)]
         DocumentTimestamped(DocumentTimestamped),
@@ -893,11 +979,13 @@ pub mod Notary {
         /// No guarantees are made about the order of the selectors.
         ///
         /// Prefer using `SolInterface` methods instead.
-        pub const SELECTORS: &'static [[u8; 32usize]] = &[[
-            200u8, 80u8, 43u8, 128u8, 249u8, 164u8, 237u8, 219u8, 41u8, 148u8, 61u8, 70u8, 227u8,
-            111u8, 104u8, 144u8, 85u8, 162u8, 89u8, 168u8, 190u8, 115u8, 123u8, 142u8, 61u8, 44u8,
-            144u8, 45u8, 164u8, 42u8, 110u8, 131u8,
-        ]];
+        pub const SELECTORS: &'static [[u8; 32usize]] = &[
+            [
+                200u8, 80u8, 43u8, 128u8, 249u8, 164u8, 237u8, 219u8, 41u8, 148u8, 61u8,
+                70u8, 227u8, 111u8, 104u8, 144u8, 85u8, 162u8, 89u8, 168u8, 190u8, 115u8,
+                123u8, 142u8, 61u8, 44u8, 144u8, 45u8, 164u8, 42u8, 110u8, 131u8,
+            ],
+        ];
     }
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for NotaryEvents {
@@ -908,19 +996,26 @@ pub mod Notary {
             data: &[u8],
         ) -> alloy_sol_types::Result<Self> {
             match topics.first().copied() {
-                Some(<DocumentTimestamped as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <DocumentTimestamped as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
+                Some(
+                    <DocumentTimestamped as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <DocumentTimestamped as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
                         .map(Self::DocumentTimestamped)
                 }
-                _ => alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
-                    name: <Self as alloy_sol_types::SolEventInterface>::NAME,
-                    log: alloy_sol_types::private::Box::new(
-                        alloy_sol_types::private::LogData::new_unchecked(
-                            topics.to_vec(),
-                            data.to_vec().into(),
+                _ => {
+                    alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
+                        name: <Self as alloy_sol_types::SolEventInterface>::NAME,
+                        log: alloy_sol_types::private::Box::new(
+                            alloy_sol_types::private::LogData::new_unchecked(
+                                topics.to_vec(),
+                                data.to_vec().into(),
+                            ),
                         ),
-                    ),
-                }),
+                    })
+                }
             }
         }
     }
@@ -944,53 +1039,53 @@ pub mod Notary {
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`Notary`](self) contract instance.
 
-    See the [wrapper's documentation](`NotaryInstance`) for more details.*/
+See the [wrapper's documentation](`NotaryInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(
-        address: alloy_sol_types::private::Address,
-        provider: P,
-    ) -> NotaryInstance<P, N> {
+    >(address: alloy_sol_types::private::Address, provider: P) -> NotaryInstance<P, N> {
         NotaryInstance::<P, N>::new(address, provider)
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-    Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-    For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
-    pub fn deploy<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>(
-        provider: P,
-    ) -> impl ::core::future::Future<Output = alloy_contract::Result<NotaryInstance<P, N>>> {
-        NotaryInstance::<P, N>::deploy(provider)
-    }
-    /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-    and constructor arguments, if any.
-
-    This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-    the bytecode concatenated with the constructor's ABI-encoded arguments.*/
-    #[inline]
-    pub fn deploy_builder<
+    pub fn deploy<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         provider: P,
-    ) -> alloy_contract::RawCallBuilder<P, N> {
+    ) -> impl ::core::future::Future<
+        Output = alloy_contract::Result<NotaryInstance<P, N>>,
+    > {
+        NotaryInstance::<P, N>::deploy(provider)
+    }
+    /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
+and constructor arguments, if any.
+
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+    #[inline]
+    pub fn deploy_builder<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    >(provider: P) -> alloy_contract::RawCallBuilder<P, N> {
         NotaryInstance::<P, N>::deploy_builder(provider)
     }
     /**A [`Notary`](self) instance.
 
-    Contains type-safe methods for interacting with an on-chain instance of the
-    [`Notary`](self) contract located at a given `address`, using a given
-    provider `P`.
+Contains type-safe methods for interacting with an on-chain instance of the
+[`Notary`](self) contract located at a given `address`, using a given
+provider `P`.
 
-    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-    be used to deploy a new instance of the contract.
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
 
-    See the [module-level documentation](self) for all the available methods.*/
+See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct NotaryInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -1001,21 +1096,23 @@ pub mod Notary {
     impl<P, N> ::core::fmt::Debug for NotaryInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("NotaryInstance")
-                .field(&self.address)
-                .finish()
+            f.debug_tuple("NotaryInstance").field(&self.address).finish()
         }
     }
     /// Instantiation and getters/setters.
     #[automatically_derived]
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        NotaryInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > NotaryInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`Notary`](self) contract instance.
 
-        See the [wrapper's documentation](`NotaryInstance`) for more details.*/
+See the [wrapper's documentation](`NotaryInstance`) for more details.*/
         #[inline]
-        pub const fn new(address: alloy_sol_types::private::Address, provider: P) -> Self {
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            provider: P,
+        ) -> Self {
             Self {
                 address,
                 provider,
@@ -1024,20 +1121,22 @@ pub mod Notary {
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-        Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-        For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
         #[inline]
-        pub async fn deploy(provider: P) -> alloy_contract::Result<NotaryInstance<P, N>> {
+        pub async fn deploy(
+            provider: P,
+        ) -> alloy_contract::Result<NotaryInstance<P, N>> {
             let call_builder = Self::deploy_builder(provider);
             let contract_address = call_builder.deploy().await?;
             Ok(Self::new(contract_address, call_builder.provider))
         }
         /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-        and constructor arguments, if any.
+and constructor arguments, if any.
 
-        This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-        the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
         pub fn deploy_builder(provider: P) -> alloy_contract::RawCallBuilder<P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
@@ -1079,9 +1178,10 @@ pub mod Notary {
     }
     /// Function calls.
     #[automatically_derived]
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        NotaryInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > NotaryInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -1110,9 +1210,10 @@ pub mod Notary {
     }
     /// Event filters.
     #[automatically_derived]
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        NotaryInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > NotaryInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
