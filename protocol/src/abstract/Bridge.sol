@@ -17,14 +17,6 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
  * The contract uses the Template Method design pattern (https://refactoring.guru/design-patterns/template-method)
  * where the core deposit and migrate functions are implemented here, but delegate specific token handling logic to
  * the callback functions (handleDeposit and handleMigrate) that must be implemented by concrete contracts.
- *
- * Key features:
- * - Token whitelisting and configuration with daily limits
- * - Access control with admin and pauser roles
- * - Pausable functionality for emergency stops
- * - Migration support for contract upgrades
- * - Request deduplication to prevent double-processing
- *
  */
 abstract contract Bridge is IBridge, AccessControl, Pausable {
     using SafeERC20 for IERC20;

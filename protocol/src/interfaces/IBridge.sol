@@ -7,13 +7,6 @@ pragma solidity ^0.8.20;
  * @dev This interface defines the standard contract for bridging tokens between chains.
  * It is implemented by the Bridge abstract contract and it standardizes an API
  * for the shared bridge functionality.
- *
- * The interface includes:
- * - Token deposit functionality with daily limits and validation
- * - Token configuration and whitelisting
- * - Access control for administrative operations
- * - Pausable functionality for emergency stops
- * - Migration support
  */
 interface IBridge {
     /**
