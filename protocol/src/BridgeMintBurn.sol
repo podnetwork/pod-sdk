@@ -8,6 +8,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {IERC20MintableAndBurnable} from "./interfaces/IERC20MintableAndBurnable.sol";
 import {WrappedToken} from "./WrappedToken.sol";
+import {EthGetLogsPrecompileHelperTypes} from "pod-sdk/types/EthGetLogsPrecompileHelperTypes.sol";
 
 /**
  * @title BridgeMintBurn
@@ -24,12 +25,6 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
     bytes32 constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     /**
-     * @dev The address of the external eth get logs precompile.
-     */
-    address constant ETH_EXTERNAL_ETH_GET_LOGS_PRECOMPILE =
-        address(uint160(uint256(keccak256("ETH_EXTERNAL_ETH_GET_LOGS"))));
-
-    /**
      * @dev The source chain id.
      */
     uint96 constant SOURCE_CHAIN_ID = 1;
@@ -38,56 +33,6 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
      * @dev "finalized" as bytes
      */
     bytes constant FINALIZED_BLOCK_BYTES = hex"66696e616c697a6564";
-
-    /**
-     * @dev The arguments for the external eth get logs precompile.
-     * @param fromBlock The block number to start searching from.
-     * @param toBlock The block number to stop searching at.
-     * @param addr The address to search logs for.
-     * @param blockHash The block hash to search logs for.
-     * @param topics The topics to search logs for.
-     */
-    struct EthGetLogsArgs {
-        bytes fromBlock;
-        bytes toBlock;
-        address addr;
-        bytes32 blockHash;
-        bytes32[] topics;
-    }
-
-    /**
-     * @dev The arguments for the external eth get logs precompile.
-     * @param chainId The chain id to search logs for.
-     * @param ethGetLogsArgs The arguments for the external eth get logs precompile.
-     */
-    struct ExternalEthGetLogsArgs {
-        uint256 chainId;
-        EthGetLogsArgs ethGetLogsArgs;
-    }
-
-    /**
-     * @dev The response from the external eth get logs precompile.
-     * @param addr The address of the log.
-     * @param topics The topics of the log.
-     * @param data The data of the log.
-     * @param blockNumber The block number of the log.
-     * @param transactionHash The transaction hash of the log.
-     * @param transactionIndex The transaction index of the log.
-     * @param blockHash The block hash of the log.
-     * @param logIndex The log index of the log.
-     * @param removed Whether the log was removed.
-     */
-    struct RpcLog {
-        address addr;
-        bytes32[] topics;
-        bytes data;
-        bytes blockNumber;
-        bytes32 transactionHash;
-        bytes transactionIndex;
-        bytes32 blockHash;
-        bytes logIndex;
-        bool removed;
-    }
 
     /**
      * @dev Constructor.
@@ -112,17 +57,20 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         topics[1] = bytes32(id);
         topics[2] = bytes32(uint256(uint160(token)));
 
-        (bool success, bytes memory output) = ETH_EXTERNAL_ETH_GET_LOGS_PRECOMPILE.staticcall(
+        (bool success, bytes memory output) = EthGetLogsPrecompileHelperTypes.PRECOMPILE_ADDRESS.staticcall(
             abi.encode(
-                ExternalEthGetLogsArgs(
+                EthGetLogsPrecompileHelperTypes.PrecompileArgs(
                     SOURCE_CHAIN_ID,
-                    EthGetLogsArgs(blockNumberFrom, FINALIZED_BLOCK_BYTES, address(token), bytes32(0), topics)
+                    EthGetLogsPrecompileHelperTypes.RpcArgs(
+                        blockNumberFrom, FINALIZED_BLOCK_BYTES, address(token), bytes32(0), topics
+                    )
                 )
             )
         );
         if (!success) revert PrecompileCallFailed();
 
-        RpcLog[] memory logs = abi.decode(output, (RpcLog[]));
+        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs =
+            abi.decode(output, (EthGetLogsPrecompileHelperTypes.RpcLog[]));
 
         if (logs.length == 0) revert NoDepositsFound();
         if (logs.length > 1) revert MultipleDepositsWithSameId();

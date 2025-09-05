@@ -128,6 +128,7 @@ jobs:
           forge test -vvv
         id: test
         working-directory: solidity-sdk
+      
 
   optimistic-auction:
     name: optimistic-auction 

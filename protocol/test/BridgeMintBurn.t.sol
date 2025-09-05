@@ -8,8 +8,8 @@ import {IBridge} from "../src/interfaces/IBridge.sol";
 import {Bridge} from "../src/abstract/Bridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
-import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {EthGetLogsPrecompileHelperTypes} from "pod-sdk/types/EthGetLogsPrecompileHelperTypes.sol";
 
 contract BridgeMintBurnTest is BridgeBehaviorTest {
     BridgeMintBurn private _bridge;
@@ -50,7 +50,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     function test_Claim_SingleLog_MintsToRecipient() public {
-        BridgeMintBurn.RpcLog[] memory logs = new BridgeMintBurn.RpcLog[](1);
+        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](1);
         logs[0] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
         _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
         assertEq(_token.balanceOf(recipient), 0);
@@ -69,7 +69,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     function test_Claim_RevertIfDailyLimitExhausted() public {
-        BridgeMintBurn.RpcLog[] memory logs = new BridgeMintBurn.RpcLog[](1);
+        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](1);
         logs[0] = _makeLog(0, _mirror, tokenLimits.claim + 1, recipient);
         _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
@@ -77,7 +77,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     function test_Claim_RevertIfDailyLimitExhausted_ButSucceedAfterOneDay() public {
-        BridgeMintBurn.RpcLog[] memory logs = new BridgeMintBurn.RpcLog[](1);
+        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](1);
         logs[0] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
         _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
         _bridge.claim(0, _mirror, bytes("0x1"));
@@ -91,14 +91,14 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     function test_Claim_RevertIfNoDepositsFound() public {
-        BridgeMintBurn.RpcLog[] memory logs = new BridgeMintBurn.RpcLog[](0);
+        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](0);
         _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridgeMintBurn.NoDepositsFound.selector));
         _bridge.claim(0, _mirror, bytes("0x1"));
     }
 
     function test_Claim_RevertIfMultipleDepositsFound() public {
-        BridgeMintBurn.RpcLog[] memory logs = new BridgeMintBurn.RpcLog[](2);
+        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](2);
         logs[0] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
         logs[1] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
         _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
@@ -109,7 +109,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     function test_Claim_RevertIfMirrorTokenNotFound() public {
         // Use a token not mapped in mirrorTokens
         address unknownMirror = address(0xBEEF);
-        BridgeMintBurn.RpcLog[] memory logs = new BridgeMintBurn.RpcLog[](1);
+        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](1);
         logs[0] = _makeLog(0, unknownMirror, DEPOSIT_AMOUNT, recipient);
         _mockEthGetLogs(0, bytes("0x1"), unknownMirror, logs);
 
@@ -118,7 +118,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     function test_Claim_RevertIfAlreadyProcessed() public {
-        BridgeMintBurn.RpcLog[] memory logs = new BridgeMintBurn.RpcLog[](1);
+        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](1);
         logs[0] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
         _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
         _bridge.claim(0, _mirror, bytes("0x1"));
@@ -137,7 +137,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     function test_Claim_RevertIfPrecompileCallFails() public {
-        BridgeMintBurn.ExternalEthGetLogsArgs memory args = _buildArgs(0, bytes("0x1"), _mirror);
+        EthGetLogsPrecompileHelperTypes.PrecompileArgs memory args = _buildArgs(0, bytes("0x1"), _mirror);
         podMockEthGetLogsRevert(abi.encode(args));
 
         vm.expectRevert(abi.encodeWithSelector(IBridgeMintBurn.PrecompileCallFailed.selector));
@@ -172,22 +172,25 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     function _buildArgs(uint256 id, bytes memory fromBlock, address tokenAddr)
         internal
         pure
-        returns (BridgeMintBurn.ExternalEthGetLogsArgs memory)
+        returns (EthGetLogsPrecompileHelperTypes.PrecompileArgs memory)
     {
-        BridgeMintBurn.EthGetLogsArgs memory inner = BridgeMintBurn.EthGetLogsArgs({
+        EthGetLogsPrecompileHelperTypes.RpcArgs memory inner = EthGetLogsPrecompileHelperTypes.RpcArgs({
             fromBlock: fromBlock,
             toBlock: hex"66696e616c697a6564",
             addr: tokenAddr,
             blockHash: bytes32(0),
             topics: _buildTopics(id, tokenAddr)
         });
-        return BridgeMintBurn.ExternalEthGetLogsArgs({chainId: 1, ethGetLogsArgs: inner});
+        return EthGetLogsPrecompileHelperTypes.PrecompileArgs({chainId: 1, ethGetLogsArgs: inner});
     }
 
-    function _mockEthGetLogs(uint256 id, bytes memory fromBlock, address tokenAddr, BridgeMintBurn.RpcLog[] memory logs)
-        internal
-    {
-        BridgeMintBurn.ExternalEthGetLogsArgs memory args = _buildArgs(id, fromBlock, tokenAddr);
+    function _mockEthGetLogs(
+        uint256 id,
+        bytes memory fromBlock,
+        address tokenAddr,
+        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs
+    ) internal {
+        EthGetLogsPrecompileHelperTypes.PrecompileArgs memory args = _buildArgs(id, fromBlock, tokenAddr);
         podMockEthGetLogs(abi.encode(args), abi.encode(logs));
     }
 
@@ -201,9 +204,9 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     function _makeLog(uint256 id, address tokenAddr, uint256 amount, address to)
         internal
         pure
-        returns (BridgeMintBurn.RpcLog memory)
+        returns (EthGetLogsPrecompileHelperTypes.RpcLog memory)
     {
-        return BridgeMintBurn.RpcLog({
+        return EthGetLogsPrecompileHelperTypes.RpcLog({
             addr: tokenAddr,
             topics: _buildTopics(id, tokenAddr),
             data: abi.encode(amount, to),
