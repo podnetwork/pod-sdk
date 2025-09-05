@@ -49,16 +49,17 @@ contract WrappedToken is ERC20Burnable, ERC20Pausable, AccessControl {
 
     /**
      * @dev Mints tokens to an address.
+     * @dev Will revert when paused because ERC20Pausable guards _update
      * @notice Access is restricted to the minter role.
      * @param to The address to mint tokens to.
      * @param amount The amount of tokens to mint.
      */
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
-        _mint(to, amount); // will revert when paused because ERC20Pausable guards _update
+        _mint(to, amount);
     }
 
     /**
-     * @inheritdoc ERC20Pausable
+     * @dev Pauses the contract
      * @notice Access is restricted to the pauser role.
      */
     function pause() external onlyRole(PAUSER_ROLE) {
@@ -66,7 +67,7 @@ contract WrappedToken is ERC20Burnable, ERC20Pausable, AccessControl {
     }
 
     /**
-     * @inheritdoc ERC20Pausable
+     * @dev Unpauses the contract
      * @notice Access is restricted to the admin role.
      */
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -74,7 +75,10 @@ contract WrappedToken is ERC20Burnable, ERC20Pausable, AccessControl {
     }
 
     /**
-     * @inheritdoc ERC20Pausable
+     * @dev Updates the token balance of an address.
+     * @param from The address to update the balance from.
+     * @param to The address to update the balance to.
+     * @param value The amount of tokens to update the balance by.
      */
     function _update(address from, address to, uint256 value) internal override(ERC20, ERC20Pausable) whenNotPaused {
         super._update(from, to, value);
