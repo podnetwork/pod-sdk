@@ -162,7 +162,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      * @param token The token to hash.
      * @param amount The amount of tokens to hash.
      * @param to The address to hash.
-     * @return The hash of the request used for uniquely identifying a bridging request.
+     * @return hash The hash of the request used for uniquely identifying a bridging request.
      */
     function _hashRequest(uint256 id, address token, uint256 amount, address to) internal pure returns (bytes32 hash) {
         assembly {
