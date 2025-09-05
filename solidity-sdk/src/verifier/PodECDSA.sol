@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {ECDSA} from "./ECDSA.sol";
-import {MerkleTree} from "./MerkleTree.sol";
+import {ECDSA} from "pod-sdk/verifier/ECDSA.sol";
+import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {IPodRegistry} from "pod-protocol/interfaces/IPodRegistry.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
