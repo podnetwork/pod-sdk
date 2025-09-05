@@ -3,42 +3,114 @@ pragma solidity ^0.8.20;
 
 /**
  * @title IBridge
- * @notice Interface for the Bridge contracts that allow for cross-chain communication.
+ * @notice Interface for cross-chain token bridging contracts.
+ * @dev This interface defines the standard contract for bridging tokens between chains.
+ * It is implemented by the Bridge abstract contract and it standardizes an API
+ * for the shared bridge functionality.
+ *
+ * The interface includes:
+ * - Token deposit functionality with daily limits and validation
+ * - Token configuration and whitelisting
+ * - Access control for administrative operations
+ * - Pausable functionality for emergency stops
+ * - Migration support
  */
 interface IBridge {
+    /**
+     * @dev Error thrown when attempting to perform operations on an already migrated contract.
+     */
     error ContractMigrated();
+
+    /**
+     * @dev Error thrown when the provided token amount is invalid (below minimum or exceeds limits).
+     */
     error InvalidTokenAmount();
+
+    /**
+     * @dev Error thrown when the destination address is zero or invalid.
+     */
     error InvalidToAddress();
+
+    /**
+     * @dev Error thrown when the token configuration is invalid.
+     */
     error InvalidTokenConfig();
+
+    /**
+     * @dev Error thrown when the daily deposit or claim limit for a token has been exceeded.
+     */
     error DailyLimitExhausted();
+
+    /**
+     * @dev Error thrown when attempting to process a claim for a token that has no mirror token mapping.
+     */
     error MirrorTokenNotFound();
+
+    /**
+     * @dev Error thrown when attempting to process a request that has already been processed.
+     */
     error RequestAlreadyProcessed();
 
+    /**
+     * @dev Event emitted when a deposit is made.
+     * @param id The request index.
+     * @param token The token to bridge.
+     * @param amount The amount of tokens to bridge.
+     * @param to The address to send the tokens to.
+     */
     event Deposit(uint256 indexed id, address indexed token, uint256 amount, address to);
+
+    /**
+     * @dev Event emitted when a claim is made.
+     * @param id The request index.
+     * @param mirrorToken The token on the source chain.
+     * @param token The token on the destination chain.
+     * @param amount The amount of tokens to bridge.
+     * @param to The address to send the tokens to.
+     */
     event Claim(uint256 indexed id, address indexed mirrorToken, address indexed token, uint256 amount, address to);
 
+    /**
+     * @dev Token limits.
+     * @param minAmount The minimum amount of tokens that can be deposited.
+     * @param deposit The daily deposit limit for the token.
+     * @param claim The daily claim limit for the token.
+     */
     struct TokenLimits {
-        uint256 minAmount; // The minimum amount of tokens that can be deposited.
-        uint256 deposit; // The daily deposit limit for the token.
-        uint256 claim; // The daily claim limit for the token.
+        uint256 minAmount;
+        uint256 deposit;
+        uint256 claim;
     }
 
+    /**
+     * @dev Token usage.
+     * @param consumed The amount of tokens that have been used.
+     * @param lastUpdated The timestamp when the consumed limits were last updated.
+     */
     struct TokenUsage {
-        uint256 consumed; // The amount of tokens that have been used.
-        uint256 lastUpdated; // The timestamp when the consumed limits were last updated.
+        uint256 consumed;
+        uint256 lastUpdated;
     }
 
+    /**
+     * @dev Token data.
+     * @param limits The token limits.
+     * @param deposit The token usage for deposits.
+     * @param claim The token usage for claims.
+     */
     struct TokenData {
         TokenLimits limits;
         TokenUsage deposit;
         TokenUsage claim;
     }
 
-    /// @dev Request information.
-    /// @param id ID associated with the request.
-    /// @param token Token requested.
-    /// @param amount Amount of tokens requested.
-    /// @param to Address to release the funds to.
+    /**
+     * @dev Request information.
+     * @param id The request index.
+     * @param token The token to bridge.
+     * @param amount The amount of tokens to bridge.
+     * @param to The address to send the tokens to.
+     */
     struct RequestInfo {
         uint256 id;
         address token;
@@ -46,35 +118,47 @@ interface IBridge {
         address to;
     }
 
-    /// @dev Returns the number of deposits.
+    /**
+     * @return The number of deposits.
+     */
     function depositIndex() external view returns (uint256);
 
-    /// @dev Update a token's configuration information.
-    /// @param limits The token's new configuration limits.
-    /// @notice Set maxAmount to zero to disable the token.
-    /// @notice Can only be called by the weak-admin.
+    /**
+     * @dev Update a token's configuration information.
+     * @notice Token can be disabled by setting deposit and claim limits to zero.
+     * @notice Access is restricted to the admin.
+     * @param token The token to configure.
+     * @param limits The token's new configuration limits.
+     */
     function configureToken(address token, TokenLimits calldata limits) external;
 
-    /// @dev Deposit tokens to bridge to the other side.
-    /// @param token Token being deposited.
-    /// @param amount Amount of tokens being deposited.
-    /// @param to Address to release the tokens to on the other side.
-    /// @return The ID associated to the request.
+    /**
+     * @dev Deposit tokens to bridge to the destination chain.
+     * @notice Function used to bridge tokens to the destination chain.
+     * @param token The token to bridge.
+     * @param amount The amount of tokens to bridge.
+     * @param to The address to send the tokens to on the destination chain.
+     * @return The ID (request index) associated to the request.
+     */
     function deposit(address token, uint256 amount, address to) external returns (uint256);
 
-    /// @dev Pauses the contract.
-    /// @notice The contract can be paused by all addresses
-    /// with pause role but can only be unpaused by the weak-admin.
+    /**
+     * @dev Pauses the contract.
+     * @notice Access control is restricted to the pause role.
+     */
     function pause() external;
 
-    /// @dev Unpauses the contract.
-    /// @notice The contract can be paused by all addresses
-    /// with pause role but can only be unpaused by the weak-admin.
+    /**
+     * @dev Unpauses the contract.
+     * @notice Access control is restricted to the admin.
+     */
     function unpause() external;
 
-    /// @dev Migrates the contract to a new address.
-    /// @param _newContract Address of the new contract.
-    /// @notice This function can only be called once in the lifetime of this
-    /// contract by the admin.
+    /**
+     * @dev Migrates the contract to a new address.
+     * @param _newContract Address of the new contract.
+     * @notice Access control is restricted to the admin.
+     * @notice Migration can only be done once on this contract
+     */
     function migrate(address _newContract) external;
 }

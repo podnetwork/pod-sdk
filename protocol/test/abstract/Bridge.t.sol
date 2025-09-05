@@ -196,4 +196,27 @@ abstract contract BridgeBehaviorTest is PodTest {
         assertTrue(bridge().hasRole(bridge().DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(bridge().hasRole(bridge().PAUSER_ROLE(), admin));
     }
+
+    function test_ConfigureToken_ResetsDailyLimits() public {
+        vm.prank(user);
+        bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
+        (, IBridge.TokenUsage memory dep,) = bridge().tokenData(address(token()));
+        assertEq(dep.consumed, tokenLimits.minAmount);
+        vm.prank(admin);
+        bridge().configureToken(address(token()), tokenLimits);
+        (, IBridge.TokenUsage memory dep2,) = bridge().tokenData(address(token()));
+        assertEq(dep2.consumed, 0);
+        vm.prank(user);
+        bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
+    }
+
+    function test_ConfigureToken_DisableToken() public {
+        vm.prank(user);
+        bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
+        vm.prank(admin);
+        bridge().configureToken(address(token()), IBridge.TokenLimits({minAmount: 1e18, deposit: 0, claim: 0}));
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
+        bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
+    }
 }
