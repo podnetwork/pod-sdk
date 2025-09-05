@@ -165,7 +165,7 @@ mod test {
     use alloy_primitives::{Address, Log, LogData, TxKind, U256};
     use alloy_signer_local::PrivateKeySigner;
 
-    use crate::{Hashable, Merkleizable, Transaction};
+    use crate::{AttestedTx, Hashable, Merkleizable, Transaction};
 
     #[tokio::test]
     async fn test_verifiable_log_hash_proof() {
@@ -245,7 +245,7 @@ mod test {
                     max_fee_per_gas: transaction.max_fee_per_gas,
                     logs: logs.clone(),
                     logs_root,
-                    tx_hash: transaction.hash_custom(),
+                    attested_tx: AttestedTx::success(transaction.hash_custom(), 0),
                     signer: signer.address(),
                     to: Some(to),
                     contract_address: None,

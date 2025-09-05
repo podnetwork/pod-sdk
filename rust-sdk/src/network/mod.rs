@@ -12,7 +12,9 @@ use alloy_provider::fillers::{
 };
 
 use pod_types::{
-    consensus::committee::CommitteeError, ledger::Transaction, metadata::DetailedReceiptMetadata,
+    consensus::{attestation::AttestedTx, committee::CommitteeError},
+    ledger::Transaction,
+    metadata::DetailedReceiptMetadata,
 };
 
 use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
@@ -323,7 +325,11 @@ impl PodReceiptResponse {
             actual_gas_used: self.receipt.gas_used,
             logs,
             logs_root,
-            tx_hash,
+            attested_tx: AttestedTx {
+                tx_hash,
+                success: self.pod_metadata.tx_attestation_status,
+                committee_epoch: self.pod_metadata.committee_epoch,
+            },
             max_fee_per_gas: self.pod_metadata.transaction.max_fee_per_gas,
             signer: self.pod_metadata.transaction.signer,
             to,
@@ -331,7 +337,7 @@ impl PodReceiptResponse {
         };
 
         committee.verify_aggregate_attestation(
-            receipt.tx_hash,
+            receipt.attested_tx.hash_custom(),
             &self
                 .pod_metadata
                 .attestations
