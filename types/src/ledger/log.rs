@@ -168,7 +168,7 @@ mod test {
     use crate::{Hashable, Merkleizable, Transaction};
 
     #[tokio::test]
-    async fn test_verifiable_log_hash_proof() {
+    async fn test_verifiable_log_hash_proof_single_log() {
         let log = Log {
             address: "0x217f5658c6ecc27d439922263ad9bb8e992e0373"
                 .parse()
@@ -262,5 +262,121 @@ mod test {
 
         assert!(verifiable_log.verify_proof(receipt_root, proof));
         assert_eq!(verifiable_log.inner.log_index, Some(0));
+    }
+
+    #[tokio::test]
+    async fn test_verifiable_log_hash_proof_multiple_logs() {
+        let log = Log {
+            address: "0xbea11c6707c744581a4c885424af376baa7f686c"
+                .parse()
+                .unwrap(),
+            data: LogData::new_unchecked(
+                vec![
+                    "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+                        .parse()
+                        .unwrap(),
+                    "0x00000000000000000000000013791790bef192d14712d627f13a55c4abee52a4"
+                        .parse()
+                        .unwrap(),
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        .parse()
+                        .unwrap(),
+                ],
+                "0x0000000000000000000000000000000000000000000000000de0b6b3a7640000"
+                    .parse()
+                    .unwrap(),
+            ),
+        };
+
+        let log2 = Log {
+            address: "0x6D9da78B6A5BEdcA287AA5d49613bA36b90c15C4"
+                .parse()
+                .unwrap(),
+            data: LogData::new_unchecked(
+                vec![
+                    "05e57fa62d890603d85944c963ddc7fbe77cde5ea69cad7033fc6f76b7ddd2ab"
+                        .parse()
+                        .unwrap(),
+                    "0000000000000000000000000000000000000000000000000000000000000000"
+                        .parse()
+                        .unwrap(),
+                    "0000000000000000000000003b1b6ffac8831f1c1c9a425bb240cd1bbf23f146"
+                        .parse()
+                        .unwrap(),
+                ],
+                "0x0000000000000000000000000000000000000000000000056bc75e2d63100000000000000000000000000000006217c47ffa5eb3f3c92247fffe22ad998242c5"
+                    .parse()
+                    .unwrap(),
+            ),
+        };
+
+        let to: Address = "0x12296f2D128530a834460DF6c36a2895B793F26d"
+            .parse()
+            .unwrap();
+        let transaction = Transaction {
+            chain_id: 0x50d,
+            to: TxKind::Call(to.clone()),
+            nonce: 0,
+            gas_limit: 201819,
+            max_fee_per_gas: 1000000000,
+            max_priority_fee_per_gas: 1000000000,
+            access_list: Default::default(),
+            value: U256::ZERO,
+            input: vec![
+                244, 83, 70, 220, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 190, 161, 28, 103, 7, 199,
+                68, 88, 26, 76, 136, 84, 36, 175, 55, 107, 170, 127, 104, 108, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 224, 182, 179, 167, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 121, 23, 144, 190, 241, 146, 209, 71, 18, 214, 39,
+                241, 58, 85, 196, 171, 238, 82, 164,
+            ]
+            .into(),
+        };
+        let signer = PrivateKeySigner::random();
+
+        let logs = vec![log.clone(), log2.clone()];
+        let logs_tree = logs.to_merkle_tree();
+        let logs_root = logs_tree.root();
+
+        let rpc_log = RPCLog {
+            inner: log2.clone(),
+            block_hash: Some(Hash::default()),
+            block_number: Some(0),
+            block_timestamp: Some(1742493092),
+            transaction_hash: Some(transaction.hash_custom()),
+            transaction_index: Some(0),
+            log_index: Some(1),
+            removed: false,
+        };
+
+        let verifiable_log = VerifiableLog {
+            inner: rpc_log,
+            pod_metadata: PodLogMetadata {
+                attestations: vec![],
+                receipt: Receipt {
+                    status: true,
+                    actual_gas_used: 201819,
+                    max_fee_per_gas: transaction.max_fee_per_gas,
+                    logs: logs.clone(),
+                    logs_root,
+                    tx_hash: transaction.hash_custom(),
+                    signer: signer.address(),
+                    to: Some(to),
+                    contract_address: None,
+                },
+            },
+        };
+
+        let proof = verifiable_log.generate_proof().unwrap();
+        let receipt_root = verifiable_log
+            .pod_metadata
+            .receipt
+            .to_merkle_tree()
+            .hash_custom();
+
+        println!("receipt_root: {:?}", receipt_root);
+        println!("proof: {:?}", proof.path);
+
+        assert!(verifiable_log.verify_proof(receipt_root, proof));
+        assert_eq!(verifiable_log.inner.log_index, Some(1));
     }
 }
