@@ -3,7 +3,7 @@ use alloy_sol_types::{SolStruct, SolValue};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Merkleizable, Receipt, Timestamp,
+    Merkleizable, Receipt, Signed, Timestamp,
     cryptography::{Hash, hash::Hashable, merkle_tree::MerkleBuilder},
 };
 
@@ -74,6 +74,16 @@ impl<T: Hashable> Hashable for Attestation<T> {
         hasher.update(self.signature.as_bytes());
         hasher.update(self.attested.hash_custom().as_slice());
         hasher.finalize()
+    }
+}
+
+impl<T> From<Signed<T>> for Attestation<T> {
+    fn from(signed: Signed<T>) -> Self {
+        Attestation {
+            public_key: signed.signer,
+            signature: signed.signature,
+            attested: signed.signed,
+        }
     }
 }
 
