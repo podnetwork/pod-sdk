@@ -21,9 +21,3 @@ $ forge test
 ```shell
 $ forge fmt
 ```
-
-### Bindings
-
-```shell
-forge bind --crate-name pod-solidity-sdk --bindings-path ./bindings --alloy-version 0.12.1 --overwrite --force --no-metadata --overwrite
-```

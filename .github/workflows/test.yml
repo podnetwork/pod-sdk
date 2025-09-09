@@ -36,7 +36,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
+          version: v1.3.1
 
       - name: Show Forge version
         run: |
@@ -66,7 +66,38 @@ jobs:
           make check
         working-directory: examples/solidity
         id: bindings
-      
+
+  protocol:
+    name: protocol 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.3.1 
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        id: fmt
+        working-directory: protocol
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        id: build
+        working-directory: protocol
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: protocol
+
   solidity-sdk:
     name: solidity-sdk 
     runs-on: ubuntu-latest
@@ -78,11 +109,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
-
-      - name: Show Forge version
-        run: |
-          forge --version
+          version: v1.3.1
 
       - name: Run Forge fmt
         run: |
@@ -113,11 +140,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
-
-      - name: Show Forge version
-        run: |
-          forge --version
+          version: v1.3.1
 
       - name: Run Forge fmt
         run: |
@@ -154,11 +177,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
-
-      - name: Show Forge version
-        run: |
-          forge --version
+          version: v1.3.1
 
       - name: Run Forge fmt
         run: |
@@ -195,11 +214,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
-
-      - name: Show Forge version
-        run: |
-          forge --version
+          version: v1.3.1
 
       - name: Run Forge fmt
         run: |

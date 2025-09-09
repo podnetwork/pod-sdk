@@ -2,13 +2,14 @@
 pragma solidity ^0.8.28;
 
 import {console} from "forge-std/console.sol";
-import {BaseDeployer} from "pod-sdk-scripts/BaseDeployer.s.sol";
 
 import {Auction} from "../src/Auction.sol";
 import {RankedFeed} from "../src/RankedFeed.sol";
 import {Voting} from "../src/Voting.sol";
-import {PodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
+import {BaseDeployer} from "pod-protocol-scripts/BaseDeployer.s.sol";
+import {PodRegistry} from "pod-protocol/PodRegistry.sol";
 import {PodAuctionConsumer} from "optimistic-auction/PodAuctionConsumer.sol";
+import {TestMintBalancePrecompile} from "../src/TestMintBalancePrecompile.sol";
 
 contract Deployer is BaseDeployer {
     function run() public {
@@ -37,6 +38,9 @@ contract Deployer is BaseDeployer {
             PodAuctionConsumer auctionConsumer = new PodAuctionConsumer(address(podRegistry), bondAmount);
 
             console.log("PodAuctionConsumer deployed at:", address(auctionConsumer));
+
+            TestMintBalancePrecompile testMintBalance = new TestMintBalancePrecompile();
+            console.log("TestMintBalancePrecompile contract deployed at:", address(testMintBalance));
         }
 
         vm.stopBroadcast();

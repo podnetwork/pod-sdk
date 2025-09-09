@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import {console} from "forge-std/console.sol";
-import {BaseDeployer} from "pod-sdk-scripts/BaseDeployer.s.sol";
+import {BaseDeployer} from "pod-protocol-scripts/BaseDeployer.s.sol";
 
-import {PodRegistry} from "pod-sdk/verifier/PodRegistry.sol";
+import {PodRegistry} from "pod-protocol/PodRegistry.sol";
 import {PodAuctionConsumer} from "../contracts/PodAuctionConsumer.sol";
 
 contract PodAuctionConsumerDeployer is BaseDeployer {
