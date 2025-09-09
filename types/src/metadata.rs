@@ -10,6 +10,8 @@ pub struct MetadataWrappedItem<T, M> {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DetailedReceiptMetadata {
+    pub tx_attestation_status: bool,
+    pub committee_epoch: u64,
     pub attestations: Vec<TimestampedHeadlessAttestation>,
     pub transaction: Signed<Transaction>,
     pub receipt_attestations: Vec<TimestampedHeadlessAttestation>,
