@@ -3,6 +3,7 @@ use alloy_primitives::Address;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct AttestationMetadata {
     pub timestamp: Timestamp,
     pub global_sequence: u64,
