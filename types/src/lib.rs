@@ -10,7 +10,7 @@ pub mod pagination;
 pub use crate::{
     consensus::{
         Attestation, Certificate, Committee, HeadlessAttestation, attestation::AttestedTx,
-        attestation::ReceiptAttestation,
+        attestation::ReceiptAttestation, attestation_metadata::AttestationMetadata,
     },
     cryptography::{
         Hash, Hashable, MerkleTree, Merkleizable,
