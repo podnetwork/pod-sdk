@@ -5,7 +5,7 @@ use alloy_rpc_types::TransactionReceipt;
 use anyhow::Context;
 
 use crate::network::{PodNetwork, PodTransactionRequest};
-use alloy_json_rpc::{RpcRecv, RpcSend};
+use alloy_json_rpc::{RpcError, RpcRecv, RpcSend};
 use alloy_network::{EthereumWallet, Network, NetworkWallet, TransactionBuilder};
 use alloy_provider::{
     fillers::{JoinFill, RecommendedFillers, TxFiller, WalletFiller},
@@ -256,5 +256,18 @@ impl PodProvider {
         let receipt = pending_tx.get_receipt().await?;
 
         Ok(receipt)
+    }
+
+    pub async fn past_perfect_time(&self, contract: Address) -> TransportResult<Timestamp> {
+        let micros_str: String = self
+            .client()
+            .request("pod_pastPerfectTime", (contract,)) // <— important
+            .await?;
+
+        let micros: u128 = micros_str.parse().map_err(|e| {
+            RpcError::local_usage_str(&format!("invalid micros from pod_pastPerfectTime: {e}"))
+        })?;
+
+        Ok(Timestamp::from_micros(micros))
     }
 }
