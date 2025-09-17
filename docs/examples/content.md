@@ -2,14 +2,12 @@
 title: Examples
 layout: single
 
-url: /examples/overview
-
-toc:
+url: /examples
 ---
 
 # Examples
 
-### Simple examples to dip your toes into pod.
+Explore end-to-end examples that show how to build on pod and the core concepts involved. Start with tokens and NFTs, then try auctions, voting, and ranked feeds.
 
 ! table style1
 | Example | Description |
