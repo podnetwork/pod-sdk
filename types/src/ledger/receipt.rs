@@ -5,9 +5,12 @@ use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize};
 
 use super::log;
-use crate::cryptography::{
-    hash::{Hash, Hashable},
-    merkle_tree::{MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable, index_prefix},
+use crate::{
+    consensus::attestation::AttestedTx,
+    cryptography::{
+        hash::{Hash, Hashable},
+        merkle_tree::{MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable, index_prefix},
+    },
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -18,13 +21,17 @@ pub struct Receipt {
     pub max_fee_per_gas: u128,
     pub logs: Vec<Log>,
     pub logs_root: Hash,
-    pub tx_hash: Hash,
+    pub attested_tx: AttestedTx,
     pub signer: Address,
     pub to: Option<Address>,
     pub contract_address: Option<Address>,
 }
 
 impl Receipt {
+    pub fn tx_hash(&self) -> Hash {
+        self.attested_tx.tx_hash
+    }
+
     fn log_hashes(&self) -> Vec<Hash> {
         self.logs.iter().map(|l| l.hash_custom()).collect()
     }
@@ -79,7 +86,7 @@ impl Merkleizable for Receipt {
         // NOTE: "log_hashes" isn't part of the Receipt struct
         builder.add_slice("log_hashes", &self.log_hashes());
         builder.add_field("logs_root", self.logs_root.abi_encode().hash_custom());
-        builder.add_field("tx_hash", self.tx_hash);
+        builder.add_merkleizable("attested_tx", &self.attested_tx);
     }
 }
 
@@ -100,11 +107,11 @@ impl From<Receipt> for TransactionReceipt {
                     logs: val
                         .logs
                         .into_iter()
-                        .map(|l| log::to_rpc_format(l, val.tx_hash))
+                        .map(|l| log::to_rpc_format(l, val.attested_tx.tx_hash))
                         .collect(),
                 },
             }),
-            transaction_hash: val.tx_hash,
+            transaction_hash: val.attested_tx.tx_hash,
             transaction_index: Some(0),
             block_hash: Some(Hash::default()), // Need hash for tx confirmation on Metamask
             block_number: Some(1),             // Need number of tx confirmation on Metamask
@@ -125,7 +132,7 @@ mod test {
     use alloy_signer_local::PrivateKeySigner;
 
     use crate::{
-        Hashable, Merkleizable, Transaction, TxSigner,
+        AttestedTx, Hashable, Merkleizable, Transaction, TxSigner,
         cryptography::merkle_tree::StandardMerkleTree,
     };
 
@@ -172,7 +179,7 @@ mod test {
             max_fee_per_gas: transaction.max_fee_per_gas,
             logs: logs.clone(),
             logs_root,
-            tx_hash: tx.hash_custom(),
+            attested_tx: AttestedTx::success(tx.hash_custom(), 0),
             signer: tx.signer,
             to: Some(to),
             contract_address: None,

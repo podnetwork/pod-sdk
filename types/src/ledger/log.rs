@@ -1,8 +1,10 @@
 use std::ops::Deref;
 
+use alloy_primitives::U256;
 pub use alloy_primitives::{Log, LogData};
 use alloy_rpc_types::Log as RPCLog;
 use alloy_sol_types::SolValue;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -121,6 +123,28 @@ impl VerifiableLog {
             })
     }
 
+    fn sort_attestations_by_timestamp(&self) -> Vec<&TimestampedHeadlessAttestation> {
+        self.pod_metadata
+            .attestations
+            .iter()
+            .sorted_by_key(|a| a.timestamp)
+            .collect()
+    }
+
+    pub fn get_sorted_attestation_timestamps_in_seconds(&self) -> Vec<U256> {
+        self.sort_attestations_by_timestamp()
+            .iter()
+            .map(|a| a.timestamp.as_seconds().try_into().unwrap())
+            .collect()
+    }
+
+    pub fn get_sorted_attestation_signatures(&self) -> Vec<[u8; 65]> {
+        self.sort_attestations_by_timestamp()
+            .iter()
+            .map(|a| a.signature.as_bytes())
+            .collect()
+    }
+
     pub fn verify_proof(&self, receipt_root: Hash, proof: MerkleProof) -> bool {
         let leaf = self.get_leaf();
         StandardMerkleTree::verify_proof(receipt_root, leaf, proof)
@@ -141,7 +165,7 @@ mod test {
     use alloy_primitives::{Address, Log, LogData, TxKind, U256};
     use alloy_signer_local::PrivateKeySigner;
 
-    use crate::{Hashable, Merkleizable, Transaction};
+    use crate::{AttestedTx, Hashable, Merkleizable, Transaction};
 
     #[tokio::test]
     async fn test_verifiable_log_hash_proof() {
@@ -221,7 +245,7 @@ mod test {
                     max_fee_per_gas: transaction.max_fee_per_gas,
                     logs: logs.clone(),
                     logs_root,
-                    tx_hash: transaction.hash_custom(),
+                    attested_tx: AttestedTx::success(transaction.hash_custom(), 0),
                     signer: signer.address(),
                     to: Some(to),
                     contract_address: None,

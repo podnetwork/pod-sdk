@@ -4,10 +4,23 @@ menu:
     label: Welcome to pod
   - href: /devnet
     label: Devnet
-  - href: /architecture/coordination-free
-    label: What makes pod fast?
   - href: /overview
     label: Coming from Ethereum?
+
+  - heading: Core Concepts 
+  - href: https://pod.network/how-it-works 
+    label: Protocol Overview
+    newTab: true
+  - href: https://pod.network/blog/wait-why-do-we-need-consensus-again
+    label: Payments don't need Consensus
+    newTab: true
+  - href: /architecture/coordination-free
+    label: What makes pod fast?
+  - href: /architecture/censorship-resistance
+    label: Censorship Resistance 
+  - href: https://pod.network/blog/gas-pricing-in-a-world-without-consensus 
+    label: Gas Pricing
+    newTab: true 
 
   - heading: examples
   - href: /examples
@@ -37,4 +50,12 @@ menu:
         tocOf: /solidity-sdk/time
   - href: https://docs.rs/pod-sdk
     label: Rust SDK
+    newTab: true
+
+  - heading: More Resources
+  - href: https://pod.network/blog/real-time-auctions-are-eating-up-blockchains
+    label: Blockchains are not fit for fast auctions.
+    newTab: true
+  - href: https://pod.network/blog/your-favorite-10000000-tps-blockchain-is-probably-slow 
+    label: Throughput vs Latency.
     newTab: true

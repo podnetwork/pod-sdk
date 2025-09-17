@@ -1,12 +1,12 @@
 use alloy_primitives::{Address, Signature};
-use alloy_sol_types::SolValue;
+use alloy_sol_types::{SolStruct, SolValue};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Receipt, Signed, Timestamp, Transaction, cryptography::Hash, cryptography::hash::Hashable,
+    Merkleizable, Receipt, Signed, Timestamp,
+    cryptography::{Hash, hash::Hashable, merkle_tree::MerkleBuilder},
 };
 
-pub type TransactionAttestation = Attestation<Signed<Transaction>>;
 pub type ReceiptAttestation = Attestation<Receipt>;
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
@@ -45,7 +45,7 @@ impl<T: Hashable> Hashable for Indexed<T> {
 }
 
 // An Attestation<T> is T signed by a validator using ECDSA
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Attestation<T> {
     pub public_key: Address,
     pub signature: Signature,
@@ -74,6 +74,16 @@ impl<T: Hashable> Hashable for Attestation<T> {
         hasher.update(self.signature.as_bytes());
         hasher.update(self.attested.hash_custom().as_slice());
         hasher.finalize()
+    }
+}
+
+impl<T> From<Signed<T>> for Attestation<T> {
+    fn from(signed: Signed<T>) -> Self {
+        Attestation {
+            public_key: signed.signer,
+            signature: signed.signature,
+            attested: signed.signed,
+        }
     }
 }
 
@@ -111,9 +121,9 @@ impl From<Indexed<HeadlessAttestation>> for TimestampedHeadlessAttestation {
     }
 }
 
-impl From<Indexed<Attestation<Receipt>>> for TimestampedHeadlessAttestation {
-    fn from(indexed: Indexed<Attestation<Receipt>>) -> Self {
-        TimestampedHeadlessAttestation {
+impl<T> From<Indexed<Attestation<T>>> for TimestampedHeadlessAttestation {
+    fn from(indexed: Indexed<Attestation<T>>) -> Self {
+        Self {
             timestamp: indexed.index,
             public_key: indexed.value.public_key,
             signature: indexed.value.signature,
@@ -121,12 +131,47 @@ impl From<Indexed<Attestation<Receipt>>> for TimestampedHeadlessAttestation {
     }
 }
 
-impl From<Indexed<Attestation<Hash>>> for TimestampedHeadlessAttestation {
-    fn from(indexed: Indexed<Attestation<Hash>>) -> Self {
-        Self {
-            timestamp: indexed.index,
-            public_key: indexed.value.public_key,
-            signature: indexed.value.signature,
+mod sol {
+    alloy_sol_types::sol! {
+        #[derive(Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+        #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+        struct AttestedTx {
+            bytes32 tx_hash;
+            bool success;
+            uint64 committee_epoch;
         }
+    }
+}
+
+pub use sol::AttestedTx;
+
+impl AttestedTx {
+    pub fn success(tx_hash: Hash, committee_epoch: u64) -> Self {
+        Self {
+            tx_hash,
+            success: true,
+            committee_epoch,
+        }
+    }
+}
+
+impl Hashable for AttestedTx {
+    fn hash_custom(&self) -> Hash {
+        self.eip712_signing_hash(&alloy_sol_types::eip712_domain! {
+            name: "attest_tx",
+            version: "1",
+            chain_id: 0x50d,
+        })
+    }
+}
+
+impl Merkleizable for AttestedTx {
+    fn append_leaves(&self, builder: &mut MerkleBuilder) {
+        builder.add_field("tx_hash", self.tx_hash);
+        builder.add_field("success", self.success.abi_encode().hash_custom());
+        builder.add_field(
+            "committee_epoch",
+            self.committee_epoch.abi_encode().hash_custom(),
+        );
     }
 }

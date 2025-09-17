@@ -12,7 +12,7 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: Swatinem/rust-cache@v2
 
@@ -29,14 +29,14 @@ jobs:
     name: examples-solidity 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
+          version: v1.3.1
 
       - name: Show Forge version
         run: |
@@ -66,9 +66,9 @@ jobs:
           make check
         working-directory: examples/solidity
         id: bindings
-      
-  solidity-sdk:
-    name: solidity-sdk 
+
+  protocol:
+    name: protocol 
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,11 +78,38 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
+          version: v1.3.1 
 
-      - name: Show Forge version
+      - name: Run Forge fmt
         run: |
-          forge --version
+          forge fmt --check
+        id: fmt
+        working-directory: protocol
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        id: build
+        working-directory: protocol
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: protocol
+
+  solidity-sdk:
+    name: solidity-sdk 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.3.1
 
       - name: Run Forge fmt
         run: |
@@ -106,18 +133,14 @@ jobs:
     name: optimistic-auction 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
-
-      - name: Show Forge version
-        run: |
-          forge --version
+          version: v1.3.1
 
       - name: Run Forge fmt
         run: |
@@ -147,18 +170,14 @@ jobs:
     name: voting 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
-
-      - name: Show Forge version
-        run: |
-          forge --version
+          version: v1.3.1
 
       - name: Run Forge fmt
         run: |
@@ -188,18 +207,14 @@ jobs:
     name: notary 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
-
-      - name: Show Forge version
-        run: |
-          forge --version
+          version: v1.3.1
 
       - name: Run Forge fmt
         run: |

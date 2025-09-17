@@ -7,13 +7,15 @@ evm_version = "prague"
 bytecode_hash = "none"
 cbor_metadata = false
 remappings = [
-    "pod-protocol/=../protocol/src",
-    "pod-sdk/=./src",
-    "@openzeppelin/=lib/openzeppelin-contracts/"
+    "@openzeppelin/=lib/openzeppelin-contracts/",
+    "pod-sdk/=../solidity-sdk/src/"
 ]
-allow_paths = [
-    "../protocol"
-]
+allow_paths = ["../solidity-sdk"]
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
 [fmt]
 exclude = ["lib/**"]
+
+[lint]
+exclude_lints = ["incorrect-shift"]
