@@ -1,0 +1,1 @@
+../../../examples/solidity/src/EthereumERC20Balance.sol

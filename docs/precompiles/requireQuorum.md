@@ -60,12 +60,8 @@ Static gas: 100
 
 ### Example
 
-The example contract shows a balance-gated action:
--	In Round 1, validators check if the caller has at least 1 ether.
--	In Round 2, after quorum attestations are collected, the action can be executed without rechecking the balance.
-
-! codeblock title="examples/solidity/src/QuorumRestrictedAction.sol"
-! codeblock import solidity "./src/QuorumRestrictedAction.sol"
+! codeblock title="solidity-sdk/src/Quorum.sol"
+! codeblock import solidity "./src/Quorum.sol" lines=4-7,12-13
 ! codeblock end
 
 ! sticky end

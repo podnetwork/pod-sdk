@@ -30,6 +30,11 @@ menu:
   - href: /solidity-sdk
     external: true
     label: Solidity SDK
+    children:
+      - label: FastTypes
+        tocOf: /solidity-sdk/fast-types
+      - label: Time
+        tocOf: /solidity-sdk/time
   - href: https://docs.rs/pod-sdk
     label: Rust SDK
     newTab: true

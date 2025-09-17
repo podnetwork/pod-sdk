@@ -74,10 +74,8 @@ Static gas: 100
 
 ### Example
 
-This example uses the POD_EXTERNAL_ETH_CALL precompile to run an eth_call on Ethereum mainnet, returning the USDC balance for a given account.
-
-! codeblock title="examples/solidity/src/EthereumERC20Balance.sol"
-! codeblock import solidity "./src/EthereumERC20Balance.sol"
+! codeblock title="solidity-sdk/src/ExternalEthCall.sol"
+! codeblock import solidity "./src/ExternalEthCall.sol" lines=4-5,15-23,29-33,40-44
 ! codeblock end
 
 ! sticky end
