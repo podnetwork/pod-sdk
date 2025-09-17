@@ -55,6 +55,7 @@ The resulting array of logs returned by the remote `eth_getLogs`, abi-encoded
 - Input decoding failed.
 - No RPC URL configured for the specified chain ID.
 - Invalid argument: block number/tag format.
+- Requst failed.
 
 ### Gas Cost
 
@@ -70,8 +71,8 @@ Static gas: 100
 
 This example uses the POD_EXTERNAL_ETH_GET_LOGS precompile to run an eth_getLogs on Ethereum mainnet, returning the resulting logs array for the given log filter. 
 
-! codeblock title="examples/solidity/src/GetLogs.sol"
-! codeblock import solidity "./src/GetLogs.sol"
+! codeblock title="examples/solidity/src/ExternalEthGetLogs.sol"
+! codeblock import solidity "./src/ExternalEthGetLogs.sol"
 ! codeblock end
 
 ! sticky end
