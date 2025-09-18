@@ -16,15 +16,29 @@ pub trait TxSigner {
     fn sign_tx(&self, tx: Transaction) -> Result<Signed<Transaction>, alloy_signer::Error>;
 }
 
+pub trait Signer {
+    fn sign<T: Hashable>(&self, msg: T) -> Result<Signed<T>, alloy_signer::Error>;
+}
+
 impl<S> TxSigner for S
 where
     S: alloy_signer::SignerSync<Signature>,
     S: alloy_signer::Signer<Signature>,
 {
     fn sign_tx(&self, tx: Transaction) -> Result<Signed<Transaction>, alloy_signer::Error> {
-        let signature = self.sign_hash_sync(&tx.signature_hash())?;
+        self.sign(tx)
+    }
+}
+
+impl<S> Signer for S
+where
+    S: alloy_signer::SignerSync<Signature>,
+    S: alloy_signer::Signer<Signature>,
+{
+    fn sign<T: Hashable>(&self, msg: T) -> Result<Signed<T>, alloy_signer::Error> {
+        let signature = self.sign_hash_sync(&msg.hash_custom())?;
         Ok(Signed {
-            signed: tx,
+            signed: msg,
             signature,
             signer: self.address(),
             hash: OnceLock::new(),
