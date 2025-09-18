@@ -20,6 +20,11 @@ interface IBridge {
     error InvalidTokenAmount();
 
     /**
+     * @dev Error thrown when the provided amount is invalid.
+     */
+    error InvalidAmount();
+
+    /**
      * @dev Error thrown when the destination address is zero or invalid.
      */
     error InvalidToAddress();
@@ -45,6 +50,21 @@ interface IBridge {
     error RequestAlreadyProcessed();
 
     /**
+     * @dev Error thrown when the bridge contract is invalid.
+     */
+    error InvalidBridgeContract();
+
+    /**
+     * @dev Error thrown when the deposit log is invalid.
+     */
+    error InvalidDepositLog();
+
+    /**
+     * @dev Error thrown when the nonce is invalid.
+     */
+    error InvalidNonce();
+
+    /**
      * @dev Event emitted when a deposit is made.
      * @param id The request index.
      * @param token The token to bridge.
@@ -52,6 +72,14 @@ interface IBridge {
      * @param to The address to send the tokens to.
      */
     event Deposit(uint256 indexed id, address indexed token, uint256 amount, address to);
+
+    /**
+     * @dev Event emitted when a native deposit is made.
+     * @param id The request index.
+     * @param amount The amount of native tokens to bridge.
+     * @param to The address to send the native tokens to.
+     */
+    event DepositNative(uint256 indexed id, uint256 amount, address to);
 
     /**
      * @dev Event emitted when a claim is made.
@@ -62,6 +90,14 @@ interface IBridge {
      * @param to The address to send the tokens to.
      */
     event Claim(uint256 indexed id, address indexed mirrorToken, address indexed token, uint256 amount, address to);
+
+    /**
+     * @dev Event emitted when a native claim is made.
+     * @param id The request index.
+     * @param amount The amount of native tokens to bridge.
+     * @param to The address to send the native tokens to.
+     */
+    event ClaimNative(uint256 indexed id, uint256 amount, address to);
 
     /**
      * @dev Token limits.
@@ -112,12 +148,12 @@ interface IBridge {
     }
 
     /**
-     * @return The number of deposits.
-     */
-    function depositIndex() external view returns (uint256);
-
-    /**
      * @dev Update a token's configuration information.
+     * Token limits need to be set to half the desired value, due to users being able to deposit and claim at the boundry condition.
+     * If the desired deposit limit is 1000 tokens, the limit should be set to 500 tokens.
+     * For example, the limits are over the course of 1 day, and the limit reset at 12:00 AM UTC and suppose there are no bridging transactions
+     * for that day until 11:58 PM UTC. Then a user can deposit the limit amount at 11:59 PM UTC, and then immediately
+     * deposit the limit amount again at 12:00 AM UTC.
      * @notice Token can be disabled by setting deposit and claim limits to zero.
      * @notice Access is restricted to the admin.
      * @param token The token to configure.
@@ -131,9 +167,15 @@ interface IBridge {
      * @param token The token to bridge.
      * @param amount The amount of tokens to bridge.
      * @param to The address to send the tokens to on the destination chain.
-     * @return The ID (request index) associated to the request.
      */
-    function deposit(address token, uint256 amount, address to) external returns (uint256);
+    function deposit(address token, uint256 amount, address to) external;
+
+    /**
+     * @dev Deposit native tokens to bridge to the destination chain.
+     * @notice Function used to bridge native tokens to the destination chain.
+     * @param to The address to send the native tokens to on the destination chain.
+     */
+    function depositNative(address to) external payable;
 
     /**
      * @dev Pauses the contract.

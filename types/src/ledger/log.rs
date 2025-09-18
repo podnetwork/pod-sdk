@@ -289,7 +289,7 @@ mod test {
         };
 
         let log2 = Log {
-            address: "0x6D9da78B6A5BEdcA287AA5d49613bA36b90c15C4"
+            address: "0x7eE47822C517C29d49744890f52c624d3AcfdBfc"
                 .parse()
                 .unwrap(),
             data: LogData::new_unchecked(
@@ -372,9 +372,6 @@ mod test {
             .receipt
             .to_merkle_tree()
             .hash_custom();
-
-        println!("receipt_root: {:?}", receipt_root);
-        println!("proof: {:?}", proof.path);
 
         assert!(verifiable_log.verify_proof(receipt_root, proof));
         assert_eq!(verifiable_log.inner.log_index, Some(1));

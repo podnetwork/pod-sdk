@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-library EthGetLogsPrecompileHelperTypes {
+library EthGetLogsTypes {
     /**
      * @dev The address of the external eth get logs precompile.
      */
-    address constant PRECOMPILE_ADDRESS = address(uint160(uint256(keccak256("ETH_EXTERNAL_ETH_GET_LOGS"))));
+    address constant PRECOMPILE_ADDRESS = address(uint160(uint256(keccak256("POD_EXTERNAL_ETH_GET_LOGS"))));
 
     /**
      * @dev The arguments for the external eth get logs precompile.

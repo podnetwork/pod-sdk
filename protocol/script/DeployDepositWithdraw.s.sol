@@ -12,6 +12,7 @@ import {BaseDeployer} from "./BaseDeployer.s.sol";
 contract DeployDepositWithdraw is BaseDeployer {
     uint256 constant CHAIN_ID = 31337;
     string constant RPC_URL = "http://localhost:8546";
+    address constant OTHER_BRIDGE_CONTRACT = 0x12296f2D128530a834460DF6c36a2895B793F26d;
 
     function run() external {
         console.log("=== Deploying BridgeDepositWithdraw to localhost:8546 (chainId 31337) ===");
@@ -26,7 +27,8 @@ contract DeployDepositWithdraw is BaseDeployer {
         PodRegistry podRegistry = new PodRegistry(initialValidators);
         console.log("PodRegistry deployed at:", address(podRegistry));
 
-        BridgeDepositWithdraw bridgeDepositWithdraw = new BridgeDepositWithdraw(address(podRegistry));
+        BridgeDepositWithdraw bridgeDepositWithdraw =
+            new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT);
         console.log("BridgeDepositWithdraw deployed at:", address(bridgeDepositWithdraw));
 
         // Deploy some test tokens

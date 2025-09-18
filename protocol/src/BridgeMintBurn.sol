@@ -8,7 +8,11 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {IERC20MintableAndBurnable} from "./interfaces/IERC20MintableAndBurnable.sol";
 import {WrappedToken} from "./WrappedToken.sol";
-import {EthGetLogsPrecompileHelperTypes} from "pod-sdk/types/EthGetLogsPrecompileHelperTypes.sol";
+import {EthGetLogsTypes} from "pod-sdk/types/EthGetLogsTypes.sol";
+import {EthGetBlockByNumberTypes} from "pod-sdk/types/EthGetBlockByNumberTypes.sol";
+import {PodMintBalance} from "./libraries/PodMintBalance.sol";
+import {TxInfo, getTxInfo} from "pod-sdk/Context.sol";
+import {HexUtils} from "./libraries/HexUtils.sol";
 
 /**
  * @title BridgeMintBurn
@@ -37,7 +41,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
     /**
      * @dev Constructor.
      */
-    constructor() {}
+    constructor(address _bridgeContract) Bridge(_bridgeContract) {}
 
     /**
      * @dev Handles the deposit of tokens. The tokens are burned from the msg.sender.
@@ -49,31 +53,68 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
     }
 
     /**
-     * @inheritdoc IBridgeMintBurn
+     * @dev Internal function to get the deposit ID.
+     * @return id The request ID of the deposit.
      */
-    function claim(uint256 id, address token, bytes calldata blockNumberFrom) public whenNotPaused {
-        bytes32[] memory topics = new bytes32[](3);
-        topics[0] = DEPOSIT_TOPIC_0;
-        topics[1] = bytes32(id);
-        topics[2] = bytes32(uint256(uint160(token)));
+    function _getDepositId() internal view override returns (uint256) {
+        TxInfo memory txInfo = getTxInfo();
+        return uint256(txInfo.txHash);
+    }
 
-        (bool success, bytes memory output) = EthGetLogsPrecompileHelperTypes.PRECOMPILE_ADDRESS.staticcall(
+    function _getFinalizedBlockNumber() internal view returns (uint256) {
+        (bool success, bytes memory output) = EthGetBlockByNumberTypes.PRECOMPILE_ADDRESS.staticcall(
             abi.encode(
-                EthGetLogsPrecompileHelperTypes.PrecompileArgs(
-                    SOURCE_CHAIN_ID,
-                    EthGetLogsPrecompileHelperTypes.RpcArgs(
-                        blockNumberFrom, FINALIZED_BLOCK_BYTES, address(token), bytes32(0), topics
-                    )
+                EthGetBlockByNumberTypes.PrecompileArgs(
+                    SOURCE_CHAIN_ID, EthGetBlockByNumberTypes.RpcArgs(FINALIZED_BLOCK_BYTES, false)
                 )
             )
         );
         if (!success) revert PrecompileCallFailed();
 
-        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs =
-            abi.decode(output, (EthGetLogsPrecompileHelperTypes.RpcLog[]));
+        EthGetBlockByNumberTypes.RpcBlock memory rpcBlock = abi.decode(output, (EthGetBlockByNumberTypes.RpcBlock));
 
-        if (logs.length == 0) revert NoDepositsFound();
-        if (logs.length > 1) revert MultipleDepositsWithSameId();
+        return HexUtils.uintFromBigEndian(rpcBlock.number);
+    }
+
+    function _getLogs(uint256 blockNumber, bytes32[] memory topics)
+        internal
+        view
+        returns (EthGetLogsTypes.RpcLog[] memory)
+    {
+        bytes memory precompileArgs;
+        bytes memory blockNumberBytes = HexUtils.toBytesMinimal(blockNumber);
+        precompileArgs = abi.encode(
+            EthGetLogsTypes.PrecompileArgs(
+                SOURCE_CHAIN_ID,
+                EthGetLogsTypes.RpcArgs(blockNumberBytes, blockNumberBytes, address(bridgeContract), bytes32(0), topics)
+            )
+        );
+        (bool success, bytes memory output) = EthGetLogsTypes.PRECOMPILE_ADDRESS.staticcall(precompileArgs);
+        if (!success) revert PrecompileCallFailed();
+        EthGetLogsTypes.RpcLog[] memory logs = abi.decode(output, (EthGetLogsTypes.RpcLog[]));
+
+        if (logs.length != 1) revert InvalidDepositLog();
+        if (logs[0].addr != bridgeContract) revert InvalidBridgeContract();
+
+        return logs;
+    }
+
+    /**
+     * @inheritdoc IBridgeMintBurn
+     */
+    function claim(uint256 id, address token, uint256 blockNumber) external override whenNotPaused {
+        bytes32[] memory topics = new bytes32[](3);
+        topics[0] = DEPOSIT_TOPIC_0;
+        topics[1] = bytes32(id);
+        topics[2] = bytes32(uint256(uint160(token)));
+
+        uint256 finalizedBlockNumber = _getFinalizedBlockNumber();
+
+        if (blockNumber > finalizedBlockNumber) {
+            revert BlockNotFinalized();
+        }
+
+        EthGetLogsTypes.RpcLog[] memory logs = _getLogs(blockNumber, topics);
 
         (uint256 decodedAmount, address decodedTo) = abi.decode(logs[0].data, (uint256, address));
 
@@ -91,6 +132,39 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         IERC20MintableAndBurnable(mirrorToken).mint(decodedTo, decodedAmount);
 
         emit Claim(id, mirrorToken, token, decodedAmount, decodedTo);
+    }
+
+    /**
+     * @inheritdoc IBridgeMintBurn
+     */
+    function claimNative(uint256 id, uint256 blockNumber) external override whenNotPaused {
+        bytes32[] memory topics = new bytes32[](2);
+        topics[0] = DEPOSIT_NATIVE_TOPIC_0;
+        topics[1] = bytes32(id);
+
+        uint256 finalizedBlockNumber = _getFinalizedBlockNumber();
+
+        if (blockNumber > finalizedBlockNumber) {
+            revert BlockNotFinalized();
+        }
+
+        EthGetLogsTypes.RpcLog[] memory logs = _getLogs(blockNumber, topics);
+
+        (uint256 decodedAmount, address decodedTo) = abi.decode(logs[0].data, (uint256, address));
+
+        if (decodedAmount < 0.01 ether) revert InvalidAmount();
+
+        bytes32 requestId = _hashRequest(id, address(0), decodedAmount, decodedTo);
+        if (processedRequests[requestId]) revert RequestAlreadyProcessed();
+
+        if (decodedTo != msg.sender) revert InvalidToAddress();
+
+        processedRequests[requestId] = true;
+
+        // mint the native tokens to msg.sender
+        if (!PodMintBalance.mint(decodedAmount)) revert PrecompileCallFailed();
+
+        emit ClaimNative(id, decodedAmount, decodedTo);
     }
 
     /**

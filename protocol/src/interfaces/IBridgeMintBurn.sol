@@ -32,22 +32,24 @@ interface IBridgeMintBurn is IBridge {
      * @notice Claim bridged tokens using external precompile verification.
      * @param id Deposit ID to claim.
      * @param token Source chain token address.
-     * @param blockNumberFrom Starting block number for log search.
+     * @param blockNumber The block number that contains the log to of the deposit.
      */
-    function claim(uint256 id, address token, bytes calldata blockNumberFrom) external;
+    function claim(uint256 id, address token, uint256 blockNumber) external;
 
     /**
-     * @dev Error thrown when multiple deposits are found with the same ID.
+     * @notice Claim native tokens using external precompile verification.
+     * @param id Deposit ID to claim.
+     * @param blockNumber The block number that contains the log to of the native deposit.
      */
-    error MultipleDepositsWithSameId();
-
-    /**
-     * @dev Error thrown when no deposits are found for the given parameters.
-     */
-    error NoDepositsFound();
+    function claimNative(uint256 id, uint256 blockNumber) external;
 
     /**
      * @dev Error thrown when the external precompile call fails.
      */
     error PrecompileCallFailed();
+
+    /**
+     * @dev Error thrown when the block is not finalized.
+     */
+    error BlockNotFinalized();
 }

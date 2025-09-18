@@ -7,6 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {PodECDSA} from "pod-sdk/verifier/PodECDSA.sol";
 import {IPodRegistry} from "./interfaces/IPodRegistry.sol";
+import {console} from "forge-std/console.sol";
 
 /**
  * @title BridgeDepositWithdraw
@@ -24,10 +25,15 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     PodECDSA.PodConfig public podConfig;
 
     /**
+     * @dev The index of the next deposit.
+     */
+    uint256 public depositIndex;
+
+    /**
      * @dev Constructor.
      * @param _podRegistry The address of the PodRegistry to use.
      */
-    constructor(address _podRegistry) {
+    constructor(address _podRegistry, address _bridgeContract) Bridge(_bridgeContract) {
         podConfig =
             PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: IPodRegistry(_podRegistry)});
     }
@@ -40,14 +46,35 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
      * @return amount The amount of the deposit.
      * @return to The address to send the tokens to.
      */
-    function _decodeLog(PodECDSA.Log calldata log)
+    function _decodeDepositLog(PodECDSA.Log calldata log)
         internal
         pure
         returns (uint256 id, address token, uint256 amount, address to)
     {
-        if (log.topics.length != 3 || log.topics[0] != DEPOSIT_TOPIC_0) revert InvalidDepositLog();
+        if (log.topics[0] != DEPOSIT_TOPIC_0 || log.topics.length != 3) {
+            revert InvalidDepositLog();
+        }
         id = uint256(log.topics[1]);
         token = address(uint160(uint256(log.topics[2])));
+        (amount, to) = abi.decode(log.data, (uint256, address));
+    }
+
+    /**
+     * @dev Decodes the log into native deposit details.
+     * @param log The log to decode.
+     * @return id The id of the deposit.
+     * @return amount The amount of the deposit.
+     * @return to The address to send the tokens to.
+     */
+    function _decodeDepositNativeLog(PodECDSA.Log calldata log)
+        internal
+        pure
+        returns (uint256 id, uint256 amount, address to)
+    {
+        if (log.topics[0] != DEPOSIT_NATIVE_TOPIC_0 || log.topics.length != 2) {
+            revert InvalidDepositLog();
+        }
+        id = uint256(log.topics[1]);
         (amount, to) = abi.decode(log.data, (uint256, address));
     }
 
@@ -58,6 +85,14 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
      */
     function handleDeposit(address token, uint256 amount) internal override {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+    }
+
+    /**
+     * @dev Internal function to get the deposit ID.
+     * @return id The request ID of the deposit.
+     */
+    function _getDepositId() internal override returns (uint256) {
+        return depositIndex++;
     }
 
     /**
@@ -78,7 +113,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
      * @inheritdoc IBridgeDepositWithdraw
      */
     function claim(PodECDSA.CertifiedLog calldata certifiedLog) public override whenNotPaused {
-        (uint256 id, address token, uint256 amount, address to) = _decodeLog(certifiedLog.log);
+        (uint256 id, address token, uint256 amount, address to) = _decodeDepositLog(certifiedLog.log);
         address mirrorToken = mirrorTokens[token];
         if (mirrorToken == address(0)) revert MirrorTokenNotFound();
 
@@ -87,6 +122,8 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         bytes32 requestId = _hashRequest(id, token, amount, to);
         if (processedRequests[requestId]) revert RequestAlreadyProcessed();
 
+        if (certifiedLog.log.addr != bridgeContract) revert InvalidBridgeContract();
+
         bool verified = PodECDSA.verifyCertifiedLog(podConfig, certifiedLog);
         if (!verified) revert InvalidCertificate();
 
@@ -94,6 +131,28 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
 
         IERC20(mirrorToken).safeTransfer(to, amount);
         emit Claim(id, mirrorToken, token, amount, to);
+    }
+
+    /**
+     * @inheritdoc IBridgeDepositWithdraw
+     */
+    function claimNative(PodECDSA.CertifiedLog calldata certifiedLog) public override whenNotPaused {
+        (uint256 id, uint256 amount, address to) = _decodeDepositNativeLog(certifiedLog.log);
+
+        if (amount < 0.01 ether) revert InvalidAmount();
+
+        bytes32 requestId = _hashRequest(id, address(0), amount, to);
+        if (processedRequests[requestId]) revert RequestAlreadyProcessed();
+
+        if (certifiedLog.log.addr != bridgeContract) revert InvalidBridgeContract();
+
+        bool verified = PodECDSA.verifyCertifiedLog(podConfig, certifiedLog);
+        if (!verified) revert InvalidCertificate();
+
+        processedRequests[requestId] = true;
+
+        payable(to).transfer(amount);
+        emit ClaimNative(id, amount, to);
     }
 
     /**

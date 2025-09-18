@@ -32,6 +32,11 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     bytes32 constant DEPOSIT_TOPIC_0 = keccak256("Deposit(uint256,address,uint256,address)");
 
     /**
+     * @dev The topic 0 (event signature) of the deposit native event.
+     */
+    bytes32 constant DEPOSIT_NATIVE_TOPIC_0 = keccak256("DepositNative(uint256,uint256,address)");
+
+    /**
      * @dev Map token address to token data.
      */
     mapping(address => TokenData) public tokenData;
@@ -53,10 +58,9 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     address[] public whitelistedTokens;
 
     /**
-     * @dev A counter tracking the number of deposits.
-     * @notice Id of the current deposit.
+     * @dev Map nonce to used nonces.
      */
-    uint256 public depositIndex;
+    mapping(uint256 => bool) public usedNonces;
 
     /**
      * @dev Address of the migrated contract.
@@ -64,12 +68,19 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     address public migratedContract;
 
     /**
+     * @dev The address of the bridge contract on the other chain.
+     */
+    address public bridgeContract;
+
+    /**
      * @dev Constructor.
      * @notice Grants the DEFAULT_ADMIN_ROLE and PAUSER_ROLE to the msg.sender.
      */
-    constructor() {
+    constructor(address _bridgeContract) {
+        if (_bridgeContract == address(0)) revert InvalidBridgeContract();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
+        bridgeContract = _bridgeContract;
     }
 
     /**
@@ -79,6 +90,13 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      * @param amount The amount of tokens to deposit.
      */
     function handleDeposit(address token, uint256 amount) internal virtual;
+
+    /**
+     * @dev Internal function to get the deposit ID.
+     * This is a callback defining the different deposit ID logic for the different bridge contracts.
+     * @return id The request ID of the deposit.
+     */
+    function _getDepositId() internal virtual returns (uint256);
 
     /**
      * @dev Internal function to handle the migration of tokens.
@@ -140,12 +158,21 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     /**
      * @inheritdoc IBridge
      */
-    function deposit(address token, uint256 amount, address to) external whenNotPaused returns (uint256 id) {
+    function deposit(address token, uint256 amount, address to) external override whenNotPaused {
         if (!_isValidTokenAmount(token, amount, true)) revert InvalidTokenAmount();
         if (to == address(0)) revert InvalidToAddress();
-        id = depositIndex++;
+        uint256 id = _getDepositId();
         handleDeposit(token, amount);
         emit Deposit(id, token, amount, to);
+    }
+
+    /**
+     * @inheritdoc IBridge
+     */
+    function depositNative(address to) external payable override whenNotPaused {
+        if (msg.value < 0.01 ether) revert InvalidAmount();
+        uint256 id = _getDepositId();
+        emit DepositNative(id, msg.value, to);
     }
 
     /**

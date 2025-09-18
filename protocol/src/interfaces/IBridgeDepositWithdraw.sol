@@ -25,9 +25,10 @@ interface IBridgeDepositWithdraw is IBridge {
     function claim(PodECDSA.CertifiedLog calldata certifiedLog) external;
 
     /**
-     * @dev Error thrown when the deposit log is invalid.
+     * @notice Claim native tokens using a certified log proof.
+     * @param certifiedLog The proof of the deposit represented as a pod certified log.
      */
-    error InvalidDepositLog();
+    function claimNative(PodECDSA.CertifiedLog calldata certifiedLog) external;
 
     /**
      * @dev Error thrown when the certificate verification fails.

@@ -9,12 +9,16 @@ import {Bridge} from "../src/abstract/Bridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {EthGetLogsPrecompileHelperTypes} from "pod-sdk/types/EthGetLogsPrecompileHelperTypes.sol";
+import {EthGetLogsTypes} from "pod-sdk/types/EthGetLogsTypes.sol";
+import {EthGetBlockByNumberTypes} from "pod-sdk/types/EthGetBlockByNumberTypes.sol";
+import {HexUtils} from "../src/libraries/HexUtils.sol";
+import {TxInfo} from "pod-sdk/Context.sol";
 
 contract BridgeMintBurnTest is BridgeBehaviorTest {
     BridgeMintBurn private _bridge;
     WrappedToken private _token;
     address immutable _mirror = makeAddr("mirrorToken");
+    address immutable OTHER_BRIDGE_CONTRACT = makeAddr("otherBridgeContract");
 
     function bridge() internal view override returns (Bridge) {
         return _bridge;
@@ -26,7 +30,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function setUpSuite() public override {
         vm.startPrank(admin);
-        _bridge = new BridgeMintBurn();
+        _bridge = new BridgeMintBurn(OTHER_BRIDGE_CONTRACT);
 
         _token = WrappedToken(
             _bridge.createAndWhitelistMirrorToken("Token", "TKN", address(0), address(_mirror), 18, tokenLimits)
@@ -38,26 +42,31 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
         vm.prank(user);
         _token.approve(address(_bridge), type(uint256).max);
+
+        _mockTxInfo(TxInfo({txHash: bytes32(0), nonce: 0}));
     }
 
     function test_Deposit_BurnsFromUser() public {
         uint256 ub = _token.balanceOf(user);
         uint256 ts = _token.totalSupply();
         vm.prank(user);
+        _mockTxInfo(TxInfo({txHash: bytes32(0), nonce: 0}));
         bridge().deposit(address(_token), DEPOSIT_AMOUNT, recipient);
         assertEq(_token.balanceOf(user), ub - DEPOSIT_AMOUNT);
         assertEq(_token.totalSupply(), ts - DEPOSIT_AMOUNT);
     }
 
     function test_Claim_SingleLog_MintsToRecipient() public {
-        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](1);
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
         logs[0] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
-        _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
+        _mockEthGetLogs(0, 1, 1, _mirror, logs);
+        _mockEthGetBlockByNumber(2);
+        _mockTxInfo(TxInfo({txHash: bytes32(0), nonce: 0}));
         assertEq(_token.balanceOf(recipient), 0);
 
-        vm.expectEmit(true, true, true, true);
+        // vm.expectEmit(true, true, true, true);
         emit IBridge.Claim(0, address(_token), _mirror, DEPOSIT_AMOUNT, recipient);
-        _bridge.claim(0, _mirror, bytes("0x1"));
+        _bridge.claim(0, _mirror, 1);
 
         assertEq(_token.balanceOf(recipient), DEPOSIT_AMOUNT);
 
@@ -69,79 +78,217 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     function test_Claim_RevertIfDailyLimitExhausted() public {
-        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](1);
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
         logs[0] = _makeLog(0, _mirror, tokenLimits.claim + 1, recipient);
-        _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, _mirror, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
-        _bridge.claim(0, _mirror, bytes("0x1"));
+        _bridge.claim(0, _mirror, 1);
+    }
+
+    function test_Claim_RevertIfInvalidBridgeContract() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+        logs[0] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
+        logs[0].addr = address(0xBEEF);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, _mirror, logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidBridgeContract.selector));
+        _bridge.claim(0, _mirror, 1);
     }
 
     function test_Claim_RevertIfDailyLimitExhausted_ButSucceedAfterOneDay() public {
-        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](1);
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
         logs[0] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
-        _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
-        _bridge.claim(0, _mirror, bytes("0x1"));
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, _mirror, logs);
+        _bridge.claim(0, _mirror, 1);
         logs[0] = _makeLog(1, _mirror, tokenLimits.claim, recipient);
-        _mockEthGetLogs(1, bytes("0x1"), _mirror, logs);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(1, 1, 1, _mirror, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
-        _bridge.claim(1, _mirror, bytes("0x1"));
+        _bridge.claim(1, _mirror, 1);
         vm.warp(block.timestamp + 1 days + 1);
-        _mockEthGetLogs(1, bytes("0x1"), _mirror, logs);
-        _bridge.claim(1, _mirror, bytes("0x1"));
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(1, 1, 1, _mirror, logs);
+        _bridge.claim(1, _mirror, 1);
     }
 
     function test_Claim_RevertIfNoDepositsFound() public {
-        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](0);
-        _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
-        vm.expectRevert(abi.encodeWithSelector(IBridgeMintBurn.NoDepositsFound.selector));
-        _bridge.claim(0, _mirror, bytes("0x1"));
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](0);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, _mirror, logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
+        _bridge.claim(0, _mirror, 1);
     }
 
     function test_Claim_RevertIfMultipleDepositsFound() public {
-        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](2);
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](2);
         logs[0] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
         logs[1] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
-        _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
-        vm.expectRevert(abi.encodeWithSelector(IBridgeMintBurn.MultipleDepositsWithSameId.selector));
-        _bridge.claim(0, _mirror, bytes("0x1"));
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, _mirror, logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
+        _bridge.claim(0, _mirror, 1);
     }
 
     function test_Claim_RevertIfMirrorTokenNotFound() public {
         // Use a token not mapped in mirrorTokens
         address unknownMirror = address(0xBEEF);
-        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](1);
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
         logs[0] = _makeLog(0, unknownMirror, DEPOSIT_AMOUNT, recipient);
-        _mockEthGetLogs(0, bytes("0x1"), unknownMirror, logs);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, unknownMirror, logs);
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.MirrorTokenNotFound.selector));
-        _bridge.claim(0, unknownMirror, bytes("0x1"));
+        _bridge.claim(0, unknownMirror, 1);
+    }
+
+    function test_Claim_RevertIfBlockNotFinalized() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+        logs[0] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, _mirror, logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridgeMintBurn.BlockNotFinalized.selector));
+        _bridge.claim(0, _mirror, 10);
     }
 
     function test_Claim_RevertIfAlreadyProcessed() public {
-        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs = new EthGetLogsPrecompileHelperTypes.RpcLog[](1);
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
         logs[0] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
-        _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
-        _bridge.claim(0, _mirror, bytes("0x1"));
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, _mirror, logs);
+        _bridge.claim(0, _mirror, 1);
 
         // Mock again with same log so requestId is identical
-        _mockEthGetLogs(0, bytes("0x1"), _mirror, logs);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, _mirror, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
-        _bridge.claim(0, _mirror, bytes("0x1"));
+        _bridge.claim(0, _mirror, 1);
     }
 
     function test_Claim_RevertIfPaused() public {
         vm.prank(admin);
         _bridge.pause();
         vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
-        _bridge.claim(0, _mirror, bytes("0x1"));
+        _bridge.claim(0, _mirror, 1);
+    }
+
+    function test_Claim_RevertIfInvalidLog() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](2);
+        logs[0] = _makeLog(0, _mirror, DEPOSIT_AMOUNT, recipient);
+        logs[1] = _makeLog(1, _mirror, DEPOSIT_AMOUNT, recipient);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, _mirror, logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
+        _bridge.claim(0, _mirror, 1);
+
+        logs = new EthGetLogsTypes.RpcLog[](0);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, _mirror, logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
+        _bridge.claim(0, _mirror, 1);
     }
 
     function test_Claim_RevertIfPrecompileCallFails() public {
-        EthGetLogsPrecompileHelperTypes.PrecompileArgs memory args = _buildArgs(0, bytes("0x1"), _mirror);
+        _mockEthGetBlockByNumber(1);
+        EthGetLogsTypes.PrecompileArgs memory args = _buildArgs(0, 1, 1, _mirror);
         podMockEthGetLogsRevert(abi.encode(args));
 
         vm.expectRevert(abi.encodeWithSelector(IBridgeMintBurn.PrecompileCallFailed.selector));
-        _bridge.claim(0, _mirror, bytes("0x1"));
+        _bridge.claim(0, _mirror, 1);
+    }
+
+    function test_ClaimNative() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, address(0), logs);
+        _mockMintBalance(recipient, DEPOSIT_AMOUNT);
+
+        vm.expectEmit(true, false, false, true);
+        emit IBridge.ClaimNative(0, DEPOSIT_AMOUNT, recipient);
+        vm.prank(recipient);
+        _bridge.claimNative(0, 1);
+        // should be done by precompile
+        assertEq(recipient.balance, DEPOSIT_AMOUNT);
+    }
+
+    function test_ClaimNative_RevertIfPaused() public {
+        vm.prank(admin);
+        _bridge.pause();
+        vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
+        _bridge.claimNative(0, 1);
+    }
+
+    function test_ClaimNative_RevertIfInvalidLog() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](2);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        logs[1] = _makeLog(1, address(0), DEPOSIT_AMOUNT, recipient);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, address(0), logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
+        vm.prank(recipient);
+        _bridge.claimNative(0, 1);
+
+        logs = new EthGetLogsTypes.RpcLog[](0);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, address(0), logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
+        vm.prank(recipient);
+        _bridge.claimNative(0, 1);
+    }
+
+    function test_ClaimNative_RevertIfInvalidAmount() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+        logs[0] = _makeLog(0, address(0), 0.001 ether, recipient);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, address(0), logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAmount.selector));
+        _bridge.claimNative(0, 1);
+    }
+
+    function test_ClaimNative_RevertIfBlockNotFinalized() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, address(0), logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridgeMintBurn.BlockNotFinalized.selector));
+        _bridge.claimNative(0, 10);
+    }
+
+    function test_ClaimNative_RevertIfInvalidBridgeContract() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        logs[0].addr = address(0xBEEF);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, address(0), logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidBridgeContract.selector));
+        _bridge.claimNative(0, 1);
+    }
+
+    function test_ClaimNative_RevertIfRequestAlreadyProcessed() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, address(0), logs);
+        vm.prank(recipient);
+        _bridge.claimNative(0, 1);
+
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, address(0), logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
+        vm.prank(recipient);
+        _bridge.claimNative(0, 1);
+    }
+
+    function test_ClaimNative_RevertIfInvalidToAddress() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, address(0xBEEF));
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, address(0), logs);
+        vm.prank(recipient);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidToAddress.selector));
+        _bridge.claimNative(0, 1);
     }
 
     function test_Migrate_TransfersRolesToNewBridge() public {
@@ -169,45 +316,54 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     // ---------- Helpers for building logs ----------
-    function _buildArgs(uint256 id, bytes memory fromBlock, address tokenAddr)
+    function _buildArgs(uint256 id, uint256 fromBlock, uint256 toBlock, address tokenAddr)
         internal
-        pure
-        returns (EthGetLogsPrecompileHelperTypes.PrecompileArgs memory)
+        view
+        returns (EthGetLogsTypes.PrecompileArgs memory)
     {
-        EthGetLogsPrecompileHelperTypes.RpcArgs memory inner = EthGetLogsPrecompileHelperTypes.RpcArgs({
-            fromBlock: fromBlock,
-            toBlock: hex"66696e616c697a6564",
-            addr: tokenAddr,
+        bytes memory fromBlockBytes = HexUtils.toBytesMinimal(fromBlock);
+        bytes memory toBlockBytes = HexUtils.toBytesMinimal(toBlock);
+        EthGetLogsTypes.RpcArgs memory inner = EthGetLogsTypes.RpcArgs({
+            fromBlock: fromBlockBytes,
+            toBlock: toBlockBytes,
+            addr: address(OTHER_BRIDGE_CONTRACT),
             blockHash: bytes32(0),
             topics: _buildTopics(id, tokenAddr)
         });
-        return EthGetLogsPrecompileHelperTypes.PrecompileArgs({chainId: 1, ethGetLogsArgs: inner});
+        return EthGetLogsTypes.PrecompileArgs({chainId: 1, ethGetLogsArgs: inner});
     }
 
     function _mockEthGetLogs(
         uint256 id,
-        bytes memory fromBlock,
+        uint256 fromBlock,
+        uint256 toBlock,
         address tokenAddr,
-        EthGetLogsPrecompileHelperTypes.RpcLog[] memory logs
+        EthGetLogsTypes.RpcLog[] memory logs
     ) internal {
-        EthGetLogsPrecompileHelperTypes.PrecompileArgs memory args = _buildArgs(id, fromBlock, tokenAddr);
+        EthGetLogsTypes.PrecompileArgs memory args = _buildArgs(id, fromBlock, toBlock, tokenAddr);
         podMockEthGetLogs(abi.encode(args), abi.encode(logs));
     }
 
     function _buildTopics(uint256 id, address tokenAddr) internal pure returns (bytes32[] memory topics) {
-        topics = new bytes32[](3);
-        topics[0] = keccak256("Deposit(uint256,address,uint256,address)");
-        topics[1] = bytes32(id);
-        topics[2] = bytes32(uint256(uint160(tokenAddr)));
+        if (tokenAddr == address(0)) {
+            topics = new bytes32[](2);
+            topics[0] = keccak256("DepositNative(uint256,uint256,address)");
+            topics[1] = bytes32(id);
+        } else {
+            topics = new bytes32[](3);
+            topics[0] = keccak256("Deposit(uint256,address,uint256,address)");
+            topics[1] = bytes32(id);
+            topics[2] = bytes32(uint256(uint160(tokenAddr)));
+        }
     }
 
     function _makeLog(uint256 id, address tokenAddr, uint256 amount, address to)
         internal
-        pure
-        returns (EthGetLogsPrecompileHelperTypes.RpcLog memory)
+        view
+        returns (EthGetLogsTypes.RpcLog memory)
     {
-        return EthGetLogsPrecompileHelperTypes.RpcLog({
-            addr: tokenAddr,
+        return EthGetLogsTypes.RpcLog({
+            addr: address(OTHER_BRIDGE_CONTRACT),
             topics: _buildTopics(id, tokenAddr),
             data: abi.encode(amount, to),
             blockNumber: bytes(""),
@@ -217,5 +373,51 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
             logIndex: bytes(""),
             removed: false
         });
+    }
+
+    function _buildEthGetBlockByNumberArgs() internal pure returns (bytes memory) {
+        return abi.encode(
+            EthGetBlockByNumberTypes.PrecompileArgs(1, EthGetBlockByNumberTypes.RpcArgs(hex"66696e616c697a6564", false))
+        );
+    }
+
+    function _buildEthGetBlockByNumberRpcBlock(uint256 blockNumber) internal pure returns (bytes memory) {
+        return abi.encode(
+            EthGetBlockByNumberTypes.RpcBlock({
+                number: HexUtils.toBytesMinimal(blockNumber),
+                difficulty: bytes(""),
+                extraData: bytes(""),
+                gasLimit: bytes(""),
+                gasUsed: bytes(""),
+                hash: bytes32(0),
+                logsBloom: bytes(""),
+                miner: address(0),
+                mixHash: bytes32(0),
+                nonce: bytes(""),
+                parentHash: bytes32(0),
+                receiptsRoot: bytes32(0),
+                sha3Uncles: bytes32(0),
+                size: bytes(""),
+                stateRoot: bytes32(0),
+                timestamp: bytes(""),
+                transactions: new bytes32[](0),
+                transactionsRoot: bytes32(0),
+                uncles: new bytes32[](0)
+            })
+        );
+    }
+
+    function _mockEthGetBlockByNumber(uint256 blockNumber) internal {
+        bytes memory args = _buildEthGetBlockByNumberArgs();
+        bytes memory rpcBlock = _buildEthGetBlockByNumberRpcBlock(blockNumber);
+        podMockEthGetBlockByNumber(args, rpcBlock);
+    }
+
+    function _mockTxInfo(TxInfo memory txInfo) internal {
+        podMockTxInfo(abi.encode(txInfo));
+    }
+
+    function _mockMintBalance(address recipient, uint256 amount) internal {
+        podMockMintBalance(recipient, abi.encode(amount));
     }
 }

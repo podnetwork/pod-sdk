@@ -31,8 +31,16 @@ abstract contract BridgeBehaviorTest is PodTest {
     // Common tests
     function test_Deposit_EmitsEvent() public {
         vm.prank(user);
-        vm.expectEmit(true, true, false, true);
+        vm.expectEmit(true, true, true, true);
         emit IBridge.Deposit(0, address(token()), DEPOSIT_AMOUNT, recipient);
+        bridge().deposit(address(token()), DEPOSIT_AMOUNT, recipient);
+    }
+
+    function test_Deposit_RevertIfPaused() public {
+        vm.prank(admin);
+        bridge().pause();
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vm.prank(user);
         bridge().deposit(address(token()), DEPOSIT_AMOUNT, recipient);
     }
 
@@ -44,6 +52,31 @@ abstract contract BridgeBehaviorTest is PodTest {
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
         bridge().deposit(address(token()), tokenLimits.deposit + 1, recipient);
+    }
+
+    function test_DepositNative_EmitsEvent() public {
+        vm.deal(user, DEPOSIT_AMOUNT);
+        vm.expectEmit(true, true, true, true);
+        emit IBridge.DepositNative(0, DEPOSIT_AMOUNT, recipient);
+        vm.prank(user);
+        bridge().depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
+    }
+
+    function test_DepositNative_RevertIfPaused() public {
+        vm.deal(user, DEPOSIT_AMOUNT);
+        vm.prank(admin);
+        bridge().pause();
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vm.prank(user);
+        bridge().depositNative{value: DEPOSIT_AMOUNT}(recipient);
+    }
+
+    function test_DepositNative_RevertIfInvalidAmount() public {
+        vm.deal(user, DEPOSIT_AMOUNT);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAmount.selector));
+        vm.prank(user);
+        bridge().depositNative{value: 0.001 ether}(recipient);
     }
 
     function test_Deposit_ZeroRecipientAndPause() public {
@@ -179,17 +212,6 @@ abstract contract BridgeBehaviorTest is PodTest {
         vm.prank(user);
         vm.expectRevert();
         bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
-    }
-
-    function test_DepositIndex_IncrementsSequentially() public {
-        uint256 beforeIdx = bridge().depositIndex();
-        vm.prank(user);
-        bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
-        assertEq(bridge().depositIndex(), beforeIdx + 1);
-
-        vm.prank(user);
-        bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
-        assertEq(bridge().depositIndex(), beforeIdx + 2);
     }
 
     function test_RoleGrants_FromConstructor() public view {

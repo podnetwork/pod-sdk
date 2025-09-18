@@ -22,6 +22,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
     uint256[] validatorPrivateKeys;
     uint256 constant NUMBER_OF_VALIDATORS = 4;
     address immutable MIRROR_TOKEN = makeAddr("mirrorToken");
+    address immutable OTHER_BRIDGE_CONTRACT = makeAddr("otherBridgeContract");
 
     function bridge() internal view override returns (Bridge) {
         return _bridge;
@@ -43,7 +44,8 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         }
 
         podRegistry = new PodRegistry(initialValidators);
-        _bridge = new BridgeDepositWithdraw(address(podRegistry));
+        _bridge = new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT);
+
         _token = new WrappedToken("InitialToken", "ITKN", 18);
         _token.mint(user, INITIAL_BALANCE);
         _token.mint(admin, INITIAL_BALANCE);
@@ -54,6 +56,17 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
 
         vm.prank(user);
         _token.approve(address(_bridge), type(uint256).max);
+    }
+
+    function test_DepositIndex_IncrementsSequentially() public {
+        uint256 beforeIdx = _bridge.depositIndex();
+        vm.prank(user);
+        bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
+        assertEq(_bridge.depositIndex(), beforeIdx + 1);
+
+        vm.prank(user);
+        bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
+        assertEq(_bridge.depositIndex(), beforeIdx + 2);
     }
 
     function test_Deposit_TransfersIntoBridge() public {
@@ -104,6 +117,13 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         _bridge.claim(certifiedLog);
     }
 
+    function test_Claim_RevertIfInvalidBridgeContract() public {
+        PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(3);
+        certifiedLog.log.addr = address(0xBEEF);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidBridgeContract.selector));
+        _bridge.claim(certifiedLog);
+    }
+
     function test_Claim_RevertIfAlreadyClaimed() public {
         vm.prank(admin);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, recipient);
@@ -113,16 +133,96 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         _bridge.claim(certifiedLog);
     }
 
+    function test_ClaimNative() public {
+        vm.deal(admin, DEPOSIT_AMOUNT);
+        vm.prank(admin);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
+        assertEq(recipient.balance, 0);
+        PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
+        vm.expectEmit(true, false, false, true);
+        emit IBridge.ClaimNative(0, DEPOSIT_AMOUNT, recipient);
+        _bridge.claimNative(certifiedLog);
+        assertEq(address(bridge()).balance, 0);
+        assertEq(recipient.balance, DEPOSIT_AMOUNT);
+    }
+
+    function test_ClaimNative_RevertIfPaused() public {
+        vm.prank(admin);
+        _bridge.pause();
+        PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
+        vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
+        _bridge.claimNative(certifiedLog);
+    }
+
+    function test_ClaimNative_RevertIfInvalidLog() public {
+        PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
+        certifiedLog.log.topics[0] = bytes32(uint256(1232));
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
+        _bridge.claimNative(certifiedLog);
+    }
+
+    function test_ClaimNative_RevertIfInvalidBridgeContract() public {
+        PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
+        certifiedLog.log.addr = address(0xBEEF);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidBridgeContract.selector));
+        _bridge.claimNative(certifiedLog);
+    }
+
+    function test_ClaimNative_RevertIfInvalidAmount() public {
+        vm.deal(admin, DEPOSIT_AMOUNT);
+        vm.prank(admin);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
+        certifiedLog.log.data = abi.encode(uint256(0.001 ether), recipient);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAmount.selector));
+        _bridge.claimNative(certifiedLog);
+        assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
+        assertEq(recipient.balance, 0);
+    }
+
+    function test_ClaimNative_RevertIfInvalidCertificate() public {
+        // invalid leaf
+        vm.deal(admin, DEPOSIT_AMOUNT);
+        vm.prank(admin);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
+        certifiedLog.certificate.leaf = bytes32(0);
+        vm.expectRevert(abi.encodeWithSelector(IBridgeDepositWithdraw.InvalidCertificate.selector));
+        _bridge.claimNative(certifiedLog);
+
+        // tampered proof
+        certifiedLog = createNativeCertifiedLog(3);
+        certifiedLog.certificate.proof.path[0] = bytes32(uint256(1232));
+        vm.expectRevert(abi.encodeWithSelector(IBridgeDepositWithdraw.InvalidCertificate.selector));
+        _bridge.claimNative(certifiedLog);
+
+        // not enough signatures
+        certifiedLog = createNativeCertifiedLog(2);
+        vm.expectRevert(abi.encodeWithSelector(IBridgeDepositWithdraw.InvalidCertificate.selector));
+        _bridge.claimNative(certifiedLog);
+    }
+
+    function test_ClaimNative_RevertIfAlreadyClaimed() public {
+        vm.deal(admin, DEPOSIT_AMOUNT);
+        vm.prank(admin);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
+        _bridge.claimNative(certifiedLog);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
+        _bridge.claimNative(certifiedLog);
+    }
+
     function test_Claim_RevertIfInvalidDepositLog() public {
         PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(3);
         certifiedLog.log.topics[0] = bytes32(uint256(1232));
-        vm.expectRevert(abi.encodeWithSelector(IBridgeDepositWithdraw.InvalidDepositLog.selector));
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
         _bridge.claim(certifiedLog);
 
         certifiedLog = createCertifiedLog(3);
         certifiedLog.log.topics = new bytes32[](1);
         certifiedLog.log.topics[0] = bytes32(uint256(1232));
-        vm.expectRevert(abi.encodeWithSelector(IBridgeDepositWithdraw.InvalidDepositLog.selector));
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
         _bridge.claim(certifiedLog);
     }
 
@@ -169,9 +269,19 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, recipient);
     }
 
+    function test_DepositNative_IncrementsIndexSequentially() public {
+        vm.deal(user, 2 * DEPOSIT_AMOUNT);
+        vm.prank(user);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        assertEq(_bridge.depositIndex(), 1);
+        vm.prank(user);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        assertEq(_bridge.depositIndex(), 2);
+    }
+
     function test_Migrate_NoWhitelistedTokens() public {
         vm.prank(admin);
-        BridgeDepositWithdraw fresh = new BridgeDepositWithdraw(address(podRegistry));
+        BridgeDepositWithdraw fresh = new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT);
         vm.prank(admin);
         fresh.pause();
         vm.prank(admin);
@@ -233,7 +343,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         view
         returns (PodECDSA.CertifiedLog memory)
     {
-        bytes32 receiptRoot = 0xca35a1783abe48ca23da757fb7253a1315777b4e8820262c67e85e6f87eb340f;
+        bytes32 receiptRoot = 0xb971e2eaeaab46dbad2fa4ed54edbaac586939dbc33c73315903a80bcc931b39;
         bytes32[] memory topics = new bytes32[](3);
         topics[0] = keccak256("Deposit(uint256,address,uint256,address)");
         topics[1] = bytes32(uint256(0));
@@ -243,10 +353,10 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
 
         bytes32[] memory merklePath = new bytes32[](4);
 
-        merklePath[0] = 0x8a998be39bd3962defce6fb56ba8a10da89ae208743fa4147503adebfb32005d;
-        merklePath[1] = 0x2498e05df11f1325b6f78c1d181cb7db187233732812af1f16efe9a129abe618;
-        merklePath[2] = 0xaae4eb6d4b3989ffc690c918484b530f4d853427b635b39e8f70975dd7cbff1b;
-        merklePath[3] = 0x996db2475c7d59b0652b50c24aeca2454967b3e7101a667e2ce9d03567202483;
+        merklePath[0] = 0x42ee24b8bf1831e9a79284d4f5719840477450d02681315d2d2ae29a4c2c829b;
+        merklePath[1] = 0x05ad2355f20950fa862daf53cc8ac0b82c0106289c3e1e4c8602aa13792d0831;
+        merklePath[2] = 0x0eb6eaabad615528bc24c8c5786a4ceff0c07481daac20e40a7f009c47b1868e;
+        merklePath[3] = 0xa570326bbbc2e5afb293034a35a7a074d76d2ec3af3695beb2da2b870da524b5;
 
         bytes[] memory signatures = new bytes[](numberOfRequiredSignatures);
         uint256[] memory sortedAttestationTimestamps = new uint256[](numberOfRequiredSignatures);
@@ -264,7 +374,56 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
             sortedAttestationTimestamps: sortedAttestationTimestamps
         });
 
-        PodECDSA.Log memory log = PodECDSA.Log({addr: address(_bridge), topics: topics, data: data});
+        PodECDSA.Log memory log = PodECDSA.Log({addr: address(OTHER_BRIDGE_CONTRACT), topics: topics, data: data});
+
+        bytes32 logHash = PodECDSA.hashLog(log);
+        bytes32 leaf = MerkleTree.hashLeaf(bytes("log_hashes[1]"), logHash);
+        MerkleTree.Proof memory proof = MerkleTree.Proof({path: merklePath});
+
+        PodECDSA.CertifiedLog memory certifiedLog = PodECDSA.CertifiedLog({
+            log: log,
+            logIndex: 1,
+            certificate: PodECDSA.Certificate({leaf: leaf, certifiedReceipt: certifiedReceipt, proof: proof})
+        });
+
+        return certifiedLog;
+    }
+
+    function createNativeCertifiedLog(uint256 numberOfRequiredSignatures)
+        internal
+        view
+        returns (PodECDSA.CertifiedLog memory)
+    {
+        bytes32 receiptRoot = 0x53530f2085bae5343304dc02eba7f347453fe00ad74f5acf9f0aced719fe4a03;
+        bytes32[] memory topics = new bytes32[](2);
+        topics[0] = keccak256("DepositNative(uint256,uint256,address)");
+        topics[1] = bytes32(uint256(0));
+
+        bytes memory data = abi.encode(DEPOSIT_AMOUNT, recipient);
+
+        bytes32[] memory merklePath = new bytes32[](3);
+
+        merklePath[0] = 0x05ad2355f20950fa862daf53cc8ac0b82c0106289c3e1e4c8602aa13792d0831;
+        merklePath[1] = 0x801cf30b996f0126b23e8bb5b0833b4253c4c752a64cefd31adbc887f04397c1;
+        merklePath[2] = 0xa12e4e7415c5592a840a2fd2d4b0786526eb78284f1f8f8ecd7d10fd113f4a14;
+
+        bytes[] memory signatures = new bytes[](numberOfRequiredSignatures);
+        uint256[] memory sortedAttestationTimestamps = new uint256[](numberOfRequiredSignatures);
+        for (uint256 i = 0; i < numberOfRequiredSignatures; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], receiptRoot);
+            signatures[i] = ECDSA._serialize_signature(v, r, s);
+            sortedAttestationTimestamps[i] = i + 1;
+        }
+
+        bytes memory aggregateSignature = ECDSA.aggregate_signatures(signatures);
+
+        PodECDSA.CertifiedReceipt memory certifiedReceipt = PodECDSA.CertifiedReceipt({
+            receiptRoot: receiptRoot,
+            aggregateSignature: aggregateSignature,
+            sortedAttestationTimestamps: sortedAttestationTimestamps
+        });
+
+        PodECDSA.Log memory log = PodECDSA.Log({addr: address(OTHER_BRIDGE_CONTRACT), topics: topics, data: data});
 
         bytes32 logHash = PodECDSA.hashLog(log);
         bytes32 leaf = MerkleTree.hashLeaf(bytes("log_hashes[1]"), logHash);
