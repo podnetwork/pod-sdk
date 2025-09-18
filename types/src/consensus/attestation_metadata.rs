@@ -14,18 +14,11 @@ impl Hashable for AttestationMetadata {
         use alloy_primitives::Keccak256;
 
         let mut hasher = Keccak256::default();
-        hasher.update(self.timestamp.hash_custom().as_slice());
+        hasher.update(self.timestamp.as_micros().to_be_bytes());
         hasher.update(self.global_sequence.to_be_bytes());
 
-        //sort to ensure deterministic, order-independent hashing
-        let mut sorted = self.contract_sequences.clone();
-        sorted.sort_by(|a, b| match a.0.cmp(&b.0) {
-            std::cmp::Ordering::Equal => a.1.cmp(&b.1),
-            other => other,
-        });
-
-        hasher.update((sorted.len() as u64).to_be_bytes());
-        for (addr, seq) in sorted {
+        hasher.update((self.contract_sequences.len() as u32).to_be_bytes());
+        for (addr, seq) in self.contract_sequences.iter() {
             hasher.update(addr.as_slice());
             hasher.update(seq.to_be_bytes());
         }
