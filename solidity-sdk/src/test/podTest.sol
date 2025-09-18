@@ -6,7 +6,6 @@ import {Time, POD_TIMESTAMP_PRECOMPILE} from "../Time.sol";
 import {REQUIRE_QUORUM} from "../Quorum.sol";
 import {EthGetLogsTypes} from "../types/EthGetLogsTypes.sol";
 import {EthGetBlockByNumberTypes} from "../types/EthGetBlockByNumberTypes.sol";
-import {PodMintBalance} from "pod-protocol/libraries/PodMintBalance.sol";
 import {POD_TX_INFO} from "../Context.sol";
 
 abstract contract PodTest is Test {
@@ -43,7 +42,7 @@ abstract contract PodTest is Test {
     }
 
     function podMockMintBalance(address recipient, bytes memory input) internal {
-        vm.mockCall(PodMintBalance.PRECOMPILE_ADDRESS, input, bytes(""));
+        vm.mockCall(address(uint160(uint256(keccak256("POD_MINT_BALANCE")))), input, bytes(""));
         uint256 amount = abi.decode(input, (uint256));
         vm.deal(recipient, amount);
     }
