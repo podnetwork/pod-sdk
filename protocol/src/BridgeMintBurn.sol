@@ -96,8 +96,8 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
 
         if (logs.length != 1) revert InvalidDepositLog();
 
-        // TODO: redunatnt check for extra security, removing because of gas, add it if gas limit permits.
-        // if (logs[0].addr != bridgeContract) revert InvalidBridgeContract();
+        //redunatnt check for extra security, can be removed for gas purposes.
+        if (logs[0].addr != bridgeContract) revert InvalidBridgeContract();
 
         (decodedAmount, decodedTo) = abi.decode(logs[0].data, (uint256, address));
         requestId = _hashRequest(id, token, decodedAmount, decodedTo);
