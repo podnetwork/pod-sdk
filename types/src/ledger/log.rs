@@ -354,11 +354,11 @@ mod test {
                 attestations: vec![],
                 receipt: Receipt {
                     status: true,
-                    actual_gas_used: 201819,
+                    actual_gas_used: 21784,
                     max_fee_per_gas: transaction.max_fee_per_gas,
                     logs: logs.clone(),
                     logs_root,
-                    tx_hash: transaction.hash_custom(),
+                    attested_tx: AttestedTx::success(transaction.hash_custom(), 0),
                     signer: signer.address(),
                     to: Some(to),
                     contract_address: None,
