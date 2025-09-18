@@ -90,15 +90,15 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     // TODO: redundant test, remove if the check is removed again.
-    function test_Claim_RevertIfInvalidBridgeContract() public {
-        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
-        logs[0].addr = address(0xBEEF);
-        _mockEthGetBlockByNumber(1);
-        _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidBridgeContract.selector));
-        _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
-    }
+    // function test_Claim_RevertIfInvalidBridgeContract() public {
+    //     EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+    //     logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
+    //     logs[0].addr = address(0xBEEF);
+    //     _mockEthGetBlockByNumber(1);
+    //     _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
+    //     vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidBridgeContract.selector));
+    //     _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
+    // }
 
     function test_Claim_RevertIfDailyLimitExhausted_ButSucceedAfterOneDay() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
@@ -244,11 +244,45 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function test_ClaimNative_RevertIfInvalidAmount() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, address(0), 0.001 ether, recipient);
+        logs[0] = _makeLog(0, address(0), nativeTokenLimits.minAmount - 1, recipient);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAmount.selector));
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
         _bridge.claimNative(0, 1);
+    }
+
+    function test_ClaimNative_TracksConsumed() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, address(0), logs);
+        _bridge.claimNative(0, 1);
+        (, IBridge.TokenUsage memory dep, IBridge.TokenUsage memory claimUsage) =
+            bridge().tokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT);
+        assertEq(claimUsage.consumed, DEPOSIT_AMOUNT);
+        logs[0] = _makeLog(1, address(0), DEPOSIT_AMOUNT, recipient);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(1, 1, 1, address(0), logs);
+        _bridge.claimNative(1, 1);
+        (, dep, claimUsage) = bridge().tokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT);
+        assertEq(claimUsage.consumed, DEPOSIT_AMOUNT * 2);
+    }
+
+    function test_ClaimNative_RevertIfMoreThanClaimLimitButSucceedAfterOneDay() public {
+        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        _mockEthGetBlockByNumber(1);
+        _mockEthGetLogs(0, 1, 1, address(0), logs);
+        _bridge.claimNative(0, 1);
+        logs[0] = _makeLog(1, address(0), nativeTokenLimits.claim, recipient);
+        _mockEthGetBlockByNumber(2);
+        _mockEthGetLogs(1, 2, 2, address(0), logs);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
+        _bridge.claimNative(1, 2);
+        vm.warp(block.timestamp + 1 days + 1);
+        _mockEthGetBlockByNumber(2);
+        _mockEthGetLogs(1, 2, 2, address(0), logs);
+        _bridge.claimNative(1, 2);
     }
 
     function test_ClaimNative_RevertIfBlockNotFinalized() public {
@@ -261,15 +295,15 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     // TODO: redundant test, add if the check is removed again.
-    function test_ClaimNative_RevertIfInvalidBridgeContract() public {
-        EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
-        logs[0].addr = address(0xBEEF);
-        _mockEthGetBlockByNumber(1);
-        _mockEthGetLogs(0, 1, 1, address(0), logs);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidBridgeContract.selector));
-        _bridge.claimNative(0, 1);
-    }
+    // function test_ClaimNative_RevertIfInvalidBridgeContract() public {
+    //     EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
+    //     logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+    //     logs[0].addr = address(0xBEEF);
+    //     _mockEthGetBlockByNumber(1);
+    //     _mockEthGetLogs(0, 1, 1, address(0), logs);
+    //     vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidBridgeContract.selector));
+    //     _bridge.claimNative(0, 1);
+    // }
 
     function test_ClaimNative_DoNothingIfRequestAlreadyProcessed() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);

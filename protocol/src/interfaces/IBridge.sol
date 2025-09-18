@@ -20,11 +20,6 @@ interface IBridge {
     error InvalidTokenAmount();
 
     /**
-     * @dev Error thrown when the provided amount is invalid.
-     */
-    error InvalidAmount();
-
-    /**
      * @dev Error thrown when the destination address is zero or invalid.
      */
     error InvalidToAddress();

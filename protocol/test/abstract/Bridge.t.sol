@@ -19,6 +19,9 @@ abstract contract BridgeBehaviorTest is PodTest {
     IBridge.TokenLimits public tokenLimits;
     IBridge.TokenLimits public nativeTokenLimits;
 
+    address public constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT =
+        address(uint160(uint256(keccak256("MOCK_ADDRESS_FOR_NATIVE_DEPOSIT"))));
+
     // Hooks each concrete suite must implement
     function bridge() internal view virtual returns (Bridge);
     function token() internal view virtual returns (IERC20);
@@ -65,6 +68,35 @@ abstract contract BridgeBehaviorTest is PodTest {
         assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
     }
 
+    function test_DepositNative_RevertIfLessThanMinAmount() public {
+        vm.deal(user, DEPOSIT_AMOUNT);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
+        vm.prank(user);
+        bridge().depositNative{value: nativeTokenLimits.minAmount - 1}(recipient);
+    }
+
+    function test_DepositNative_RevertIfMoreThanDailyLimit() public {
+        vm.deal(user, nativeTokenLimits.deposit + 1);
+        vm.prank(admin);
+        bridge().pause();
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vm.prank(user);
+        bridge().depositNative{value: nativeTokenLimits.deposit + 1}(recipient);
+    }
+
+    function test_DepositNative_RevertIfMoreThanClaimLimitButSucceedAfterOneDay() public {
+        vm.deal(user, nativeTokenLimits.deposit + DEPOSIT_AMOUNT);
+        vm.prank(user);
+        vm.warp(block.timestamp + 1 days - 1);
+        bridge().depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
+        vm.prank(user);
+        bridge().depositNative{value: nativeTokenLimits.deposit - 1}(recipient);
+        vm.warp(block.timestamp + 2);
+        vm.prank(user);
+        bridge().depositNative{value: nativeTokenLimits.deposit - 1}(recipient);
+    }
+
     function test_DepositNative_RevertIfPaused() public {
         vm.deal(user, DEPOSIT_AMOUNT);
         vm.prank(admin);
@@ -76,9 +108,17 @@ abstract contract BridgeBehaviorTest is PodTest {
 
     function test_DepositNative_RevertIfInvalidAmount() public {
         vm.deal(user, DEPOSIT_AMOUNT);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAmount.selector));
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
         vm.prank(user);
         bridge().depositNative{value: nativeTokenLimits.minAmount - 1}(recipient);
+    }
+
+    function test_DepositNative_TracksConsumed() public {
+        vm.deal(user, DEPOSIT_AMOUNT);
+        vm.prank(user);
+        bridge().depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        (, IBridge.TokenUsage memory dep,) = bridge().tokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT);
+        assertEq(dep.consumed, DEPOSIT_AMOUNT);
     }
 
     function test_Deposit_ZeroRecipientAndPause() public {

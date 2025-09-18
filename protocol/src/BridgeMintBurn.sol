@@ -97,7 +97,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         if (logs.length != 1) revert InvalidDepositLog();
 
         //redunatnt check for extra security, can be removed for gas purposes.
-        if (logs[0].addr != bridgeContract) revert InvalidBridgeContract();
+        // if (logs[0].addr != bridgeContract) revert InvalidBridgeContract();
 
         (decodedAmount, decodedTo) = abi.decode(logs[0].data, (uint256, address));
         requestId = _hashRequest(id, token, decodedAmount, decodedTo);
@@ -119,7 +119,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
 
         (uint256 decodedAmount, address decodedTo, bytes32 requestId) = _claim(id, address(0), blockNumber, topics);
 
-        if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, decodedAmount, false)) revert InvalidAmount();
+        if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, decodedAmount, false)) revert InvalidTokenAmount();
 
         bool isProcessed = processedRequests[requestId];
 

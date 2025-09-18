@@ -140,7 +140,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     function claimNative(PodECDSA.CertifiedLog calldata certifiedLog) public override whenNotPaused {
         (uint256 id, uint256 amount, address to) = _decodeDepositNativeLog(certifiedLog.log);
 
-        if (amount < 0.01 ether) revert InvalidAmount();
+        if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, amount, false)) revert InvalidTokenAmount();
 
         bytes32 requestId = _hashRequest(id, address(0), amount, to);
         if (processedRequests[requestId]) revert RequestAlreadyProcessed();

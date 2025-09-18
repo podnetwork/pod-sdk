@@ -145,6 +145,10 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         _bridge.claimNative(certifiedLog);
         assertEq(address(bridge()).balance, 0);
         assertEq(recipient.balance, DEPOSIT_AMOUNT);
+        (, IBridge.TokenUsage memory dep, IBridge.TokenUsage memory claimUsage) =
+            bridge().tokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT);
+        assertEq(dep.consumed, DEPOSIT_AMOUNT);
+        assertEq(claimUsage.consumed, DEPOSIT_AMOUNT);
     }
 
     function test_ClaimNative_RevertIfPaused() public {
@@ -174,8 +178,8 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         vm.prank(admin);
         _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
         PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
-        certifiedLog.log.data = abi.encode(uint256(0.001 ether), recipient);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAmount.selector));
+        certifiedLog.log.data = abi.encode(nativeTokenLimits.minAmount - 1, recipient);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
         _bridge.claimNative(certifiedLog);
         assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
         assertEq(recipient.balance, 0);
