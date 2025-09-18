@@ -3,16 +3,11 @@ pragma solidity ^0.8.20;
 
 import {IBridgeMintBurn} from "./interfaces/IBridgeMintBurn.sol";
 import {Bridge} from "./abstract/Bridge.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {IERC20MintableAndBurnable} from "./interfaces/IERC20MintableAndBurnable.sol";
 import {WrappedToken} from "./WrappedToken.sol";
 import {EthGetLogsTypes} from "pod-sdk/types/EthGetLogsTypes.sol";
-import {EthGetBlockByNumberTypes} from "pod-sdk/types/EthGetBlockByNumberTypes.sol";
-import {PodMintBalance} from "./libraries/PodMintBalance.sol";
-import {TxInfo, getTxInfo} from "pod-sdk/Context.sol";
-import {HexUtils} from "./libraries/HexUtils.sol";
+import {PodPrecompileHelper} from "./libraries/PodPrecompileHelper.sol";
 
 /**
  * @title BridgeMintBurn
@@ -39,7 +34,9 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
     /**
      * @dev Constructor.
      */
-    constructor(address _bridgeContract) Bridge(_bridgeContract) {}
+    constructor(address _bridgeContract, TokenLimits memory nativeTokenLimits)
+        Bridge(_bridgeContract, nativeTokenLimits)
+    {}
 
     /**
      * @dev Handles the deposit of tokens. The tokens are burned from the msg.sender.
@@ -55,46 +52,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
      * @return id The request ID of the deposit.
      */
     function _getDepositId() internal view override returns (uint256) {
-        TxInfo memory txInfo = getTxInfo();
-        return uint256(txInfo.txHash);
-    }
-
-    function _getFinalizedBlockNumber() internal view returns (uint256) {
-        (bool success, bytes memory output) = EthGetBlockByNumberTypes.PRECOMPILE_ADDRESS.staticcall(
-            abi.encode(
-                EthGetBlockByNumberTypes.PrecompileArgs(
-                    SOURCE_CHAIN_ID, EthGetBlockByNumberTypes.RpcArgs(FINALIZED_BLOCK_BYTES, false)
-                )
-            )
-        );
-        if (!success) revert PrecompileCallFailed();
-
-        EthGetBlockByNumberTypes.RpcBlock memory rpcBlock = abi.decode(output, (EthGetBlockByNumberTypes.RpcBlock));
-
-        return HexUtils.uintFromBigEndian(rpcBlock.number);
-    }
-
-    function _getLogs(uint256 blockNumber, bytes32[] memory topics)
-        internal
-        view
-        returns (EthGetLogsTypes.RpcLog[] memory)
-    {
-        bytes memory precompileArgs;
-        bytes memory blockNumberBytes = HexUtils.toBytesMinimal(blockNumber);
-        precompileArgs = abi.encode(
-            EthGetLogsTypes.PrecompileArgs(
-                SOURCE_CHAIN_ID,
-                EthGetLogsTypes.RpcArgs(blockNumberBytes, blockNumberBytes, address(bridgeContract), bytes32(0), topics)
-            )
-        );
-        (bool success, bytes memory output) = EthGetLogsTypes.PRECOMPILE_ADDRESS.staticcall(precompileArgs);
-        if (!success) revert PrecompileCallFailed();
-        EthGetLogsTypes.RpcLog[] memory logs = abi.decode(output, (EthGetLogsTypes.RpcLog[]));
-
-        if (logs.length != 1) revert InvalidDepositLog();
-        if (logs[0].addr != bridgeContract) revert InvalidBridgeContract();
-
-        return logs;
+        return PodPrecompileHelper.getTxHash();
     }
 
     /**
@@ -106,22 +64,18 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         topics[1] = bytes32(id);
         topics[2] = bytes32(uint256(uint160(token)));
 
-        uint256 finalizedBlockNumber = _getFinalizedBlockNumber();
+        uint256 finalizedBlockNumber = PodPrecompileHelper.getFinalizedBlockNumber();
 
         if (blockNumber > finalizedBlockNumber) {
             revert BlockNotFinalized();
         }
 
-        EthGetLogsTypes.RpcLog[] memory logs = _getLogs(blockNumber, topics);
-
-        (uint256 decodedAmount, address decodedTo) = abi.decode(logs[0].data, (uint256, address));
-
         address mirrorToken = mirrorTokens[token];
         if (mirrorToken == address(0)) revert MirrorTokenNotFound();
 
-        if (!_isValidTokenAmount(mirrorToken, decodedAmount, false)) revert InvalidTokenAmount();
+        (uint256 decodedAmount, address decodedTo, bytes32 requestId) = _claim(id, token, blockNumber, topics);
 
-        bytes32 requestId = _hashRequest(id, token, decodedAmount, decodedTo);
+        if (!_isValidTokenAmount(mirrorToken, decodedAmount, false)) revert InvalidTokenAmount();
 
         if (processedRequests[requestId]) revert RequestAlreadyProcessed();
 
@@ -132,6 +86,23 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         emit Claim(id, mirrorToken, token, decodedAmount, decodedTo);
     }
 
+    function _claim(uint256 id, address token, uint256 blockNumber, bytes32[] memory topics)
+        internal
+        view
+        returns (uint256 decodedAmount, address decodedTo, bytes32 requestId)
+    {
+        EthGetLogsTypes.RpcLog[] memory logs =
+            PodPrecompileHelper.getLogs(SOURCE_CHAIN_ID, blockNumber, topics, bridgeContract);
+
+        if (logs.length != 1) revert InvalidDepositLog();
+
+        // TODO: redunatnt check for extra security, removing because of gas, add it if gas limit permits.
+        // if (logs[0].addr != bridgeContract) revert InvalidBridgeContract();
+
+        (decodedAmount, decodedTo) = abi.decode(logs[0].data, (uint256, address));
+        requestId = _hashRequest(id, token, decodedAmount, decodedTo);
+    }
+
     /**
      * @inheritdoc IBridgeMintBurn
      */
@@ -140,29 +111,27 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         topics[0] = DEPOSIT_NATIVE_TOPIC_0;
         topics[1] = bytes32(id);
 
-        uint256 finalizedBlockNumber = _getFinalizedBlockNumber();
+        uint256 finalizedBlockNumber = PodPrecompileHelper.getFinalizedBlockNumber();
 
         if (blockNumber > finalizedBlockNumber) {
             revert BlockNotFinalized();
         }
 
-        EthGetLogsTypes.RpcLog[] memory logs = _getLogs(blockNumber, topics);
+        (uint256 decodedAmount, address decodedTo, bytes32 requestId) = _claim(id, address(0), blockNumber, topics);
 
-        (uint256 decodedAmount, address decodedTo) = abi.decode(logs[0].data, (uint256, address));
+        if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, decodedAmount, false)) revert InvalidAmount();
 
-        if (decodedAmount < 0.01 ether) revert InvalidAmount();
-
-        bytes32 requestId = _hashRequest(id, address(0), decodedAmount, decodedTo);
-        if (processedRequests[requestId]) revert RequestAlreadyProcessed();
-
-        if (decodedTo != msg.sender) revert InvalidToAddress();
+        bool isProcessed = processedRequests[requestId];
 
         processedRequests[requestId] = true;
 
         // mint the native tokens to msg.sender
-        if (!PodMintBalance.mint(decodedAmount)) revert PrecompileCallFailed();
+        if (!isProcessed) {
+            // TODO: need to modify this to mint to decodedTo instead of msg.sender
+            if (!PodPrecompileHelper.mint(decodedAmount)) revert PrecompileCallFailed();
 
-        emit ClaimNative(id, decodedAmount, decodedTo);
+            emit ClaimNative(id, decodedAmount, decodedTo);
+        }
     }
 
     /**

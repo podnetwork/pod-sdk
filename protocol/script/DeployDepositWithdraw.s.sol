@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {BridgeDepositWithdraw} from "../src/BridgeDepositWithdraw.sol";
 import {PodRegistry} from "../src/PodRegistry.sol";
@@ -13,6 +12,7 @@ contract DeployDepositWithdraw is BaseDeployer {
     uint256 constant CHAIN_ID = 31337;
     string constant RPC_URL = "http://localhost:8546";
     address constant OTHER_BRIDGE_CONTRACT = 0x12296f2D128530a834460DF6c36a2895B793F26d;
+    IBridge.TokenLimits nativeTokenLimits = IBridge.TokenLimits({minAmount: 0.01 ether, deposit: 500e18, claim: 400e18});
 
     function run() external {
         console.log("=== Deploying BridgeDepositWithdraw to localhost:8546 (chainId 31337) ===");
@@ -28,7 +28,7 @@ contract DeployDepositWithdraw is BaseDeployer {
         console.log("PodRegistry deployed at:", address(podRegistry));
 
         BridgeDepositWithdraw bridgeDepositWithdraw =
-            new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT);
+            new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT, nativeTokenLimits);
         console.log("BridgeDepositWithdraw deployed at:", address(bridgeDepositWithdraw));
 
         // Deploy some test tokens

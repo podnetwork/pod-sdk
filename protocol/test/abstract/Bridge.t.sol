@@ -17,6 +17,7 @@ abstract contract BridgeBehaviorTest is PodTest {
     uint256 public constant DEPOSIT_AMOUNT = 100e18;
 
     IBridge.TokenLimits public tokenLimits;
+    IBridge.TokenLimits public nativeTokenLimits;
 
     // Hooks each concrete suite must implement
     function bridge() internal view virtual returns (Bridge);
@@ -25,6 +26,7 @@ abstract contract BridgeBehaviorTest is PodTest {
 
     function setUp() public virtual {
         tokenLimits = IBridge.TokenLimits({minAmount: 1e18, deposit: 500e18, claim: 400e18});
+        nativeTokenLimits = IBridge.TokenLimits({minAmount: 0.01 ether, deposit: 500e18, claim: 400e18});
         setUpSuite();
     }
 
@@ -76,7 +78,7 @@ abstract contract BridgeBehaviorTest is PodTest {
         vm.deal(user, DEPOSIT_AMOUNT);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAmount.selector));
         vm.prank(user);
-        bridge().depositNative{value: 0.001 ether}(recipient);
+        bridge().depositNative{value: nativeTokenLimits.minAmount - 1}(recipient);
     }
 
     function test_Deposit_ZeroRecipientAndPause() public {

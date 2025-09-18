@@ -25,6 +25,8 @@ contract CreateAndWhitelistToken is Script {
             IBridge.TokenLimits({minAmount: 1e18, deposit: 10000e18, claim: 10000e18})
         );
 
+        console.log("Token created and whitelisted");
+
         vm.stopBroadcast();
     }
 }

@@ -7,7 +7,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {PodECDSA} from "pod-sdk/verifier/PodECDSA.sol";
 import {IPodRegistry} from "./interfaces/IPodRegistry.sol";
-import {console} from "forge-std/console.sol";
 
 /**
  * @title BridgeDepositWithdraw
@@ -33,7 +32,9 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
      * @dev Constructor.
      * @param _podRegistry The address of the PodRegistry to use.
      */
-    constructor(address _podRegistry, address _bridgeContract) Bridge(_bridgeContract) {
+    constructor(address _podRegistry, address _bridgeContract, TokenLimits memory nativeTokenLimits)
+        Bridge(_bridgeContract, nativeTokenLimits)
+    {
         podConfig =
             PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: IPodRegistry(_podRegistry)});
     }

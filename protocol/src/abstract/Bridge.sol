@@ -3,8 +3,6 @@ pragma solidity ^0.8.20;
 
 import {IBridge} from "../interfaces/IBridge.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
@@ -33,6 +31,12 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      * @dev The topic 0 (event signature) of the deposit native event.
      */
     bytes32 constant DEPOSIT_NATIVE_TOPIC_0 = keccak256("DepositNative(uint256,uint256,address)");
+
+    /**
+     * @dev The topic 0 (event signature) of the address for native deposit event.
+     */
+    address constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT =
+        address(uint160(uint256(keccak256("MOCK_ADDRESS_FOR_NATIVE_DEPOSIT"))));
 
     /**
      * @dev Map token address to token data.
@@ -74,11 +78,12 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      * @dev Constructor.
      * @notice Grants the DEFAULT_ADMIN_ROLE and PAUSER_ROLE to the msg.sender.
      */
-    constructor(address _bridgeContract) {
+    constructor(address _bridgeContract, TokenLimits memory nativeTokenLimits) {
         if (_bridgeContract == address(0)) revert InvalidBridgeContract();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
         bridgeContract = _bridgeContract;
+        _configureTokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, nativeTokenLimits, true);
     }
 
     /**
@@ -198,7 +203,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      * @param limits The token limits to configure.
      * @param newToken Whether the token is new.
      */
-    function _configureTokenData(address token, TokenLimits calldata limits, bool newToken) internal {
+    function _configureTokenData(address token, TokenLimits memory limits, bool newToken) internal {
         uint256 currMinAmount = tokenData[token].limits.minAmount;
         if (limits.minAmount == 0 || (newToken ? currMinAmount != 0 : currMinAmount == 0)) {
             revert InvalidTokenConfig();
@@ -214,7 +219,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     /**
      * @inheritdoc IBridge
      */
-    function configureToken(address token, TokenLimits calldata limits) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function configureToken(address token, TokenLimits memory limits) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _configureTokenData(token, limits, false);
     }
 
@@ -224,7 +229,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      * @param mirrorToken Token that will be deposited in the mirror contract.
      * @param limits Token limits associated with the token.
      */
-    function _whitelistToken(address token, address mirrorToken, TokenLimits calldata limits) internal {
+    function _whitelistToken(address token, address mirrorToken, TokenLimits memory limits) internal {
         if (mirrorTokens[mirrorToken] != address(0)) {
             revert InvalidTokenConfig();
         }

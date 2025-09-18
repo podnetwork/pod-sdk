@@ -44,7 +44,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         }
 
         podRegistry = new PodRegistry(initialValidators);
-        _bridge = new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT);
+        _bridge = new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT, nativeTokenLimits);
 
         _token = new WrappedToken("InitialToken", "ITKN", 18);
         _token.mint(user, INITIAL_BALANCE);
@@ -281,7 +281,8 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
 
     function test_Migrate_NoWhitelistedTokens() public {
         vm.prank(admin);
-        BridgeDepositWithdraw fresh = new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT);
+        BridgeDepositWithdraw fresh =
+            new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT, nativeTokenLimits);
         vm.prank(admin);
         fresh.pause();
         vm.prank(admin);
