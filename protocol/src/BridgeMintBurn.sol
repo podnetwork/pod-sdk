@@ -21,8 +21,6 @@ import {HexUtils} from "./libraries/HexUtils.sol";
  * minting and burning tokens between chains.
  */
 contract BridgeMintBurn is Bridge, IBridgeMintBurn {
-    using SafeERC20 for IERC20;
-
     /**
      * @dev The role for the minter.
      */

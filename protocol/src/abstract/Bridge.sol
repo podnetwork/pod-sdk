@@ -19,8 +19,6 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
  * the callback functions (handleDeposit and handleMigrate) that must be implemented by concrete contracts.
  */
 abstract contract Bridge is IBridge, AccessControl, Pausable {
-    using SafeERC20 for IERC20;
-
     /**
      * @dev The role ID for addresses that can pause the contract.
      */
