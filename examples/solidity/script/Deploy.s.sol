@@ -47,7 +47,7 @@ contract Deployer is BaseDeployer {
             address otherBridgeContract = makeAddr("otherBridgeContract");
             IBridge.TokenLimits memory nativeTokenLimits =
                 IBridge.TokenLimits({minAmount: 0.01 ether, deposit: 500e18, claim: 400e18});
-            BridgeMintBurn bridgeMintBurn = new BridgeMintBurn(otherBridgeContract, nativeTokenLimits);
+            BridgeMintBurn bridgeMintBurn = new BridgeMintBurn(otherBridgeContract, nativeTokenLimits, 0);
             console.log("BridgeMintBurn deployed at:", address(bridgeMintBurn));
         }
 
