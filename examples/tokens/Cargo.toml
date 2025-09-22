@@ -7,9 +7,9 @@ edition = "2024"
 pod-sdk = { path = "../../rust-sdk" }
 pod-types = { path = "../../types" }
 
-alloy = { version = "1.0.24", features = ["sol-types", "contract"] }
-tokio = { version = "1.45.1", features = ["full"] }
-anyhow = "1.0.98"
-clap = { version = "4.5.38", features = ["derive"] }
+alloy = { version = "1.0.34", features = ["sol-types", "contract"] }
+tokio = { version = "1.47.1", features = ["full"] }
+anyhow = "1.0.100"
+clap = { version = "4.5.48", features = ["derive"] }
 hex = "0.4.3"
 futures = "0.3.31"
