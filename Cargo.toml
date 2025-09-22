@@ -12,5 +12,6 @@ members = [
   "examples/tokens",
   "examples/bsky/plc",
   "examples/optimism-tx-auction",
+  "protocol/bindings",
 ]
 resolver = "2"

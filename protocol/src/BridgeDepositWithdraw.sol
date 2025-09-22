@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IBridgeDepositWithdraw} from "./interfaces/IBridgeDepositWithdraw.sol";
-import {Bridge} from "./abstract/Bridge.sol";
+import {IBridgeDepositWithdraw} from "pod-protocol/interfaces/IBridgeDepositWithdraw.sol";
+import {Bridge} from "pod-protocol/abstract/Bridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {PodECDSA} from "pod-sdk/verifier/PodECDSA.sol";
-import {IPodRegistry} from "./interfaces/IPodRegistry.sol";
+import {IPodRegistry} from "pod-protocol/interfaces/IPodRegistry.sol";
 
 /**
  * @title BridgeDepositWithdraw

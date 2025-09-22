@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IBridgeMintBurn} from "./interfaces/IBridgeMintBurn.sol";
-import {Bridge} from "./abstract/Bridge.sol";
+import {IBridgeMintBurn} from "pod-protocol/interfaces/IBridgeMintBurn.sol";
+import {Bridge} from "pod-protocol/abstract/Bridge.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
-import {IERC20MintableAndBurnable} from "./interfaces/IERC20MintableAndBurnable.sol";
-import {WrappedToken} from "./WrappedToken.sol";
+import {IERC20MintableAndBurnable} from "pod-protocol/interfaces/IERC20MintableAndBurnable.sol";
+import {WrappedToken} from "pod-protocol/WrappedToken.sol";
 import {EthGetLogsTypes} from "pod-sdk/types/EthGetLogsTypes.sol";
-import {PodPrecompileHelper} from "./libraries/PodPrecompileHelper.sol";
+import {PodPrecompileHelper} from "pod-protocol/libraries/PodPrecompileHelper.sol";
 
 /**
  * @title BridgeMintBurn
@@ -24,7 +24,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
     /**
      * @dev The source chain id.
      */
-    uint96 constant SOURCE_CHAIN_ID = 1;
+    uint96 immutable SOURCE_CHAIN_ID;
 
     /**
      * @dev "finalized" as bytes
@@ -34,9 +34,11 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
     /**
      * @dev Constructor.
      */
-    constructor(address _bridgeContract, TokenLimits memory nativeTokenLimits)
+    constructor(address _bridgeContract, TokenLimits memory nativeTokenLimits, uint96 _sourceChainId)
         Bridge(_bridgeContract, nativeTokenLimits)
-    {}
+    {
+        SOURCE_CHAIN_ID = _sourceChainId;
+    }
 
     /**
      * @dev Handles the deposit of tokens. The tokens are burned from the msg.sender.

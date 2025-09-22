@@ -15,7 +15,7 @@ contract DeployMintBurn is Script {
 
         vm.startBroadcast();
 
-        BridgeMintBurn bridgeMintBurn = new BridgeMintBurn(OTHER_BRIDGE_CONTRACT, nativeTokenLimits);
+        BridgeMintBurn bridgeMintBurn = new BridgeMintBurn(OTHER_BRIDGE_CONTRACT, nativeTokenLimits, 1);
         console.log("BridgeMintBurn deployed at:", address(bridgeMintBurn));
 
         vm.stopBroadcast();

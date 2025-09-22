@@ -98,6 +98,12 @@ jobs:
         id: test
         working-directory: protocol
 
+      - name: Check bindings
+        run: |
+          make check
+        working-directory: protocol
+        id: bindings
+
   solidity-sdk:
     name: solidity-sdk 
     runs-on: ubuntu-latest

@@ -10,6 +10,8 @@ import {BaseDeployer} from "pod-protocol-scripts/BaseDeployer.s.sol";
 import {PodRegistry} from "pod-protocol/PodRegistry.sol";
 import {PodAuctionConsumer} from "optimistic-auction/PodAuctionConsumer.sol";
 import {TestMintBalancePrecompile} from "../src/TestMintBalancePrecompile.sol";
+import {BridgeMintBurn} from "pod-protocol/BridgeMintBurn.sol";
+import {IBridge} from "pod-protocol/interfaces/IBridge.sol";
 
 contract Deployer is BaseDeployer {
     function run() public {
@@ -30,6 +32,12 @@ contract Deployer is BaseDeployer {
 
         if (testContracts) {
             address[] memory initialValidators = getValidatorAddresses();
+
+            address otherBridgeContract = makeAddr("otherBridgeContract");
+            IBridge.TokenLimits nativeTokenLimits =
+                IBridge.TokenLimits({minAmount: 0.01 ether, deposit: 500e18, claim: 400e18});
+            BridgeMintBurn bridgeMintBurn = new BridgeMintBurn(otherBridgeContract, nativeTokenLimits);
+            console.log("BridgeMintBurn deployed at:", address(bridgeMintBurn));
 
             PodRegistry podRegistry = new PodRegistry(initialValidators);
             console.log("PodRegistry deployed at:", address(podRegistry));

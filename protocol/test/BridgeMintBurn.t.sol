@@ -2,16 +2,16 @@
 pragma solidity ^0.8.20;
 
 import {BridgeBehaviorTest} from "./abstract/Bridge.t.sol";
-import {BridgeMintBurn} from "../src/BridgeMintBurn.sol";
-import {IBridgeMintBurn} from "../src/interfaces/IBridgeMintBurn.sol";
-import {IBridge} from "../src/interfaces/IBridge.sol";
-import {Bridge} from "../src/abstract/Bridge.sol";
+import {BridgeMintBurn} from "pod-protocol/BridgeMintBurn.sol";
+import {IBridgeMintBurn} from "pod-protocol/interfaces/IBridgeMintBurn.sol";
+import {IBridge} from "pod-protocol/interfaces/IBridge.sol";
+import {Bridge} from "pod-protocol/abstract/Bridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {WrappedToken} from "../src/WrappedToken.sol";
+import {WrappedToken} from "pod-protocol/WrappedToken.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {EthGetLogsTypes} from "pod-sdk/types/EthGetLogsTypes.sol";
 import {EthGetBlockByNumberTypes} from "pod-sdk/types/EthGetBlockByNumberTypes.sol";
-import {HexUtils} from "../src/libraries/HexUtils.sol";
+import {HexUtils} from "pod-protocol/libraries/HexUtils.sol";
 import {TxInfo} from "pod-sdk/Context.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 
@@ -31,7 +31,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function setUpSuite() public override {
         vm.startPrank(admin);
-        _bridge = new BridgeMintBurn(OTHER_BRIDGE_CONTRACT, nativeTokenLimits);
+        _bridge = new BridgeMintBurn(OTHER_BRIDGE_CONTRACT, nativeTokenLimits, 1);
 
         _token = WrappedToken(
             _bridge.createAndWhitelistMirrorToken(

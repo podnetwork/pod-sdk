@@ -10,7 +10,8 @@ remappings = [
     "pod-sdk/=../../solidity-sdk/src/",
     "pod-protocol/=../../protocol/src",
     "pod-protocol-scripts/=../../protocol/script/",
-    "optimistic-auction/=contracts/"
+    "optimistic-auction/=contracts/",
+    "@openzeppelin/=lib/openzeppelin-contracts/",
 ]
 allow_paths = [
     "../../solidity-sdk",
