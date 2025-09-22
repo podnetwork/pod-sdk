@@ -14,12 +14,12 @@ name = "watch_events"
 path = "src/watch_events.rs"
 
 [dependencies]
-anyhow = "1.0.95"
+anyhow = "1.0.100"
 futures = "0.3.31"
 pod-types = { path = "../../types" }
 pod-sdk = { path = "../../rust-sdk" }
 pod-examples-solidity = { path = "../solidity/bindings" }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.47.1", features = ["full"] }
 env_logger = "*"
 hex = "0.4.3"
 
