@@ -4,5 +4,6 @@ ignore = [
   "examples/optimistic-auction/bindings",
   "examples/voting/bindings",
   "examples/auction/bindings",
-  "examples/notary/bindings"
+  "examples/notary/bindings",
+  "protocol/bindings"
 ]

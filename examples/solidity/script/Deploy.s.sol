@@ -33,12 +33,6 @@ contract Deployer is BaseDeployer {
         if (testContracts) {
             address[] memory initialValidators = getValidatorAddresses();
 
-            address otherBridgeContract = makeAddr("otherBridgeContract");
-            IBridge.TokenLimits nativeTokenLimits =
-                IBridge.TokenLimits({minAmount: 0.01 ether, deposit: 500e18, claim: 400e18});
-            BridgeMintBurn bridgeMintBurn = new BridgeMintBurn(otherBridgeContract, nativeTokenLimits);
-            console.log("BridgeMintBurn deployed at:", address(bridgeMintBurn));
-
             PodRegistry podRegistry = new PodRegistry(initialValidators);
             console.log("PodRegistry deployed at:", address(podRegistry));
 
@@ -49,6 +43,12 @@ contract Deployer is BaseDeployer {
 
             TestMintBalancePrecompile testMintBalance = new TestMintBalancePrecompile();
             console.log("TestMintBalancePrecompile contract deployed at:", address(testMintBalance));
+
+            address otherBridgeContract = makeAddr("otherBridgeContract");
+            IBridge.TokenLimits memory nativeTokenLimits =
+                IBridge.TokenLimits({minAmount: 0.01 ether, deposit: 500e18, claim: 400e18});
+            BridgeMintBurn bridgeMintBurn = new BridgeMintBurn(otherBridgeContract, nativeTokenLimits);
+            console.log("BridgeMintBurn deployed at:", address(bridgeMintBurn));
         }
 
         vm.stopBroadcast();
