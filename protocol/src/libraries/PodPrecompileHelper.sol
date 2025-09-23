@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {EthGetLogsTypes} from "pod-sdk/types/EthGetLogsTypes.sol";
 import {EthGetBlockByNumberTypes} from "pod-sdk/types/EthGetBlockByNumberTypes.sol";
-import {TxInfo, getTxInfo} from "pod-sdk/Context.sol";
+import {TxInfo, POD_TX_INFO} from "pod-sdk/Context.sol";
 import {HexUtils} from "./HexUtils.sol";
 
 library PodPrecompileHelper {
@@ -20,7 +20,7 @@ library PodPrecompileHelper {
      * @return success Whether the minting was successful.
      */
     function mint(uint256 amount) external view returns (bool) {
-        (bool success,) = POD_MINT_BALANCE_PRECOMPILE_ADDRESS.staticcall(abi.encode(amount));
+        (bool success,) = POD_MINT_BALANCE_PRECOMPILE_ADDRESS.staticcall{gas: gasleft()}(abi.encode(amount));
         return success;
     }
 
@@ -28,13 +28,12 @@ library PodPrecompileHelper {
      * @dev Gets the finalized block number.
      * @return blockNumber The finalized block number.
      */
-    function getFinalizedBlockNumber() internal view returns (uint256) {
+    function getFinalizedBlockNumber(uint256 chainId) internal view returns (uint256) {
+        EthGetBlockByNumberTypes.PrecompileArgs memory args = EthGetBlockByNumberTypes.PrecompileArgs(
+            chainId, EthGetBlockByNumberTypes.RpcArgs(hex"66696e616c697a6564", false)
+        );
         (bool success, bytes memory output) = EthGetBlockByNumberTypes.PRECOMPILE_ADDRESS.staticcall(
-            abi.encode(
-                EthGetBlockByNumberTypes.PrecompileArgs(
-                    1, EthGetBlockByNumberTypes.RpcArgs(hex"66696e616c697a6564", false)
-                )
-            )
+            abi.encode(args.chainId, args.ethGetBlockByNumberArgs)
         );
         if (!success) revert PrecompileCallFailed();
         return HexUtils.uintFromBigEndian(abi.decode(output, (EthGetBlockByNumberTypes.RpcBlock)).number);
@@ -53,13 +52,10 @@ library PodPrecompileHelper {
         returns (EthGetLogsTypes.RpcLog[] memory)
     {
         bytes memory n = HexUtils.toBytesMinimal(blockNumber);
-        (bool success, bytes memory output) = EthGetLogsTypes.PRECOMPILE_ADDRESS.staticcall(
-            abi.encode(
-                EthGetLogsTypes.PrecompileArgs(
-                    chainId, EthGetLogsTypes.RpcArgs(n, n, bridgeContract, bytes32(0), topics)
-                )
-            )
-        );
+        EthGetLogsTypes.PrecompileArgs memory args =
+            EthGetLogsTypes.PrecompileArgs(chainId, EthGetLogsTypes.RpcArgs(n, n, bridgeContract, bytes32(0), topics));
+        (bool success, bytes memory output) =
+            EthGetLogsTypes.PRECOMPILE_ADDRESS.staticcall{gas: gasleft()}(abi.encode(args.chainId, args.ethGetLogsArgs));
         if (!success) revert PrecompileCallFailed();
 
         EthGetLogsTypes.RpcLog[] memory logs = abi.decode(output, (EthGetLogsTypes.RpcLog[]));
@@ -68,7 +64,9 @@ library PodPrecompileHelper {
     }
 
     function getTxHash() internal view returns (uint256) {
-        TxInfo memory txInfo = getTxInfo();
+        (bool success, bytes memory output) = POD_TX_INFO.staticcall{gas: gasleft()}("");
+        if (!success) revert PrecompileCallFailed();
+        TxInfo memory txInfo = abi.decode(output, (TxInfo));
         return uint256(txInfo.txHash);
     }
 }

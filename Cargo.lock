@@ -3480,6 +3480,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "pod-protocol"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "serde",
+]
+
+[[package]]
 name = "pod-sdk"
 version = "0.2.0"
 dependencies = [

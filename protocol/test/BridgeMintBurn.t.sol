@@ -14,6 +14,7 @@ import {EthGetBlockByNumberTypes} from "pod-sdk/types/EthGetBlockByNumberTypes.s
 import {HexUtils} from "pod-protocol/libraries/HexUtils.sol";
 import {TxInfo} from "pod-sdk/Context.sol";
 import {VmSafe} from "forge-std/Vm.sol";
+import {console} from "forge-std/console.sol";
 
 contract BridgeMintBurnTest is BridgeBehaviorTest {
     BridgeMintBurn private _bridge;
@@ -166,8 +167,13 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         // Mock again with same log so requestId is identical
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
+        // record that no logs are emitted
+        vm.recordLogs();
+        vm.prank(recipient);
         _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
+        // confirm that nothing happens when the request is already processed
+        VmSafe.Log[] memory recordedLogs = vm.getRecordedLogs();
+        assertEq(recordedLogs.length, 0);
     }
 
     function test_Claim_RevertIfPaused() public {
@@ -196,7 +202,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     function test_Claim_RevertIfPrecompileCallFails() public {
         _mockEthGetBlockByNumber(1);
         EthGetLogsTypes.PrecompileArgs memory args = _buildArgs(0, 1, 1, MIRROR_TOKEN_ADDRESS);
-        podMockEthGetLogsRevert(abi.encode(args));
+        podMockEthGetLogsRevert(abi.encode(args.chainId, args.ethGetLogsArgs));
 
         vm.expectRevert(abi.encodeWithSelector(IBridgeMintBurn.PrecompileCallFailed.selector));
         _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
@@ -378,7 +384,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         EthGetLogsTypes.RpcLog[] memory logs
     ) internal {
         EthGetLogsTypes.PrecompileArgs memory args = _buildArgs(id, fromBlock, toBlock, tokenAddr);
-        podMockEthGetLogs(abi.encode(args), abi.encode(logs));
+        podMockEthGetLogs(abi.encode(args.chainId, args.ethGetLogsArgs), abi.encode(logs));
     }
 
     function _buildTopics(uint256 id, address tokenAddr) internal pure returns (bytes32[] memory topics) {
@@ -413,9 +419,10 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     function _buildEthGetBlockByNumberArgs() internal pure returns (bytes memory) {
-        return abi.encode(
-            EthGetBlockByNumberTypes.PrecompileArgs(1, EthGetBlockByNumberTypes.RpcArgs(hex"66696e616c697a6564", false))
-        );
+        EthGetBlockByNumberTypes.PrecompileArgs memory args =
+            EthGetBlockByNumberTypes.PrecompileArgs(1, EthGetBlockByNumberTypes.RpcArgs(hex"66696e616c697a6564", false));
+
+        return abi.encode(args.chainId, args.ethGetBlockByNumberArgs);
     }
 
     function _buildEthGetBlockByNumberRpcBlock(uint256 blockNumber) internal pure returns (bytes memory) {

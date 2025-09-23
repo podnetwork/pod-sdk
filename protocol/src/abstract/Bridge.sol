@@ -33,7 +33,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     bytes32 constant DEPOSIT_NATIVE_TOPIC_0 = keccak256("DepositNative(uint256,uint256,address)");
 
     /**
-     * @dev The topic 0 (event signature) of the address for native deposit event.
+     * @dev The mock address for native deposit.
      */
     address constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT =
         address(uint160(uint256(keccak256("MOCK_ADDRESS_FOR_NATIVE_DEPOSIT"))));

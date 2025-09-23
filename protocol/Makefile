@@ -1,8 +1,8 @@
 generate:
-	forge bind --crate-name pod-protocol --bindings-path ./bindings --alloy-version 1.0.24 --force --no-metadata --select "^BridgeMintBurn$$" --select "^BridgeDepositWithdraw$$" --overwrite
+	forge bind --crate-name pod-protocol --bindings-path ./bindings --alloy-version 1.0.24 --force --no-metadata --select "^BridgeMintBurn$$" --select "^BridgeDepositWithdraw$$" --select "^WrappedToken$$" --overwrite
 
 check:
-	forge bind --crate-name pod-protocol --bindings-path ./bindings --alloy-version 1.0.24 --force --no-metadata --select "^BridgeMintBurn$$" --select "^BridgeDepositWithdraw$$"
+	forge bind --crate-name pod-protocol --bindings-path ./bindings --alloy-version 1.0.24 --force --no-metadata --select "^BridgeMintBurn$$" --select "^BridgeDepositWithdraw$$" --select "^WrappedToken$$"
 
 
 

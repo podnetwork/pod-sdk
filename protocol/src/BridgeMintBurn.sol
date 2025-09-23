@@ -66,7 +66,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         topics[1] = bytes32(id);
         topics[2] = bytes32(uint256(uint160(token)));
 
-        uint256 finalizedBlockNumber = PodPrecompileHelper.getFinalizedBlockNumber();
+        uint256 finalizedBlockNumber = PodPrecompileHelper.getFinalizedBlockNumber(SOURCE_CHAIN_ID);
 
         if (blockNumber > finalizedBlockNumber) {
             revert BlockNotFinalized();
@@ -79,13 +79,14 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
 
         if (!_isValidTokenAmount(mirrorToken, decodedAmount, false)) revert InvalidTokenAmount();
 
-        if (processedRequests[requestId]) revert RequestAlreadyProcessed();
+        bool isProcessed = processedRequests[requestId];
 
         processedRequests[requestId] = true;
 
-        IERC20MintableAndBurnable(mirrorToken).mint(decodedTo, decodedAmount);
-
-        emit Claim(id, mirrorToken, token, decodedAmount, decodedTo);
+        if (!isProcessed) {
+            IERC20MintableAndBurnable(mirrorToken).mint(decodedTo, decodedAmount);
+            emit Claim(id, mirrorToken, token, decodedAmount, decodedTo);
+        }
     }
 
     function _claim(uint256 id, address token, uint256 blockNumber, bytes32[] memory topics)
@@ -113,7 +114,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         topics[0] = DEPOSIT_NATIVE_TOPIC_0;
         topics[1] = bytes32(id);
 
-        uint256 finalizedBlockNumber = PodPrecompileHelper.getFinalizedBlockNumber();
+        uint256 finalizedBlockNumber = PodPrecompileHelper.getFinalizedBlockNumber(SOURCE_CHAIN_ID);
 
         if (blockNumber > finalizedBlockNumber) {
             revert BlockNotFinalized();
@@ -163,7 +164,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         address mirrorToken,
         uint8 mirrorTokenDecimals,
         TokenLimits calldata limits
-    ) external returns (address token) {
+    ) external override onlyRole(DEFAULT_ADMIN_ROLE) returns (address token) {
         token = existingToken == address(0)
             ? address(new WrappedToken(tokenName, tokenSymbol, mirrorTokenDecimals))
             : existingToken;
