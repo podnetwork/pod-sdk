@@ -12,7 +12,6 @@ interface IERC20 {
         address to,
         uint256 amount
     ) external returns (bool);
-    function transfer(address to, uint256 amount) external returns (bool);
 }
 
 interface IERC721 {
@@ -200,8 +199,7 @@ contract Auction {
         bids[bidId].processed = true;
         emit BidRefunded(auctionId, bidId, msg.sender, refundAmount);
 
-        bool refundSuccess = IERC20(auction.tokenContract).transfer(msg.sender, refundAmount);
-        requireQuorum(refundSuccess, "Refund transfer failed");
+        IERC20(auction.tokenContract).transferFrom(address(this), msg.sender, refundAmount);
     }
 
     // claimPayout is used by the auctioneer to get money from the auction
@@ -227,11 +225,11 @@ contract Auction {
             remainingAmount
         );
 
-        bool payoutSuccess = IERC20(auction.tokenContract).transfer(
+        IERC20(auction.tokenContract).transferFrom(
+            address(this),
             auction.auctioneer,
             remainingAmount
         );
-        requireQuorum(payoutSuccess, "Payout transfer failed");
     }
 
     // refundTrophy is used by the auctioneer to get the trophy back if there were no bids
