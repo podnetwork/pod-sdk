@@ -127,20 +127,18 @@ contract Auction {
     // but a bid can only be considered for winning the auction if the transaction is executed before the deadline
     function submitBid(uint256 auctionId, uint256 amount) external {
         AuctionData storage auction = auctions[auctionId];
-        // Avoid explicit existence check - if deadline is 0, other checks will fail naturally
 
+        // money submitted to a nonexistent auction will be lost
+        // this is on purpose to prevent race conditions between auction creation and bid submission
+
+        // the way bid id is calculated does not allow for duplicate bids of same amount by same sender
+        // but there is no reason to allow for that.
         uint256 bidId = uint256(
             keccak256(abi.encodePacked(auctionId, msg.sender, amount))
         );
         require(bids[bidId].bidder == address(0), "Bid already exists");
         bids[bidId] = Bid(msg.sender, amount, false);
-
-        IERC20(auction.tokenContract).transferFrom(
-            msg.sender,
-            address(this),
-            amount
-        );
-
+        
         // we check here if transaction was **executed** (2nd round-trip) before deadline
         // each validator will decide to execute this block of code based on the time they received 2nd round
         // therefore the state between validators will be inconsistent,
@@ -156,6 +154,13 @@ contract Auction {
         }
 
         emit BidSubmitted(auctionId, bidId, msg.sender, amount);
+        
+        bool transferSuccess = IERC20(auction.tokenContract).transferFrom(
+            msg.sender,
+            address(this),
+            amount
+        );
+        requireQuorum(transferSuccess, "Transfer failed");
     }
 
     // claimTrophy is used by the winner to receive the auctioned trophy
@@ -167,14 +172,14 @@ contract Auction {
         requireQuorum(auction.winningBid == bidId, "Not the winning bid");
         requireQuorum(!bids[bidId].processed, "Bid already processed");
 
+        bids[bidId].processed = true;
+        emit TrophyClaimed(auctionId, bidId, msg.sender);
+
         IERC721(auction.trophyContract).transferFrom(
             address(this),
             msg.sender,
             auction.trophyTokenId
         );
-        bids[bidId].processed = true;
-
-        emit TrophyClaimed(auctionId, bidId, msg.sender);
     }
 
     // refundBid is used by a losing bidder to get their money back
@@ -190,16 +195,20 @@ contract Auction {
         requireQuorum(!bids[bidId].processed, "Bid already processed");
         requireQuorum(_isHigherBid(higherBidId, bidId), "Invalid higher bid");
 
-        IERC20(auction.tokenContract).transfer(msg.sender, bids[bidId].amount);
+        uint256 refundAmount = bids[bidId].amount;
+        
         bids[bidId].processed = true;
+        emit BidRefunded(auctionId, bidId, msg.sender, refundAmount);
 
-        emit BidRefunded(auctionId, bidId, msg.sender, bids[bidId].amount);
+        bool refundSuccess = IERC20(auction.tokenContract).transfer(msg.sender, refundAmount);
+        requireQuorum(refundSuccess, "Refund transfer failed");
     }
 
     // claimPayout is used by the auctioneer to get money from the auction
     // auctioneer might claim multiple times using increasing bid amounts
     function claimPayout(uint256 auctionId, uint256 bidId) external {
         AuctionData storage auction = auctions[auctionId];
+
         require(auction.auctioneer == msg.sender, "Not auctioneer"); // can only be called by auctioneer so that claimPayout/refundTrophy are ordered
         requireTimeAfter(auction.deadline, "Deadline not passed yet");
         requireQuorum(
@@ -209,18 +218,20 @@ contract Auction {
         requireQuorum(!auction.prizeRefunded, "Prize already refunded");
 
         uint256 remainingAmount = bids[bidId].amount - auction.payoutGiven;
-        IERC20(auction.tokenContract).transfer(
-            auction.auctioneer,
-            remainingAmount
-        );
+        
         auction.payoutGiven = bids[bidId].amount;
-
         emit PayoutClaimed(
             auctionId,
             bidId,
             auction.auctioneer,
             remainingAmount
         );
+
+        bool payoutSuccess = IERC20(auction.tokenContract).transfer(
+            auction.auctioneer,
+            remainingAmount
+        );
+        requireQuorum(payoutSuccess, "Payout transfer failed");
     }
 
     // refundTrophy is used by the auctioneer to get the trophy back if there were no bids
@@ -240,15 +251,15 @@ contract Auction {
         );
         requireQuorum(!auction.prizeRefunded, "Prize already refunded");
 
-        IERC721(auction.trophyContract).transferFrom(
-            address(this),
+        auction.prizeRefunded = true;
+        emit TrophyRefunded(
+            auctionId,
             auction.auctioneer,
             auction.trophyTokenId
         );
-        auction.prizeRefunded = true;
 
-        emit TrophyRefunded(
-            auctionId,
+        IERC721(auction.trophyContract).transferFrom(
+            address(this),
             auction.auctioneer,
             auction.trophyTokenId
         );
