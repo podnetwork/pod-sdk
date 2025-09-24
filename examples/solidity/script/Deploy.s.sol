@@ -12,6 +12,7 @@ import {PodAuctionConsumer} from "optimistic-auction/PodAuctionConsumer.sol";
 import {TestMintBalancePrecompile} from "../src/TestMintBalancePrecompile.sol";
 import {BridgeMintBurn} from "pod-protocol/BridgeMintBurn.sol";
 import {IBridge} from "pod-protocol/interfaces/IBridge.sol";
+import {WrappedToken} from "pod-protocol/WrappedToken.sol";
 
 contract Deployer is BaseDeployer {
     function run() public {
@@ -53,11 +54,17 @@ contract Deployer is BaseDeployer {
 
             address MIRROR_TOKEN_ADDRESS = makeAddr("mirrorToken");
 
-            address token = bridgeMintBurn.createAndWhitelistMirrorToken(
-                "Test Token", "TEST", address(0), address(MIRROR_TOKEN_ADDRESS), 18, nativeTokenLimits
+            WrappedToken token = new WrappedToken("Test Token", "TEST", 18);
+
+            console.log("Token deployed at:", address(token));
+
+            bridgeMintBurn.createAndWhitelistMirrorToken(
+                "Test Token", "TEST", address(token), address(MIRROR_TOKEN_ADDRESS), 18, nativeTokenLimits
             );
 
-            console.log("Token deployed at:", token);
+            token.grantRole(token.MINTER_ROLE(), address(bridgeMintBurn));
+            token.grantRole(token.PAUSER_ROLE(), address(bridgeMintBurn));
+            token.grantRole(token.DEFAULT_ADMIN_ROLE(), address(bridgeMintBurn));
         }
 
         vm.stopBroadcast();
