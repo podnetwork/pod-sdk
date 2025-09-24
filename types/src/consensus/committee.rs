@@ -1,6 +1,7 @@
 use super::{Attestation, Certificate};
 use crate::cryptography::hash::{Hash, Hashable};
 use alloy_primitives::{Address, Signature};
+use anyhow::ensure;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -17,16 +18,32 @@ pub enum CommitteeError {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Committee {
     pub validators: BTreeSet<Address>,
+    pub cert_quorum: usize,
     pub quorum_size: usize,
 }
 
 impl Committee {
-    pub fn new(validators: impl IntoIterator<Item = Address>, quorum_size: usize) -> Self {
-        let validator_set = validators.into_iter().collect();
-        Committee {
-            validators: validator_set,
+    pub fn new(
+        validators: impl IntoIterator<Item = Address>,
+        cert_quorum: usize,
+        quorum_size: usize,
+    ) -> anyhow::Result<Self> {
+        ensure!(quorum_size > 0, "quorum_size must be greater than 0");
+        ensure!(cert_quorum > 0, "cert_quorum must be greater than 0");
+        ensure!(
+            cert_quorum <= quorum_size,
+            "cert_quorum must be less than or equal to quorum_size"
+        );
+        let validators: BTreeSet<Address> = validators.into_iter().collect();
+        ensure!(
+            quorum_size <= validators.len(),
+            "quorum_size must be less than or equal to the number of validators"
+        );
+        Ok(Committee {
+            validators,
             quorum_size,
-        }
+            cert_quorum,
+        })
     }
 
     pub fn size(&self) -> usize {
@@ -66,11 +83,12 @@ impl Committee {
         &self,
         digest: Hash,
         signatures: &Vec<Signature>,
+        quorum_size: usize,
     ) -> Result<(), CommitteeError> {
-        if signatures.len() < self.quorum_size {
+        if signatures.len() < quorum_size {
             return Err(CommitteeError::InsufficientQuorum {
                 got: signatures.len(),
-                required: self.quorum_size,
+                required: quorum_size,
             });
         }
 
@@ -95,10 +113,10 @@ impl Committee {
         }
 
         // Verify we have enough unique valid signatures from committee members
-        if recovered_signers.len() < self.quorum_size {
+        if recovered_signers.len() < quorum_size {
             return Err(CommitteeError::InsufficientQuorum {
                 got: recovered_signers.len(),
-                required: self.quorum_size,
+                required: quorum_size,
             });
         }
 
@@ -108,10 +126,12 @@ impl Committee {
     pub fn verify_certificate<C: Hashable>(
         &self,
         certificate: &Certificate<C>,
+        quorum_size: usize,
     ) -> Result<(), CommitteeError> {
         self.verify_aggregate_attestation(
             certificate.certified.hash_custom(),
             &certificate.signatures,
+            quorum_size,
         )
     }
 }

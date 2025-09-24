@@ -81,15 +81,18 @@ impl VerifiableLog {
         })
     }
     pub fn verify(&self, committee: &Committee) -> Result<(), CommitteeError> {
-        committee.verify_certificate(&Certificate {
-            signatures: self
-                .pod_metadata
-                .attestations
-                .iter()
-                .map(|att| att.signature)
-                .collect(),
-            certified: self.pod_metadata.receipt.clone(),
-        })
+        committee.verify_certificate(
+            &Certificate {
+                signatures: self
+                    .pod_metadata
+                    .attestations
+                    .iter()
+                    .map(|att| att.signature)
+                    .collect(),
+                certified: self.pod_metadata.receipt.clone(),
+            },
+            committee.quorum_size,
+        )
     }
     pub fn confirmation_time(&self) -> Timestamp {
         let num_attestations = self.pod_metadata.attestations.len();
