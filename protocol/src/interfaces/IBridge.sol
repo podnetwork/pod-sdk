@@ -162,15 +162,17 @@ interface IBridge {
      * @param token The token to bridge.
      * @param amount The amount of tokens to bridge.
      * @param to The address to send the tokens to on the destination chain.
+     * @return id The request index.
      */
-    function deposit(address token, uint256 amount, address to) external;
+    function deposit(address token, uint256 amount, address to) external returns (uint256);
 
     /**
      * @dev Deposit native tokens to bridge to the destination chain.
      * @notice Function used to bridge native tokens to the destination chain.
      * @param to The address to send the native tokens to on the destination chain.
+     * @return id The request index.
      */
-    function depositNative(address to) external payable;
+    function depositNative(address to) external payable returns (uint256);
 
     /**
      * @dev Pauses the contract.

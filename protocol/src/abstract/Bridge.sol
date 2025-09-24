@@ -161,21 +161,23 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     /**
      * @inheritdoc IBridge
      */
-    function deposit(address token, uint256 amount, address to) external override whenNotPaused {
+    function deposit(address token, uint256 amount, address to) external override whenNotPaused returns (uint256) {
         if (!_isValidTokenAmount(token, amount, true)) revert InvalidTokenAmount();
         if (to == address(0)) revert InvalidToAddress();
         uint256 id = _getDepositId();
         handleDeposit(token, amount);
         emit Deposit(id, token, amount, to);
+        return id;
     }
 
     /**
      * @inheritdoc IBridge
      */
-    function depositNative(address to) external payable override whenNotPaused {
+    function depositNative(address to) external payable override whenNotPaused returns (uint256) {
         if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, msg.value, true)) revert InvalidTokenAmount();
         uint256 id = _getDepositId();
         emit DepositNative(id, msg.value, to);
+        return id;
     }
 
     /**

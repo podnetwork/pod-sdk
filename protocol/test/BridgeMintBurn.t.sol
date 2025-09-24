@@ -14,7 +14,6 @@ import {EthGetBlockByNumberTypes} from "pod-sdk/types/EthGetBlockByNumberTypes.s
 import {HexUtils} from "pod-protocol/libraries/HexUtils.sol";
 import {TxInfo} from "pod-sdk/Context.sol";
 import {VmSafe} from "forge-std/Vm.sol";
-import {console} from "forge-std/console.sol";
 
 contract BridgeMintBurnTest is BridgeBehaviorTest {
     BridgeMintBurn private _bridge;

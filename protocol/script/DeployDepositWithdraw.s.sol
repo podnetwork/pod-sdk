@@ -1,57 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {console} from "forge-std/console.sol";
-import {BridgeDepositWithdraw} from "../src/BridgeDepositWithdraw.sol";
-import {PodRegistry} from "../src/PodRegistry.sol";
-import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
-import {IBridge} from "../src/interfaces/IBridge.sol";
 import {BaseDeployer} from "./BaseDeployer.s.sol";
+import {console} from "forge-std/console.sol";
+import {BridgeDepositWithdraw} from "pod-protocol/BridgeDepositWithdraw.sol";
+import {IBridge} from "pod-protocol/interfaces/IBridge.sol";
+import {PodRegistry} from "pod-protocol/PodRegistry.sol";
 
 contract DeployDepositWithdraw is BaseDeployer {
-    uint256 constant CHAIN_ID = 31337;
-    string constant RPC_URL = "http://localhost:8546";
-    address constant OTHER_BRIDGE_CONTRACT = 0x12296f2D128530a834460DF6c36a2895B793F26d;
-    IBridge.TokenLimits nativeTokenLimits = IBridge.TokenLimits({minAmount: 0.01 ether, deposit: 500e18, claim: 400e18});
-
-    function run() external {
-        console.log("=== Deploying BridgeDepositWithdraw to localhost:8546 (chainId 31337) ===");
-
-        // Create a fork of the deposit/withdraw network
-        vm.createSelectFork(RPC_URL);
-        require(block.chainid == CHAIN_ID, "Wrong chain ID for deposit/withdraw network");
-
-        // Deploy PodRegistry first
+    function run(
+        address podBridgeAddr,
+        IBridge.TokenLimits memory nativeTokenLimits,
+        address testTokenAddr,
+        address mirrorTokenAddr
+    ) external returns (address podRegistry, address depositWithdraw) {
         address[] memory initialValidators = getValidatorAddresses();
-
-        PodRegistry podRegistry = new PodRegistry(initialValidators);
-        console.log("PodRegistry deployed at:", address(podRegistry));
-
-        BridgeDepositWithdraw bridgeDepositWithdraw =
-            new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT, nativeTokenLimits);
-        console.log("BridgeDepositWithdraw deployed at:", address(bridgeDepositWithdraw));
-
-        // Deploy some test tokens
-        ERC20Mock testToken = new ERC20Mock();
-        ERC20Mock mirrorToken = new ERC20Mock();
-        console.log("Test token deployed at:", address(testToken));
-        console.log("Mirror token deployed at:", address(mirrorToken));
-
-        // Configure the bridge
-        bridgeDepositWithdraw.whiteListToken(
-            address(testToken),
-            address(mirrorToken),
-            IBridge.TokenLimits({minAmount: 1e18, deposit: 10000e18, claim: 10000e18})
-        );
-        console.log("Token whitelisted on bridge");
-
+        vm.startBroadcast();
+        PodRegistry reg = new PodRegistry(initialValidators);
+        BridgeDepositWithdraw bdw = new BridgeDepositWithdraw(address(reg), podBridgeAddr, nativeTokenLimits);
+        bdw.whiteListToken(testTokenAddr, mirrorTokenAddr, nativeTokenLimits);
         vm.stopBroadcast();
-
-        console.log("=== BridgeDepositWithdraw deployment complete ===");
-        console.log("Network: localhost:8546 (chainId 1337)");
-        console.log("PodRegistry:", address(podRegistry));
-        console.log("BridgeDepositWithdraw:", address(bridgeDepositWithdraw));
-        console.log("Test Token:", address(testToken));
-        console.log("Mirror Token:", address(mirrorToken));
+        console.log("PodRegistry deployed at:", address(reg));
+        console.log("BridgeDepositWithdraw deployed at:", address(bdw));
+        return (address(reg), address(bdw));
     }
 }

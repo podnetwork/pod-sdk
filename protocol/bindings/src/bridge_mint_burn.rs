@@ -670,8 +670,8 @@ interface BridgeMintBurn {
     function claimNative(uint256 id, uint256 blockNumber) external;
     function configureToken(address token, IBridge.TokenLimits memory limits) external;
     function createAndWhitelistMirrorToken(string memory tokenName, string memory tokenSymbol, address existingToken, address mirrorToken, uint8 mirrorTokenDecimals, IBridge.TokenLimits memory limits) external returns (address token);
-    function deposit(address token, uint256 amount, address to) external;
-    function depositNative(address to) external payable;
+    function deposit(address token, uint256 amount, address to) external returns (uint256);
+    function depositNative(address to) external payable returns (uint256);
     function getRoleAdmin(bytes32 role) external view returns (bytes32);
     function grantRole(bytes32 role, address account) external;
     function hasRole(bytes32 role, address account) external view returns (bool);
@@ -928,7 +928,13 @@ interface BridgeMintBurn {
         "internalType": "address"
       }
     ],
-    "outputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -941,7 +947,13 @@ interface BridgeMintBurn {
         "internalType": "address"
       }
     ],
-    "outputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "payable"
   },
   {
@@ -5287,7 +5299,7 @@ function createAndWhitelistMirrorToken(string memory tokenName, string memory to
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `deposit(address,uint256,address)` and selector `0xf45346dc`.
 ```solidity
-function deposit(address token, uint256 amount, address to) external;
+function deposit(address token, uint256 amount, address to) external returns (uint256);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -5299,10 +5311,15 @@ function deposit(address token, uint256 amount, address to) external;
         #[allow(missing_docs)]
         pub to: alloy::sol_types::private::Address,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`deposit(address,uint256,address)`](depositCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct depositReturn {}
+    pub struct depositReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -5356,9 +5373,11 @@ function deposit(address token, uint256 amount, address to) external;
         }
         {
             #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = ();
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -5374,22 +5393,15 @@ function deposit(address token, uint256 amount, address to) external;
             #[doc(hidden)]
             impl ::core::convert::From<depositReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: depositReturn) -> Self {
-                    ()
+                    (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for depositReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self { _0: tuple.0 }
                 }
-            }
-        }
-        impl depositReturn {
-            fn _tokenize(
-                &self,
-            ) -> <depositCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
-                ()
             }
         }
         #[automatically_derived]
@@ -5402,8 +5414,8 @@ function deposit(address token, uint256 amount, address to) external;
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = depositReturn;
-            type ReturnTuple<'a> = ();
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -5431,14 +5443,21 @@ function deposit(address token, uint256 amount, address to) external;
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                depositReturn::_tokenize(ret)
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
+                    .map(|r| {
+                        let r: depositReturn = r.into();
+                        r._0
+                    })
             }
             #[inline]
             fn abi_decode_returns_validate(
@@ -5447,7 +5466,10 @@ function deposit(address token, uint256 amount, address to) external;
                 <Self::ReturnTuple<
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+                    .map(|r| {
+                        let r: depositReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -5455,7 +5477,7 @@ function deposit(address token, uint256 amount, address to) external;
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `depositNative(address)` and selector `0x33bb7f91`.
 ```solidity
-function depositNative(address to) external payable;
+function depositNative(address to) external payable returns (uint256);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -5463,10 +5485,15 @@ function depositNative(address to) external payable;
         #[allow(missing_docs)]
         pub to: alloy::sol_types::private::Address,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`depositNative(address)`](depositNativeCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct depositNativeReturn {}
+    pub struct depositNativeReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -5508,9 +5535,11 @@ function depositNative(address to) external payable;
         }
         {
             #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = ();
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -5526,22 +5555,15 @@ function depositNative(address to) external payable;
             #[doc(hidden)]
             impl ::core::convert::From<depositNativeReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: depositNativeReturn) -> Self {
-                    ()
+                    (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for depositNativeReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
+                    Self { _0: tuple.0 }
                 }
-            }
-        }
-        impl depositNativeReturn {
-            fn _tokenize(
-                &self,
-            ) -> <depositNativeCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
-                ()
             }
         }
         #[automatically_derived]
@@ -5550,8 +5572,8 @@ function depositNative(address to) external payable;
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = depositNativeReturn;
-            type ReturnTuple<'a> = ();
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -5573,14 +5595,21 @@ function depositNative(address to) external payable;
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                depositNativeReturn::_tokenize(ret)
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
                 <Self::ReturnTuple<
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
+                    .map(|r| {
+                        let r: depositNativeReturn = r.into();
+                        r._0
+                    })
             }
             #[inline]
             fn abi_decode_returns_validate(
@@ -5589,7 +5618,10 @@ function depositNative(address to) external payable;
                 <Self::ReturnTuple<
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+                    .map(|r| {
+                        let r: depositNativeReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
