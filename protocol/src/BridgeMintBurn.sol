@@ -26,10 +26,12 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
      */
     uint96 immutable SOURCE_CHAIN_ID;
 
+    uint256 constant ANVIL_CHAIN_ID = 31337;
+
     /**
-     * @dev "finalized" as bytes
+     * @dev "finalized" as bytes, or "latest" for anvil
      */
-    bytes constant FINALIZED_BLOCK_BYTES = hex"66696e616c697a6564";
+    bytes block_tag_bytes;
 
     /**
      * @dev Constructor.
@@ -38,6 +40,11 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         Bridge(_bridgeContract, nativeTokenLimits)
     {
         SOURCE_CHAIN_ID = _sourceChainId;
+        if (SOURCE_CHAIN_ID == ANVIL_CHAIN_ID) {
+            block_tag_bytes = hex"6c6174657374"; // "latest" because anvil doesn't supporrt "finalized"
+        } else {
+            block_tag_bytes = hex"66696e616c697a6564";
+        }
     }
 
     /**

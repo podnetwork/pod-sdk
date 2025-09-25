@@ -64,12 +64,12 @@ SOURCE_CHAIN_DEPLOYER=$(cast wallet address --private-key "$PK_SOURCE_CHAIN")
 POD_DEPLOYER=$(cast wallet address --private-key "$PK_POD")
 SOURCE_CHAIN_NONCE=$(cast nonce "$SOURCE_CHAIN_DEPLOYER" --rpc-url "$SOURCE_CHAIN_RPC")
 POD_NONCE=$(cast nonce "$POD_DEPLOYER" --rpc-url "$POD_RPC")
-SOURCE_CHAIN_BRIDGE_ADDR=$(cast compute-address "$SOURCE_CHAIN_DEPLOYER" --nonce "$SOURCE_CHAIN_NONCE" |  grep -oE '0x[0-9a-fA-F]{40}')
-POD_BRIDGE_ADDR=$(cast compute-address "$POD_DEPLOYER" --nonce "$POD_NONCE" |  grep -oE '0x[0-9a-fA-F]{40}')
+SOURCE_CHAIN_BRIDGE_ADDR=$(cast compute-address "$SOURCE_CHAIN_DEPLOYER" --nonce "$(($SOURCE_CHAIN_NONCE + 1))" |  grep -oE '0x[0-9a-fA-F]{40}')
+POD_BRIDGE_ADDR=$(cast compute-address "$POD_DEPLOYER" --nonce "$(($POD_NONCE + 1))" |  grep -oE '0x[0-9a-fA-F]{40}')
 
 echo "Precomputed:"
-echo "  Anvil BridgeDepositWithdraw -> $SOURCE_CHAIN_BRIDGE_ADDR"
-echo "  Pod   BridgeMintBurn        -> $POD_BRIDGE_ADDR"
+echo "  Source chain BridgeDepositWithdraw -> $SOURCE_CHAIN_BRIDGE_ADDR"
+echo "  Pod   BridgeMintBurn               -> $POD_BRIDGE_ADDR"
 
 # 3) Deploy BridgeMintBurn on Pod and configure a test token, pointing to precomputed Anvil bridge address
 forge script ./script/DeployMintBurn.s.sol:DeployMintBurn \
