@@ -73,7 +73,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         topics[1] = bytes32(id);
         topics[2] = bytes32(uint256(uint160(token)));
 
-        uint256 finalizedBlockNumber = PodPrecompileHelper.getFinalizedBlockNumber(SOURCE_CHAIN_ID);
+        uint256 finalizedBlockNumber = PodPrecompileHelper.getBlockByBlockTag(SOURCE_CHAIN_ID, block_tag_bytes);
 
         if (blockNumber > finalizedBlockNumber) {
             revert BlockNotFinalized();
@@ -121,7 +121,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         topics[0] = DEPOSIT_NATIVE_TOPIC_0;
         topics[1] = bytes32(id);
 
-        uint256 finalizedBlockNumber = PodPrecompileHelper.getFinalizedBlockNumber(SOURCE_CHAIN_ID);
+        uint256 finalizedBlockNumber = PodPrecompileHelper.getBlockByBlockTag(SOURCE_CHAIN_ID, block_tag_bytes);
 
         if (blockNumber > finalizedBlockNumber) {
             revert BlockNotFinalized();

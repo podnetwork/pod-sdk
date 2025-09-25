@@ -25,13 +25,12 @@ library PodPrecompileHelper {
     }
 
     /**
-     * @dev Gets the finalized block number.
-     * @return blockNumber The finalized block number.
+     * @dev Gets the block by block tag.
+     * @return blockNumber The block number.
      */
-    function getFinalizedBlockNumber(uint256 chainId) internal view returns (uint256) {
-        EthGetBlockByNumberTypes.PrecompileArgs memory args = EthGetBlockByNumberTypes.PrecompileArgs(
-            chainId, EthGetBlockByNumberTypes.RpcArgs(hex"66696e616c697a6564", false)
-        );
+    function getBlockByBlockTag(uint256 chainId, bytes memory blockTag) internal view returns (uint256) {
+        EthGetBlockByNumberTypes.PrecompileArgs memory args =
+            EthGetBlockByNumberTypes.PrecompileArgs(chainId, EthGetBlockByNumberTypes.RpcArgs(blockTag, false));
         (bool success, bytes memory output) = EthGetBlockByNumberTypes.PRECOMPILE_ADDRESS.staticcall(
             abi.encode(args.chainId, args.ethGetBlockByNumberArgs)
         );

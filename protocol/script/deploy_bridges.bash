@@ -59,12 +59,14 @@ POD_TOKEN_ADDR=$(forge script ./script/DeployToken.s.sol:DeployToken \
   | jq -sr 'map(.returns?.token?.value // empty) | map(select(. != "")) | last')
 echo "Pod token: $POD_TOKEN_ADDR"
 
+sleep 1
+
 # Compute addresses for next CREATE
 SOURCE_CHAIN_DEPLOYER=$(cast wallet address --private-key "$PK_SOURCE_CHAIN")
 POD_DEPLOYER=$(cast wallet address --private-key "$PK_POD")
 SOURCE_CHAIN_NONCE=$(cast nonce "$SOURCE_CHAIN_DEPLOYER" --rpc-url "$SOURCE_CHAIN_RPC")
 POD_NONCE=$(cast nonce "$POD_DEPLOYER" --rpc-url "$POD_RPC")
-SOURCE_CHAIN_BRIDGE_ADDR=$(cast compute-address "$SOURCE_CHAIN_DEPLOYER" --nonce "$(($SOURCE_CHAIN_NONCE + 1))" |  grep -oE '0x[0-9a-fA-F]{40}')
+SOURCE_CHAIN_BRIDGE_ADDR=$(cast compute-address "$SOURCE_CHAIN_DEPLOYER" --nonce "$(($SOURCE_CHAIN_NONCE + 3))" |  grep -oE '0x[0-9a-fA-F]{40}')
 POD_BRIDGE_ADDR=$(cast compute-address "$POD_DEPLOYER" --nonce "$(($POD_NONCE + 1))" |  grep -oE '0x[0-9a-fA-F]{40}')
 
 echo "Precomputed:"
