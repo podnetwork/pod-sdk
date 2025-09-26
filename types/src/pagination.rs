@@ -79,9 +79,9 @@ impl TryFrom<CursorPaginationRequest> for CursorPagination {
             Some(cursor) => {
                 let decoded = base64::engine::general_purpose::STANDARD
                     .decode(&cursor)
-                    .map_err(|e| anyhow!("Failed to decode cursor: {}", e))?;
+                    .map_err(|e| anyhow!("Failed to decode cursor: {e}"))?;
                 let decoded_str = String::from_utf8(decoded)
-                    .map_err(|e| anyhow!("Failed to decode cursor as UTF-8: {}", e))?;
+                    .map_err(|e| anyhow!("Failed to decode cursor as UTF-8: {e}"))?;
                 let parts: Vec<&str> = decoded_str.split('|').collect();
 
                 if parts.len() != 2 {
