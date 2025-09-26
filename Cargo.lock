@@ -1276,7 +1276,6 @@ dependencies = [
 name = "bridge"
 version = "0.1.0"
 dependencies = [
- "alloy-contract",
  "alloy-network",
  "alloy-primitives",
  "alloy-provider",
@@ -1284,12 +1283,9 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "dotenv",
- "pod-examples-solidity 0.2.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3)",
- "pod-optimistic-auction 0.1.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3)",
  "pod-protocol 0.1.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=12abcb9b359dea94825a6d78fefa439e8857263d)",
  "pod-sdk 0.2.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3)",
  "pod-types 0.2.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3)",
- "serde_json",
  "tokio",
 ]
 
@@ -3283,7 +3279,7 @@ dependencies = [
  "clap",
  "dotenv",
  "pod-examples-solidity 0.2.0",
- "pod-optimistic-auction 0.1.0",
+ "pod-optimistic-auction",
  "pod-sdk 0.2.0",
  "pod-types 0.2.0",
  "tokio",
@@ -3505,15 +3501,6 @@ dependencies = [
 [[package]]
 name = "pod-optimistic-auction"
 version = "0.1.0"
-dependencies = [
- "alloy",
- "serde",
-]
-
-[[package]]
-name = "pod-optimistic-auction"
-version = "0.1.0"
-source = "git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3#7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3"
 dependencies = [
  "alloy",
  "serde",
