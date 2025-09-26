@@ -14,11 +14,7 @@ alloy-primitives = { version = "1.3.0", features = [
 ] }
 alloy-provider = { version = "1.0.24", features = ["pubsub", "ws"] }
 alloy-signer-local = "1.0.24"
-alloy-contract = { version = "1.0.24" }
 alloy-sol-types = "1.3.0"
-serde_json = "1.0.132"
-pod-examples-solidity = { git = "https://github.com/podnetwork/pod-sdk.git", rev = "7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3" }
-pod-optimistic-auction = { git = "https://github.com/podnetwork/pod-sdk.git", rev = "7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3" }
 pod-protocol = { git = "https://github.com/podnetwork/pod-sdk.git", rev = "12abcb9b359dea94825a6d78fefa439e8857263d" } 
 dotenv = "0.15.0"
 anyhow = "1.0.100"

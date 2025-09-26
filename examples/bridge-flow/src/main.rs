@@ -138,10 +138,7 @@ impl SourceChainBridgeClient {
 
         sleep(Duration::from_millis(100));
 
-        println!(
-            "Successfully deposited {:?} native to address: {:?}",
-            value, to
-        );
+        println!("Successfully deposited {value} native to address: {to}");
 
         let receipt = self
             .source_chain_provider
@@ -157,8 +154,8 @@ impl SourceChainBridgeClient {
             if Some(*event_signature.unwrap()) == Some(DepositNative::SIGNATURE_HASH) {
                 let request_id = log.topics()[1];
                 let block_number = receipt.block_number();
-                if block_number.is_some() {
-                    return Ok((request_id.into(), block_number.unwrap()));
+                if let Some(block_number) = block_number {
+                    return Ok((request_id.into(), block_number));
                 }
             }
         }
@@ -184,10 +181,7 @@ impl SourceChainBridgeClient {
         assert!(receipt.status());
         assert!(receipt.logs().len() == 2);
 
-        println!(
-            "Successfully deposited {:?} token to address: {:?}",
-            amount, to
-        );
+        println!("Successfully deposited {amount} token to address: {to}");
 
         for log in receipt.logs() {
             let event_signature = log.topic0();
@@ -195,11 +189,11 @@ impl SourceChainBridgeClient {
                 let request_id = log.topics()[1];
                 let token_address = log.topics()[2];
                 let block_number = receipt.block_number();
-                if block_number.is_some() {
+                if let Some(block_number) = block_number {
                     return Ok((
                         request_id.into(),
                         Address::from_slice(&token_address.0[12..]),
-                        block_number.unwrap(),
+                        block_number,
                     ));
                 }
             }
@@ -226,7 +220,7 @@ impl SourceChainBridgeClient {
         assert!(receipt.status());
         assert!(receipt.logs().len() == 2);
 
-        println!("Successfully claimed token from source chain",);
+        println!("Successfully claimed token from source chain");
 
         Ok(())
     }
@@ -296,10 +290,7 @@ impl PodBridgeClient {
         assert!(receipt.status());
         assert!(receipt.receipt.logs().len() == 1);
 
-        println!(
-            "Successfully deposited {:?} native to address: {:?}",
-            value, to
-        );
+        println!("Successfully deposited {value} native to address: {to}");
 
         for log in receipt.logs() {
             let event_signature = log.topic0();
@@ -326,10 +317,7 @@ impl PodBridgeClient {
         assert!(receipt.status());
         assert!(receipt.logs().len() == 2);
 
-        println!(
-            "Successfully deposited {:?} token to address: {:?}",
-            amount, to
-        );
+        println!("Successfully deposited {amount} token to address: {to}");
 
         for log in receipt.logs() {
             let event_signature = log.topic0();
@@ -363,10 +351,7 @@ impl PodBridgeClient {
         assert!(receipt.status());
         assert!(receipt.logs().len() == 2);
 
-        println!(
-            "Successfully claimed request id: {:?} by address: {:?}",
-            request_id, to
-        );
+        println!("Successfully claimed request id: {request_id} by address: {to}");
 
         Ok(())
     }
@@ -390,10 +375,7 @@ impl PodBridgeClient {
         assert!(receipt.status());
         assert!(self.pod_provider.get_balance(to).await? > prev_balance);
 
-        println!(
-            "Successfully claimed request id: {:?} by address: {:?}",
-            request_id, to
-        );
+        println!("Successfully claimed request id: {request_id} by address: {to}");
 
         Ok(())
     }
@@ -414,7 +396,7 @@ impl PodBridgeClient {
 
         let certified_log = get_certified_log(log)?;
 
-        println!("Generated certified log for request id: {:?}", request_id);
+        println!("Generated certified log for request id: {request_id}");
 
         Ok(certified_log)
     }
@@ -441,7 +423,7 @@ impl PodBridgeClient {
 
         let certified_log = get_certified_log(log)?;
 
-        println!("Generated certified log for request id: {:?}", request_id);
+        println!("Generated certified log for request id: {request_id}");
 
         Ok(certified_log)
     }
