@@ -317,6 +317,7 @@ dependencies = [
  "derive_arbitrary",
  "derive_more",
  "foldhash",
+ "getrandom 0.3.3",
  "hashbrown 0.15.2",
  "indexmap 2.7.0",
  "itoa",
@@ -781,9 +782,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.98"
+version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
+checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "arbitrary"
@@ -991,9 +992,9 @@ dependencies = [
  "clap",
  "futures",
  "hex",
- "pod-examples-solidity",
- "pod-sdk",
- "pod-types",
+ "pod-examples-solidity 0.2.0",
+ "pod-sdk 0.2.0",
+ "pod-types 0.2.0",
  "tokio",
 ]
 
@@ -1272,6 +1273,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "bridge"
+version = "0.1.0"
+dependencies = [
+ "alloy-contract",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-signer-local",
+ "alloy-sol-types",
+ "anyhow",
+ "dotenv",
+ "pod-examples-solidity 0.2.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3)",
+ "pod-optimistic-auction 0.1.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3)",
+ "pod-protocol 0.1.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=12abcb9b359dea94825a6d78fefa439e8857263d)",
+ "pod-sdk 0.2.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3)",
+ "pod-types 0.2.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3)",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "bs58"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1293,7 +1315,7 @@ dependencies = [
  "config",
  "hex",
  "multihash-codetable",
- "pod-sdk",
+ "pod-sdk 0.2.0",
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",
@@ -2935,8 +2957,8 @@ dependencies = [
  "clap",
  "futures",
  "hex",
- "pod-sdk",
- "pod-types",
+ "pod-sdk 0.2.0",
+ "pod-types 0.2.0",
  "tokio",
 ]
 
@@ -2951,8 +2973,8 @@ dependencies = [
  "hex",
  "humantime",
  "notary-bindings",
- "pod-sdk",
- "pod-types",
+ "pod-sdk 0.2.0",
+ "pod-types 0.2.0",
  "tokio",
 ]
 
@@ -3242,7 +3264,7 @@ dependencies = [
  "futures",
  "humantime",
  "op-alloy",
- "pod-sdk",
+ "pod-sdk 0.2.0",
  "rand 0.9.1",
  "serde_json",
  "tokio",
@@ -3260,10 +3282,10 @@ dependencies = [
  "anyhow",
  "clap",
  "dotenv",
- "pod-examples-solidity",
- "pod-optimistic-auction",
- "pod-sdk",
- "pod-types",
+ "pod-examples-solidity 0.2.0",
+ "pod-optimistic-auction 0.1.0",
+ "pod-sdk 0.2.0",
+ "pod-types 0.2.0",
  "tokio",
 ]
 
@@ -3472,7 +3494,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "pod-examples-solidity"
+version = "0.2.0"
+source = "git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3#7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3"
+dependencies = [
+ "alloy",
+ "serde",
+]
+
+[[package]]
 name = "pod-optimistic-auction"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "serde",
+]
+
+[[package]]
+name = "pod-optimistic-auction"
+version = "0.1.0"
+source = "git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3#7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3"
+dependencies = [
+ "alloy",
+ "serde",
+]
+
+[[package]]
+name = "pod-protocol"
 version = "0.1.0"
 dependencies = [
  "alloy",
@@ -3482,6 +3530,7 @@ dependencies = [
 [[package]]
 name = "pod-protocol"
 version = "0.1.0"
+source = "git+https://github.com/podnetwork/pod-sdk.git?rev=12abcb9b359dea94825a6d78fefa439e8857263d#12abcb9b359dea94825a6d78fefa439e8857263d"
 dependencies = [
  "alloy",
  "serde",
@@ -3507,10 +3556,37 @@ dependencies = [
  "async-trait",
  "futures",
  "hex",
- "pod-examples-solidity",
- "pod-types",
+ "pod-examples-solidity 0.2.0",
+ "pod-types 0.2.0",
  "serde",
  "tokio-test",
+ "tracing",
+]
+
+[[package]]
+name = "pod-sdk"
+version = "0.2.0"
+source = "git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3#7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-json-rpc",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-pubsub",
+ "alloy-rpc-types",
+ "alloy-signer",
+ "alloy-signer-local",
+ "alloy-sol-types",
+ "alloy-transport",
+ "anyhow",
+ "async-trait",
+ "futures",
+ "hex",
+ "pod-examples-solidity 0.2.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3)",
+ "pod-types 0.2.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3)",
+ "serde",
  "tracing",
 ]
 
@@ -3531,10 +3607,34 @@ dependencies = [
  "bytes",
  "hex",
  "itertools 0.13.0",
- "pod-types",
+ "pod-types 0.2.0",
  "rand 0.9.1",
  "serde",
  "serde_json",
+ "serde_with",
+ "thiserror 2.0.12",
+ "tokio",
+ "tracing",
+ "utoipa",
+]
+
+[[package]]
+name = "pod-types"
+version = "0.2.0"
+source = "git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3#7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3"
+dependencies = [
+ "alloy-consensus",
+ "alloy-primitives",
+ "alloy-rpc-types",
+ "alloy-signer",
+ "alloy-signer-local",
+ "alloy-sol-types",
+ "anyhow",
+ "base64 0.22.1",
+ "bytes",
+ "hex",
+ "itertools 0.13.0",
+ "serde",
  "serde_with",
  "thiserror 2.0.12",
  "tokio",
@@ -3932,9 +4032,9 @@ dependencies = [
  "env_logger",
  "futures",
  "hex",
- "pod-examples-solidity",
- "pod-sdk",
- "pod-types",
+ "pod-examples-solidity 0.2.0",
+ "pod-sdk 0.2.0",
+ "pod-types 0.2.0",
  "tokio",
 ]
 
@@ -4702,8 +4802,8 @@ dependencies = [
  "clap",
  "futures",
  "hex",
- "pod-sdk",
- "pod-types",
+ "pod-sdk 0.2.0",
+ "pod-types 0.2.0",
  "tokio",
 ]
 
@@ -4722,6 +4822,7 @@ dependencies = [
  "signal-hook-registry",
  "socket2",
  "tokio-macros",
+ "tracing",
  "windows-sys 0.52.0",
 ]
 
@@ -5134,8 +5235,8 @@ dependencies = [
  "clap",
  "futures",
  "hex",
- "pod-sdk",
- "pod-types",
+ "pod-sdk 0.2.0",
+ "pod-types 0.2.0",
  "tokio",
  "voting-bindings",
 ]

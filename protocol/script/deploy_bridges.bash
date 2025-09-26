@@ -13,6 +13,7 @@ source .env
 : "${PK_SOURCE_CHAIN:?}"          # Anvil/Sepolia deployer private key
 : "${PK_POD:?}"            # Pod deployer private key
 : "${USER_ADDRESS:?}"      # Receiver on Anvil/Sepolia for initial mint
+: "${USER_PRIVATE_KEY:?}" # User private key
 : "${POD_COMMITTEE_KEYS:?}" # Pod committee keys
 
 echo "SOURCE_CHAIN_RPC: $SOURCE_CHAIN_RPC"
@@ -96,15 +97,30 @@ forge script ./script/GrantRoles.s.sol:GrantRoles \
   -vvv
 
 
-# 5) Show codes to confirm deployment
+# 6) Fund user on Pod and Source chain
+cast send --rpc-url "$POD_RPC" --private-key "$PK_POD" --value "$MINT_AMOUNT" "$USER_ADDRESS"
+cast send --rpc-url "$SOURCE_CHAIN_RPC" --private-key "$PK_SOURCE_CHAIN" --value "$MINT_AMOUNT" "$USER_ADDRESS"
+
+# 7) Call approve from user private key on bridge for amount of tokens
+cast send $POD_TOKEN_ADDR "approve(address,uint256)" --rpc-url "$POD_RPC" --private-key "$USER_PRIVATE_KEY" "$POD_BRIDGE_ADDR" "$MINT_AMOUNT"
+cast send $SOURCE_CHAIN_TOKEN_ADDR "approve(address,uint256)" --rpc-url "$SOURCE_CHAIN_RPC" --private-key "$USER_PRIVATE_KEY" "$SOURCE_CHAIN_BRIDGE_ADDR" "$MINT_AMOUNT"
+
+
+# 8) Show codes to confirm deployment when debugging
 echo "Codes:"
-echo "  Source chain BridgeDepositWithdraw code bytes: $(cast code $SOURCE_CHAIN_BRIDGE_ADDR --rpc-url $SOURCE_CHAIN_RPC | wc -c)"
-echo "  Pod   BridgeMintBurn        code bytes: $(cast code $POD_BRIDGE_ADDR --rpc-url $POD_RPC   | wc -c)"
-echo "  Source chain Token                 code bytes: $(cast code $SOURCE_CHAIN_TOKEN_ADDR --rpc-url $SOURCE_CHAIN_RPC | wc -c)"
-echo "  Pod   Mirror Token          code bytes: $(cast code $POD_TOKEN_ADDR --rpc-url $POD_RPC   | wc -c)"
+echo "  Source Chain BridgeDepositWithdraw code bytes: $(cast code $SOURCE_CHAIN_BRIDGE_ADDR --rpc-url $SOURCE_CHAIN_RPC | wc -c)"
+echo "  Pod BridgeMintBurn                 code bytes: $(cast code $POD_BRIDGE_ADDR --rpc-url $POD_RPC   | wc -c)"
+echo "  Source Chain Token                 code bytes: $(cast code $SOURCE_CHAIN_TOKEN_ADDR --rpc-url $SOURCE_CHAIN_RPC | wc -c)"
+echo "  Pod Mirror Token                   code bytes: $(cast code $POD_TOKEN_ADDR --rpc-url $POD_RPC   | wc -c)"
+
+# Expected values:
+#   Source Chain BridgeDepositWithdraw code bytes:    26453
+#   Pod BridgeMintBurn                 code bytes:    49063
+#   Source Chain Token                 code bytes:    13225
+#   Pod Mirror Token                   code bytes:    13225
 
 echo "Done."
-echo "Source chain BridgeDepositWithdraw: $SOURCE_CHAIN_BRIDGE_ADDR"
-echo "Pod   BridgeMintBurn:               $POD_BRIDGE_ADDR"
-echo "Source chain token:                 $SOURCE_CHAIN_TOKEN_ADDR"
-echo "Pod mirror token:                   $POD_TOKEN_ADDR"
+echo "Source Chain BridgeDepositWithdraw: $SOURCE_CHAIN_BRIDGE_ADDR"
+echo "Pod BridgeMintBurn:                 $POD_BRIDGE_ADDR"
+echo "Source Chain Token:                 $SOURCE_CHAIN_TOKEN_ADDR"
+echo "Pod Mirror Token:                   $POD_TOKEN_ADDR"

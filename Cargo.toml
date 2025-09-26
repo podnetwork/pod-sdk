@@ -6,6 +6,7 @@ members = [
   "examples/notary",
   "examples/optimistic-auction",
   "examples/auction",
+  "examples/bridge-flow",
   "examples/rust",
   "examples/voting/client",
   "examples/nfts",
