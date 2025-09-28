@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use base64::Engine;
 use serde::{Deserialize, Serialize, Serializer};
 use utoipa::ToSchema;
@@ -80,8 +80,8 @@ impl TryFrom<CursorPaginationRequest> for CursorPagination {
                 let decoded = base64::engine::general_purpose::STANDARD
                     .decode(&cursor)
                     .context("Failed to decode cursor: {}")?;
-                let decoded_str = String::from_utf8(decoded)
-                    .context("Failed to decode cursor as UTF-8: {}")?;
+                let decoded_str =
+                    String::from_utf8(decoded).context("Failed to decode cursor as UTF-8: {}")?;
                 let parts: Vec<&str> = decoded_str.split('|').collect();
 
                 if parts.len() != 2 {
