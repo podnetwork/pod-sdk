@@ -9,11 +9,11 @@ name = "auction"
 path = "main.rs"
 
 [dependencies]
-anyhow = "1.0"
-clap = { version = "4.4", features = ["derive"] }
-futures = "0.3"
+anyhow = "1.0.100"
+clap = { version = "4.5.48", features = ["derive"] }
+futures = "0.3.31"
 pod-sdk = { path = "../../rust-sdk" }
 pod-examples-solidity = { path = "../solidity/bindings" }
-tokio = { version = "1.0", features = ["full"] }
-hex = "0.4"
+tokio = { version = "1.47.1", features = ["full"] }
+hex = "0.4.3"
 pod-types = { path = "../../types" }
