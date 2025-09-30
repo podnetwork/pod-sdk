@@ -20,4 +20,31 @@ contract BaseDeployer is Script {
 
         return initialValidators;
     }
+
+    function getValidatorHostsAndPorts() internal view returns (string[] memory hosts, uint16[] memory ports) {
+        // Read validator endpoints from environment variable
+        string memory committeeHosts = vm.envString("POD_COMMITTEE_HOSTS");
+
+        // Split comma-separated host:port pairs
+        string[] memory entries = vm.split(committeeHosts, ",");
+
+        uint256 len = entries.length;
+        hosts = new string[](len);
+        ports = new uint16[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            // Split each entry on ":" (host:port)
+            string[] memory parts = vm.split(entries[i], ":");
+            require(parts.length == 2, "invalid host:port entry");
+
+            hosts[i] = parts[0];
+
+            // Parse port string into uint16
+            uint256 portVal = vm.parseUint(parts[1]);
+            require(portVal > 0 && portVal <= type(uint16).max, "invalid port");
+            ports[i] = uint16(portVal);
+        }
+
+        require(len > 0, "No validator hosts provided");
+    }
 }

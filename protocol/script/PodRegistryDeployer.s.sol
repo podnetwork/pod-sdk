@@ -9,12 +9,13 @@ import {PodRegistry} from "../src/PodRegistry.sol";
 contract PodRegistryDeployer is BaseDeployer {
     function run() public {
         address[] memory initialValidators = getValidatorAddresses();
+        (string[] memory initialHosts, uint16[] memory initialPorts) = getValidatorHostsAndPorts();
 
         vm.startBroadcast();
-        PodRegistry podRegistry = new PodRegistry(initialValidators);
+        PodRegistry registry = new PodRegistry(initialValidators, initialHosts, initialPorts);
         vm.stopBroadcast();
 
         console.log("PodRegistry deployed:");
-        console.logAddress(address(podRegistry));
+        console.logAddress(address(registry));
     }
 }

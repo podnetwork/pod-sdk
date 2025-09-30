@@ -46,6 +46,11 @@ contract PodRegistry is IPodRegistry, Ownable {
     mapping(address => uint8) public validatorIndex;
 
     /**
+     * @notice Mapping from validator address to their Endpoint
+     */
+    mapping(address => Endpoint) private validatorEndpoint;
+
+    /**
      * @notice Array of validators in the registry. We also use `validators.length + 1` to track the 1-based
      * index of the next validator to add.
      */
@@ -65,11 +70,19 @@ contract PodRegistry is IPodRegistry, Ownable {
      * @notice Initialize the registry with a set of initial validators. Only creates one snapshot
      * after adding all the initial validators.
      * @param initialValidators Array of validator addresses to initialize with
+     * @param initialHosts The hostnames or IPs for each validator (same length as validators)
+     * @param initialPorts The TCP ports for each validator (same length as validators)
      * @dev The contract owner will be set to msg.sender
      */
-    constructor(address[] memory initialValidators) Ownable(msg.sender) {
-        for (uint8 i = 0; i < initialValidators.length; i++) {
-            _addValidator(initialValidators[i]);
+    constructor(address[] memory initialValidators, string[] memory initialHosts, uint16[] memory initialPorts)
+        Ownable(msg.sender)
+    {
+        uint256 len = initialValidators.length;
+        require(len == initialHosts.length && len == initialPorts.length, "length mismatch");
+        require(len <= 255, "too many validators");
+
+        for (uint8 i = 0; i < len; i++) {
+            _addValidator(initialValidators[i], initialHosts[i], initialPorts[i]);
             activeValidatorBitmap |= (1 << i);
         }
 
@@ -79,9 +92,11 @@ contract PodRegistry is IPodRegistry, Ownable {
     /**
      * @notice Add a validator to the registry
      * @param validator The address of the validator to add
+     * @param host The hostname or IP address of the validator
+     * @param port The TCP port used by the validator
      * @dev Internal function called by addValidator
      */
-    function _addValidator(address validator) internal {
+    function _addValidator(address validator, string memory host, uint16 port) internal {
         if (validator == address(0)) {
             revert ValidatorIsZeroAddress();
         }
@@ -91,16 +106,26 @@ contract PodRegistry is IPodRegistry, Ownable {
         if (validators.length >= MAX_VALIDATOR_COUNT) {
             revert MaxValidatorCountReached();
         }
+        if (bytes(host).length == 0) {
+            revert ValidatorInvalidHost();
+        }
+        if (bytes(host).length > 255) {
+            revert ValidatorInvalidHost();
+        }
+        if (port == 0) {
+            revert ValidatorInvalidPort();
+        }
 
         validators.push(validator);
         validatorIndex[validator] = uint8(validators.length);
+        validatorEndpoint[validator] = Endpoint({host: host, port: port});
     }
 
     /**
      * @inheritdoc IPodRegistry
      */
-    function addValidator(address validator) external onlyOwner {
-        _addValidator(validator);
+    function addValidator(address validator, string calldata host, uint16 port) external onlyOwner {
+        _addValidator(validator, host, port);
 
         uint8 index = uint8(validators.length);
         _activateValidator(index);
@@ -141,6 +166,29 @@ contract PodRegistry is IPodRegistry, Ownable {
 
         bannedValidatorBitmap = _clearBit(bannedValidatorBitmap, index - 1);
         emit ValidatorUnbanned(validator);
+    }
+
+    /**
+     * @inheritdoc IPodRegistry
+     */
+    function setValidatorEndpoint(address validator, string calldata host, uint16 port) external onlyOwner {
+        uint8 index = validatorIndex[validator];
+        if (index == 0) {
+            revert ValidatorDoesNotExist();
+        }
+        if (bytes(host).length == 0) {
+            revert ValidatorInvalidHost();
+        }
+        if (bytes(host).length > 255) {
+            revert ValidatorInvalidHost();
+        }
+        if (port == 0) {
+            revert ValidatorInvalidPort();
+        }
+
+        validatorEndpoint[validator] = Endpoint({host: host, port: port});
+
+        emit ValidatorNetworkUpdated(validator, host, port);
     }
 
     /**
@@ -283,25 +331,45 @@ contract PodRegistry is IPodRegistry, Ownable {
     /**
      * @inheritdoc IPodRegistry
      */
-    function getValidatorsAtIndex(uint256 snapshotIndex) public view returns (address[] memory) {
+    function getValidatorsAtIndex(uint256 snapshotIndex)
+        public
+        view
+        returns (address[] memory addrs, string[] memory hosts, uint16[] memory ports)
+    {
         uint256 bitmap = history[snapshotIndex].bitmap;
         uint8 count = _popCount(bitmap);
-        address[] memory subset = new address[](count);
+
+        addrs = new address[](count);
+        hosts = new string[](count);
+        ports = new uint16[](count);
+
+        address[] storage all = validators;
         uint8 j = 0;
-        for (uint8 i = 0; i < validators.length; i++) {
+
+        for (uint8 i = 0; i < all.length; i++) {
             if (_isBitSet(bitmap, i)) {
-                subset[j++] = validators[i];
+                address v = all[i];
+                addrs[j] = v;
+
+                Endpoint storage ep = validatorEndpoint[v];
+                hosts[j] = ep.host;
+                ports[j] = ep.port;
+
+                j++;
             }
         }
-        return subset;
     }
 
     /**
      * @inheritdoc IPodRegistry
      */
-    function getActiveValidators() external view returns (address[] memory) {
+    function getActiveValidators()
+        external
+        view
+        returns (address[] memory addrs, string[] memory hosts, uint16[] memory ports)
+    {
         if (history.length == 0) {
-            return new address[](0);
+            return (new address[](0), new string[](0), new uint16[](0));
         }
 
         return getValidatorsAtIndex(history.length - 1);
@@ -310,9 +378,13 @@ contract PodRegistry is IPodRegistry, Ownable {
     /**
      * @inheritdoc IPodRegistry
      */
-    function getActiveValidatorsAtTimestamp(uint256 timestamp) external view returns (address[] memory) {
+    function getActiveValidatorsAtTimestamp(uint256 timestamp)
+        external
+        view
+        returns (address[] memory addrs, string[] memory hosts, uint16[] memory ports)
+    {
         if (history.length == 0) {
-            return new address[](0);
+            return (new address[](0), new string[](0), new uint16[](0));
         }
 
         uint256 snapshotIndex = findSnapshotIndex(timestamp);
