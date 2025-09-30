@@ -259,7 +259,7 @@ async fn watch(auction_id: U256, deadline: u64, rpc_url: String) -> Result<()> {
                 match result {
                     Ok(Ok(_)) => break,
                     Ok(Err(e)) => return Err(e),
-                    Err(e) => return Err(anyhow::anyhow!("Deadline task failed: {}", e)),
+                    Err(e) => return Err(anyhow::anyhow!("Deadline task failed: {e}")),
                 }
             }
         }
