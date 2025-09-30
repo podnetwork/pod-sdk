@@ -22,6 +22,24 @@ pub struct Bid {
 }
 
 impl AuctionClient {
+    // Convert SystemTime -> microseconds as `u128`.
+    fn micros_from_system_time(deadline: SystemTime) -> u128 {
+        Timestamp::from(deadline).as_micros()
+    }
+
+    // Convert SystemTime -> microseconds as `u64`, failing with a clear message on overflow.
+    fn micros_u64_from_system_time(deadline: SystemTime) -> anyhow::Result<u64> {
+        let micros = Self::micros_from_system_time(deadline);
+        micros
+            .try_into()
+            .context("deadline microseconds must fit in u64")
+    }
+
+    // Convert SystemTime -> microseconds as `U256` for contract topics.
+    fn micros_u256_from_system_time(deadline: SystemTime) -> U256 {
+        U256::from(Self::micros_from_system_time(deadline))
+    }
+
     pub fn new(provider: PodProvider, contract: Address) -> Self {
         AuctionClient {
             auction: AuctionInstance::new(contract, provider),
@@ -61,12 +79,12 @@ impl AuctionClient {
 
     #[tracing::instrument(skip(self))]
     pub async fn fetch_bids_for_deadline(&self, deadline: SystemTime) -> anyhow::Result<Vec<Bid>> {
-        let deadline_us = Timestamp::from(deadline).as_micros();
+        let deadline_us = Self::micros_u256_from_system_time(deadline);
 
         let logs = self
             .auction
             .BidSubmitted_filter()
-            .topic3(U256::from(deadline_us))
+            .topic3(deadline_us)
             .to_block(BlockNumberOrTag::Latest)
             .query()
             .await
@@ -90,11 +108,7 @@ impl AuctionClient {
         bid: U256,
         data: Vec<u8>,
     ) -> anyhow::Result<PodReceiptResponse> {
-        let deadline_ts = Timestamp::from(deadline);
-        let deadline = deadline_ts
-            .as_micros()
-            .try_into()
-            .context("deadline seconds must fit in u64")?;
+        let deadline = Self::micros_u64_from_system_time(deadline)?;
 
         let pending_tx = self
             .auction
