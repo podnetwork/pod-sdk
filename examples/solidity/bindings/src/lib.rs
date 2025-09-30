@@ -7,6 +7,7 @@ pub mod r#auction;
 pub mod r#fast_types;
 pub mod r#pi2;
 pub mod r#ranked_feed;
+pub mod r#recover;
 pub mod r#test_mint_balance_precompile;
 pub mod r#time;
 pub mod r#voting;

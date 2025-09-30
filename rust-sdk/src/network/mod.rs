@@ -344,6 +344,7 @@ impl PodReceiptResponse {
                 .iter()
                 .map(|a| a.signature)
                 .collect(),
+            committee.quorum_size,
         )?;
 
         committee.verify_aggregate_attestation(
@@ -354,6 +355,7 @@ impl PodReceiptResponse {
                 .iter()
                 .map(|a| a.signature)
                 .collect(),
+            committee.quorum_size,
         )?;
 
         Ok(())

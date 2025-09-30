@@ -133,23 +133,38 @@ impl<T> From<Indexed<Attestation<T>>> for TimestampedHeadlessAttestation {
 
 mod sol {
     alloy_sol_types::sol! {
-        #[derive(Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+        #[derive(Copy, Debug, std::hash::Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
         struct AttestedTx {
             bytes32 tx_hash;
             bool success;
             uint64 committee_epoch;
         }
+
+        #[derive(Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+        #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+        struct AttestedBot {
+            uint64 nonce;
+            address signer;
+        }
     }
 }
 
-pub use sol::AttestedTx;
+pub use sol::{AttestedBot, AttestedTx};
 
 impl AttestedTx {
     pub fn success(tx_hash: Hash, committee_epoch: u64) -> Self {
         Self {
             tx_hash,
             success: true,
+            committee_epoch,
+        }
+    }
+
+    pub fn failure(tx_hash: Hash, committee_epoch: u64) -> Self {
+        Self {
+            tx_hash,
+            success: false,
             committee_epoch,
         }
     }
@@ -173,5 +188,21 @@ impl Merkleizable for AttestedTx {
             "committee_epoch",
             self.committee_epoch.abi_encode().hash_custom(),
         );
+    }
+}
+
+impl AttestedBot {
+    pub fn new(nonce: u64, signer: Address) -> Self {
+        Self { nonce, signer }
+    }
+}
+
+impl Hashable for AttestedBot {
+    fn hash_custom(&self) -> Hash {
+        self.eip712_signing_hash(&alloy_sol_types::eip712_domain! {
+            name: "attest_bot",
+            version: "1",
+            chain_id: 0x50d,
+        })
     }
 }
