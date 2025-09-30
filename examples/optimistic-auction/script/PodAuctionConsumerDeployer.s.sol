@@ -10,10 +10,11 @@ import {PodAuctionConsumer} from "../contracts/PodAuctionConsumer.sol";
 contract PodAuctionConsumerDeployer is BaseDeployer {
     function run() public {
         address[] memory initialValidators = getValidatorAddresses();
+        (string[] memory initialHosts, uint16[] memory initialPorts) = getValidatorHostsAndPorts();
 
         vm.startBroadcast();
 
-        PodRegistry podRegistry = new PodRegistry(initialValidators);
+        PodRegistry podRegistry = new PodRegistry(initialValidators, initialHosts, initialPorts);
         console.log("PodRegistry deployed:");
         console.logAddress(address(podRegistry));
 

@@ -30,8 +30,9 @@ contract Deployer is BaseDeployer {
 
         if (testContracts) {
             address[] memory initialValidators = getValidatorAddresses();
+            (string[] memory initialHosts, uint16[] memory initialPorts) = getValidatorHostsAndPorts();
 
-            PodRegistry podRegistry = new PodRegistry(initialValidators);
+            PodRegistry podRegistry = new PodRegistry(initialValidators, initialHosts, initialPorts);
             console.log("PodRegistry deployed at:", address(podRegistry));
 
             uint256 bondAmount = 1 ether;
