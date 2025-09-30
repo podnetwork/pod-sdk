@@ -134,4 +134,18 @@ impl Committee {
             quorum_size,
         )
     }
+
+    pub fn verify_high_quorum_certificate<C: Hashable>(
+        &self,
+        certificate: &Certificate<C>,
+    ) -> Result<(), CommitteeError> {
+        self.verify_certificate(certificate, self.quorum_size)
+    }
+
+    pub fn verify_low_quorum_certificate<C: Hashable>(
+        &self,
+        certificate: &Certificate<C>,
+    ) -> Result<(), CommitteeError> {
+        self.verify_certificate(certificate, self.cert_quorum)
+    }
 }
