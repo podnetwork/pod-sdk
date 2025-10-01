@@ -13,12 +13,29 @@ contract PodRegistryTest is Test {
     address public validator3 = address(4);
     address public validator4 = address(5);
 
+    string public host1 = "validator1.example.org";
+    string public host2 = "validator2.example.org";
+    string public host3 = "validator3.example.org";
+    string public host4 = "validator4.example.org";
+
+    uint16 public port1 = 30303;
+    uint16 public port2 = 30304;
+    uint16 public port3 = 30305;
+    uint16 public port4 = 30306;
+
     function setUp() public {
         address[] memory initialValidators = new address[](2);
         initialValidators[0] = validator1;
         initialValidators[1] = validator2;
+        string[] memory initialHosts = new string[](2);
+        initialHosts[0] = host1;
+        initialHosts[1] = host2;
+
+        uint16[] memory initialPorts = new uint16[](2);
+        initialPorts[0] = port1;
+        initialPorts[1] = port2;
         vm.prank(owner);
-        registry = new PodRegistry(initialValidators);
+        registry = new PodRegistry(initialValidators, initialHosts, initialPorts);
     }
 
     function test_Initialization() public view {
@@ -33,7 +50,7 @@ contract PodRegistryTest is Test {
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
         emit IPodRegistry.ValidatorAdded(validator3);
-        registry.addValidator(validator3);
+        registry.addValidator(validator3, host3, port3);
 
         assertEq(registry.getActiveValidatorCount(), 3);
         assertEq(registry.validatorIndex(validator3), 3);
@@ -42,31 +59,62 @@ contract PodRegistryTest is Test {
 
     function test_AddValidator_RevertIfNotOwner() public {
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", address(this)));
-        registry.addValidator(validator3);
+        registry.addValidator(validator3, host3, port3);
     }
 
     function test_AddValidator_RevertIfZeroAddress() public {
         vm.prank(owner);
         vm.expectRevert(abi.encodeWithSignature("ValidatorIsZeroAddress()"));
-        registry.addValidator(address(0));
+        registry.addValidator(address(0), "dummy-host", 30303);
+    }
+
+    function test_AddValidator_RevertIfInvalidHost_Empty() public {
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSignature("ValidatorInvalidHost()"));
+        registry.addValidator(address(10), "", 30303);
+    }
+
+    function test_AddValidator_RevertIfInvalidHost_TooLong() public {
+        // Build a host string of length 256 (> 255), to trigger the length check
+        bytes memory b = new bytes(256);
+        for (uint256 i = 0; i < b.length; i++) {
+            b[i] = bytes1("a");
+        }
+        string memory longHost = string(b);
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSignature("ValidatorInvalidHost()"));
+        registry.addValidator(address(11), longHost, 30303);
+    }
+
+    function test_AddValidator_RevertIfInvalidPort_Zero() public {
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSignature("ValidatorInvalidPort()"));
+        registry.addValidator(address(12), "ok.example.org", 0);
     }
 
     function test_AddValidator_RevertIfAlreadyExists() public {
         vm.prank(owner);
         vm.expectRevert(abi.encodeWithSignature("ValidatorAlreadyExists()"));
-        registry.addValidator(validator1);
+        registry.addValidator(validator1, host1, port1);
     }
 
     function test_AddValidator_RevertIfMaxCountReached() public {
         vm.startPrank(owner);
         for (uint8 i = 0; i < 253; i++) {
             address newValidator = address(uint160(1000 + i));
-            registry.addValidator(newValidator);
+            string memory host = string.concat("validator-", vm.toString(i), ".example.org");
+            uint16 port = uint16(30000 + i);
+
+            registry.addValidator(newValidator, host, port);
         }
 
         vm.expectRevert(abi.encodeWithSignature("MaxValidatorCountReached()"));
-        registry.addValidator(address(9999));
-        vm.stopPrank();
+
+        address overflowValidator = address(uint160(2000));
+        string memory overflowHost = "overflow.example.org";
+        uint16 overflowPort = 40000;
+        registry.addValidator(overflowValidator, overflowHost, overflowPort);
     }
 
     function test_BanValidator() public {
@@ -153,7 +201,7 @@ contract PodRegistryTest is Test {
 
     function test_ActiveValidatorBitmap_AfterAddBan() public {
         vm.prank(owner);
-        registry.addValidator(validator3);
+        registry.addValidator(validator3, host3, port3);
 
         uint256 bitmapAfterAdd = registry.activeValidatorBitmap();
         assertEq(bitmapAfterAdd & (1 << (3 - 1)), (1 << (3 - 1)));
@@ -246,7 +294,7 @@ contract PodRegistryTest is Test {
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
         emit IPodRegistry.SnapshotCreated(block.timestamp, (1 << (1 - 1)) | (1 << (2 - 1)) | (1 << (3 - 1)));
-        registry.addValidator(validator3);
+        registry.addValidator(validator3, host3, port3);
         assertEq(registry.getHistoryLength(), initialHistory + 1);
 
         vm.prank(owner);
@@ -312,7 +360,7 @@ contract PodRegistryTest is Test {
 
     function test_ComputeWeight_HistoricalAndSnapshotValidation() public {
         vm.prank(owner);
-        registry.addValidator(validator3); // snapshot
+        registry.addValidator(validator3, host3, port3); // snapshot
 
         vm.warp(block.timestamp + 5);
         vm.prank(owner);
@@ -332,7 +380,7 @@ contract PodRegistryTest is Test {
 
     function test_ComputeWeight_ExactSnapshotBlock() public {
         vm.prank(owner);
-        registry.addValidator(validator3);
+        registry.addValidator(validator3, host3, port3);
         uint256 snapshotIndex = registry.getHistoryLength() - 1;
         uint256 snapshotTimestamp;
         (snapshotTimestamp,) = registry.getSnapshotAtIndex(snapshotIndex);
@@ -348,7 +396,7 @@ contract PodRegistryTest is Test {
 
     function test_ComputeWeight_RevertIfSnapshotTooOld() public {
         vm.prank(owner);
-        registry.addValidator(validator3); // snapshot at index 1
+        registry.addValidator(validator3, host3, port3); // snapshot at index 1
 
         vm.prank(owner);
         vm.warp(block.timestamp + 5);
@@ -367,7 +415,7 @@ contract PodRegistryTest is Test {
 
     function test_ComputeWeight_RevertIfSnapshotTooNew() public {
         vm.prank(owner);
-        registry.addValidator(validator3); // snapshot at index 1
+        registry.addValidator(validator3, host3, port3); // snapshot at index 1
         uint256 timestampAtAdd = block.timestamp;
 
         vm.warp(block.timestamp + 5);
@@ -392,7 +440,7 @@ contract PodRegistryTest is Test {
     }
 
     function test_ComputeWeight_NoHistoryReturnsZero() public {
-        PodRegistry emptyRegistry = new PodRegistry(new address[](0));
+        PodRegistry emptyRegistry = new PodRegistry(new address[](0), new string[](0), new uint16[](0));
         address[] memory subset = new address[](1);
         subset[0] = validator1;
         assertEq(emptyRegistry.computeWeight(subset), 0);
@@ -413,7 +461,7 @@ contract PodRegistryTest is Test {
         // Warp time and add a new validator (creates snapshot)
         vm.warp(block.timestamp + 5);
         vm.prank(owner);
-        registry.addValidator(validator3);
+        registry.addValidator(validator3, host3, port3);
         uint256 timestampAtAdd = block.timestamp;
 
         // Warp time and ban validator1 (creates another snapshot)
@@ -464,7 +512,7 @@ contract PodRegistryTest is Test {
 
     function test_FindSnapshotIndex_AfterLastSnapshot() public {
         vm.prank(owner);
-        registry.addValidator(validator3);
+        registry.addValidator(validator3, host3, port3);
 
         vm.warp(block.timestamp + 10);
         vm.prank(owner);
@@ -482,7 +530,7 @@ contract PodRegistryTest is Test {
     function test_FindSnapshotIndex_ExactMatchLastSnapshot() public {
         vm.warp(block.timestamp + 10);
         vm.prank(owner);
-        registry.addValidator(validator3);
+        registry.addValidator(validator3, host3, port3);
         uint256 latestSnapshotTimestamp = block.timestamp;
         uint256 index = registry.findSnapshotIndex(latestSnapshotTimestamp);
         assertEq(index, registry.getHistoryLength() - 1);
@@ -490,7 +538,7 @@ contract PodRegistryTest is Test {
 
     function test_GetSnapshot() public {
         vm.prank(owner);
-        registry.addValidator(validator3);
+        registry.addValidator(validator3, host3, port3);
         uint256 index = registry.getHistoryLength() - 1;
         (uint256 timestamp, uint256 bitmap) = registry.getSnapshotAtIndex(index);
         assertGt(timestamp, 0);
@@ -500,29 +548,75 @@ contract PodRegistryTest is Test {
     function test_GetHistory() public {
         uint256 before = registry.getHistoryLength();
         vm.prank(owner);
-        registry.addValidator(validator3);
+        registry.addValidator(validator3, host3, port3);
         assertEq(registry.getHistoryLength(), before + 1);
     }
 
     function test_GetActiveValidators() public view {
-        address[] memory validators = registry.getActiveValidators();
+        (address[] memory validators, string[] memory hosts, uint16[] memory ports) = registry.getActiveValidators();
         assertEq(validators.length, 2);
+        assertEq(hosts.length, 2);
+        assertEq(ports.length, 2);
         assertEq(validators[0], validator1);
+        assertEq(hosts[0], host1);
+        assertEq(ports[0], port1);
         assertEq(validators[1], validator2);
+        assertEq(hosts[1], host2);
+        assertEq(ports[1], port2);
     }
 
     function test_GetValidatorsAtIndex() public {
         vm.startPrank(owner);
         vm.warp(100);
-        registry.addValidator(validator3);
+        registry.addValidator(validator3, host3, port3);
         registry.banValidator(validator1);
         vm.warp(block.timestamp + 100);
-        registry.addValidator(validator4);
+        registry.addValidator(validator4, host4, port4);
         vm.stopPrank();
         uint256 index = registry.findSnapshotIndex(100);
-        address[] memory validators = registry.getValidatorsAtIndex(index);
+        (address[] memory validators, string[] memory hosts, uint16[] memory ports) =
+            registry.getValidatorsAtIndex(index);
         assertEq(validators.length, 2);
+        assertEq(hosts.length, 2);
+        assertEq(ports.length, 2);
         assertEq(validators[0], validator2);
+        assertEq(hosts[0], host2);
+        assertEq(ports[0], port2);
         assertEq(validators[1], validator3);
+        assertEq(hosts[1], host3);
+        assertEq(ports[1], port3);
+    }
+
+    function test_GetActiveValidators_AndUpdateEndpoint() public {
+        (address[] memory validators, string[] memory hosts, uint16[] memory ports) = registry.getActiveValidators();
+        assertEq(validators.length, 2);
+        assertEq(hosts.length, 2);
+        assertEq(ports.length, 2);
+
+        assertEq(validators[0], validator1);
+        assertEq(hosts[0], host1);
+        assertEq(ports[0], port1);
+
+        assertEq(validators[1], validator2);
+        assertEq(hosts[1], host2);
+        assertEq(ports[1], port2);
+
+        string memory newHost = "updated1.example.org";
+        uint16 newPort = 31337;
+
+        vm.prank(owner);
+        vm.expectEmit(true, false, false, true);
+        emit IPodRegistry.ValidatorNetworkUpdated(validator1, newHost, newPort);
+
+        registry.setValidatorEndpoint(validator1, newHost, newPort);
+
+        (validators, hosts, ports) = registry.getActiveValidators();
+        assertEq(validators[0], validator1);
+        assertEq(hosts[0], newHost);
+        assertEq(ports[0], newPort);
+
+        assertEq(validators[1], validator2);
+        assertEq(hosts[1], host2);
+        assertEq(ports[1], port2);
     }
 }
