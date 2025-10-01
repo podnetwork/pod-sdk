@@ -46,15 +46,16 @@ contract PodRegistry is IPodRegistry, Ownable {
     mapping(address => uint8) public validatorIndex;
 
     /**
-     * @notice Mapping from validator address to their Endpoint
-     */
-    mapping(address => Endpoint) private validatorEndpoint;
-
-    /**
      * @notice Array of validators in the registry. We also use `validators.length + 1` to track the 1-based
      * index of the next validator to add.
      */
     address[] public validators;
+
+    /**
+     * @notice Array of endpoints in the registry. We also use `validators.length + 1` to track the 1-based
+     * index of the next validator to add.
+     */
+    Endpoint[] private endpoints;
 
     /**
      * @notice Bitmap of the currently active validators
@@ -118,7 +119,7 @@ contract PodRegistry is IPodRegistry, Ownable {
 
         validators.push(validator);
         validatorIndex[validator] = uint8(validators.length);
-        validatorEndpoint[validator] = Endpoint({host: host, port: port});
+        endpoints.push(Endpoint({host: host, port: port}));
     }
 
     /**
@@ -186,7 +187,7 @@ contract PodRegistry is IPodRegistry, Ownable {
             revert ValidatorInvalidPort();
         }
 
-        validatorEndpoint[validator] = Endpoint({host: host, port: port});
+        endpoints[index - 1] = Endpoint({host: host, port: port});
 
         emit ValidatorNetworkUpdated(validator, host, port);
     }
@@ -351,7 +352,7 @@ contract PodRegistry is IPodRegistry, Ownable {
                 address v = all[i];
                 addrs[j] = v;
 
-                Endpoint storage ep = validatorEndpoint[v];
+                Endpoint storage ep = endpoints[i];
                 hosts[j] = ep.host;
                 ports[j] = ep.port;
 
