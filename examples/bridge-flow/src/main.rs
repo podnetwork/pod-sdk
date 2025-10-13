@@ -170,7 +170,7 @@ impl SourceChainBridgeClient {
             .send()
             .await?;
 
-        sleep(Duration::from_millis(1000));
+        sleep(Duration::from_millis(200));
 
         let receipt = self
             .source_chain_provider
@@ -288,7 +288,7 @@ impl PodBridgeClient {
         let receipt = tx.get_receipt().await?;
 
         assert!(receipt.status());
-        assert!(receipt.receipt.logs().len() == 1);
+        assert!(receipt.receipt.logs().len() == 2);
 
         println!("Successfully deposited {value} native to address: {to}");
 
@@ -387,7 +387,7 @@ impl PodBridgeClient {
             .topic1(request_id)
             .build();
 
-        sleep(Duration::from_millis(1000));
+        sleep(Duration::from_millis(200));
 
         let logs = self.pod_provider.get_verifiable_logs(&filter).await?;
 
@@ -414,7 +414,7 @@ impl PodBridgeClient {
             .topic2(token_address_filter)
             .build();
 
-        sleep(Duration::from_millis(1000));
+        sleep(Duration::from_millis(200));
 
         let logs = self.pod_provider.get_verifiable_logs(&filter).await?;
 
@@ -524,6 +524,16 @@ async fn bridge_native_from_source_chain_to_pod(
 
     let prev_balance_pod = pod_bridge_client.pod_provider.get_balance(to).await?;
 
+    let prev_balance_source_chain_bridge = source_chain_bridge_client
+        .source_chain_provider
+        .get_balance(*source_chain_bridge_client.source_chain_contract.address())
+        .await?;
+
+    let prev_balance_pod_bridge = pod_bridge_client
+        .pod_provider
+        .get_balance(*pod_bridge_client.pod_bridge.address())
+        .await?;
+
     let (request_id, source_chain_block_number) =
         source_chain_bridge_client.deposit_native(to, value).await?;
 
@@ -531,7 +541,7 @@ async fn bridge_native_from_source_chain_to_pod(
         .claim_native(request_id, U256::from(source_chain_block_number), to)
         .await?;
 
-    sleep(Duration::from_millis(1000));
+    sleep(Duration::from_millis(200));
 
     assert!(pod_bridge_client.pod_provider.get_balance(to).await? > prev_balance_pod);
     assert!(
@@ -540,6 +550,22 @@ async fn bridge_native_from_source_chain_to_pod(
             .get_balance(to)
             .await?
             < prev_balance_source
+    );
+    assert!(
+        source_chain_bridge_client
+            .source_chain_provider
+            .get_balance(*source_chain_bridge_client.source_chain_contract.address())
+            .await?
+            > prev_balance_source_chain_bridge
+    );
+
+    // Holds because we're burning on pod's side
+    assert!(
+        pod_bridge_client
+            .pod_provider
+            .get_balance(*pod_bridge_client.pod_bridge.address())
+            .await?
+            == prev_balance_pod_bridge
     );
 
     Ok(())
@@ -566,6 +592,8 @@ async fn bridge_native_from_pod_to_source_chain(
     source_chain_bridge_client
         .claim_native(certified_log)
         .await?;
+
+    sleep(Duration::from_millis(200));
 
     assert!(pod_bridge_client.pod_provider.get_balance(to).await? < prev_balance_pod);
     assert!(
@@ -596,6 +624,11 @@ async fn bridge_token_from_source_chain_to_pod(
         .call()
         .await?;
 
+    let prev_balance_source_chain_bridge = source_chain_bridge_client
+        .source_chain_provider
+        .get_balance(*source_chain_bridge_client.source_chain_contract.address())
+        .await?;
+
     let (request_id, token_address, block_number) =
         source_chain_bridge_client.deposit_token(to, amount).await?;
 
@@ -619,6 +652,14 @@ async fn bridge_token_from_source_chain_to_pod(
             .call()
             .await?
             < prev_balance_source
+    );
+
+    assert!(
+        source_chain_bridge_client
+            .source_chain_provider
+            .get_balance(*source_chain_bridge_client.source_chain_contract.address())
+            .await?
+            > prev_balance_source_chain_bridge
     );
 
     Ok(())

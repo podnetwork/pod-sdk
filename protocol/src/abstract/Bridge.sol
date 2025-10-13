@@ -95,6 +95,13 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     function handleDeposit(address token, uint256 amount) internal virtual;
 
     /**
+     * @dev Internal function to handle the deposit of native tokens.
+     * This is a callback defining the different native token handling logic for the different bridge contracts.
+     * Default implementation is an empty function.
+     */
+    function handleDepositNative() internal virtual {}
+
+    /**
      * @dev Internal function to get the deposit ID.
      * This is a callback defining the different deposit ID logic for the different bridge contracts.
      * @return id The request ID of the deposit.
@@ -171,11 +178,15 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     }
 
     /**
-     * @inheritdoc IBridge
+     * @dev Deposit native tokens to bridge to the destination chain.
+     * @notice Function used to bridge native tokens to the destination chain.
+     * @param to The address to send the native tokens to on the destination chain.
+     * @return id The request index.
      */
     function depositNative(address to) external payable override whenNotPaused returns (uint256) {
         if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, msg.value, true)) revert InvalidTokenAmount();
         uint256 id = _getDepositId();
+        handleDepositNative();
         emit DepositNative(id, msg.value, to);
         return id;
     }

@@ -273,6 +273,15 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, recipient);
     }
 
+    function test_DepositNative_EmitsEvent() public {
+        vm.deal(user, DEPOSIT_AMOUNT);
+        vm.expectEmit(true, true, true, true);
+        emit IBridge.DepositNative(0, DEPOSIT_AMOUNT, recipient);
+        vm.prank(user);
+        bridge().depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
+    }
+
     function test_DepositNative_IncrementsIndexSequentially() public {
         vm.deal(user, 2 * DEPOSIT_AMOUNT);
         vm.prank(user);

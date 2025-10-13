@@ -651,6 +651,7 @@ interface BridgeMintBurn {
     error PrecompileCallFailed();
     error RequestAlreadyProcessed();
 
+    event BurnNative(address sender, uint256 value);
     event Claim(uint256 indexed id, address indexed mirrorToken, address indexed token, uint256 amount, address to);
     event ClaimNative(uint256 indexed id, uint256 amount, address to);
     event Deposit(uint256 indexed id, address indexed token, uint256 amount, address to);
@@ -1270,6 +1271,25 @@ interface BridgeMintBurn {
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "BurnNative",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -2939,6 +2959,122 @@ error RequestAlreadyProcessed();
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Self::new)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `BurnNative(address,uint256)` and selector `0x22513baff86967abb0af8c099a9df552607c32466c2d550164f8013ca06e962c`.
+```solidity
+event BurnNative(address sender, uint256 value);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct BurnNative {
+        #[allow(missing_docs)]
+        pub sender: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub value: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for BurnNative {
+            type DataTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+            );
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (alloy_sol_types::sol_data::FixedBytes<32>,);
+            const SIGNATURE: &'static str = "BurnNative(address,uint256)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                34u8, 81u8, 59u8, 175u8, 248u8, 105u8, 103u8, 171u8, 176u8, 175u8, 140u8,
+                9u8, 154u8, 157u8, 245u8, 82u8, 96u8, 124u8, 50u8, 70u8, 108u8, 45u8,
+                85u8, 1u8, 100u8, 248u8, 1u8, 60u8, 160u8, 110u8, 150u8, 44u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    sender: data.0,
+                    value: data.1,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.sender,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.value),
+                )
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (Self::SIGNATURE_HASH.into(),)
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for BurnNative {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&BurnNative> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(this: &BurnNative) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
             }
         }
     };
@@ -9807,6 +9943,8 @@ function whitelistedTokens(uint256) external view returns (address);
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum BridgeMintBurnEvents {
         #[allow(missing_docs)]
+        BurnNative(BurnNative),
+        #[allow(missing_docs)]
         Claim(Claim),
         #[allow(missing_docs)]
         ClaimNative(ClaimNative),
@@ -9839,6 +9977,11 @@ function whitelistedTokens(uint256) external view returns (address);
                 201u8, 99u8, 221u8, 199u8, 251u8, 231u8, 124u8, 222u8, 94u8, 166u8,
                 156u8, 173u8, 112u8, 51u8, 252u8, 111u8, 118u8, 183u8, 221u8, 210u8,
                 171u8,
+            ],
+            [
+                34u8, 81u8, 59u8, 175u8, 248u8, 105u8, 103u8, 171u8, 176u8, 175u8, 140u8,
+                9u8, 154u8, 157u8, 245u8, 82u8, 96u8, 124u8, 50u8, 70u8, 108u8, 45u8,
+                85u8, 1u8, 100u8, 248u8, 1u8, 60u8, 160u8, 110u8, 150u8, 44u8,
             ],
             [
                 47u8, 135u8, 136u8, 17u8, 126u8, 126u8, 255u8, 29u8, 130u8, 233u8, 38u8,
@@ -9885,12 +10028,19 @@ function whitelistedTokens(uint256) external view returns (address);
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for BridgeMintBurnEvents {
         const NAME: &'static str = "BridgeMintBurnEvents";
-        const COUNT: usize = 9usize;
+        const COUNT: usize = 10usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
         ) -> alloy_sol_types::Result<Self> {
             match topics.first().copied() {
+                Some(<BurnNative as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
+                    <BurnNative as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::BurnNative)
+                }
                 Some(<Claim as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <Claim as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
                         .map(Self::Claim)
@@ -9960,6 +10110,9 @@ function whitelistedTokens(uint256) external view returns (address);
     impl alloy_sol_types::private::IntoLogData for BridgeMintBurnEvents {
         fn to_log_data(&self) -> alloy_sol_types::private::LogData {
             match self {
+                Self::BurnNative(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
                 Self::Claim(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -9991,6 +10144,9 @@ function whitelistedTokens(uint256) external view returns (address);
         }
         fn into_log_data(self) -> alloy_sol_types::private::LogData {
             match self {
+                Self::BurnNative(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
                 Self::Claim(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
@@ -10348,6 +10504,10 @@ See the [wrapper's documentation](`BridgeMintBurnInstance`) for more details.*/
             &self,
         ) -> alloy_contract::Event<&P, E, N> {
             alloy_contract::Event::new_sol(&self.provider, &self.address)
+        }
+        ///Creates a new event filter for the [`BurnNative`] event.
+        pub fn BurnNative_filter(&self) -> alloy_contract::Event<&P, BurnNative, N> {
+            self.event_filter::<BurnNative>()
         }
         ///Creates a new event filter for the [`Claim`] event.
         pub fn Claim_filter(&self) -> alloy_contract::Event<&P, Claim, N> {

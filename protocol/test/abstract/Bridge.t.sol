@@ -59,15 +59,6 @@ abstract contract BridgeBehaviorTest is PodTest {
         bridge().deposit(address(token()), tokenLimits.deposit + 1, recipient);
     }
 
-    function test_DepositNative_EmitsEvent() public {
-        vm.deal(user, DEPOSIT_AMOUNT);
-        vm.expectEmit(true, true, true, true);
-        emit IBridge.DepositNative(0, DEPOSIT_AMOUNT, recipient);
-        vm.prank(user);
-        bridge().depositNative{value: DEPOSIT_AMOUNT}(recipient);
-        assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
-    }
-
     function test_DepositNative_RevertIfLessThanMinAmount() public {
         vm.deal(user, DEPOSIT_AMOUNT);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));

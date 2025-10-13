@@ -44,6 +44,13 @@ interface IBridgeMintBurn is IBridge {
     function claimNative(uint256 id, uint256 blockNumber) external;
 
     /**
+     * @dev Event emitted when native tokens are burned.
+     * @param sender The address that burned the native tokens.
+     * @param value The amount of native tokens burned.
+     */
+    event BurnNative(address sender, uint256 value);
+
+    /**
      * @dev Error thrown when the external precompile call fails.
      */
     error PrecompileCallFailed();

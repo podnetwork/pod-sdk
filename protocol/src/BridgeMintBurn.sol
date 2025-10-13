@@ -41,7 +41,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
     {
         SOURCE_CHAIN_ID = _sourceChainId;
         if (SOURCE_CHAIN_ID == ANVIL_CHAIN_ID) {
-            block_tag_bytes = hex"6c6174657374"; // "latest" because anvil doesn't supporrt "finalized"
+            block_tag_bytes = hex"6c6174657374"; // "latest" because anvil doesn't support "finalized"
         } else {
             block_tag_bytes = hex"66696e616c697a6564";
         }
@@ -54,6 +54,14 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
      */
     function handleDeposit(address token, uint256 amount) internal override {
         IERC20MintableAndBurnable(token).burnFrom(msg.sender, amount);
+    }
+
+    /**
+     * @inheritdoc Bridge
+     */
+    function handleDepositNative() internal override {
+        payable(address(0)).transfer(msg.value);
+        emit BurnNative(msg.sender, msg.value);
     }
 
     /**
@@ -106,7 +114,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
 
         if (logs.length != 1) revert InvalidDepositLog();
 
-        //redunatnt check for extra security, can be removed for gas purposes.
+        // redundant check for extra security, can be removed for gas purposes.
         // if (logs[0].addr != bridgeContract) revert InvalidBridgeContract();
 
         (decodedAmount, decodedTo) = abi.decode(logs[0].data, (uint256, address));
@@ -155,9 +163,10 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
             IAccessControl(token).grantRole(MINTER_ROLE, _newContract);
             IAccessControl(token).grantRole(PAUSER_ROLE, _newContract);
 
-            IAccessControl(token).renounceRole(DEFAULT_ADMIN_ROLE, address(this));
-            IAccessControl(token).renounceRole(MINTER_ROLE, address(this));
-            IAccessControl(token).renounceRole(PAUSER_ROLE, address(this));
+            // TODO: uncomment this if we decide to allow for contracts larger than 24576 gas limit. This is required!
+            // IAccessControl(token).renounceRole(DEFAULT_ADMIN_ROLE, address(this));
+            // IAccessControl(token).renounceRole(MINTER_ROLE, address(this));
+            // IAccessControl(token).renounceRole(PAUSER_ROLE, address(this));
         }
     }
 
