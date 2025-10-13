@@ -8,15 +8,15 @@ name = "optimistic_auction"
 path = "client/main.rs"
 
 [dependencies]
-alloy-network = "1.0.24"
+alloy-network = "1.0.36"
 alloy-sol-types = "1.3.0"
-alloy-primitives = { version = "1.3.0", features = ["k256", "serde"] }
-alloy-signer-local = "1.0.24"
-alloy-provider = { version = "1.0.24", features = ["pubsub", "ws"] }
-anyhow = "1.0.98"
-clap = { version = "4.5.38", features = ["derive"] }
+alloy-primitives = { version = "1.3.1", features = ["k256", "serde"] }
+alloy-signer-local = "1.0.36"
+alloy-provider = { version = "1.0.36", features = ["pubsub", "ws"] }
+anyhow = "1.0.100"
+clap = { version = "4.5.48", features = ["derive"] }
 dotenv = "0.15.0"
-tokio = { version = "1.44.2", features = ["full"] }
+tokio = { version = "1.47.1", features = ["full"] }
 pod-types = { path = "../../types" }
 pod-sdk = { path = "../../rust-sdk" }
 pod-examples-solidity = { path = "../solidity/bindings" }
