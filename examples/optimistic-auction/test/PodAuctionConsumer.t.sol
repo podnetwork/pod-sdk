@@ -37,16 +37,20 @@ contract PodAuctionConsumerTest is Test {
 
     function setUp() public {
         address[] memory initialValidators = new address[](NUMBER_OF_VALIDATORS);
+        string[] memory initialHosts = new string[](NUMBER_OF_VALIDATORS);
+        uint16[] memory initialPorts = new uint16[](NUMBER_OF_VALIDATORS);
 
         validatorPrivateKeys = new uint256[](NUMBER_OF_VALIDATORS);
 
         for (uint256 i = 0; i < NUMBER_OF_VALIDATORS; i++) {
             validatorPrivateKeys[i] = uint256(i + 1);
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
+            initialHosts[i] = string.concat("validator-", vm.toString(i), ".example.org");
+            initialPorts[i] = uint16(30000 + i);
         }
 
         vm.prank(OWNER);
-        podRegistry = new PodRegistry(initialValidators);
+        podRegistry = new PodRegistry(initialValidators, initialHosts, initialPorts);
 
         consumer = new PodAuctionConsumer(address(podRegistry), 1 ether);
         vm.deal(SMALLER_BIDDER, 2 ether);

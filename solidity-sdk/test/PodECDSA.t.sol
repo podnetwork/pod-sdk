@@ -16,15 +16,21 @@ contract PodECDSATest is Test {
     uint256[] public validatorPrivateKeys = new uint256[](128);
 
     function setUp() public {
-        address[] memory initialValidators = new address[](validatorPrivateKeys.length);
+        uint256 len = validatorPrivateKeys.length;
+
+        address[] memory initialValidators = new address[](len);
+        string[] memory initialHosts = new string[](len);
+        uint16[] memory initialPorts = new uint16[](len);
 
         for (uint256 i = 0; i < validatorPrivateKeys.length; i++) {
             validatorPrivateKeys[i] = uint256(i + 1);
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
+            initialHosts[i] = string.concat("validator-", vm.toString(i), ".example.org");
+            initialPorts[i] = uint16(30000 + i);
         }
 
         vm.prank(OWNER);
-        podRegistry = new PodRegistry(initialValidators);
+        podRegistry = new PodRegistry(initialValidators, initialHosts, initialPorts);
     }
 
     function test_verify() public view {
@@ -200,7 +206,7 @@ contract PodECDSATest is Test {
         vm.warp(medianTimestamp - 1);
 
         vm.prank(OWNER);
-        podRegistry.addValidator(vm.addr(0x123abc));
+        podRegistry.addValidator(vm.addr(0x123abc), "validator-new.example.org", 30303);
 
         bytes memory aggregateSignature = ECDSA.aggregate_signatures(signatures);
 
@@ -240,11 +246,11 @@ contract PodECDSATest is Test {
 
         vm.warp(medianTimestamp + 2);
         vm.startPrank(OWNER);
-        podRegistry.addValidator(vm.addr(0x123abcd));
+        podRegistry.addValidator(vm.addr(0x123abcd), "validator-a.example.org", 30303);
         vm.warp(block.timestamp + medianTimestamp);
-        podRegistry.addValidator(vm.addr(0x456defa));
+        podRegistry.addValidator(vm.addr(0x456defa), "validator-b.example.org", 30304);
         vm.warp(block.timestamp + medianTimestamp);
-        podRegistry.addValidator(vm.addr(0x789abcd));
+        podRegistry.addValidator(vm.addr(0x789abcd), "validator-c.example.org", 30305);
         vm.warp(block.timestamp + medianTimestamp);
         vm.stopPrank();
 
