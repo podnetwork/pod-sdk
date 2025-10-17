@@ -61,6 +61,7 @@ impl SignedOperation {
         let hashed = Sha256::digest(dag.as_slice());
         let b32 = base32::encode(
             base32::Alphabet::Rfc4648Lower { padding: false },
+            #[allow(deprecated)]
             hashed.as_slice(),
         );
 
