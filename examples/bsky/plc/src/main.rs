@@ -266,9 +266,12 @@ async fn create_plc(
     }
 
     let committee = state.provider.get_committee().await.unwrap();
-    receipt
-        .verify_receipt(&committee)
-        .expect("Receipt verification failed");
+    receipt.verify_receipt(&committee).map_err(|e| {
+        let msg =
+            format!("Receipt {receipt:?} verification with committee {committee:?} failed: {e}");
+        tracing::error!("{msg}");
+        (StatusCode::INTERNAL_SERVER_ERROR, msg)
+    })?;
 
     Ok(Json(json!({
             "status": "success",
