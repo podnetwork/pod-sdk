@@ -24,7 +24,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
     /**
      * @dev The source chain id.
      */
-    uint96 immutable SOURCE_CHAIN_ID;
+    uint96 public immutable SOURCE_CHAIN_ID;
 
     uint256 constant ANVIL_CHAIN_ID = 31337;
 
@@ -76,10 +76,9 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
      * @inheritdoc IBridgeMintBurn
      */
     function claim(uint256 id, address token, uint256 blockNumber) external override whenNotPaused {
-        bytes32[] memory topics = new bytes32[](3);
+        bytes32[] memory topics = new bytes32[](2);
         topics[0] = DEPOSIT_TOPIC_0;
         topics[1] = bytes32(id);
-        topics[2] = bytes32(uint256(uint160(token)));
 
         uint256 finalizedBlockNumber = PodPrecompileHelper.getBlockByBlockTag(SOURCE_CHAIN_ID, block_tag_bytes);
 
@@ -100,7 +99,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
 
         if (!isProcessed) {
             IERC20MintableAndBurnable(mirrorToken).mint(decodedTo, decodedAmount);
-            emit Claim(id, mirrorToken, token, decodedAmount, decodedTo);
+            emit Claim(id, msg.sender, decodedTo, mirrorToken, token, decodedAmount, block.timestamp);
         }
     }
 
@@ -113,11 +112,18 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
             PodPrecompileHelper.getLogs(SOURCE_CHAIN_ID, blockNumber, topics, bridgeContract);
 
         if (logs.length != 1) revert InvalidDepositLog();
+        if (logs[0].topics.length != 4) revert InvalidDepositLog();
 
-        // redundant check for extra security, can be removed for gas purposes.
-        // if (logs[0].addr != bridgeContract) revert InvalidBridgeContract();
+        decodedTo = address(uint160(uint256(logs[0].topics[3])));
 
-        (decodedAmount, decodedTo) = abi.decode(logs[0].data, (uint256, address));
+        if (token == address(0)) {
+            (decodedAmount, , ) = abi.decode(logs[0].data, (uint256, uint256, uint256));
+        } else {
+            address decodedToken;
+            (decodedToken, decodedAmount, , ) = abi.decode(logs[0].data, (address, uint256, uint256, uint256));
+            if (decodedToken != token) revert InvalidDepositLog();
+        }
+        
         requestId = _hashRequest(id, token, decodedAmount, decodedTo);
     }
 
@@ -148,7 +154,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
             // TODO: need to modify this to mint to decodedTo instead of msg.sender
             if (!PodPrecompileHelper.mint(decodedAmount)) revert PrecompileCallFailed();
 
-            emit ClaimNative(id, decodedAmount, decodedTo);
+            emit ClaimNative(id, msg.sender, decodedTo, decodedAmount, block.timestamp);
         }
     }
 

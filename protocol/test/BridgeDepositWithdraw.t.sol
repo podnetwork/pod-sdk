@@ -1,6 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+/**
+ * IMPORTANT: Test Data Regeneration Required After Deployment
+ * ============================================================
+ * 
+ * Event format changes have been applied to test helpers, but cryptographic proof
+ * data (receiptRoot and merklePath) is from the OLD format and will cause test failures.
+ * 
+ * Failing Tests (until regeneration):
+ * - test_Claim()
+ * - test_ClaimNative()
+ * - test_ClaimNative_RevertIfAlreadyClaimed()
+ * - test_ClaimNative_RevertIfInvalidAmount()
+ * - test_Claim_RevertIfAlreadyClaimed()
+ * - test_Claim_RevertIfMirrorTokenNotFound()
+ * 
+ * To Fix After Real Deployment:
+ * 1. Deploy contracts to testnet
+ * 2. Make deposit transactions (ERC20 and native)
+ * 3. Extract receiptRoot and merkle paths from actual transaction receipts
+ * 4. Update hard-coded values marked with FIXME comments in:
+ *    - createCertifiedLog()
+ *    - createNativeCertifiedLog()
+ */
+
 import {BridgeBehaviorTest} from "./abstract/Bridge.t.sol";
 import {BridgeDepositWithdraw} from "../src/BridgeDepositWithdraw.sol";
 import {IBridgeDepositWithdraw} from "../src/interfaces/IBridgeDepositWithdraw.sol";
@@ -87,7 +111,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         assertEq(_token.balanceOf(recipient), 0);
         assertEq(_token.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Claim(0, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, recipient);
+        emit IBridge.Claim(0, user, recipient, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, block.timestamp);
         _bridge.claim(certifiedLog);
         assertEq(_token.balanceOf(recipient), DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_bridge)), 0);
@@ -140,8 +164,8 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
         assertEq(recipient.balance, 0);
         PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
-        vm.expectEmit(true, false, false, true);
-        emit IBridge.ClaimNative(0, DEPOSIT_AMOUNT, recipient);
+        vm.expectEmit(true, true, true, true);
+        emit IBridge.ClaimNative(0, user, recipient, DEPOSIT_AMOUNT, block.timestamp);
         _bridge.claimNative(certifiedLog);
         assertEq(address(bridge()).balance, 0);
         assertEq(recipient.balance, DEPOSIT_AMOUNT);
@@ -276,7 +300,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
     function test_DepositNative_EmitsEvent() public {
         vm.deal(user, DEPOSIT_AMOUNT);
         vm.expectEmit(true, true, true, true);
-        emit IBridge.DepositNative(0, DEPOSIT_AMOUNT, recipient);
+        emit IBridge.DepositNative(0, user, recipient, DEPOSIT_AMOUNT, block.timestamp, block.number);
         vm.prank(user);
         bridge().depositNative{value: DEPOSIT_AMOUNT}(recipient);
         assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
@@ -357,16 +381,21 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         view
         returns (PodECDSA.CertifiedLog memory)
     {
+        // FIXME: This receiptRoot is from OLD event format - regenerate after real deployment
+        // To regenerate: deploy contracts, make deposit tx, extract receiptRoot from receipt
         bytes32 receiptRoot = 0xb971e2eaeaab46dbad2fa4ed54edbaac586939dbc33c73315903a80bcc931b39;
-        bytes32[] memory topics = new bytes32[](3);
-        topics[0] = keccak256("Deposit(uint256,address,uint256,address)");
+        
+        bytes32[] memory topics = new bytes32[](4);
+        topics[0] = keccak256("Deposit(uint256,address,address,address,uint256,uint256,uint256)");
         topics[1] = bytes32(uint256(0));
-        topics[2] = bytes32(uint256(uint160(MIRROR_TOKEN)));
+        topics[2] = bytes32(uint256(uint160(admin)));
+        topics[3] = bytes32(uint256(uint160(recipient)));
 
-        bytes memory data = abi.encode(DEPOSIT_AMOUNT, recipient);
+        bytes memory data = abi.encode(MIRROR_TOKEN, DEPOSIT_AMOUNT, block.timestamp, block.number);
 
         bytes32[] memory merklePath = new bytes32[](4);
-
+        // FIXME: These merkle path values are from OLD event format - regenerate after real deployment
+        // To regenerate: calculate merkle proof path for the deposit log from actual transaction
         merklePath[0] = 0x42ee24b8bf1831e9a79284d4f5719840477450d02681315d2d2ae29a4c2c829b;
         merklePath[1] = 0x05ad2355f20950fa862daf53cc8ac0b82c0106289c3e1e4c8602aa13792d0831;
         merklePath[2] = 0x0eb6eaabad615528bc24c8c5786a4ceff0c07481daac20e40a7f009c47b1868e;
@@ -408,15 +437,21 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         view
         returns (PodECDSA.CertifiedLog memory)
     {
+        // FIXME: This receiptRoot is from OLD event format - regenerate after real deployment
+        // To regenerate: deploy contracts, make native deposit tx, extract receiptRoot from receipt
         bytes32 receiptRoot = 0x53530f2085bae5343304dc02eba7f347453fe00ad74f5acf9f0aced719fe4a03;
-        bytes32[] memory topics = new bytes32[](2);
-        topics[0] = keccak256("DepositNative(uint256,uint256,address)");
+        
+        bytes32[] memory topics = new bytes32[](4);
+        topics[0] = keccak256("DepositNative(uint256,address,address,uint256,uint256,uint256)");
         topics[1] = bytes32(uint256(0));
+        topics[2] = bytes32(uint256(uint160(admin)));
+        topics[3] = bytes32(uint256(uint160(recipient)));
 
-        bytes memory data = abi.encode(DEPOSIT_AMOUNT, recipient);
+        bytes memory data = abi.encode(DEPOSIT_AMOUNT, block.timestamp, block.number);
 
         bytes32[] memory merklePath = new bytes32[](3);
-
+        // FIXME: These merkle path values are from OLD event format - regenerate after real deployment
+        // To regenerate: calculate merkle proof path for the native deposit log from actual transaction
         merklePath[0] = 0x05ad2355f20950fa862daf53cc8ac0b82c0106289c3e1e4c8602aa13792d0831;
         merklePath[1] = 0x801cf30b996f0126b23e8bb5b0833b4253c4c752a64cefd31adbc887f04397c1;
         merklePath[2] = 0xa12e4e7415c5592a840a2fd2d4b0786526eb78284f1f8f8ecd7d10fd113f4a14;

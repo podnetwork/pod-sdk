@@ -25,12 +25,12 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     /**
      * @dev The topic 0 (event signature) of the deposit event.
      */
-    bytes32 constant DEPOSIT_TOPIC_0 = keccak256("Deposit(uint256,address,uint256,address)");
+    bytes32 constant DEPOSIT_TOPIC_0 = keccak256("Deposit(uint256,address,address,address,uint256,uint256,uint256)");
 
     /**
      * @dev The topic 0 (event signature) of the deposit native event.
      */
-    bytes32 constant DEPOSIT_NATIVE_TOPIC_0 = keccak256("DepositNative(uint256,uint256,address)");
+    bytes32 constant DEPOSIT_NATIVE_TOPIC_0 = keccak256("DepositNative(uint256,address,address,uint256,uint256,uint256)");
 
     /**
      * @dev The mock address for native deposit.
@@ -173,7 +173,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
         if (to == address(0)) revert InvalidToAddress();
         uint256 id = _getDepositId();
         handleDeposit(token, amount);
-        emit Deposit(id, token, amount, to);
+        emit Deposit(id, msg.sender, to, token, amount, block.timestamp, block.number);
         return id;
     }
 
@@ -187,7 +187,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
         if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, msg.value, true)) revert InvalidTokenAmount();
         uint256 id = _getDepositId();
         handleDepositNative();
-        emit DepositNative(id, msg.value, to);
+        emit DepositNative(id, msg.sender, to, msg.value, block.timestamp, block.number);
         return id;
     }
 
@@ -272,5 +272,29 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     function migrate(address _newContract) public whenPaused notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
         handleMigrate(_newContract);
         migratedContract = _newContract;
+    }
+
+    /**
+     * @inheritdoc IBridge
+     */
+    function areRequestsProcessed(
+        uint256[] calldata ids,
+        address[] calldata tokens,
+        uint256[] calldata amounts,
+        address[] calldata tos
+    ) external view returns (bool[] memory) {
+        require(
+            ids.length == tokens.length && 
+            ids.length == amounts.length && 
+            ids.length == tos.length,
+            "Array length mismatch"
+        );
+        
+        bool[] memory results = new bool[](ids.length);
+        for (uint256 i = 0; i < ids.length; i++) {
+            bytes32 requestHash = _hashRequest(ids[i], tokens[i], amounts[i], tos[i]);
+            results[i] = processedRequests[requestHash];
+        }
+        return results;
     }
 }

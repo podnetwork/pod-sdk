@@ -52,12 +52,12 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         pure
         returns (uint256 id, address token, uint256 amount, address to)
     {
-        if (log.topics[0] != DEPOSIT_TOPIC_0 || log.topics.length != 3) {
+        if (log.topics[0] != DEPOSIT_TOPIC_0 || log.topics.length != 4) {
             revert InvalidDepositLog();
         }
         id = uint256(log.topics[1]);
-        token = address(uint160(uint256(log.topics[2])));
-        (amount, to) = abi.decode(log.data, (uint256, address));
+        to = address(uint160(uint256(log.topics[3])));
+        (token, amount, , ) = abi.decode(log.data, (address, uint256, uint256, uint256));
     }
 
     /**
@@ -72,11 +72,12 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         pure
         returns (uint256 id, uint256 amount, address to)
     {
-        if (log.topics[0] != DEPOSIT_NATIVE_TOPIC_0 || log.topics.length != 2) {
+        if (log.topics[0] != DEPOSIT_NATIVE_TOPIC_0 || log.topics.length != 4) {
             revert InvalidDepositLog();
         }
         id = uint256(log.topics[1]);
-        (amount, to) = abi.decode(log.data, (uint256, address));
+        to = address(uint160(uint256(log.topics[3])));
+        (amount, , ) = abi.decode(log.data, (uint256, uint256, uint256));
     }
 
     /**
@@ -131,7 +132,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         processedRequests[requestId] = true;
 
         IERC20(mirrorToken).safeTransfer(to, amount);
-        emit Claim(id, mirrorToken, token, amount, to);
+        emit Claim(id, msg.sender, to, mirrorToken, token, amount, block.timestamp);
     }
 
     /**
@@ -153,7 +154,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         processedRequests[requestId] = true;
 
         payable(to).transfer(amount);
-        emit ClaimNative(id, amount, to);
+        emit ClaimNative(id, msg.sender, to, amount, block.timestamp);
     }
 
     /**

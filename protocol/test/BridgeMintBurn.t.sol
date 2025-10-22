@@ -54,8 +54,8 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         vm.expectEmit(true, true, true, true);
         assertEq(address(bridge()).balance, 0);
         emit IBridgeMintBurn.BurnNative(user, DEPOSIT_AMOUNT);
-        vm.expectEmit(true, false, false, true);
-        emit IBridge.DepositNative(0, DEPOSIT_AMOUNT, recipient);
+        vm.expectEmit(true, true, true, true);
+        emit IBridge.DepositNative(0, user, recipient, DEPOSIT_AMOUNT, block.timestamp, block.number);
         vm.prank(user);
         bridge().depositNative{value: DEPOSIT_AMOUNT}(recipient);
         assertEq(address(0).balance, DEPOSIT_AMOUNT);
@@ -80,8 +80,9 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         _mockTxInfo(TxInfo({txHash: bytes32(0), nonce: 0}));
         assertEq(_token.balanceOf(recipient), 0);
 
-        vm.expectEmit(true, false, false, true);
-        emit IBridge.Claim(0, address(_token), MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
+        vm.expectEmit(true, true, true, true);
+        emit IBridge.Claim(0, user, recipient, address(_token), MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, block.timestamp);
+        vm.prank(user);
         _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
 
         assertEq(_token.balanceOf(recipient), DEPOSIT_AMOUNT);
@@ -118,15 +119,18 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
+        vm.prank(user);
         _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
         logs[0] = _makeLog(1, MIRROR_TOKEN_ADDRESS, tokenLimits.claim, recipient);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(1, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
+        vm.prank(user);
         _bridge.claim(1, MIRROR_TOKEN_ADDRESS, 1);
         vm.warp(block.timestamp + 1 days + 1);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(1, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
+        vm.prank(user);
         _bridge.claim(1, MIRROR_TOKEN_ADDRESS, 1);
     }
 
@@ -174,6 +178,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
+        vm.prank(user);
         _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
 
         // Mock again with same log so requestId is identical
@@ -227,8 +232,8 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         _mockEthGetLogs(0, 1, 1, address(0), logs);
         _mockMintBalance(recipient, DEPOSIT_AMOUNT);
 
-        vm.expectEmit(true, false, false, true);
-        emit IBridge.ClaimNative(0, DEPOSIT_AMOUNT, recipient);
+        vm.expectEmit(true, true, true, true);
+        emit IBridge.ClaimNative(0, user, recipient, DEPOSIT_AMOUNT, block.timestamp);
         vm.prank(user);
         _bridge.claimNative(0, 1);
         // should be done by precompile
@@ -274,6 +279,8 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
+        _mockMintBalance(recipient, DEPOSIT_AMOUNT);
+        vm.prank(user);
         _bridge.claimNative(0, 1);
         (, IBridge.TokenUsage memory dep, IBridge.TokenUsage memory claimUsage) =
             bridge().tokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT);
@@ -281,6 +288,8 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         logs[0] = _makeLog(1, address(0), DEPOSIT_AMOUNT, recipient);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(1, 1, 1, address(0), logs);
+        _mockMintBalance(recipient, DEPOSIT_AMOUNT);
+        vm.prank(user);
         _bridge.claimNative(1, 1);
         (, dep, claimUsage) = bridge().tokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT);
         assertEq(claimUsage.consumed, DEPOSIT_AMOUNT * 2);
@@ -291,15 +300,20 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
+        _mockMintBalance(recipient, DEPOSIT_AMOUNT);
+        vm.prank(user);
         _bridge.claimNative(0, 1);
         logs[0] = _makeLog(1, address(0), nativeTokenLimits.claim, recipient);
         _mockEthGetBlockByNumber(2);
         _mockEthGetLogs(1, 2, 2, address(0), logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
+        vm.prank(user);
         _bridge.claimNative(1, 2);
         vm.warp(block.timestamp + 1 days + 1);
         _mockEthGetBlockByNumber(2);
         _mockEthGetLogs(1, 2, 2, address(0), logs);
+        _mockMintBalance(recipient, nativeTokenLimits.claim);
+        vm.prank(user);
         _bridge.claimNative(1, 2);
     }
 
@@ -328,8 +342,8 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
-        vm.expectEmit(true, false, false, true);
-        emit IBridge.ClaimNative(0, DEPOSIT_AMOUNT, recipient);
+        vm.expectEmit(true, true, true, true);
+        emit IBridge.ClaimNative(0, recipient, recipient, DEPOSIT_AMOUNT, block.timestamp);
         vm.prank(recipient);
         _bridge.claimNative(0, 1);
 
@@ -385,9 +399,19 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
             toBlock: toBlockBytes,
             addr: address(OTHER_BRIDGE_CONTRACT),
             blockHash: bytes32(0),
-            topics: _buildTopics(id, tokenAddr)
+            topics: _buildQueryTopics(id, tokenAddr)
         });
         return EthGetLogsTypes.PrecompileArgs({chainId: 1, ethGetLogsArgs: inner});
+    }
+
+    function _buildQueryTopics(uint256 id, address tokenAddr) internal pure returns (bytes32[] memory topics) {
+        topics = new bytes32[](2);
+        if (tokenAddr == address(0)) {
+            topics[0] = keccak256("DepositNative(uint256,address,address,uint256,uint256,uint256)");
+        } else {
+            topics[0] = keccak256("Deposit(uint256,address,address,address,uint256,uint256,uint256)");
+        }
+        topics[1] = bytes32(id);
     }
 
     function _mockEthGetLogs(
@@ -401,16 +425,18 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         podMockEthGetLogs(abi.encode(args.chainId, args.ethGetLogsArgs), abi.encode(logs));
     }
 
-    function _buildTopics(uint256 id, address tokenAddr) internal pure returns (bytes32[] memory topics) {
+    function _buildTopics(uint256 id, address tokenAddr) internal view returns (bytes32[] memory topics) {
+        topics = new bytes32[](4);
         if (tokenAddr == address(0)) {
-            topics = new bytes32[](2);
-            topics[0] = keccak256("DepositNative(uint256,uint256,address)");
+            topics[0] = keccak256("DepositNative(uint256,address,address,uint256,uint256,uint256)");
             topics[1] = bytes32(id);
+            topics[2] = bytes32(uint256(uint160(user)));
+            topics[3] = bytes32(uint256(uint160(recipient)));
         } else {
-            topics = new bytes32[](3);
-            topics[0] = keccak256("Deposit(uint256,address,uint256,address)");
+            topics[0] = keccak256("Deposit(uint256,address,address,address,uint256,uint256,uint256)");
             topics[1] = bytes32(id);
-            topics[2] = bytes32(uint256(uint160(tokenAddr)));
+            topics[2] = bytes32(uint256(uint160(user)));
+            topics[3] = bytes32(uint256(uint160(recipient)));
         }
     }
 
@@ -419,10 +445,17 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         view
         returns (EthGetLogsTypes.RpcLog memory)
     {
+        bytes memory data;
+        if (tokenAddr == address(0)) {
+            data = abi.encode(amount, block.timestamp, block.number);
+        } else {
+            data = abi.encode(tokenAddr, amount, block.timestamp, block.number);
+        }
+        
         return EthGetLogsTypes.RpcLog({
             addr: address(OTHER_BRIDGE_CONTRACT),
             topics: _buildTopics(id, tokenAddr),
-            data: abi.encode(amount, to),
+            data: data,
             blockNumber: bytes(""),
             transactionHash: bytes32(0),
             transactionIndex: bytes(""),

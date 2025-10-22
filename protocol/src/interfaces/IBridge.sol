@@ -62,37 +62,76 @@ interface IBridge {
     /**
      * @dev Event emitted when a deposit is made.
      * @param id The request index.
+     * @param from The address that initiated the deposit.
+     * @param to The address to send the tokens to.
      * @param token The token to bridge.
      * @param amount The amount of tokens to bridge.
-     * @param to The address to send the tokens to.
+     * @param timestamp The timestamp of the deposit.
+     * @param blockNumber The block number of the deposit.
      */
-    event Deposit(uint256 indexed id, address indexed token, uint256 amount, address to);
+    event Deposit(
+        uint256 indexed id,
+        address indexed from,
+        address indexed to,
+        address token,
+        uint256 amount,
+        uint256 timestamp,
+        uint256 blockNumber
+    );
 
     /**
      * @dev Event emitted when a native deposit is made.
      * @param id The request index.
-     * @param amount The amount of native tokens to bridge.
+     * @param from The address that initiated the deposit.
      * @param to The address to send the native tokens to.
+     * @param amount The amount of native tokens to bridge.
+     * @param timestamp The timestamp of the deposit.
+     * @param blockNumber The block number of the deposit.
      */
-    event DepositNative(uint256 indexed id, uint256 amount, address to);
+    event DepositNative(
+        uint256 indexed id,
+        address indexed from,
+        address indexed to,
+        uint256 amount,
+        uint256 timestamp,
+        uint256 blockNumber
+    );
 
     /**
      * @dev Event emitted when a claim is made.
      * @param id The request index.
+     * @param claimer The address that claimed the tokens.
+     * @param to The address to send the tokens to.
      * @param mirrorToken The token on the source chain.
      * @param token The token on the destination chain.
      * @param amount The amount of tokens to bridge.
-     * @param to The address to send the tokens to.
+     * @param timestamp The timestamp of the claim.
      */
-    event Claim(uint256 indexed id, address indexed mirrorToken, address indexed token, uint256 amount, address to);
+    event Claim(
+        uint256 indexed id,
+        address indexed claimer,
+        address indexed to,
+        address mirrorToken,
+        address token,
+        uint256 amount,
+        uint256 timestamp
+    );
 
     /**
      * @dev Event emitted when a native claim is made.
      * @param id The request index.
-     * @param amount The amount of native tokens to bridge.
+     * @param claimer The address that claimed the tokens.
      * @param to The address to send the native tokens to.
+     * @param amount The amount of native tokens to bridge.
+     * @param timestamp The timestamp of the claim.
      */
-    event ClaimNative(uint256 indexed id, uint256 amount, address to);
+    event ClaimNative(
+        uint256 indexed id,
+        address indexed claimer,
+        address indexed to,
+        uint256 amount,
+        uint256 timestamp
+    );
 
     /**
      * @dev Token limits.
@@ -193,4 +232,19 @@ interface IBridge {
      * @notice Migration can only be done once on this contract
      */
     function migrate(address _newContract) external;
+
+    /**
+     * @notice Batch check if multiple requests have been processed
+     * @param ids Array of request IDs
+     * @param tokens Array of token addresses
+     * @param amounts Array of amounts
+     * @param tos Array of recipient addresses
+     * @return Array of boolean values indicating processing status
+     */
+    function areRequestsProcessed(
+        uint256[] calldata ids,
+        address[] calldata tokens,
+        uint256[] calldata amounts,
+        address[] calldata tos
+    ) external view returns (bool[] memory);
 }
