@@ -154,7 +154,6 @@ async fn main() -> anyhow::Result<()> {
                     deadline,
                     U256::from(max_priority_fee),
                     signed_tx.encoded_2718(),
-                    None,
                 )
                 .await
                 .context("submitting TX bid on pod auction")?;
@@ -209,7 +208,6 @@ async fn main() -> anyhow::Result<()> {
                             deadline,
                             U256::from(max_priority_fee),
                             signed_tx.encoded_2718(),
-                            None,
                         )
                         .await
                         .context("submitting TX bid on pod auction")?;

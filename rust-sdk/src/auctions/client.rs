@@ -107,18 +107,16 @@ impl AuctionClient {
         deadline: SystemTime,
         bid: U256,
         data: Vec<u8>,
-        max_fee_per_gas: Option<u128>,
     ) -> anyhow::Result<PodReceiptResponse> {
         let deadline = Self::micros_u64_from_system_time(deadline)?;
 
-        let mut call = self
+        let pending_tx = self
             .auction
-            .submitBid(auction_id, deadline, bid, data.into());
-        if let Some(max_fee) = max_fee_per_gas {
-            call = call.max_fee_per_gas(max_fee);
-        }
-
-        let pending_tx = call.send().await.context("sending bid TX")?;
+            .submitBid(auction_id, deadline, bid, data.into())
+            .max_priority_fee_per_gas(0)
+            .send()
+            .await
+            .context("sending bid TX")?;
 
         let receipt = pending_tx
             .get_receipt()
