@@ -3555,7 +3555,7 @@ checksum = "953ec861398dccce10c670dfeaf3ec4911ca479e9c02154b3a215178c5f566f2"
 
 [[package]]
 name = "pod-examples-solidity"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "alloy",
  "serde",
@@ -3571,7 +3571,7 @@ dependencies = [
 
 [[package]]
 name = "pod-sdk"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3598,7 +3598,7 @@ dependencies = [
 
 [[package]]
 name = "pod-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
