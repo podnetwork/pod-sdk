@@ -80,6 +80,7 @@
 
 pub mod auctions;
 pub mod network;
+pub mod precompiles;
 pub mod provider;
 
 // Re-export external dependencies used in public API
