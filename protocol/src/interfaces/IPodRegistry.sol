@@ -21,6 +21,16 @@ interface IPodRegistry {
         uint256 bitmap;
     }
 
+    /**
+     * @notice Network endpoint information for a validator
+     * @param host The hostname or IP address of the validator
+     * @param port The TCP port used by the validator
+     */
+    struct Endpoint {
+        string host;
+        uint16 port;
+    }
+
     /// @notice Error thrown when a validator is a zero address
     error ValidatorIsZeroAddress();
 
@@ -35,6 +45,12 @@ interface IPodRegistry {
 
     /// @notice Error thrown when a validator is not banned
     error ValidatorNotBanned();
+
+    /// @notice Error thrown when a validator host is invalid
+    error ValidatorInvalidHost();
+
+    /// @notice Error thrown when a validator port is invalid
+    error ValidatorInvalidPort();
 
     /// @notice Error thrown when the caller is not a validator
     error CallerNotValidator();
@@ -75,6 +91,9 @@ interface IPodRegistry {
     /// @notice Event emitted when a validator is reactivated
     event ValidatorReactivated(address indexed validator);
 
+    /// @notice Event emitted when a validator network information is updated
+    event ValidatorNetworkUpdated(address indexed validator, string host, uint16 port);
+
     /// @notice Event emitted when a snapshot is created
     event SnapshotCreated(uint256 indexed activeAsOfTimestamp, uint256 bitmap);
 
@@ -108,9 +127,11 @@ interface IPodRegistry {
      * @notice Add a new validator to the registry and activate them. Modifies the current validator set
      *  therefore creates a new snapshot.
      * @param validator The address of the validator to add
+     * @param host The hostname or IP address of the validator
+     * @param port The TCP port used by the validator
      * @dev Only callable by the contract owner
      */
-    function addValidator(address validator) external;
+    function addValidator(address validator, string calldata host, uint16 port) external;
 
     /**
      * @notice Ban a validator from the registry.
@@ -128,6 +149,14 @@ interface IPodRegistry {
      * @dev Only callable by the contract owner
      */
     function unbanValidator(address validator) external;
+
+    /**
+     * @notice Update the network endpoint of an existing validator
+     * @param validator The address of the validator
+     * @param host The new hostname or IP address of the validator
+     * @param port The new TCP port used by the validator
+     */
+    function setValidatorEndpoint(address validator, string calldata host, uint16 port) external;
 
     /**
      * @notice Deactivate the caller's validator status. Modifies the current validator set
@@ -192,23 +221,38 @@ interface IPodRegistry {
 
     /**
      * @notice Get all currently active validators
-     * @return Array of addresses of currently active validators
+     * @return validators The list of addresses of currently active validators
+     * @return hosts The list of hostnames or IP addresses corresponding to each validator
+     * @return ports The list of TCP ports corresponding to each validator
      */
-    function getActiveValidators() external view returns (address[] memory);
+    function getActiveValidators()
+        external
+        view
+        returns (address[] memory validators, string[] memory hosts, uint16[] memory ports);
 
     /**
      * @notice Get all validators that were active at a specific timestamp
      * @param timestamp The timestamp to query
-     * @return Array of addresses of validators active at the specified timestamp
+     * @return validators The list of addresses of currently active validators
+     * @return hosts The list of hostnames or IP addresses corresponding to each validator
+     * @return ports The list of TCP ports corresponding to each validator
      */
-    function getActiveValidatorsAtTimestamp(uint256 timestamp) external view returns (address[] memory);
+    function getActiveValidatorsAtTimestamp(uint256 timestamp)
+        external
+        view
+        returns (address[] memory validators, string[] memory hosts, uint16[] memory ports);
 
     /**
      * @notice Get all validators at a specific snapshot
      * @param snapshotIndex The snapshot index to query
-     * @return Array of addresses of validators at the specified snapshot
+     * @return validators The list of addresses of currently active validators
+     * @return hosts The list of hostnames or IP addresses corresponding to each validator
+     * @return ports The list of TCP ports corresponding to each validator
      */
-    function getValidatorsAtIndex(uint256 snapshotIndex) external view returns (address[] memory);
+    function getValidatorsAtIndex(uint256 snapshotIndex)
+        external
+        view
+        returns (address[] memory validators, string[] memory hosts, uint16[] memory ports);
 
     /**
      * @notice Get snapshot details at a specific index
