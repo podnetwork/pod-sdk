@@ -1,6 +1,6 @@
 DESCRIPTION="Bindings for pod Solidity contracts examples"
 LICENSE="MIT OR Apache-2.0"
-VERSION=0.2.0
+VERSION=0.4.0
 CMD=forge bind --crate-name pod-examples-solidity \
     --crate-version ${VERSION}\
     --crate-description ${DESCRIPTION}\

@@ -1,6 +1,6 @@
 [package]
 name = "pod-examples-solidity"
-version = "0.2.0"
+version = "0.4.0"
 edition = "2021"
 description = "Bindings for pod Solidity contracts examples"
 license = "MIT OR Apache-2.0"
