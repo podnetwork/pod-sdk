@@ -1,8 +1,11 @@
-use alloy_sol_types::SolEvent;
-use dotenv::dotenv;
+use std::{str::FromStr, thread::sleep, time::Duration};
 
+use crate::{
+    BridgeMintBurn::{BridgeMintBurnInstance, DepositNative},
+    ERC20::ERC20Instance,
+};
 use alloy_network::{Ethereum, EthereumWallet, ReceiptResponse};
-use alloy_primitives::Address;
+use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{
     Identity, RootProvider,
     fillers::{
@@ -10,30 +13,27 @@ use alloy_provider::{
     },
 };
 use alloy_signer_local::PrivateKeySigner;
-
-use anyhow::Result;
-use pod_sdk::{
-    Provider, ProviderBuilder, U256,
-    network::PodNetwork,
-    provider::{PodProvider, PodProviderBuilder},
-};
-
-use pod_protocol::{
-    bridge_deposit_withdraw::BridgeDepositWithdraw::BridgeDepositWithdrawInstance,
-    bridge_mint_burn::BridgeMintBurn::{BridgeMintBurnInstance, Deposit, DepositNative},
-    wrapped_token::WrappedToken::WrappedTokenInstance,
-};
-
-use pod_types::{Hashable, ledger::log::VerifiableLog, rpc::filter::LogFilterBuilder};
-
+use alloy_sol_types::SolEvent;
+use anyhow::{Context, Result};
+use clap::{Parser, Subcommand, arg};
 use pod_protocol::bridge_deposit_withdraw::{
+    BridgeDepositWithdraw,
     MerkleTree::Proof,
     PodECDSA::{
         Certificate as BridgeCertificate, CertifiedLog, CertifiedReceipt, Log as BridgeLog,
     },
 };
-
-use std::{env, str::FromStr, thread::sleep, time::Duration};
+use pod_protocol::{
+    bridge_deposit_withdraw::BridgeDepositWithdraw::BridgeDepositWithdrawInstance,
+    wrapped_token::WrappedToken::WrappedTokenInstance,
+};
+use pod_sdk::{
+    Provider, ProviderBuilder,
+    alloy_rpc_types::BlockNumberOrTag,
+    network::PodNetwork,
+    provider::{PodProvider, PodProviderBuilder},
+};
+use pod_types::{Hashable, ledger::log::VerifiableLog, rpc::filter::LogFilterBuilder};
 
 type SourceChainProviderType = FillProvider<
     JoinFill<
@@ -47,29 +47,31 @@ type SourceChainProviderType = FillProvider<
     Ethereum,
 >;
 
-type SourceChainContractType = BridgeDepositWithdrawInstance<
-    FillProvider<
-        JoinFill<
-            JoinFill<
-                Identity,
-                JoinFill<GasFiller, JoinFill<BlobGasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
-            >,
-            WalletFiller<EthereumWallet>,
-        >,
-        RootProvider,
-        Ethereum,
-    >,
->;
+alloy_sol_types::sol! {
+    #[sol(rpc)]
+    contract ERC20 {
+        function getBalance() external returns (uint256);
+    }
+
+    #[sol(rpc)]
+    contract BridgeMintBurn {
+        event Deposit(bytes32 indexed id, address indexed token, uint256 amount);
+        event DepositNative(bytes32 indexed id, uint256 amount);
+
+        function deposit(address token, uint256 amount) external;
+        function depositNative() external payable;
+    }
+}
 
 struct PodBridgeClient {
-    pod_provider: PodProvider,
+    provider: PodProvider,
     pod_bridge: BridgeMintBurnInstance<PodProvider, PodNetwork>,
-    pod_token_contract: WrappedTokenInstance<PodProvider, PodNetwork>,
+    token_contract: ERC20Instance<PodProvider, PodNetwork>,
 }
 
 struct SourceChainBridgeClient {
-    source_chain_provider: SourceChainProviderType,
-    source_chain_contract: SourceChainContractType,
+    provider: SourceChainProviderType,
+    source_chain_contract: BridgeDepositWithdrawInstance<SourceChainProviderType>,
     source_chain_token_contract: WrappedTokenInstance<SourceChainProviderType, Ethereum>,
 }
 
@@ -107,7 +109,8 @@ impl SourceChainBridgeClient {
 
         let source_chain_provider = ProviderBuilder::new()
             .wallet(wallet.clone())
-            .connect_http(source_chain_rpc_url.parse()?);
+            .connect(&source_chain_rpc_url)
+            .await?;
 
         let source_chain_contract = BridgeDepositWithdrawInstance::new(
             source_chain_contract_address,
@@ -120,10 +123,14 @@ impl SourceChainBridgeClient {
         );
 
         Ok(Self {
-            source_chain_provider,
+            provider: source_chain_provider,
             source_chain_contract,
             source_chain_token_contract,
         })
+    }
+
+    pub fn token_address(&self) -> &Address {
+        self.source_chain_token_contract.address()
     }
 
     pub async fn deposit_native(&self, to: Address, value: U256) -> Result<(U256, u64)> {
@@ -131,71 +138,51 @@ impl SourceChainBridgeClient {
             .source_chain_contract
             .depositNative(to)
             .max_fee_per_gas(1_000_000_000u128)
-            .max_priority_fee_per_gas(0)
+            .max_priority_fee_per_gas(1)
             .value(value)
             .send()
             .await?;
 
-        sleep(Duration::from_millis(100));
-
-        println!("Successfully deposited {value} native to address: {to}");
-
-        let receipt = self
-            .source_chain_provider
-            .get_transaction_receipt(*tx.tx_hash())
-            .await?
-            .unwrap();
-
-        assert!(receipt.status());
+        let receipt = tx.get_receipt().await?;
+        assert!(&receipt.status());
         assert!(receipt.logs().len() == 1);
 
         for log in receipt.logs() {
-            let event_signature = log.topic0();
-            if Some(*event_signature.unwrap()) == Some(DepositNative::SIGNATURE_HASH) {
-                let request_id = log.topics()[1];
-                let block_number = receipt.block_number();
-                if let Some(block_number) = block_number {
-                    return Ok((request_id.into(), block_number));
-                }
+            let Ok(deposit) = BridgeDepositWithdraw::DepositNative::decode_log(&log.inner) else {
+                continue;
+            };
+            let request_id = deposit.data.id;
+            let block_number = receipt.block_number();
+            if let Some(block_number) = block_number {
+                return Ok((request_id, block_number));
             }
         }
 
         Err(anyhow::anyhow!("Request ID not found"))
     }
 
-    pub async fn deposit_token(&self, to: Address, amount: U256) -> Result<(U256, Address, u64)> {
-        let tx = self
+    pub async fn deposit_token(&self, to: Address, amount: U256) -> Result<(U256, u64)> {
+        let receipt = self
             .source_chain_contract
             .deposit(*self.source_chain_token_contract.address(), amount, to)
             .send()
-            .await?;
-
-        sleep(Duration::from_millis(200));
-
-        let receipt = self
-            .source_chain_provider
-            .get_transaction_receipt(*tx.tx_hash())
-            .await?
-            .unwrap();
+            .await
+            .context("sending deposit tx to source chain")?
+            .get_receipt()
+            .await
+            .context("getting receipt for deposit tx")?;
 
         assert!(receipt.status());
         assert!(receipt.logs().len() == 2);
 
-        println!("Successfully deposited {amount} token to address: {to}");
-
         for log in receipt.logs() {
-            let event_signature = log.topic0();
-            if Some(*event_signature.unwrap()) == Some(Deposit::SIGNATURE_HASH) {
-                let request_id = log.topics()[1];
-                let token_address = log.topics()[2];
-                let block_number = receipt.block_number();
-                if let Some(block_number) = block_number {
-                    return Ok((
-                        request_id.into(),
-                        Address::from_slice(&token_address.0[12..]),
-                        block_number,
-                    ));
-                }
+            let Ok(deposit) = BridgeDepositWithdraw::Deposit::decode_log(&log.inner) else {
+                continue;
+            };
+            let request_id = deposit.data.id;
+            let block_number = receipt.block_number();
+            if let Some(block_number) = block_number {
+                return Ok((request_id, block_number));
             }
         }
 
@@ -212,7 +199,7 @@ impl SourceChainBridgeClient {
         sleep(Duration::from_millis(100));
 
         let receipt = self
-            .source_chain_provider
+            .provider
             .get_transaction_receipt(*tx.tx_hash())
             .await?
             .unwrap();
@@ -232,13 +219,7 @@ impl SourceChainBridgeClient {
             .send()
             .await?;
 
-        sleep(Duration::from_millis(100));
-
-        let receipt = self
-            .source_chain_provider
-            .get_transaction_receipt(*tx.tx_hash())
-            .await?
-            .unwrap();
+        let receipt = tx.get_receipt().await?;
 
         assert!(receipt.status());
         assert!(receipt.logs().len() == 1);
@@ -267,19 +248,19 @@ impl PodBridgeClient {
             BridgeMintBurnInstance::new(pod_bridge_contract_address, pod_provider.clone());
 
         let pod_token_contract =
-            WrappedTokenInstance::new(pod_token_contract_address, pod_provider.clone());
+            ERC20Instance::new(pod_token_contract_address, pod_provider.clone());
 
         Ok(Self {
-            pod_provider,
+            provider: pod_provider,
             pod_bridge,
-            pod_token_contract,
+            token_contract: pod_token_contract,
         })
     }
 
-    pub async fn deposit_native(&self, to: Address, value: U256) -> Result<U256> {
+    pub async fn deposit_native(&self, to: Address, value: U256) -> Result<B256> {
         let tx = self
             .pod_bridge
-            .depositNative(to)
+            .depositNative()
             .value(value)
             .send()
             .await
@@ -293,19 +274,18 @@ impl PodBridgeClient {
         println!("Successfully deposited {value} native to address: {to}");
 
         for log in receipt.logs() {
-            let event_signature = log.topic0();
-            if Some(*event_signature.unwrap()) == Some(DepositNative::SIGNATURE_HASH) {
-                let request_id = log.topics()[1];
-                return Ok(request_id.into());
-            }
+            let Ok(deposit) = BridgeMintBurn::DepositNative::decode_log(&log.inner) else {
+                continue;
+            };
+            return Ok(deposit.data.id);
         }
         Err(anyhow::anyhow!("Request ID not found"))
     }
 
-    pub async fn deposit_token(&self, to: Address, amount: U256) -> Result<(U256, Address)> {
+    async fn deposit_token(&self, amount: U256) -> Result<B256> {
         let tx = self
             .pod_bridge
-            .deposit(*self.pod_token_contract.address(), amount, to)
+            .deposit(*self.token_contract.address(), amount)
             .max_fee_per_gas(1_000_000_000u128)
             .max_priority_fee_per_gas(0)
             .send()
@@ -317,70 +297,16 @@ impl PodBridgeClient {
         assert!(receipt.status());
         assert!(receipt.logs().len() == 2);
 
-        println!("Successfully deposited {amount} token to address: {to}");
-
         for log in receipt.logs() {
-            let event_signature = log.topic0();
-            if Some(*event_signature.unwrap()) == Some(Deposit::SIGNATURE_HASH) {
-                let request_id = log.topics()[1];
-                let token_address = log.topics()[2];
-                return Ok((
-                    request_id.into(),
-                    Address::from_slice(&token_address.0[12..]),
-                ));
-            }
+            let Ok(deposit) = BridgeMintBurn::Deposit::decode_log(&log.inner) else {
+                continue;
+            };
+            return Ok(deposit.data.id);
         }
         Err(anyhow::anyhow!("Request ID not found"))
     }
 
-    pub async fn claim_token(
-        &self,
-        request_id: U256,
-        token_address: Address,
-        block_number: U256,
-        to: Address,
-    ) -> Result<()> {
-        let tx = self
-            .pod_bridge
-            .claim(request_id, token_address, block_number)
-            .send()
-            .await?;
-
-        let receipt = tx.get_receipt().await?;
-
-        assert!(receipt.status());
-        assert!(receipt.logs().len() == 2);
-
-        println!("Successfully claimed request id: {request_id} by address: {to}");
-
-        Ok(())
-    }
-
-    pub async fn claim_native(
-        &self,
-        request_id: U256,
-        block_number: U256,
-        to: Address,
-    ) -> Result<()> {
-        let prev_balance = self.pod_provider.get_balance(to).await?;
-
-        let tx = self
-            .pod_bridge
-            .claimNative(request_id, block_number)
-            .send()
-            .await?;
-
-        let receipt = tx.get_receipt().await?;
-
-        assert!(receipt.status());
-        assert!(self.pod_provider.get_balance(to).await? > prev_balance);
-
-        println!("Successfully claimed request id: {request_id} by address: {to}");
-
-        Ok(())
-    }
-
-    pub async fn get_deposit_native_certified_log(&self, request_id: U256) -> Result<CertifiedLog> {
+    pub async fn get_deposit_native_certified_log(&self, request_id: B256) -> Result<CertifiedLog> {
         let filter = LogFilterBuilder::new()
             .address(Address::from(self.pod_bridge.address().0))
             .event_signature(DepositNative::SIGNATURE_HASH)
@@ -389,7 +315,7 @@ impl PodBridgeClient {
 
         sleep(Duration::from_millis(200));
 
-        let logs = self.pod_provider.get_verifiable_logs(&filter).await?;
+        let logs = self.provider.get_verifiable_logs(&filter).await?;
 
         assert_eq!(logs.len(), 1);
         let log = &logs[0];
@@ -403,20 +329,20 @@ impl PodBridgeClient {
 
     pub async fn get_deposit_token_certified_log(
         &self,
-        request_id: U256,
+        request_id: B256,
         token_address: Address,
     ) -> Result<CertifiedLog> {
         let token_address_filter = U256::from_str(&token_address.to_string())?;
         let filter = LogFilterBuilder::new()
             .address(Address::from(self.pod_bridge.address().0))
-            .event_signature(Deposit::SIGNATURE_HASH)
+            .event_signature(BridgeMintBurn::Deposit::SIGNATURE_HASH)
             .topic1(request_id)
             .topic2(token_address_filter)
             .build();
 
         sleep(Duration::from_millis(200));
 
-        let logs = self.pod_provider.get_verifiable_logs(&filter).await?;
+        let logs = self.provider.get_verifiable_logs(&filter).await?;
 
         assert_eq!(logs.len(), 1);
         let log = &logs[0];
@@ -429,146 +355,193 @@ impl PodBridgeClient {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    dotenv().ok();
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[arg(long)]
+    private_key: PrivateKeySigner,
 
-    let to = env::var("USER_ADDRESS").expect("USER_ADDRESS must be set");
-    let to = Address::from_str(&to)?;
+    #[arg(long, env)]
+    pod_rpc_url: String,
 
-    let pod_rpc_url = env::var("POD_RPC_URL").expect("POD_RPC_URL must be set");
-    let pod_bridge_contract_address =
-        env::var("POD_BRIDGE_CONTRACT_ADDRESS").expect("POD_BRIDGE_CONTRACT_ADDRESS must be set");
-    let pod_bridge_contract_address = Address::from_str(&pod_bridge_contract_address)?;
-    let pod_token_contract_address =
-        env::var("POD_TOKEN_CONTRACT_ADDRESS").expect("POD_TOKEN_CONTRACT_ADDRESS must be set");
-    let pod_token_contract_address = Address::from_str(&pod_token_contract_address)?;
+    #[arg(long, env)]
+    source_chain_rpc_url: String,
 
-    let source_chain_rpc_url =
-        env::var("SOURCE_CHAIN_RPC_URL").expect("SOURCE_CHAIN_RPC_URL must be set");
-    let source_chain_contract_address = env::var("SOURCE_CHAIN_BRIDGE_CONTRACT_ADDRESS")
-        .expect("SOURCE_CHAIN_BRIDGE_CONTRACT_ADDRESS must be set");
-    let source_chain_contract_address = Address::from_str(&source_chain_contract_address)?;
+    #[arg(long, env)]
+    source_chain_bridge_contract_address: Address,
 
-    let source_chain_token_contract_address = env::var("SOURCE_CHAIN_TOKEN_CONTRACT_ADDRESS")
-        .expect("SOURCE_CHAIN_TOKEN_CONTRACT_ADDRESS must be set");
-    let source_chain_token_contract_address =
-        Address::from_str(&source_chain_token_contract_address)?;
+    #[arg(long, env)]
+    pod_bridge_contract_address: Address,
 
-    let user_private_key = env::var("USER_PRIVATE_KEY").expect("USER_PRIVATE_KEY must be set");
-    let user_signer: PrivateKeySigner = user_private_key.parse()?;
+    #[arg(long, env)]
+    pod_token_contract_address: Address,
 
-    let source_chain_bridge_client = SourceChainBridgeClient::new(
-        source_chain_rpc_url.clone(),
-        source_chain_contract_address,
-        source_chain_token_contract_address,
-        user_signer.clone(),
-    )
-    .await?;
-
-    let pod_bridge_client = PodBridgeClient::new(
-        pod_rpc_url,
-        pod_bridge_contract_address,
-        pod_token_contract_address,
-        user_signer,
-    )
-    .await?;
-
-    let amount = U256::from(1000000000000000000u128);
-
-    bridge_native_from_source_chain_to_pod(
-        &source_chain_bridge_client,
-        &pod_bridge_client,
-        to,
-        amount,
-    )
-    .await?;
-
-    bridge_native_from_pod_to_source_chain(
-        &pod_bridge_client,
-        &source_chain_bridge_client,
-        to,
-        amount,
-    )
-    .await?;
-
-    bridge_token_from_source_chain_to_pod(
-        &source_chain_bridge_client,
-        &pod_bridge_client,
-        to,
-        amount,
-    )
-    .await?;
-
-    bridge_token_from_pod_to_source_chain(
-        &pod_bridge_client,
-        &source_chain_bridge_client,
-        to,
-        amount,
-    )
-    .await?;
-
-    Ok(())
+    #[command(subcommand)]
+    command: Commands,
 }
 
+#[derive(Subcommand)]
+#[allow(clippy::large_enum_variant)]
+enum Commands {
+    DepositTokenToPod {
+        #[arg(long, env)]
+        source_chain_token_contract_address: Address,
+        #[arg(long)]
+        amount: U256,
+    },
+    DepositNativeToPod {
+        #[arg(long)]
+        amount: U256,
+    },
+    TransferNativeFromPod {
+        #[arg(long)]
+        amount: U256,
+    },
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    println!(
+        "Source chain bridge contract address: {}",
+        cli.source_chain_bridge_contract_address
+    );
+    println!(
+        "Pod bridge contract address: {}",
+        cli.pod_bridge_contract_address
+    );
+    println!(
+        "Pod token contract address: {}",
+        cli.pod_token_contract_address
+    );
+
+    println!("Connecting to source chain on {}", cli.source_chain_rpc_url);
+    println!("Connecting to pod on {}", cli.pod_rpc_url);
+
+    let pod_bridge_client = PodBridgeClient::new(
+        cli.pod_rpc_url,
+        cli.pod_bridge_contract_address,
+        cli.pod_token_contract_address,
+        cli.private_key.clone(),
+    )
+    .await?;
+
+    let to = cli.private_key.address();
+
+    match cli.command {
+        Commands::DepositNativeToPod { amount } => {
+            println!("Depositing {amount} native to Pod account {to:?}");
+
+            let source_chain_bridge_client = SourceChainBridgeClient::new(
+                cli.source_chain_rpc_url,
+                cli.source_chain_bridge_contract_address,
+                Address::ZERO,
+                cli.private_key.clone(),
+            )
+            .await?;
+
+            let new_balance = bridge_native_from_source_chain_to_pod(
+                &source_chain_bridge_client,
+                &pod_bridge_client,
+                to,
+                amount,
+                Duration::from_mins(20), // block finalization can take minutes
+            )
+            .await?;
+            println!("New Pod native balance: {new_balance}");
+            Ok(())
+        }
+        Commands::DepositTokenToPod {
+            source_chain_token_contract_address,
+            amount,
+        } => {
+            println!(
+                "Depositing {amount} of token {source_chain_token_contract_address} to Pod account {to:?}"
+            );
+
+            let source_chain_bridge_client = SourceChainBridgeClient::new(
+                cli.source_chain_rpc_url,
+                cli.source_chain_bridge_contract_address,
+                source_chain_token_contract_address,
+                cli.private_key.clone(),
+            )
+            .await?;
+
+            let new_balance = bridge_token_from_source_chain_to_pod(
+                &source_chain_bridge_client,
+                &pod_bridge_client,
+                to,
+                amount,
+                Duration::from_mins(20), // block finalization can take minutes
+            )
+            .await?;
+            println!("New Pod token balance: {new_balance}");
+            Ok(())
+        }
+        Commands::TransferNativeFromPod { amount } => {
+            println!("Transferring {amount} native from Pod to source chain account {to:?}");
+            let source_chain_bridge_client = SourceChainBridgeClient::new(
+                cli.source_chain_rpc_url,
+                cli.source_chain_bridge_contract_address,
+                Address::ZERO,
+                cli.private_key.clone(),
+            )
+            .await?;
+            bridge_native_from_pod_to_source_chain(
+                &pod_bridge_client,
+                &source_chain_bridge_client,
+                to,
+                amount,
+            )
+            .await
+        }
+    }
+}
+
+async fn wait_for_block<P: Provider>(provider: &P, block_number: u64) -> anyhow::Result<()> {
+    println!("Waiting for block {block_number} to be built. This can take ~13min on Sepolia...");
+
+    loop {
+        if let Some(block) = provider
+            .get_block_by_number(BlockNumberOrTag::Finalized)
+            .await?
+            && block.number() >= block_number
+        {
+            println!("Block {block_number} finalized");
+            return Ok(());
+        }
+        tokio::time::sleep(Duration::from_secs(10)).await;
+    }
+}
 async fn bridge_native_from_source_chain_to_pod(
     source_chain_bridge_client: &SourceChainBridgeClient,
     pod_bridge_client: &PodBridgeClient,
     to: Address,
-    value: U256,
-) -> Result<()> {
-    let prev_balance_source = source_chain_bridge_client
-        .source_chain_provider
-        .get_balance(to)
+    amount: U256,
+    timeout: Duration,
+) -> Result<U256> {
+    let prev_balance_pod = pod_bridge_client.provider.get_balance(to).await?;
+
+    let (request_id, source_chain_block_number) = source_chain_bridge_client
+        .deposit_native(to, amount)
         .await?;
 
-    let prev_balance_pod = pod_bridge_client.pod_provider.get_balance(to).await?;
+    println!("Deposited; Request ID: {request_id}, Block Number: {source_chain_block_number}");
 
-    let prev_balance_source_chain_bridge = source_chain_bridge_client
-        .source_chain_provider
-        .get_balance(*source_chain_bridge_client.source_chain_contract.address())
-        .await?;
+    let end_balance = tokio::time::timeout(timeout, async {
+        loop {
+            let pod_balance = pod_bridge_client.provider.get_balance(to).await?;
+            if pod_balance >= prev_balance_pod + amount {
+                return anyhow::Ok(pod_balance);
+            }
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        }
+    })
+    .await
+    .context("waiting for deposited")??;
 
-    let prev_balance_pod_bridge = pod_bridge_client
-        .pod_provider
-        .get_balance(*pod_bridge_client.pod_bridge.address())
-        .await?;
-
-    let (request_id, source_chain_block_number) =
-        source_chain_bridge_client.deposit_native(to, value).await?;
-
-    pod_bridge_client
-        .claim_native(request_id, U256::from(source_chain_block_number), to)
-        .await?;
-
-    sleep(Duration::from_millis(200));
-
-    assert!(pod_bridge_client.pod_provider.get_balance(to).await? > prev_balance_pod);
-    assert!(
-        source_chain_bridge_client
-            .source_chain_provider
-            .get_balance(to)
-            .await?
-            < prev_balance_source
-    );
-    assert!(
-        source_chain_bridge_client
-            .source_chain_provider
-            .get_balance(*source_chain_bridge_client.source_chain_contract.address())
-            .await?
-            > prev_balance_source_chain_bridge
-    );
-
-    // Holds because we're burning on pod's side
-    assert!(
-        pod_bridge_client
-            .pod_provider
-            .get_balance(*pod_bridge_client.pod_bridge.address())
-            .await?
-            == prev_balance_pod_bridge
-    );
-
-    Ok(())
+    Ok(end_balance)
 }
 
 async fn bridge_native_from_pod_to_source_chain(
@@ -577,11 +550,8 @@ async fn bridge_native_from_pod_to_source_chain(
     to: Address,
     value: U256,
 ) -> Result<()> {
-    let prev_balance_pod = pod_bridge_client.pod_provider.get_balance(to).await?;
-    let prev_balance_source = source_chain_bridge_client
-        .source_chain_provider
-        .get_balance(to)
-        .await?;
+    let prev_balance_pod = pod_bridge_client.provider.get_balance(to).await?;
+    let prev_balance_source = source_chain_bridge_client.provider.get_balance(to).await?;
 
     let request_id = pod_bridge_client.deposit_native(to, value).await?;
 
@@ -593,16 +563,8 @@ async fn bridge_native_from_pod_to_source_chain(
         .claim_native(certified_log)
         .await?;
 
-    sleep(Duration::from_millis(200));
-
-    assert!(pod_bridge_client.pod_provider.get_balance(to).await? < prev_balance_pod);
-    assert!(
-        source_chain_bridge_client
-            .source_chain_provider
-            .get_balance(to)
-            .await?
-            > prev_balance_source
-    );
+    assert!(pod_bridge_client.provider.get_balance(to).await? < prev_balance_pod);
+    assert!(source_chain_bridge_client.provider.get_balance(to).await? > prev_balance_source);
 
     Ok(())
 }
@@ -612,94 +574,64 @@ async fn bridge_token_from_source_chain_to_pod(
     pod_bridge_client: &PodBridgeClient,
     to: Address,
     amount: U256,
-) -> Result<()> {
-    let prev_balance_source = source_chain_bridge_client
-        .source_chain_token_contract
-        .balanceOf(to)
-        .call()
-        .await?;
+    timeout: Duration,
+) -> Result<U256> {
     let prev_balance_pod = pod_bridge_client
-        .pod_token_contract
-        .balanceOf(to)
+        .token_contract
+        .getBalance()
+        .from(to)
         .call()
         .await?;
 
-    let prev_balance_source_chain_bridge = source_chain_bridge_client
-        .source_chain_provider
-        .get_balance(*source_chain_bridge_client.source_chain_contract.address())
-        .await?;
+    let (request_id, block_number) = source_chain_bridge_client.deposit_token(to, amount).await?;
+    println!("Deposited; request ID: {request_id}, Block Number: {block_number}");
+    println!("Waiting for confirmation on pod");
 
-    let (request_id, token_address, block_number) =
-        source_chain_bridge_client.deposit_token(to, amount).await?;
+    let end_balance = tokio::time::timeout(timeout, async {
+        loop {
+            let pod_balance = pod_bridge_client
+                .token_contract
+                .getBalance()
+                .from(to)
+                .call()
+                .await?;
+            if pod_balance >= prev_balance_pod + amount {
+                return anyhow::Ok(pod_balance);
+            }
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        }
+    })
+    .await
+    .context("waiting for deposited")??;
 
-    pod_bridge_client
-        .claim_token(request_id, token_address, U256::from(block_number), to)
-        .await?;
-
-    assert!(
-        pod_bridge_client
-            .pod_token_contract
-            .balanceOf(to)
-            .call()
-            .await?
-            > prev_balance_pod
-    );
-
-    assert!(
-        source_chain_bridge_client
-            .source_chain_token_contract
-            .balanceOf(to)
-            .call()
-            .await?
-            < prev_balance_source
-    );
-
-    assert!(
-        source_chain_bridge_client
-            .source_chain_provider
-            .get_balance(*source_chain_bridge_client.source_chain_contract.address())
-            .await?
-            > prev_balance_source_chain_bridge
-    );
-
-    Ok(())
+    Ok(end_balance)
 }
 
 async fn bridge_token_from_pod_to_source_chain(
     pod_bridge_client: &PodBridgeClient,
     source_chain_bridge_client: &SourceChainBridgeClient,
-    to: Address,
     amount: U256,
+    to: Address,
 ) -> Result<()> {
-    let prev_balance_pod = pod_bridge_client
-        .pod_token_contract
-        .balanceOf(to)
-        .call()
-        .await?;
+    let prev_balance_pod = pod_bridge_client.token_contract.getBalance().call().await?;
     let prev_balance_source = source_chain_bridge_client
         .source_chain_token_contract
         .balanceOf(to)
         .call()
         .await?;
 
-    let (request_id, token_address) = pod_bridge_client.deposit_token(to, amount).await?;
+    let request_id = pod_bridge_client.deposit_token(amount).await?;
+    let token_address = pod_bridge_client.token_contract.address();
 
     let certified_log = pod_bridge_client
-        .get_deposit_token_certified_log(request_id, token_address)
+        .get_deposit_token_certified_log(request_id, *token_address)
         .await?;
 
     source_chain_bridge_client
         .claim_token(certified_log)
         .await?;
 
-    assert!(
-        pod_bridge_client
-            .pod_token_contract
-            .balanceOf(to)
-            .call()
-            .await?
-            < prev_balance_pod
-    );
+    assert!(pod_bridge_client.token_contract.getBalance().call().await? < prev_balance_pod);
 
     assert!(
         source_chain_bridge_client
