@@ -25,12 +25,12 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     /**
      * @dev The topic 0 (event signature) of the deposit event.
      */
-    bytes32 constant DEPOSIT_TOPIC_0 = keccak256("Deposit(uint256,address,uint256,address)");
+    bytes32 constant DEPOSIT_TOPIC_0 = keccak256("Deposit(bytes32,address,uint256,address)");
 
     /**
      * @dev The topic 0 (event signature) of the deposit native event.
      */
-    bytes32 constant DEPOSIT_NATIVE_TOPIC_0 = keccak256("DepositNative(uint256,uint256,address)");
+    bytes32 constant DEPOSIT_NATIVE_TOPIC_0 = keccak256("DepositNative(bytes32,uint256,address)");
 
     /**
      * @dev The mock address for native deposit.
@@ -106,7 +106,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      * This is a callback defining the different deposit ID logic for the different bridge contracts.
      * @return id The request ID of the deposit.
      */
-    function _getDepositId() internal virtual returns (uint256);
+    function _getDepositId() internal virtual returns (bytes32);
 
     /**
      * @dev Internal function to handle the migration of tokens.
@@ -168,26 +168,24 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     /**
      * @inheritdoc IBridge
      */
-    function deposit(address token, uint256 amount, address to) external override whenNotPaused returns (uint256) {
+    function deposit(address token, uint256 amount) external override whenNotPaused returns (bytes32) {
         if (!_isValidTokenAmount(token, amount, true)) revert InvalidTokenAmount();
-        if (to == address(0)) revert InvalidToAddress();
-        uint256 id = _getDepositId();
+        bytes32 id = _getDepositId();
         handleDeposit(token, amount);
-        emit Deposit(id, token, amount, to);
+        emit Deposit(id, token, amount, msg.sender);
         return id;
     }
 
     /**
      * @dev Deposit native tokens to bridge to the destination chain.
      * @notice Function used to bridge native tokens to the destination chain.
-     * @param to The address to send the native tokens to on the destination chain.
      * @return id The request index.
      */
-    function depositNative(address to) external payable override whenNotPaused returns (uint256) {
+    function depositNative() external payable override whenNotPaused returns (bytes32) {
         if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, msg.value, true)) revert InvalidTokenAmount();
-        uint256 id = _getDepositId();
+        bytes32 id = _getDepositId();
         handleDepositNative();
-        emit DepositNative(id, msg.value, to);
+        emit DepositNative(id, msg.value, msg.sender);
         return id;
     }
 
@@ -199,7 +197,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      * @param to The address to hash.
      * @return hash The hash of the request used for uniquely identifying a bridging request.
      */
-    function _hashRequest(uint256 id, address token, uint256 amount, address to) internal pure returns (bytes32 hash) {
+    function _hashRequest(bytes32 id, address token, uint256 amount, address to) internal pure returns (bytes32 hash) {
         assembly {
             let ptr := mload(0x40)
             mstore(ptr, id)

@@ -41,6 +41,7 @@ struct TokenLimits { uint256 minAmount; uint256 deposit; uint256 claim; }
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<256>,
@@ -288,6 +289,7 @@ struct TokenUsage { uint256 consumed; uint256 lastUpdated; }
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<256>,
@@ -502,8 +504,11 @@ See the [wrapper's documentation](`IBridgeInstance`) for more details.*/
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(address: alloy_sol_types::private::Address, provider: P) -> IBridgeInstance<P, N> {
-        IBridgeInstance::<P, N>::new(address, provider)
+    >(
+        address: alloy_sol_types::private::Address,
+        __provider: P,
+    ) -> IBridgeInstance<P, N> {
+        IBridgeInstance::<P, N>::new(address, __provider)
     }
     /**A [`IBridge`](self) instance.
 
@@ -530,7 +535,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -541,11 +545,11 @@ See the [wrapper's documentation](`IBridgeInstance`) for more details.*/
         #[inline]
         pub const fn new(
             address: alloy_sol_types::private::Address,
-            provider: P,
+            __provider: P,
         ) -> Self {
             Self {
                 address,
-                provider,
+                provider: __provider,
                 _network: ::core::marker::PhantomData,
             }
         }
@@ -582,7 +586,6 @@ See the [wrapper's documentation](`IBridgeInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -599,7 +602,6 @@ See the [wrapper's documentation](`IBridgeInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -655,6 +657,7 @@ struct Proof { bytes32[] path; }
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Array<
                 alloy::sol_types::sol_data::FixedBytes<32>,
@@ -844,9 +847,9 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
         N: alloy_contract::private::Network,
     >(
         address: alloy_sol_types::private::Address,
-        provider: P,
+        __provider: P,
     ) -> MerkleTreeInstance<P, N> {
-        MerkleTreeInstance::<P, N>::new(address, provider)
+        MerkleTreeInstance::<P, N>::new(address, __provider)
     }
     /**A [`MerkleTree`](self) instance.
 
@@ -873,7 +876,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -884,11 +886,11 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
         #[inline]
         pub const fn new(
             address: alloy_sol_types::private::Address,
-            provider: P,
+            __provider: P,
         ) -> Self {
             Self {
                 address,
-                provider,
+                provider: __provider,
                 _network: ::core::marker::PhantomData,
             }
         }
@@ -925,7 +927,6 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -942,7 +943,6 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -1003,6 +1003,7 @@ struct Certificate { CertifiedReceipt certifiedReceipt; bytes32 leaf; MerkleTree
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             CertifiedReceipt,
             alloy::sol_types::sol_data::FixedBytes<32>,
@@ -1257,6 +1258,7 @@ struct CertifiedLog { Log log; uint256 logIndex; Certificate certificate; }
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             Log,
             alloy::sol_types::sol_data::Uint<256>,
@@ -1505,6 +1507,7 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::FixedBytes<32>,
             alloy::sol_types::sol_data::Bytes,
@@ -1764,6 +1767,7 @@ struct Log { address addr; bytes32[] topics; bytes data; }
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Array<
@@ -1995,9 +1999,9 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
         N: alloy_contract::private::Network,
     >(
         address: alloy_sol_types::private::Address,
-        provider: P,
+        __provider: P,
     ) -> PodECDSAInstance<P, N> {
-        PodECDSAInstance::<P, N>::new(address, provider)
+        PodECDSAInstance::<P, N>::new(address, __provider)
     }
     /**A [`PodECDSA`](self) instance.
 
@@ -2024,7 +2028,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -2035,11 +2038,11 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
         #[inline]
         pub const fn new(
             address: alloy_sol_types::private::Address,
-            provider: P,
+            __provider: P,
         ) -> Self {
             Self {
                 address,
-                provider,
+                provider: __provider,
                 _network: ::core::marker::PhantomData,
             }
         }
@@ -2076,7 +2079,6 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -2093,7 +2095,6 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -2172,10 +2173,10 @@ interface BridgeDepositWithdraw {
     error RequestAlreadyProcessed();
     error SafeERC20FailedOperation(address token);
 
-    event Claim(uint256 indexed id, address indexed mirrorToken, address indexed token, uint256 amount, address to);
-    event ClaimNative(uint256 indexed id, uint256 amount, address to);
-    event Deposit(uint256 indexed id, address indexed token, uint256 amount, address to);
-    event DepositNative(uint256 indexed id, uint256 amount, address to);
+    event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
+    event ClaimNative(bytes32 indexed id, uint256 amount, address indexed to);
+    event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address indexed to);
+    event DepositNative(bytes32 indexed id, uint256 amount, address indexed to);
     event Paused(address account);
     event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole);
     event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);
@@ -2190,9 +2191,9 @@ interface BridgeDepositWithdraw {
     function claim(PodECDSA.CertifiedLog memory certifiedLog) external;
     function claimNative(PodECDSA.CertifiedLog memory certifiedLog) external;
     function configureToken(address token, IBridge.TokenLimits memory limits) external;
-    function deposit(address token, uint256 amount, address to) external returns (uint256);
+    function deposit(address token, uint256 amount) external returns (bytes32);
     function depositIndex() external view returns (uint256);
-    function depositNative(address to) external payable returns (uint256);
+    function depositNative() external payable returns (bytes32);
     function getRoleAdmin(bytes32 role) external view returns (bytes32);
     function grantRole(bytes32 role, address account) external;
     function hasRole(bytes32 role, address account) external view returns (bool);
@@ -2518,18 +2519,13 @@ interface BridgeDepositWithdraw {
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
-      },
-      {
-        "name": "to",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "outputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "nonpayable"
@@ -2550,18 +2546,12 @@ interface BridgeDepositWithdraw {
   {
     "type": "function",
     "name": "depositNative",
-    "inputs": [
-      {
-        "name": "to",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
+    "inputs": [],
     "outputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "payable"
@@ -2950,20 +2940,20 @@ interface BridgeDepositWithdraw {
     "inputs": [
       {
         "name": "id",
-        "type": "uint256",
+        "type": "bytes32",
         "indexed": true,
-        "internalType": "uint256"
+        "internalType": "bytes32"
       },
       {
         "name": "mirrorToken",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       },
       {
         "name": "token",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       },
       {
@@ -2975,7 +2965,7 @@ interface BridgeDepositWithdraw {
       {
         "name": "to",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -2987,9 +2977,9 @@ interface BridgeDepositWithdraw {
     "inputs": [
       {
         "name": "id",
-        "type": "uint256",
+        "type": "bytes32",
         "indexed": true,
-        "internalType": "uint256"
+        "internalType": "bytes32"
       },
       {
         "name": "amount",
@@ -3000,7 +2990,7 @@ interface BridgeDepositWithdraw {
       {
         "name": "to",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -3012,9 +3002,9 @@ interface BridgeDepositWithdraw {
     "inputs": [
       {
         "name": "id",
-        "type": "uint256",
+        "type": "bytes32",
         "indexed": true,
-        "internalType": "uint256"
+        "internalType": "bytes32"
       },
       {
         "name": "token",
@@ -3031,7 +3021,7 @@ interface BridgeDepositWithdraw {
       {
         "name": "to",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -3043,9 +3033,9 @@ interface BridgeDepositWithdraw {
     "inputs": [
       {
         "name": "id",
-        "type": "uint256",
+        "type": "bytes32",
         "indexed": true,
-        "internalType": "uint256"
+        "internalType": "bytes32"
       },
       {
         "name": "amount",
@@ -3056,7 +3046,7 @@ interface BridgeDepositWithdraw {
       {
         "name": "to",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -3290,6 +3280,7 @@ error AccessControlBadConfirmation();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -3370,6 +3361,7 @@ error AccessControlUnauthorizedAccount(address account, bytes32 neededRole);
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::FixedBytes<32>,
@@ -3461,6 +3453,7 @@ error ContractMigrated();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -3534,6 +3527,7 @@ error DailyLimitExhausted();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -3607,6 +3601,7 @@ error EnforcedPause();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -3680,6 +3675,7 @@ error ExpectedPause();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -3753,6 +3749,7 @@ error InvalidBridgeContract();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -3826,6 +3823,7 @@ error InvalidCertificate();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -3899,6 +3897,7 @@ error InvalidDepositLog();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -3972,6 +3971,7 @@ error InvalidNonce();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -4045,6 +4045,7 @@ error InvalidToAddress();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -4118,6 +4119,7 @@ error InvalidTokenAmount();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -4191,6 +4193,7 @@ error InvalidTokenConfig();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -4264,6 +4267,7 @@ error MirrorTokenNotFound();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -4337,6 +4341,7 @@ error RequestAlreadyProcessed();
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = ();
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = ();
@@ -4413,6 +4418,7 @@ error SafeERC20FailedOperation(address token);
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -4476,9 +4482,9 @@ error SafeERC20FailedOperation(address token);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `Claim(uint256,address,address,uint256,address)` and selector `0xaf3f1a12344bbeaab954d412e821d6b6a06d5cd5d27be204353bd4ea9b55a504`.
+    /**Event with signature `Claim(bytes32,address,address,uint256,address)` and selector `0xa0b99c0fdfc395724d7b81a88a6d74852461f7691371afe2839bb8688475788c`.
 ```solidity
-event Claim(uint256 indexed id, address indexed mirrorToken, address indexed token, uint256 amount, address to);
+event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -4489,7 +4495,7 @@ event Claim(uint256 indexed id, address indexed mirrorToken, address indexed tok
     #[derive(Clone)]
     pub struct Claim {
         #[allow(missing_docs)]
-        pub id: alloy::sol_types::private::primitives::aliases::U256,
+        pub id: alloy::sol_types::private::FixedBytes<32>,
         #[allow(missing_docs)]
         pub mirrorToken: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
@@ -4510,23 +4516,24 @@ event Claim(uint256 indexed id, address indexed mirrorToken, address indexed tok
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for Claim {
             type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
             );
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
-                alloy::sol_types::sol_data::Uint<256>,
-                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "Claim(uint256,address,address,uint256,address)";
+            const SIGNATURE: &'static str = "Claim(bytes32,address,address,uint256,address)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                175u8, 63u8, 26u8, 18u8, 52u8, 75u8, 190u8, 170u8, 185u8, 84u8, 212u8,
-                18u8, 232u8, 33u8, 214u8, 182u8, 160u8, 109u8, 92u8, 213u8, 210u8, 123u8,
-                226u8, 4u8, 53u8, 59u8, 212u8, 234u8, 155u8, 85u8, 165u8, 4u8,
+                160u8, 185u8, 156u8, 15u8, 223u8, 195u8, 149u8, 114u8, 77u8, 123u8,
+                129u8, 168u8, 138u8, 109u8, 116u8, 133u8, 36u8, 97u8, 247u8, 105u8, 19u8,
+                113u8, 175u8, 226u8, 131u8, 155u8, 184u8, 104u8, 132u8, 117u8, 120u8,
+                140u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -4537,10 +4544,10 @@ event Claim(uint256 indexed id, address indexed mirrorToken, address indexed tok
             ) -> Self {
                 Self {
                     id: topics.1,
-                    mirrorToken: topics.2,
-                    token: topics.3,
-                    amount: data.0,
-                    to: data.1,
+                    mirrorToken: data.0,
+                    token: data.1,
+                    amount: data.2,
+                    to: topics.2,
                 }
             }
             #[inline]
@@ -4561,22 +4568,20 @@ event Claim(uint256 indexed id, address indexed mirrorToken, address indexed tok
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.mirrorToken,
+                    ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.token,
+                    ),
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.amount),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.to,
-                    ),
                 )
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (
-                    Self::SIGNATURE_HASH.into(),
-                    self.id.clone(),
-                    self.mirrorToken.clone(),
-                    self.token.clone(),
-                )
+                (Self::SIGNATURE_HASH.into(), self.id.clone(), self.to.clone())
             }
             #[inline]
             fn encode_topics_raw(
@@ -4589,14 +4594,11 @@ event Claim(uint256 indexed id, address indexed mirrorToken, address indexed tok
                 out[0usize] = alloy_sol_types::abi::token::WordToken(
                     Self::SIGNATURE_HASH,
                 );
-                out[1usize] = <alloy::sol_types::sol_data::Uint<
-                    256,
+                out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
+                    32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.id);
                 out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
-                    &self.mirrorToken,
-                );
-                out[3usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
-                    &self.token,
+                    &self.to,
                 );
                 Ok(())
             }
@@ -4620,9 +4622,9 @@ event Claim(uint256 indexed id, address indexed mirrorToken, address indexed tok
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `ClaimNative(uint256,uint256,address)` and selector `0x913168da07c3f7f5f3c523933316328b0d0611b627f12eb11c22ca44fbb19dc6`.
+    /**Event with signature `ClaimNative(bytes32,uint256,address)` and selector `0xddfbe589483c726b1cf8cd3f378bd39d09d586d42e4045c2a132edcb1632bcb3`.
 ```solidity
-event ClaimNative(uint256 indexed id, uint256 amount, address to);
+event ClaimNative(bytes32 indexed id, uint256 amount, address indexed to);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -4633,7 +4635,7 @@ event ClaimNative(uint256 indexed id, uint256 amount, address to);
     #[derive(Clone)]
     pub struct ClaimNative {
         #[allow(missing_docs)]
-        pub id: alloy::sol_types::private::primitives::aliases::U256,
+        pub id: alloy::sol_types::private::FixedBytes<32>,
         #[allow(missing_docs)]
         pub amount: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
@@ -4649,22 +4651,20 @@ event ClaimNative(uint256 indexed id, uint256 amount, address to);
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for ClaimNative {
-            type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<256>,
-                alloy::sol_types::sol_data::Address,
-            );
+            type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "ClaimNative(uint256,uint256,address)";
+            const SIGNATURE: &'static str = "ClaimNative(bytes32,uint256,address)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                145u8, 49u8, 104u8, 218u8, 7u8, 195u8, 247u8, 245u8, 243u8, 197u8, 35u8,
-                147u8, 51u8, 22u8, 50u8, 139u8, 13u8, 6u8, 17u8, 182u8, 39u8, 241u8,
-                46u8, 177u8, 28u8, 34u8, 202u8, 68u8, 251u8, 177u8, 157u8, 198u8,
+                221u8, 251u8, 229u8, 137u8, 72u8, 60u8, 114u8, 107u8, 28u8, 248u8, 205u8,
+                63u8, 55u8, 139u8, 211u8, 157u8, 9u8, 213u8, 134u8, 212u8, 46u8, 64u8,
+                69u8, 194u8, 161u8, 50u8, 237u8, 203u8, 22u8, 50u8, 188u8, 179u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -4676,7 +4676,7 @@ event ClaimNative(uint256 indexed id, uint256 amount, address to);
                 Self {
                     id: topics.1,
                     amount: data.0,
-                    to: data.1,
+                    to: topics.2,
                 }
             }
             #[inline]
@@ -4700,14 +4700,11 @@ event ClaimNative(uint256 indexed id, uint256 amount, address to);
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.amount),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.to,
-                    ),
                 )
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(), self.id.clone())
+                (Self::SIGNATURE_HASH.into(), self.id.clone(), self.to.clone())
             }
             #[inline]
             fn encode_topics_raw(
@@ -4720,9 +4717,12 @@ event ClaimNative(uint256 indexed id, uint256 amount, address to);
                 out[0usize] = alloy_sol_types::abi::token::WordToken(
                     Self::SIGNATURE_HASH,
                 );
-                out[1usize] = <alloy::sol_types::sol_data::Uint<
-                    256,
+                out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
+                    32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.id);
+                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.to,
+                );
                 Ok(())
             }
         }
@@ -4745,9 +4745,9 @@ event ClaimNative(uint256 indexed id, uint256 amount, address to);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `Deposit(uint256,address,uint256,address)` and selector `0x05e57fa62d890603d85944c963ddc7fbe77cde5ea69cad7033fc6f76b7ddd2ab`.
+    /**Event with signature `Deposit(bytes32,address,uint256,address)` and selector `0xb25817d51bf1faf024f38337136f66fa778e7da5a20888ec58560d655ed82447`.
 ```solidity
-event Deposit(uint256 indexed id, address indexed token, uint256 amount, address to);
+event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address indexed to);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -4758,7 +4758,7 @@ event Deposit(uint256 indexed id, address indexed token, uint256 amount, address
     #[derive(Clone)]
     pub struct Deposit {
         #[allow(missing_docs)]
-        pub id: alloy::sol_types::private::primitives::aliases::U256,
+        pub id: alloy::sol_types::private::FixedBytes<32>,
         #[allow(missing_docs)]
         pub token: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
@@ -4776,24 +4776,21 @@ event Deposit(uint256 indexed id, address indexed token, uint256 amount, address
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for Deposit {
-            type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<256>,
-                alloy::sol_types::sol_data::Address,
-            );
+            type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "Deposit(uint256,address,uint256,address)";
+            const SIGNATURE: &'static str = "Deposit(bytes32,address,uint256,address)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                5u8, 229u8, 127u8, 166u8, 45u8, 137u8, 6u8, 3u8, 216u8, 89u8, 68u8,
-                201u8, 99u8, 221u8, 199u8, 251u8, 231u8, 124u8, 222u8, 94u8, 166u8,
-                156u8, 173u8, 112u8, 51u8, 252u8, 111u8, 118u8, 183u8, 221u8, 210u8,
-                171u8,
+                178u8, 88u8, 23u8, 213u8, 27u8, 241u8, 250u8, 240u8, 36u8, 243u8, 131u8,
+                55u8, 19u8, 111u8, 102u8, 250u8, 119u8, 142u8, 125u8, 165u8, 162u8, 8u8,
+                136u8, 236u8, 88u8, 86u8, 13u8, 101u8, 94u8, 216u8, 36u8, 71u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -4806,7 +4803,7 @@ event Deposit(uint256 indexed id, address indexed token, uint256 amount, address
                     id: topics.1,
                     token: topics.2,
                     amount: data.0,
-                    to: data.1,
+                    to: topics.3,
                 }
             }
             #[inline]
@@ -4830,14 +4827,16 @@ event Deposit(uint256 indexed id, address indexed token, uint256 amount, address
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.amount),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.to,
-                    ),
                 )
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(), self.id.clone(), self.token.clone())
+                (
+                    Self::SIGNATURE_HASH.into(),
+                    self.id.clone(),
+                    self.token.clone(),
+                    self.to.clone(),
+                )
             }
             #[inline]
             fn encode_topics_raw(
@@ -4850,11 +4849,14 @@ event Deposit(uint256 indexed id, address indexed token, uint256 amount, address
                 out[0usize] = alloy_sol_types::abi::token::WordToken(
                     Self::SIGNATURE_HASH,
                 );
-                out[1usize] = <alloy::sol_types::sol_data::Uint<
-                    256,
+                out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
+                    32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.id);
                 out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
                     &self.token,
+                );
+                out[3usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.to,
                 );
                 Ok(())
             }
@@ -4878,9 +4880,9 @@ event Deposit(uint256 indexed id, address indexed token, uint256 amount, address
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `DepositNative(uint256,uint256,address)` and selector `0x40352b63d0a9c92983fcf19d8c3fc28ca0bcc8fa9ffeb5be28e14a3f758ab39e`.
+    /**Event with signature `DepositNative(bytes32,uint256,address)` and selector `0xb9ee244191ed079b83d985e14ef5cb5656d96a48462524f1fa988bd6f970e1a6`.
 ```solidity
-event DepositNative(uint256 indexed id, uint256 amount, address to);
+event DepositNative(bytes32 indexed id, uint256 amount, address indexed to);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -4891,7 +4893,7 @@ event DepositNative(uint256 indexed id, uint256 amount, address to);
     #[derive(Clone)]
     pub struct DepositNative {
         #[allow(missing_docs)]
-        pub id: alloy::sol_types::private::primitives::aliases::U256,
+        pub id: alloy::sol_types::private::FixedBytes<32>,
         #[allow(missing_docs)]
         pub amount: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
@@ -4907,22 +4909,20 @@ event DepositNative(uint256 indexed id, uint256 amount, address to);
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for DepositNative {
-            type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<256>,
-                alloy::sol_types::sol_data::Address,
-            );
+            type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "DepositNative(uint256,uint256,address)";
+            const SIGNATURE: &'static str = "DepositNative(bytes32,uint256,address)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                64u8, 53u8, 43u8, 99u8, 208u8, 169u8, 201u8, 41u8, 131u8, 252u8, 241u8,
-                157u8, 140u8, 63u8, 194u8, 140u8, 160u8, 188u8, 200u8, 250u8, 159u8,
-                254u8, 181u8, 190u8, 40u8, 225u8, 74u8, 63u8, 117u8, 138u8, 179u8, 158u8,
+                185u8, 238u8, 36u8, 65u8, 145u8, 237u8, 7u8, 155u8, 131u8, 217u8, 133u8,
+                225u8, 78u8, 245u8, 203u8, 86u8, 86u8, 217u8, 106u8, 72u8, 70u8, 37u8,
+                36u8, 241u8, 250u8, 152u8, 139u8, 214u8, 249u8, 112u8, 225u8, 166u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -4934,7 +4934,7 @@ event DepositNative(uint256 indexed id, uint256 amount, address to);
                 Self {
                     id: topics.1,
                     amount: data.0,
-                    to: data.1,
+                    to: topics.2,
                 }
             }
             #[inline]
@@ -4958,14 +4958,11 @@ event DepositNative(uint256 indexed id, uint256 amount, address to);
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.amount),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.to,
-                    ),
                 )
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(), self.id.clone())
+                (Self::SIGNATURE_HASH.into(), self.id.clone(), self.to.clone())
             }
             #[inline]
             fn encode_topics_raw(
@@ -4978,9 +4975,12 @@ event DepositNative(uint256 indexed id, uint256 amount, address to);
                 out[0usize] = alloy_sol_types::abi::token::WordToken(
                     Self::SIGNATURE_HASH,
                 );
-                out[1usize] = <alloy::sol_types::sol_data::Uint<
-                    256,
+                out[1usize] = <alloy::sol_types::sol_data::FixedBytes<
+                    32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.id);
+                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.to,
+                );
                 Ok(())
             }
         }
@@ -5613,6 +5613,7 @@ constructor(address _podRegistry, address _bridgeContract, IBridge.TokenLimits n
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Address,
@@ -5714,6 +5715,7 @@ function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -5747,6 +5749,7 @@ function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
@@ -5861,6 +5864,7 @@ function PAUSER_ROLE() external view returns (bytes32);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -5892,6 +5896,7 @@ function PAUSER_ROLE() external view returns (bytes32);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
@@ -6004,6 +6009,7 @@ function bridgeContract() external view returns (address);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -6035,6 +6041,7 @@ function bridgeContract() external view returns (address);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -6147,6 +6154,7 @@ function claim(PodECDSA.CertifiedLog memory certifiedLog) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (PodECDSA::CertifiedLog,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -6180,6 +6188,7 @@ function claim(PodECDSA.CertifiedLog memory certifiedLog) external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -6291,6 +6300,7 @@ function claimNative(PodECDSA.CertifiedLog memory certifiedLog) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (PodECDSA::CertifiedLog,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -6324,6 +6334,7 @@ function claimNative(PodECDSA.CertifiedLog memory certifiedLog) external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -6437,6 +6448,7 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Address,
                 IBridge::TokenLimits,
@@ -6477,6 +6489,7 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -6572,9 +6585,9 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `deposit(address,uint256,address)` and selector `0xf45346dc`.
+    /**Function with signature `deposit(address,uint256)` and selector `0x47e7ef24`.
 ```solidity
-function deposit(address token, uint256 amount, address to) external returns (uint256);
+function deposit(address token, uint256 amount) external returns (bytes32);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -6583,17 +6596,15 @@ function deposit(address token, uint256 amount, address to) external returns (ui
         pub token: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub amount: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
-        pub to: alloy::sol_types::private::Address,
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`deposit(address,uint256,address)`](depositCall) function.
+    ///Container type for the return parameters of the [`deposit(address,uint256)`](depositCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct depositReturn {
         #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+        pub _0: alloy::sol_types::private::FixedBytes<32>,
     }
     #[allow(
         non_camel_case_types,
@@ -6605,16 +6616,15 @@ function deposit(address token, uint256 amount, address to) external returns (ui
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
-                alloy::sol_types::sol_data::Address,
             );
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
                 alloy::sol_types::private::Address,
                 alloy::sol_types::private::primitives::aliases::U256,
-                alloy::sol_types::private::Address,
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
@@ -6631,7 +6641,7 @@ function deposit(address token, uint256 amount, address to) external returns (ui
             #[doc(hidden)]
             impl ::core::convert::From<depositCall> for UnderlyingRustTuple<'_> {
                 fn from(value: depositCall) -> Self {
-                    (value.token, value.amount, value.to)
+                    (value.token, value.amount)
                 }
             }
             #[automatically_derived]
@@ -6641,18 +6651,16 @@ function deposit(address token, uint256 amount, address to) external returns (ui
                     Self {
                         token: tuple.0,
                         amount: tuple.1,
-                        to: tuple.2,
                     }
                 }
             }
         }
         {
             #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U256,
-            );
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -6684,18 +6692,17 @@ function deposit(address token, uint256 amount, address to) external returns (ui
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
-                alloy::sol_types::sol_data::Address,
             );
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::primitives::aliases::U256;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type Return = alloy::sol_types::private::FixedBytes<32>;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "deposit(address,uint256,address)";
-            const SELECTOR: [u8; 4] = [244u8, 83u8, 70u8, 220u8];
+            const SIGNATURE: &'static str = "deposit(address,uint256)";
+            const SELECTOR: [u8; 4] = [71u8, 231u8, 239u8, 36u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -6711,16 +6718,13 @@ function deposit(address token, uint256 amount, address to) external returns (ui
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.amount),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.to,
-                    ),
                 )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
                     > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
@@ -6776,6 +6780,7 @@ function depositIndex() external view returns (uint256);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -6807,6 +6812,7 @@ function depositIndex() external view returns (uint256);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -6895,24 +6901,21 @@ function depositIndex() external view returns (uint256);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `depositNative(address)` and selector `0x33bb7f91`.
+    /**Function with signature `depositNative()` and selector `0xdb6b5246`.
 ```solidity
-function depositNative(address to) external payable returns (uint256);
+function depositNative() external payable returns (bytes32);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct depositNativeCall {
-        #[allow(missing_docs)]
-        pub to: alloy::sol_types::private::Address,
-    }
+    pub struct depositNativeCall;
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`depositNative(address)`](depositNativeCall) function.
+    ///Container type for the return parameters of the [`depositNative()`](depositNativeCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct depositNativeReturn {
         #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+        pub _0: alloy::sol_types::private::FixedBytes<32>,
     }
     #[allow(
         non_camel_case_types,
@@ -6924,9 +6927,10 @@ function depositNative(address to) external payable returns (uint256);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -6942,24 +6946,23 @@ function depositNative(address to) external payable returns (uint256);
             #[doc(hidden)]
             impl ::core::convert::From<depositNativeCall> for UnderlyingRustTuple<'_> {
                 fn from(value: depositNativeCall) -> Self {
-                    (value.to,)
+                    ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for depositNativeCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { to: tuple.0 }
+                    Self
                 }
             }
         }
         {
             #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U256,
-            );
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -6988,17 +6991,17 @@ function depositNative(address to) external payable returns (uint256);
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for depositNativeCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
+            type Parameters<'a> = ();
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::primitives::aliases::U256;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type Return = alloy::sol_types::private::FixedBytes<32>;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "depositNative(address)";
-            const SELECTOR: [u8; 4] = [51u8, 187u8, 127u8, 145u8];
+            const SIGNATURE: &'static str = "depositNative()";
+            const SELECTOR: [u8; 4] = [219u8, 107u8, 82u8, 70u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -7007,17 +7010,13 @@ function depositNative(address to) external payable returns (uint256);
             }
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.to,
-                    ),
-                )
+                ()
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
                     > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
@@ -7076,6 +7075,7 @@ function getRoleAdmin(bytes32 role) external view returns (bytes32);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
@@ -7107,6 +7107,7 @@ function getRoleAdmin(bytes32 role) external view returns (bytes32);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
@@ -7223,6 +7224,7 @@ function grantRole(bytes32 role, address account) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
@@ -7263,6 +7265,7 @@ function grantRole(bytes32 role, address account) external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -7387,6 +7390,7 @@ function hasRole(bytes32 role, address account) external view returns (bool);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
@@ -7427,6 +7431,7 @@ function hasRole(bytes32 role, address account) external view returns (bool);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (bool,);
@@ -7547,6 +7552,7 @@ function migrate(address _newContract) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -7578,6 +7584,7 @@ function migrate(address _newContract) external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -7691,6 +7698,7 @@ function migratedContract() external view returns (address);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -7724,6 +7732,7 @@ function migratedContract() external view returns (address);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -7838,6 +7847,7 @@ function mirrorTokens(address) external view returns (address);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -7869,6 +7879,7 @@ function mirrorTokens(address) external view returns (address);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -7980,6 +7991,7 @@ function pause() external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -8011,6 +8023,7 @@ function pause() external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -8120,6 +8133,7 @@ function paused() external view returns (bool);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -8151,6 +8165,7 @@ function paused() external view returns (bool);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (bool,);
@@ -8267,6 +8282,7 @@ function podConfig() external view returns (uint8 thresholdNumerator, uint8 thre
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -8298,6 +8314,7 @@ function podConfig() external view returns (uint8 thresholdNumerator, uint8 thre
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Uint<8>,
                 alloy::sol_types::sol_data::Uint<8>,
@@ -8433,6 +8450,7 @@ function processedRequests(bytes32) external view returns (bool);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
@@ -8466,6 +8484,7 @@ function processedRequests(bytes32) external view returns (bool);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (bool,);
@@ -8584,6 +8603,7 @@ function renounceRole(bytes32 role, address callerConfirmation) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
@@ -8624,6 +8644,7 @@ function renounceRole(bytes32 role, address callerConfirmation) external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -8743,6 +8764,7 @@ function revokeRole(bytes32 role, address account) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
@@ -8783,6 +8805,7 @@ function revokeRole(bytes32 role, address account) external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -8905,6 +8928,7 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<4>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<4>,);
@@ -8938,6 +8962,7 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (bool,);
@@ -9060,6 +9085,7 @@ function tokenData(address) external view returns (IBridge.TokenLimits memory li
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -9091,6 +9117,7 @@ function tokenData(address) external view returns (IBridge.TokenLimits memory li
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 IBridge::TokenLimits,
                 IBridge::TokenUsage,
@@ -9225,6 +9252,7 @@ function unpause() external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -9256,6 +9284,7 @@ function unpause() external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -9365,6 +9394,7 @@ function usedNonces(uint256) external view returns (bool);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -9398,6 +9428,7 @@ function usedNonces(uint256) external view returns (bool);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (bool,);
@@ -9516,6 +9547,7 @@ function whiteListToken(address token, address mirrorToken, IBridge.TokenLimits 
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Address,
@@ -9559,6 +9591,7 @@ function whiteListToken(address token, address mirrorToken, IBridge.TokenLimits 
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -9686,6 +9719,7 @@ function whitelistedTokens(uint256) external view returns (address);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -9721,6 +9755,7 @@ function whitelistedTokens(uint256) external view returns (address);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -9812,6 +9847,7 @@ function whitelistedTokens(uint256) external view returns (address);
         }
     };
     ///Container for all the [`BridgeDepositWithdraw`](self) function calls.
+    #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum BridgeDepositWithdrawCalls {
@@ -9870,7 +9906,6 @@ function whitelistedTokens(uint256) external view returns (address);
         #[allow(missing_docs)]
         whitelistedTokens(whitelistedTokensCall),
     }
-    #[automatically_derived]
     impl BridgeDepositWithdrawCalls {
         /// All the selectors of this enum.
         ///
@@ -9884,10 +9919,10 @@ function whitelistedTokens(uint256) external view returns (address);
             [36u8, 138u8, 156u8, 163u8],
             [39u8, 228u8, 92u8, 44u8],
             [47u8, 47u8, 241u8, 93u8],
-            [51u8, 187u8, 127u8, 145u8],
             [54u8, 86u8, 138u8, 190u8],
             [63u8, 75u8, 168u8, 58u8],
             [67u8, 25u8, 230u8, 219u8],
+            [71u8, 231u8, 239u8, 36u8],
             [87u8, 20u8, 59u8, 225u8],
             [92u8, 151u8, 90u8, 187u8],
             [103u8, 23u8, 228u8, 28u8],
@@ -9902,11 +9937,91 @@ function whitelistedTokens(uint256) external view returns (address);
             [206u8, 84u8, 148u8, 187u8],
             [211u8, 40u8, 97u8, 59u8],
             [213u8, 71u8, 116u8, 31u8],
+            [219u8, 107u8, 82u8, 70u8],
             [230u8, 58u8, 177u8, 233u8],
-            [244u8, 83u8, 70u8, 220u8],
             [252u8, 92u8, 92u8, 179u8],
             [254u8, 174u8, 180u8, 62u8],
         ];
+        /// The names of the variants in the same order as `SELECTORS`.
+        pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(supportsInterface),
+            ::core::stringify!(whitelistedTokens),
+            ::core::stringify!(getRoleAdmin),
+            ::core::stringify!(tokenData),
+            ::core::stringify!(grantRole),
+            ::core::stringify!(renounceRole),
+            ::core::stringify!(unpause),
+            ::core::stringify!(claim),
+            ::core::stringify!(deposit),
+            ::core::stringify!(claimNative),
+            ::core::stringify!(paused),
+            ::core::stringify!(usedNonces),
+            ::core::stringify!(migratedContract),
+            ::core::stringify!(depositIndex),
+            ::core::stringify!(pause),
+            ::core::stringify!(hasRole),
+            ::core::stringify!(configureToken),
+            ::core::stringify!(DEFAULT_ADMIN_ROLE),
+            ::core::stringify!(bridgeContract),
+            ::core::stringify!(processedRequests),
+            ::core::stringify!(migrate),
+            ::core::stringify!(podConfig),
+            ::core::stringify!(revokeRole),
+            ::core::stringify!(depositNative),
+            ::core::stringify!(PAUSER_ROLE),
+            ::core::stringify!(whiteListToken),
+            ::core::stringify!(mirrorTokens),
+        ];
+        /// The signatures in the same order as `SELECTORS`.
+        pub const SIGNATURES: &'static [&'static str] = &[
+            <supportsInterfaceCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <whitelistedTokensCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getRoleAdminCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <tokenDataCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <grantRoleCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <renounceRoleCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <unpauseCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <claimCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <depositCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <claimNativeCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <pausedCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <usedNoncesCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <migratedContractCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <depositIndexCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <pauseCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <hasRoleCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <configureTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <DEFAULT_ADMIN_ROLECall as alloy_sol_types::SolCall>::SIGNATURE,
+            <bridgeContractCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <processedRequestsCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <migrateCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <podConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <revokeRoleCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <depositNativeCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <PAUSER_ROLECall as alloy_sol_types::SolCall>::SIGNATURE,
+            <whiteListTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <mirrorTokensCall as alloy_sol_types::SolCall>::SIGNATURE,
+        ];
+        /// Returns the signature for the given selector, if known.
+        #[inline]
+        pub fn signature_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            match Self::SELECTORS.binary_search(&selector) {
+                ::core::result::Result::Ok(idx) => {
+                    ::core::option::Option::Some(Self::SIGNATURES[idx])
+                }
+                ::core::result::Result::Err(_) => ::core::option::Option::None,
+            }
+        }
+        /// Returns the enum variant name for the given selector, if known.
+        #[inline]
+        pub fn name_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            let sig = Self::signature_by_selector(selector)?;
+            sig.split_once('(').map(|(name, _)| name)
+        }
     }
     #[automatically_derived]
     impl alloy_sol_types::SolInterface for BridgeDepositWithdrawCalls {
@@ -10054,17 +10169,6 @@ function whitelistedTokens(uint256) external view returns (address);
                     grantRole
                 },
                 {
-                    fn depositNative(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <depositNativeCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::depositNative)
-                    }
-                    depositNative
-                },
-                {
                     fn renounceRole(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -10092,6 +10196,15 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::claim)
                     }
                     claim
+                },
+                {
+                    fn deposit(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <depositCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(BridgeDepositWithdrawCalls::deposit)
+                    }
+                    deposit
                 },
                 {
                     fn claimNative(
@@ -10238,6 +10351,17 @@ function whitelistedTokens(uint256) external view returns (address);
                     revokeRole
                 },
                 {
+                    fn depositNative(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <depositNativeCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(BridgeDepositWithdrawCalls::depositNative)
+                    }
+                    depositNative
+                },
+                {
                     fn PAUSER_ROLE(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -10247,15 +10371,6 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::PAUSER_ROLE)
                     }
                     PAUSER_ROLE
-                },
-                {
-                    fn deposit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <depositCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(BridgeDepositWithdrawCalls::deposit)
-                    }
-                    deposit
                 },
                 {
                     fn whiteListToken(
@@ -10355,17 +10470,6 @@ function whitelistedTokens(uint256) external view returns (address);
                     grantRole
                 },
                 {
-                    fn depositNative(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <depositNativeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::depositNative)
-                    }
-                    depositNative
-                },
-                {
                     fn renounceRole(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -10397,6 +10501,17 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::claim)
                     }
                     claim
+                },
+                {
+                    fn deposit(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <depositCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(BridgeDepositWithdrawCalls::deposit)
+                    }
+                    deposit
                 },
                 {
                     fn claimNative(
@@ -10553,6 +10668,17 @@ function whitelistedTokens(uint256) external view returns (address);
                     revokeRole
                 },
                 {
+                    fn depositNative(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <depositNativeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(BridgeDepositWithdrawCalls::depositNative)
+                    }
+                    depositNative
+                },
+                {
                     fn PAUSER_ROLE(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -10562,17 +10688,6 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::PAUSER_ROLE)
                     }
                     PAUSER_ROLE
-                },
-                {
-                    fn deposit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <depositCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::deposit)
-                    }
-                    deposit
                 },
                 {
                     fn whiteListToken(
@@ -10871,6 +10986,7 @@ function whitelistedTokens(uint256) external view returns (address);
         }
     }
     ///Container for all the [`BridgeDepositWithdraw`](self) custom errors.
+    #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum BridgeDepositWithdrawErrors {
@@ -10907,7 +11023,6 @@ function whitelistedTokens(uint256) external view returns (address);
         #[allow(missing_docs)]
         SafeERC20FailedOperation(SafeERC20FailedOperation),
     }
-    #[automatically_derived]
     impl BridgeDepositWithdrawErrors {
         /// All the selectors of this enum.
         ///
@@ -10933,6 +11048,64 @@ function whitelistedTokens(uint256) external view returns (address);
             [217u8, 60u8, 6u8, 101u8],
             [226u8, 81u8, 125u8, 63u8],
         ];
+        /// The names of the variants in the same order as `SELECTORS`.
+        pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(InvalidTokenConfig),
+            ::core::stringify!(InvalidCertificate),
+            ::core::stringify!(InvalidTokenAmount),
+            ::core::stringify!(ContractMigrated),
+            ::core::stringify!(SafeERC20FailedOperation),
+            ::core::stringify!(AccessControlBadConfirmation),
+            ::core::stringify!(InvalidBridgeContract),
+            ::core::stringify!(InvalidNonce),
+            ::core::stringify!(InvalidToAddress),
+            ::core::stringify!(ExpectedPause),
+            ::core::stringify!(RequestAlreadyProcessed),
+            ::core::stringify!(MirrorTokenNotFound),
+            ::core::stringify!(DailyLimitExhausted),
+            ::core::stringify!(InvalidDepositLog),
+            ::core::stringify!(EnforcedPause),
+            ::core::stringify!(AccessControlUnauthorizedAccount),
+        ];
+        /// The signatures in the same order as `SELECTORS`.
+        pub const SIGNATURES: &'static [&'static str] = &[
+            <InvalidTokenConfig as alloy_sol_types::SolError>::SIGNATURE,
+            <InvalidCertificate as alloy_sol_types::SolError>::SIGNATURE,
+            <InvalidTokenAmount as alloy_sol_types::SolError>::SIGNATURE,
+            <ContractMigrated as alloy_sol_types::SolError>::SIGNATURE,
+            <SafeERC20FailedOperation as alloy_sol_types::SolError>::SIGNATURE,
+            <AccessControlBadConfirmation as alloy_sol_types::SolError>::SIGNATURE,
+            <InvalidBridgeContract as alloy_sol_types::SolError>::SIGNATURE,
+            <InvalidNonce as alloy_sol_types::SolError>::SIGNATURE,
+            <InvalidToAddress as alloy_sol_types::SolError>::SIGNATURE,
+            <ExpectedPause as alloy_sol_types::SolError>::SIGNATURE,
+            <RequestAlreadyProcessed as alloy_sol_types::SolError>::SIGNATURE,
+            <MirrorTokenNotFound as alloy_sol_types::SolError>::SIGNATURE,
+            <DailyLimitExhausted as alloy_sol_types::SolError>::SIGNATURE,
+            <InvalidDepositLog as alloy_sol_types::SolError>::SIGNATURE,
+            <EnforcedPause as alloy_sol_types::SolError>::SIGNATURE,
+            <AccessControlUnauthorizedAccount as alloy_sol_types::SolError>::SIGNATURE,
+        ];
+        /// Returns the signature for the given selector, if known.
+        #[inline]
+        pub fn signature_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            match Self::SELECTORS.binary_search(&selector) {
+                ::core::result::Result::Ok(idx) => {
+                    ::core::option::Option::Some(Self::SIGNATURES[idx])
+                }
+                ::core::result::Result::Err(_) => ::core::option::Option::None,
+            }
+        }
+        /// Returns the enum variant name for the given selector, if known.
+        #[inline]
+        pub fn name_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            let sig = Self::signature_by_selector(selector)?;
+            sig.split_once('(').map(|(name, _)| name)
+        }
     }
     #[automatically_derived]
     impl alloy_sol_types::SolInterface for BridgeDepositWithdrawErrors {
@@ -11580,6 +11753,7 @@ function whitelistedTokens(uint256) external view returns (address);
         }
     }
     ///Container for all the [`BridgeDepositWithdraw`](self) events.
+    #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum BridgeDepositWithdrawEvents {
@@ -11602,7 +11776,6 @@ function whitelistedTokens(uint256) external view returns (address);
         #[allow(missing_docs)]
         Unpaused(Unpaused),
     }
-    #[automatically_derived]
     impl BridgeDepositWithdrawEvents {
         /// All the selectors of this enum.
         ///
@@ -11612,20 +11785,9 @@ function whitelistedTokens(uint256) external view returns (address);
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                5u8, 229u8, 127u8, 166u8, 45u8, 137u8, 6u8, 3u8, 216u8, 89u8, 68u8,
-                201u8, 99u8, 221u8, 199u8, 251u8, 231u8, 124u8, 222u8, 94u8, 166u8,
-                156u8, 173u8, 112u8, 51u8, 252u8, 111u8, 118u8, 183u8, 221u8, 210u8,
-                171u8,
-            ],
-            [
                 47u8, 135u8, 136u8, 17u8, 126u8, 126u8, 255u8, 29u8, 130u8, 233u8, 38u8,
                 236u8, 121u8, 73u8, 1u8, 209u8, 124u8, 120u8, 2u8, 74u8, 80u8, 39u8, 9u8,
                 64u8, 48u8, 69u8, 64u8, 167u8, 51u8, 101u8, 111u8, 13u8,
-            ],
-            [
-                64u8, 53u8, 43u8, 99u8, 208u8, 169u8, 201u8, 41u8, 131u8, 252u8, 241u8,
-                157u8, 140u8, 63u8, 194u8, 140u8, 160u8, 188u8, 200u8, 250u8, 159u8,
-                254u8, 181u8, 190u8, 40u8, 225u8, 74u8, 63u8, 117u8, 138u8, 179u8, 158u8,
             ],
             [
                 93u8, 185u8, 238u8, 10u8, 73u8, 91u8, 242u8, 230u8, 255u8, 156u8, 145u8,
@@ -11638,14 +11800,20 @@ function whitelistedTokens(uint256) external view returns (address);
                 71u8, 84u8, 235u8, 219u8, 252u8, 84u8, 75u8, 5u8, 162u8, 88u8,
             ],
             [
-                145u8, 49u8, 104u8, 218u8, 7u8, 195u8, 247u8, 245u8, 243u8, 197u8, 35u8,
-                147u8, 51u8, 22u8, 50u8, 139u8, 13u8, 6u8, 17u8, 182u8, 39u8, 241u8,
-                46u8, 177u8, 28u8, 34u8, 202u8, 68u8, 251u8, 177u8, 157u8, 198u8,
+                160u8, 185u8, 156u8, 15u8, 223u8, 195u8, 149u8, 114u8, 77u8, 123u8,
+                129u8, 168u8, 138u8, 109u8, 116u8, 133u8, 36u8, 97u8, 247u8, 105u8, 19u8,
+                113u8, 175u8, 226u8, 131u8, 155u8, 184u8, 104u8, 132u8, 117u8, 120u8,
+                140u8,
             ],
             [
-                175u8, 63u8, 26u8, 18u8, 52u8, 75u8, 190u8, 170u8, 185u8, 84u8, 212u8,
-                18u8, 232u8, 33u8, 214u8, 182u8, 160u8, 109u8, 92u8, 213u8, 210u8, 123u8,
-                226u8, 4u8, 53u8, 59u8, 212u8, 234u8, 155u8, 85u8, 165u8, 4u8,
+                178u8, 88u8, 23u8, 213u8, 27u8, 241u8, 250u8, 240u8, 36u8, 243u8, 131u8,
+                55u8, 19u8, 111u8, 102u8, 250u8, 119u8, 142u8, 125u8, 165u8, 162u8, 8u8,
+                136u8, 236u8, 88u8, 86u8, 13u8, 101u8, 94u8, 216u8, 36u8, 71u8,
+            ],
+            [
+                185u8, 238u8, 36u8, 65u8, 145u8, 237u8, 7u8, 155u8, 131u8, 217u8, 133u8,
+                225u8, 78u8, 245u8, 203u8, 86u8, 86u8, 217u8, 106u8, 72u8, 70u8, 37u8,
+                36u8, 241u8, 250u8, 152u8, 139u8, 214u8, 249u8, 112u8, 225u8, 166u8,
             ],
             [
                 189u8, 121u8, 184u8, 111u8, 254u8, 10u8, 184u8, 232u8, 119u8, 97u8, 81u8,
@@ -11653,11 +11821,60 @@ function whitelistedTokens(uint256) external view returns (address);
                 71u8, 92u8, 58u8, 244u8, 78u8, 18u8, 159u8, 11u8, 0u8, 255u8,
             ],
             [
+                221u8, 251u8, 229u8, 137u8, 72u8, 60u8, 114u8, 107u8, 28u8, 248u8, 205u8,
+                63u8, 55u8, 139u8, 211u8, 157u8, 9u8, 213u8, 134u8, 212u8, 46u8, 64u8,
+                69u8, 194u8, 161u8, 50u8, 237u8, 203u8, 22u8, 50u8, 188u8, 179u8,
+            ],
+            [
                 246u8, 57u8, 31u8, 92u8, 50u8, 217u8, 198u8, 157u8, 42u8, 71u8, 234u8,
                 103u8, 11u8, 68u8, 41u8, 116u8, 181u8, 57u8, 53u8, 209u8, 237u8, 199u8,
                 253u8, 100u8, 235u8, 33u8, 224u8, 71u8, 168u8, 57u8, 23u8, 27u8,
             ],
         ];
+        /// The names of the variants in the same order as `SELECTORS`.
+        pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(RoleGranted),
+            ::core::stringify!(Unpaused),
+            ::core::stringify!(Paused),
+            ::core::stringify!(Claim),
+            ::core::stringify!(Deposit),
+            ::core::stringify!(DepositNative),
+            ::core::stringify!(RoleAdminChanged),
+            ::core::stringify!(ClaimNative),
+            ::core::stringify!(RoleRevoked),
+        ];
+        /// The signatures in the same order as `SELECTORS`.
+        pub const SIGNATURES: &'static [&'static str] = &[
+            <RoleGranted as alloy_sol_types::SolEvent>::SIGNATURE,
+            <Unpaused as alloy_sol_types::SolEvent>::SIGNATURE,
+            <Paused as alloy_sol_types::SolEvent>::SIGNATURE,
+            <Claim as alloy_sol_types::SolEvent>::SIGNATURE,
+            <Deposit as alloy_sol_types::SolEvent>::SIGNATURE,
+            <DepositNative as alloy_sol_types::SolEvent>::SIGNATURE,
+            <RoleAdminChanged as alloy_sol_types::SolEvent>::SIGNATURE,
+            <ClaimNative as alloy_sol_types::SolEvent>::SIGNATURE,
+            <RoleRevoked as alloy_sol_types::SolEvent>::SIGNATURE,
+        ];
+        /// Returns the signature for the given selector, if known.
+        #[inline]
+        pub fn signature_by_selector(
+            selector: [u8; 32usize],
+        ) -> ::core::option::Option<&'static str> {
+            match Self::SELECTORS.binary_search(&selector) {
+                ::core::result::Result::Ok(idx) => {
+                    ::core::option::Option::Some(Self::SIGNATURES[idx])
+                }
+                ::core::result::Result::Err(_) => ::core::option::Option::None,
+            }
+        }
+        /// Returns the enum variant name for the given selector, if known.
+        #[inline]
+        pub fn name_by_selector(
+            selector: [u8; 32usize],
+        ) -> ::core::option::Option<&'static str> {
+            let sig = Self::signature_by_selector(selector)?;
+            sig.split_once('(').map(|(name, _)| name)
+        }
     }
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for BridgeDepositWithdrawEvents {
@@ -11808,9 +12025,9 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
         N: alloy_contract::private::Network,
     >(
         address: alloy_sol_types::private::Address,
-        provider: P,
+        __provider: P,
     ) -> BridgeDepositWithdrawInstance<P, N> {
-        BridgeDepositWithdrawInstance::<P, N>::new(address, provider)
+        BridgeDepositWithdrawInstance::<P, N>::new(address, __provider)
     }
     /**A [`BridgeDepositWithdraw`](self) instance.
 
@@ -11837,7 +12054,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -11848,11 +12064,11 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
         #[inline]
         pub const fn new(
             address: alloy_sol_types::private::Address,
-            provider: P,
+            __provider: P,
         ) -> Self {
             Self {
                 address,
-                provider,
+                provider: __provider,
                 _network: ::core::marker::PhantomData,
             }
         }
@@ -11889,7 +12105,6 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -11954,9 +12169,8 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
             &self,
             token: alloy::sol_types::private::Address,
             amount: alloy::sol_types::private::primitives::aliases::U256,
-            to: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, depositCall, N> {
-            self.call_builder(&depositCall { token, amount, to })
+            self.call_builder(&depositCall { token, amount })
         }
         ///Creates a new call builder for the [`depositIndex`] function.
         pub fn depositIndex(
@@ -11967,9 +12181,8 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
         ///Creates a new call builder for the [`depositNative`] function.
         pub fn depositNative(
             &self,
-            to: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, depositNativeCall, N> {
-            self.call_builder(&depositNativeCall { to })
+            self.call_builder(&depositNativeCall)
         }
         ///Creates a new call builder for the [`getRoleAdmin`] function.
         pub fn getRoleAdmin(
@@ -12107,7 +12320,6 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,

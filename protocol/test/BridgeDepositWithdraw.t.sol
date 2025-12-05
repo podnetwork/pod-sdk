@@ -61,11 +61,11 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
     function test_DepositIndex_IncrementsSequentially() public {
         uint256 beforeIdx = _bridge.depositIndex();
         vm.prank(user);
-        bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
+        bridge().deposit(address(token()), tokenLimits.minAmount);
         assertEq(_bridge.depositIndex(), beforeIdx + 1);
 
         vm.prank(user);
-        bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
+        bridge().deposit(address(token()), tokenLimits.minAmount);
         assertEq(_bridge.depositIndex(), beforeIdx + 2);
     }
 
@@ -73,23 +73,23 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         uint256 ub = _token.balanceOf(user);
         uint256 bb = _token.balanceOf(address(_bridge));
         vm.prank(user);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, recipient);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(user), ub - DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_bridge)), bb + DEPOSIT_AMOUNT);
     }
 
     function test_Claim() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, recipient);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT);
 
         vm.prank(user);
         PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(3);
-        assertEq(_token.balanceOf(recipient), 0);
+        uint256 initial_balance = _token.balanceOf(user);
         assertEq(_token.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Claim(0, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, recipient);
+        emit IBridge.Claim(0, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
         _bridge.claim(certifiedLog);
-        assertEq(_token.balanceOf(recipient), DEPOSIT_AMOUNT);
+        assertEq(_token.balanceOf(user), initial_balance + DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_bridge)), 0);
 
         (, IBridge.TokenUsage memory depositUsage, IBridge.TokenUsage memory claimUsage) =
@@ -126,7 +126,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
 
     function test_Claim_RevertIfAlreadyClaimed() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, recipient);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT);
         PodECDSA.CertifiedLog memory certifiedLog = createCertifiedLog(3);
         _bridge.claim(certifiedLog);
         vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
@@ -136,15 +136,15 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
     function test_ClaimNative() public {
         vm.deal(admin, DEPOSIT_AMOUNT);
         vm.prank(admin);
-        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}();
         assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
-        assertEq(recipient.balance, 0);
+        assertEq(user.balance, 0);
         PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
         vm.expectEmit(true, false, false, true);
-        emit IBridge.ClaimNative(0, DEPOSIT_AMOUNT, recipient);
+        emit IBridge.ClaimNative(0, DEPOSIT_AMOUNT, user);
         _bridge.claimNative(certifiedLog);
         assertEq(address(bridge()).balance, 0);
-        assertEq(recipient.balance, DEPOSIT_AMOUNT);
+        assertEq(user.balance, DEPOSIT_AMOUNT);
         (, IBridge.TokenUsage memory dep, IBridge.TokenUsage memory claimUsage) =
             bridge().tokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT);
         assertEq(dep.consumed, DEPOSIT_AMOUNT);
@@ -176,20 +176,20 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
     function test_ClaimNative_RevertIfInvalidAmount() public {
         vm.deal(admin, DEPOSIT_AMOUNT);
         vm.prank(admin);
-        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}();
         PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
-        certifiedLog.log.data = abi.encode(nativeTokenLimits.minAmount - 1, recipient);
+        certifiedLog.log.data = abi.encode(nativeTokenLimits.minAmount - 1, user);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
         _bridge.claimNative(certifiedLog);
         assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
-        assertEq(recipient.balance, 0);
+        assertEq(user.balance, 0);
     }
 
     function test_ClaimNative_RevertIfInvalidCertificate() public {
         // invalid leaf
         vm.deal(admin, DEPOSIT_AMOUNT);
         vm.prank(admin);
-        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}();
         PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
         certifiedLog.certificate.leaf = bytes32(0);
         vm.expectRevert(abi.encodeWithSelector(IBridgeDepositWithdraw.InvalidCertificate.selector));
@@ -210,7 +210,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
     function test_ClaimNative_RevertIfAlreadyClaimed() public {
         vm.deal(admin, DEPOSIT_AMOUNT);
         vm.prank(admin);
-        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}();
         PodECDSA.CertifiedLog memory certifiedLog = createNativeCertifiedLog(3);
         _bridge.claimNative(certifiedLog);
         vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
@@ -247,7 +247,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
 
     function test_Migrate_TransfersAllTokenBalances() public {
         vm.prank(user);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, recipient);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT);
         vm.prank(admin);
         _bridge.pause();
         uint256 beforeAmt = _token.balanceOf(address(_bridge));
@@ -270,25 +270,25 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         _token.mint(u, DEPOSIT_AMOUNT);
         vm.prank(u);
         vm.expectRevert();
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, recipient);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT);
     }
 
     function test_DepositNative_EmitsEvent() public {
         vm.deal(user, DEPOSIT_AMOUNT);
         vm.expectEmit(true, true, true, true);
-        emit IBridge.DepositNative(0, DEPOSIT_AMOUNT, recipient);
+        emit IBridge.DepositNative(0, DEPOSIT_AMOUNT, user);
         vm.prank(user);
-        bridge().depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        bridge().depositNative{value: DEPOSIT_AMOUNT}();
         assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
     }
 
     function test_DepositNative_IncrementsIndexSequentially() public {
         vm.deal(user, 2 * DEPOSIT_AMOUNT);
         vm.prank(user);
-        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}();
         assertEq(_bridge.depositIndex(), 1);
         vm.prank(user);
-        _bridge.depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        _bridge.depositNative{value: DEPOSIT_AMOUNT}();
         assertEq(_bridge.depositIndex(), 2);
     }
 
@@ -311,7 +311,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         vm.prank(user);
         _token.approve(address(_bridge), type(uint256).max);
         vm.prank(user);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, address(1));
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT);
         vm.prank(admin);
         _bridge.pause();
         vm.prank(admin);
@@ -344,7 +344,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         );
 
         vm.prank(user);
-        bridge().deposit(address(token()), tokenLimits.minAmount, recipient);
+        bridge().deposit(address(token()), tokenLimits.minAmount);
         (, IBridge.TokenUsage memory dep1,) = bridge().tokenData(address(token()));
         assertEq(dep1.consumed, tokenLimits.minAmount);
 
@@ -359,11 +359,11 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
     {
         bytes32 receiptRoot = 0xb971e2eaeaab46dbad2fa4ed54edbaac586939dbc33c73315903a80bcc931b39;
         bytes32[] memory topics = new bytes32[](3);
-        topics[0] = keccak256("Deposit(uint256,address,uint256,address)");
+        topics[0] = keccak256("Deposit(bytes32,address,uint256,address)");
         topics[1] = bytes32(uint256(0));
         topics[2] = bytes32(uint256(uint160(MIRROR_TOKEN)));
 
-        bytes memory data = abi.encode(DEPOSIT_AMOUNT, recipient);
+        bytes memory data = abi.encode(DEPOSIT_AMOUNT, user);
 
         bytes32[] memory merklePath = new bytes32[](4);
 
@@ -410,10 +410,10 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
     {
         bytes32 receiptRoot = 0x53530f2085bae5343304dc02eba7f347453fe00ad74f5acf9f0aced719fe4a03;
         bytes32[] memory topics = new bytes32[](2);
-        topics[0] = keccak256("DepositNative(uint256,uint256,address)");
+        topics[0] = keccak256("DepositNative(bytes32,uint256,address)");
         topics[1] = bytes32(uint256(0));
 
-        bytes memory data = abi.encode(DEPOSIT_AMOUNT, recipient);
+        bytes memory data = abi.encode(DEPOSIT_AMOUNT, user);
 
         bytes32[] memory merklePath = new bytes32[](3);
 

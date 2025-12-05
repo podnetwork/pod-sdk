@@ -50,12 +50,12 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     function _decodeDepositLog(PodECDSA.Log calldata log)
         internal
         pure
-        returns (uint256 id, address token, uint256 amount, address to)
+        returns (bytes32 id, address token, uint256 amount, address to)
     {
         if (log.topics[0] != DEPOSIT_TOPIC_0 || log.topics.length != 3) {
             revert InvalidDepositLog();
         }
-        id = uint256(log.topics[1]);
+        id = log.topics[1];
         token = address(uint160(uint256(log.topics[2])));
         (amount, to) = abi.decode(log.data, (uint256, address));
     }
@@ -70,12 +70,12 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     function _decodeDepositNativeLog(PodECDSA.Log calldata log)
         internal
         pure
-        returns (uint256 id, uint256 amount, address to)
+        returns (bytes32 id, uint256 amount, address to)
     {
         if (log.topics[0] != DEPOSIT_NATIVE_TOPIC_0 || log.topics.length != 2) {
             revert InvalidDepositLog();
         }
-        id = uint256(log.topics[1]);
+        id = log.topics[1];
         (amount, to) = abi.decode(log.data, (uint256, address));
     }
 
@@ -92,8 +92,8 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
      * @dev Internal function to get the deposit ID.
      * @return id The request ID of the deposit.
      */
-    function _getDepositId() internal override returns (uint256) {
-        return depositIndex++;
+    function _getDepositId() internal override returns (bytes32) {
+        return bytes32(depositIndex++);
     }
 
     /**
@@ -114,7 +114,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
      * @inheritdoc IBridgeDepositWithdraw
      */
     function claim(PodECDSA.CertifiedLog calldata certifiedLog) public override whenNotPaused {
-        (uint256 id, address token, uint256 amount, address to) = _decodeDepositLog(certifiedLog.log);
+        (bytes32 id, address token, uint256 amount, address to) = _decodeDepositLog(certifiedLog.log);
         address mirrorToken = mirrorTokens[token];
         if (mirrorToken == address(0)) revert MirrorTokenNotFound();
 
@@ -138,7 +138,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
      * @inheritdoc IBridgeDepositWithdraw
      */
     function claimNative(PodECDSA.CertifiedLog calldata certifiedLog) public override whenNotPaused {
-        (uint256 id, uint256 amount, address to) = _decodeDepositNativeLog(certifiedLog.log);
+        (bytes32 id, uint256 amount, address to) = _decodeDepositNativeLog(certifiedLog.log);
 
         if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, amount, false)) revert InvalidTokenAmount();
 

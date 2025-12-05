@@ -66,7 +66,7 @@ interface IBridge {
      * @param amount The amount of tokens to bridge.
      * @param to The address to send the tokens to.
      */
-    event Deposit(uint256 indexed id, address indexed token, uint256 amount, address to);
+    event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address indexed to);
 
     /**
      * @dev Event emitted when a native deposit is made.
@@ -74,7 +74,7 @@ interface IBridge {
      * @param amount The amount of native tokens to bridge.
      * @param to The address to send the native tokens to.
      */
-    event DepositNative(uint256 indexed id, uint256 amount, address to);
+    event DepositNative(bytes32 indexed id, uint256 amount, address indexed to);
 
     /**
      * @dev Event emitted when a claim is made.
@@ -84,7 +84,7 @@ interface IBridge {
      * @param amount The amount of tokens to bridge.
      * @param to The address to send the tokens to.
      */
-    event Claim(uint256 indexed id, address indexed mirrorToken, address indexed token, uint256 amount, address to);
+    event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
 
     /**
      * @dev Event emitted when a native claim is made.
@@ -92,7 +92,7 @@ interface IBridge {
      * @param amount The amount of native tokens to bridge.
      * @param to The address to send the native tokens to.
      */
-    event ClaimNative(uint256 indexed id, uint256 amount, address to);
+    event ClaimNative(bytes32 indexed id, uint256 amount, address indexed to);
 
     /**
      * @dev Token limits.
@@ -161,18 +161,16 @@ interface IBridge {
      * @notice Function used to bridge tokens to the destination chain.
      * @param token The token to bridge.
      * @param amount The amount of tokens to bridge.
-     * @param to The address to send the tokens to on the destination chain.
      * @return id The request index.
      */
-    function deposit(address token, uint256 amount, address to) external returns (uint256);
+    function deposit(address token, uint256 amount) external returns (bytes32);
 
     /**
      * @dev Deposit native tokens to bridge to the destination chain.
      * @notice Function used to bridge native tokens to the destination chain.
-     * @param to The address to send the native tokens to on the destination chain.
      * @return id The request index.
      */
-    function depositNative(address to) external payable returns (uint256);
+    function depositNative() external payable returns (bytes32);
 
     /**
      * @dev Pauses the contract.

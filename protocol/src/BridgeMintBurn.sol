@@ -68,17 +68,17 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
      * @dev Internal function to get the deposit ID.
      * @return id The request ID of the deposit.
      */
-    function _getDepositId() internal view override returns (uint256) {
+    function _getDepositId() internal view override returns (bytes32) {
         return PodPrecompileHelper.getTxHash();
     }
 
     /**
      * @inheritdoc IBridgeMintBurn
      */
-    function claim(uint256 id, address token, uint256 blockNumber) external override whenNotPaused {
+    function claim(bytes32 id, address token, uint256 blockNumber) external override whenNotPaused {
         bytes32[] memory topics = new bytes32[](3);
         topics[0] = DEPOSIT_TOPIC_0;
-        topics[1] = bytes32(id);
+        topics[1] = id;
         topics[2] = bytes32(uint256(uint160(token)));
 
         uint256 finalizedBlockNumber = PodPrecompileHelper.getBlockByBlockTag(SOURCE_CHAIN_ID, block_tag_bytes);
@@ -104,7 +104,7 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         }
     }
 
-    function _claim(uint256 id, address token, uint256 blockNumber, bytes32[] memory topics)
+    function _claim(bytes32 id, address token, uint256 blockNumber, bytes32[] memory topics)
         internal
         view
         returns (uint256 decodedAmount, address decodedTo, bytes32 requestId)
@@ -124,10 +124,10 @@ contract BridgeMintBurn is Bridge, IBridgeMintBurn {
     /**
      * @inheritdoc IBridgeMintBurn
      */
-    function claimNative(uint256 id, uint256 blockNumber) external override whenNotPaused {
+    function claimNative(bytes32 id, uint256 blockNumber) external override whenNotPaused {
         bytes32[] memory topics = new bytes32[](2);
         topics[0] = DEPOSIT_NATIVE_TOPIC_0;
-        topics[1] = bytes32(id);
+        topics[1] = id;
 
         uint256 finalizedBlockNumber = PodPrecompileHelper.getBlockByBlockTag(SOURCE_CHAIN_ID, block_tag_bytes);
 

@@ -55,9 +55,9 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         assertEq(address(bridge()).balance, 0);
         emit IBridgeMintBurn.BurnNative(user, DEPOSIT_AMOUNT);
         vm.expectEmit(true, false, false, true);
-        emit IBridge.DepositNative(0, DEPOSIT_AMOUNT, recipient);
+        emit IBridge.DepositNative(0, DEPOSIT_AMOUNT, user);
         vm.prank(user);
-        bridge().depositNative{value: DEPOSIT_AMOUNT}(recipient);
+        bridge().depositNative{value: DEPOSIT_AMOUNT}();
         assertEq(address(0).balance, DEPOSIT_AMOUNT);
         assertEq(address(bridge()).balance, 0);
     }
@@ -67,24 +67,24 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         uint256 ts = _token.totalSupply();
         vm.prank(user);
         _mockTxInfo(TxInfo({txHash: bytes32(0), nonce: 0}));
-        bridge().deposit(address(_token), DEPOSIT_AMOUNT, recipient);
+        bridge().deposit(address(_token), DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(user), ub - DEPOSIT_AMOUNT);
         assertEq(_token.totalSupply(), ts - DEPOSIT_AMOUNT);
     }
 
     function test_Claim_SingleLog_MintsToRecipient() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, user);
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
         _mockEthGetBlockByNumber(2);
         _mockTxInfo(TxInfo({txHash: bytes32(0), nonce: 0}));
-        assertEq(_token.balanceOf(recipient), 0);
+        uint256 initial_balance = _token.balanceOf(user);
 
         vm.expectEmit(true, false, false, true);
-        emit IBridge.Claim(0, address(_token), MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
+        emit IBridge.Claim(0, address(_token), MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, user);
         _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
 
-        assertEq(_token.balanceOf(recipient), DEPOSIT_AMOUNT);
+        assertEq(_token.balanceOf(user), initial_balance + DEPOSIT_AMOUNT);
 
         (, IBridge.TokenUsage memory depositUsage, IBridge.TokenUsage memory claimUsage) =
             bridge().tokenData(address(_token));
@@ -95,11 +95,11 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function test_Claim_RevertIfDailyLimitExhausted() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, tokenLimits.claim + 1, recipient);
+        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, tokenLimits.claim + 1, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
-        _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
+        _bridge.claim(bytes32(0), MIRROR_TOKEN_ADDRESS, 1);
     }
 
     // TODO: redundant test, remove if the check is removed again.
@@ -115,19 +115,19 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function test_Claim_RevertIfDailyLimitExhausted_ButSucceedAfterOneDay() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
-        _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
-        logs[0] = _makeLog(1, MIRROR_TOKEN_ADDRESS, tokenLimits.claim, recipient);
+        _bridge.claim(bytes32(0), MIRROR_TOKEN_ADDRESS, 1);
+        logs[0] = _makeLog(1, MIRROR_TOKEN_ADDRESS, tokenLimits.claim, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(1, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
-        _bridge.claim(1, MIRROR_TOKEN_ADDRESS, 1);
+        _bridge.claim(bytes32(uint256(1)), MIRROR_TOKEN_ADDRESS, 1);
         vm.warp(block.timestamp + 1 days + 1);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(1, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
-        _bridge.claim(1, MIRROR_TOKEN_ADDRESS, 1);
+        _bridge.claim(bytes32(uint256(1)), MIRROR_TOKEN_ADDRESS, 1);
     }
 
     function test_Claim_RevertIfNoDepositsFound() public {
@@ -135,13 +135,13 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
-        _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
+        _bridge.claim(bytes32(0), MIRROR_TOKEN_ADDRESS, 1);
     }
 
     function test_Claim_RevertIfMultipleDepositsFound() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](2);
-        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
-        logs[1] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, user);
+        logs[1] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
@@ -152,7 +152,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         // Use a token not mapped in mirrorTokens
         address unknownMirror = address(0xBEEF);
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, unknownMirror, DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, unknownMirror, DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, unknownMirror, logs);
 
@@ -162,7 +162,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function test_Claim_RevertIfBlockNotFinalized() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridgeMintBurn.BlockNotFinalized.selector));
@@ -171,7 +171,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function test_Claim_RevertIfAlreadyProcessed() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
         _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
@@ -181,7 +181,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
         // record that no logs are emitted
         vm.recordLogs();
-        vm.prank(recipient);
+        vm.prank(user);
         _bridge.claim(0, MIRROR_TOKEN_ADDRESS, 1);
         // confirm that nothing happens when the request is already processed
         VmSafe.Log[] memory recordedLogs = vm.getRecordedLogs();
@@ -197,8 +197,8 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function test_Claim_RevertIfInvalidLog() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](2);
-        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
-        logs[1] = _makeLog(1, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, user);
+        logs[1] = _makeLog(1, MIRROR_TOKEN_ADDRESS, DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, MIRROR_TOKEN_ADDRESS, logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
@@ -222,17 +222,17 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function test_ClaimNative() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
-        _mockMintBalance(recipient, DEPOSIT_AMOUNT);
+        _mockMintBalance(user, DEPOSIT_AMOUNT);
 
         vm.expectEmit(true, false, false, true);
-        emit IBridge.ClaimNative(0, DEPOSIT_AMOUNT, recipient);
+        emit IBridge.ClaimNative(0, DEPOSIT_AMOUNT, user);
         vm.prank(user);
         _bridge.claimNative(0, 1);
         // should be done by precompile
-        assertEq(recipient.balance, DEPOSIT_AMOUNT);
+        assertEq(user.balance, DEPOSIT_AMOUNT);
     }
 
     function test_ClaimNative_RevertIfPaused() public {
@@ -244,25 +244,25 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function test_ClaimNative_RevertIfInvalidLog() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](2);
-        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
-        logs[1] = _makeLog(1, address(0), DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, user);
+        logs[1] = _makeLog(1, address(0), DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
-        vm.prank(recipient);
+        vm.prank(user);
         _bridge.claimNative(0, 1);
 
         logs = new EthGetLogsTypes.RpcLog[](0);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidDepositLog.selector));
-        vm.prank(recipient);
+        vm.prank(user);
         _bridge.claimNative(0, 1);
     }
 
     function test_ClaimNative_RevertIfInvalidAmount() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, address(0), nativeTokenLimits.minAmount - 1, recipient);
+        logs[0] = _makeLog(0, address(0), nativeTokenLimits.minAmount - 1, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
@@ -271,41 +271,41 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function test_ClaimNative_TracksConsumed() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
         _bridge.claimNative(0, 1);
         (, IBridge.TokenUsage memory dep, IBridge.TokenUsage memory claimUsage) =
             bridge().tokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT);
         assertEq(claimUsage.consumed, DEPOSIT_AMOUNT);
-        logs[0] = _makeLog(1, address(0), DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(1, address(0), DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(1, 1, 1, address(0), logs);
-        _bridge.claimNative(1, 1);
+        _bridge.claimNative(bytes32(uint256(1)), 1);
         (, dep, claimUsage) = bridge().tokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT);
         assertEq(claimUsage.consumed, DEPOSIT_AMOUNT * 2);
     }
 
     function test_ClaimNative_RevertIfMoreThanClaimLimitButSucceedAfterOneDay() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
-        _bridge.claimNative(0, 1);
-        logs[0] = _makeLog(1, address(0), nativeTokenLimits.claim, recipient);
+        _bridge.claimNative(bytes32(0), 1);
+        logs[0] = _makeLog(1, address(0), nativeTokenLimits.claim, user);
         _mockEthGetBlockByNumber(2);
         _mockEthGetLogs(1, 2, 2, address(0), logs);
         vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
-        _bridge.claimNative(1, 2);
+        _bridge.claimNative(bytes32(uint256(1)), 2);
         vm.warp(block.timestamp + 1 days + 1);
         _mockEthGetBlockByNumber(2);
         _mockEthGetLogs(1, 2, 2, address(0), logs);
-        _bridge.claimNative(1, 2);
+        _bridge.claimNative(bytes32(uint256(1)), 2);
     }
 
     function test_ClaimNative_RevertIfBlockNotFinalized() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
         vm.expectRevert(abi.encodeWithSelector(IBridgeMintBurn.BlockNotFinalized.selector));
@@ -325,12 +325,12 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
     function test_ClaimNative_DoNothingIfRequestAlreadyProcessed() public {
         EthGetLogsTypes.RpcLog[] memory logs = new EthGetLogsTypes.RpcLog[](1);
-        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, recipient);
+        logs[0] = _makeLog(0, address(0), DEPOSIT_AMOUNT, user);
         _mockEthGetBlockByNumber(1);
         _mockEthGetLogs(0, 1, 1, address(0), logs);
         vm.expectEmit(true, false, false, true);
-        emit IBridge.ClaimNative(0, DEPOSIT_AMOUNT, recipient);
-        vm.prank(recipient);
+        emit IBridge.ClaimNative(0, DEPOSIT_AMOUNT, user);
+        vm.prank(user);
         _bridge.claimNative(0, 1);
 
         _mockEthGetBlockByNumber(1);
@@ -338,7 +338,7 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
 
         // record that no logs are emitted
         vm.recordLogs();
-        vm.prank(recipient);
+        vm.prank(user);
         _bridge.claimNative(0, 1);
 
         // confirm that nothing happens when the request is already processed

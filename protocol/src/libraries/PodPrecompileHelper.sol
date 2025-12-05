@@ -62,10 +62,10 @@ library PodPrecompileHelper {
         return logs;
     }
 
-    function getTxHash() internal view returns (uint256) {
+    function getTxHash() internal view returns (bytes32) {
         (bool success, bytes memory output) = POD_TX_INFO.staticcall{gas: gasleft()}("");
         if (!success) revert PrecompileCallFailed();
         TxInfo memory txInfo = abi.decode(output, (TxInfo));
-        return uint256(txInfo.txHash);
+        return txInfo.txHash;
     }
 }
