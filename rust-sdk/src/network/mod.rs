@@ -326,8 +326,7 @@ impl PodReceiptResponse {
             logs,
             logs_root,
             attested_tx: AttestedTx {
-                tx_hash,
-                success: self.pod_metadata.tx_attestation_status,
+                hash: tx_hash,
                 committee_epoch: self.pod_metadata.committee_epoch,
             },
             max_fee_per_gas: self.pod_metadata.transaction.max_fee_per_gas,

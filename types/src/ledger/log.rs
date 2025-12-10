@@ -107,7 +107,7 @@ impl VerifiableLog {
     pub fn get_leaf(&self) -> Hash {
         let log_index = self.inner.log_index.unwrap_or(0).try_into().unwrap();
         StandardMerkleTree::hash_leaf(
-            index_prefix("log_hashes", log_index),
+            &index_prefix("log_hashes", log_index),
             self.inner.inner.hash_custom(),
         )
     }
@@ -199,7 +199,7 @@ mod test {
             .unwrap();
         let transaction = Transaction {
             chain_id: 0x50d,
-            to: TxKind::Call(to.clone()),
+            to: TxKind::Call(to),
             nonce: 0,
             gas_limit: 22048,
             max_fee_per_gas: 1000000000,
@@ -245,7 +245,7 @@ mod test {
                     max_fee_per_gas: transaction.max_fee_per_gas,
                     logs: logs.clone(),
                     logs_root,
-                    attested_tx: AttestedTx::success(transaction.hash_custom(), 0),
+                    attested_tx: AttestedTx::new(transaction.hash_custom(), 0),
                     signer: signer.address(),
                     to: Some(to),
                     contract_address: None,
@@ -315,7 +315,7 @@ mod test {
             .unwrap();
         let transaction = Transaction {
             chain_id: 0x50d,
-            to: TxKind::Call(to.clone()),
+            to: TxKind::Call(to),
             nonce: 0,
             gas_limit: 201819,
             max_fee_per_gas: 1000000000,
@@ -358,7 +358,7 @@ mod test {
                     max_fee_per_gas: transaction.max_fee_per_gas,
                     logs: logs.clone(),
                     logs_root,
-                    attested_tx: AttestedTx::success(transaction.hash_custom(), 0),
+                    attested_tx: AttestedTx::new(transaction.hash_custom(), 0),
                     signer: signer.address(),
                     to: Some(to),
                     contract_address: None,

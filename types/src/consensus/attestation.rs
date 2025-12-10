@@ -136,8 +136,7 @@ mod sol {
         #[derive(Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
         struct AttestedTx {
-            bytes32 tx_hash;
-            bool success;
+            bytes32 hash;
             uint64 committee_epoch;
         }
     }
@@ -146,10 +145,9 @@ mod sol {
 pub use sol::AttestedTx;
 
 impl AttestedTx {
-    pub fn success(tx_hash: Hash, committee_epoch: u64) -> Self {
-        Self {
-            tx_hash,
-            success: true,
+    pub fn new(hash: Hash, committee_epoch: u64) -> Self {
+        AttestedTx {
+            hash,
             committee_epoch,
         }
     }
@@ -167,8 +165,7 @@ impl Hashable for AttestedTx {
 
 impl Merkleizable for AttestedTx {
     fn append_leaves(&self, builder: &mut MerkleBuilder) {
-        builder.add_field("tx_hash", self.tx_hash);
-        builder.add_field("success", self.success.abi_encode().hash_custom());
+        builder.add_field("hash", self.hash);
         builder.add_field(
             "committee_epoch",
             self.committee_epoch.abi_encode().hash_custom(),
