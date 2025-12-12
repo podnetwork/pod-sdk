@@ -1362,7 +1362,6 @@ dependencies = [
  "clap",
  "pod-protocol 0.1.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af)",
  "pod-sdk 0.4.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af)",
- "pod-types 0.4.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af)",
  "tokio",
 ]
 

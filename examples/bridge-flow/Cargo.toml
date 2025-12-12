@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 pod-protocol = { git = "https://github.com/podnetwork/pod-sdk.git", rev = "535a38bbe4a78955546d673e1cadff7caa3201af" }
 pod-sdk = { git = "https://github.com/podnetwork/pod-sdk.git", rev = "535a38bbe4a78955546d673e1cadff7caa3201af" }
-pod-types = { git = "https://github.com/podnetwork/pod-sdk.git", rev = "535a38bbe4a78955546d673e1cadff7caa3201af" }
 alloy-network = "1.0.24"
 alloy-primitives = { version = "1.3.0", features = [
     "k256",
