@@ -12,7 +12,7 @@ use alloy_provider::{
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolEvent;
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand, arg};
+use clap::{Parser, Subcommand};
 use pod_protocol::{
     bridge_deposit_withdraw::BridgeDepositWithdraw, bridge_mint_burn::BridgeMintBurn,
 };
@@ -48,12 +48,12 @@ alloy_sol_types::sol! {
 
 struct PodBridgeClient {
     provider: PodProvider,
+    #[allow(dead_code)]
     pod_bridge: BridgeMintBurnInstance<PodProvider, PodNetwork>,
     token_contract: ERC20Instance<PodProvider, PodNetwork>,
 }
 
 struct SourceChainBridgeClient {
-    provider: SourceChainProviderType,
     source_chain_contract: BridgeDepositWithdrawInstance<SourceChainProviderType>,
     source_chain_token_contract: WrappedTokenInstance<SourceChainProviderType, Ethereum>,
 }
@@ -83,7 +83,6 @@ impl SourceChainBridgeClient {
         );
 
         Ok(Self {
-            provider: source_chain_provider,
             source_chain_contract,
             source_chain_token_contract,
         })
@@ -173,6 +172,7 @@ impl PodBridgeClient {
         })
     }
 
+    #[allow(dead_code)]
     pub async fn deposit_native(&self, to: Address, value: U256) -> Result<B256> {
         let tx = self
             .pod_bridge
@@ -198,6 +198,7 @@ impl PodBridgeClient {
         Err(anyhow::anyhow!("Request ID not found"))
     }
 
+    #[allow(dead_code)]
     async fn deposit_token(&self, amount: U256) -> Result<B256> {
         let tx = self
             .pod_bridge
@@ -346,6 +347,7 @@ async fn main() -> Result<()> {
     }
 }
 
+#[allow(dead_code)]
 async fn wait_for_block<P: Provider>(provider: &P, block_number: u64) -> anyhow::Result<()> {
     println!("Waiting for block {block_number} to be built. This can take ~13min on Sepolia...");
 

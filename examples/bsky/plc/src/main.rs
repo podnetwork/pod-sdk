@@ -28,7 +28,6 @@ use tower_http::trace::TraceLayer;
 use tracing::info;
 
 struct AppState {
-    provider: PodProvider,
     contract: Mutex<PLCRegistryInstance<PodProvider, PodNetwork>>,
 }
 
@@ -65,10 +64,9 @@ async fn main() {
         .await
         .expect("Failed to create PodProvider");
 
-    let contract = PLCRegistry::new(config.contract_address, provider.clone());
+    let contract = PLCRegistry::new(config.contract_address, provider);
 
     let state = AppState {
-        provider,
         contract: Mutex::new(contract),
     };
 
