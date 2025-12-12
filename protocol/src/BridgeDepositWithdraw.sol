@@ -138,6 +138,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     function claim(
         address token,
         uint256 amount,
+        address to,
         AttestedTx.AttestedTx calldata attested,
         bytes calldata aggregated_signatures,
         MerkleTree.MultiProof calldata proof
@@ -158,12 +159,12 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         }
 
         // Build leaves for validating merkle proof
-        bytes4 selector = bytes4(keccak256("deposit(address,uint256)"));
+        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
         bytes32[] memory leaves = new bytes32[](4);
         leaves[0] = MerkleTree.hashLeaf("from", keccak256(abi.encode(msg.sender)));
         leaves[1] = MerkleTree.hashLeaf("to", keccak256(abi.encode(bridgeContract)));
         leaves[2] = MerkleTree.hashLeaf("value", keccak256(abi.encode(0)));
-        leaves[3] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(token, amount))));
+        leaves[3] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(token, amount, to))));
 
         sortLeaves(leaves);
 
@@ -202,8 +203,8 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
 
         processedRequests[attested.hash] = true;
 
-        IERC20(mirrorToken).safeTransfer(msg.sender, amount);
-        emit Claim(attested.hash, mirrorToken, token, amount, msg.sender);
+        IERC20(mirrorToken).safeTransfer(to, amount);
+        emit Claim(attested.hash, mirrorToken, token, amount, to);
     }
 
     /**
@@ -211,6 +212,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
      */
     function claimNative(
         uint256 amount,
+        address to,
         AttestedTx.AttestedTx calldata attested,
         bytes calldata aggregated_signatures,
         MerkleTree.MultiProof calldata proof
@@ -230,12 +232,12 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         }
 
         // Build leaves for validating merkle proof
-        bytes4 selector = bytes4(keccak256("depositNative()"));
+        bytes4 selector = bytes4(keccak256("depositNative(address)"));
         bytes32[] memory leaves = new bytes32[](4);
         leaves[0] = MerkleTree.hashLeaf("from", keccak256(abi.encode(msg.sender)));
         leaves[1] = MerkleTree.hashLeaf("to", keccak256(abi.encode(bridgeContract)));
         leaves[2] = MerkleTree.hashLeaf("value", keccak256(abi.encode(amount)));
-        leaves[3] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector)));
+        leaves[3] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(to))));
 
         sortLeaves(leaves);
 
@@ -274,9 +276,9 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
 
         processedRequests[attested.hash] = true;
 
-        (bool sent,) = msg.sender.call{value: amount}("");
+        (bool sent,) = to.call{value: amount}("");
         require(sent, "Failed to transfer native tokens");
-        emit ClaimNative(attested.hash, amount, msg.sender);
+        emit ClaimNative(attested.hash, amount, to);
     }
 
     /**

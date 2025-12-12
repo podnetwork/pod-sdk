@@ -1413,12 +1413,12 @@ interface BridgeDepositWithdraw {
     function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
     function PAUSER_ROLE() external view returns (bytes32);
     function bridgeContract() external view returns (address);
-    function claim(address token, uint256 amount, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
-    function claimNative(uint256 amount, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
+    function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
+    function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
     function configureToken(address token, IBridge.TokenLimits memory limits) external;
-    function deposit(address token, uint256 amount) external returns (bytes32);
+    function deposit(address token, uint256 amount, address to) external returns (bytes32);
     function depositIndex() external view returns (uint256);
-    function depositNative() external payable returns (bytes32);
+    function depositNative(address to) external payable returns (bytes32);
     function getRoleAdmin(bytes32 role) external view returns (bytes32);
     function grantRole(bytes32 role, address account) external;
     function hasRole(bytes32 role, address account) external view returns (bool);
@@ -1535,6 +1535,11 @@ interface BridgeDepositWithdraw {
         "internalType": "uint256"
       },
       {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "attested",
         "type": "tuple",
         "internalType": "struct AttestedTx.AttestedTx",
@@ -1585,6 +1590,11 @@ interface BridgeDepositWithdraw {
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
       },
       {
         "name": "attested",
@@ -1677,6 +1687,11 @@ interface BridgeDepositWithdraw {
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
@@ -1704,7 +1719,13 @@ interface BridgeDepositWithdraw {
   {
     "type": "function",
     "name": "depositNative",
-    "inputs": [],
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "outputs": [
       {
         "name": "",
@@ -5288,9 +5309,9 @@ function bridgeContract() external view returns (address);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `claim(address,uint256,(bytes32,uint64),bytes,(bytes32[],bool[]))` and selector `0x64c6c5a6`.
+    /**Function with signature `claim(address,uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))` and selector `0x1df8460d`.
 ```solidity
-function claim(address token, uint256 amount, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
+function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -5300,13 +5321,15 @@ function claim(address token, uint256 amount, AttestedTx.AttestedTx memory attes
         #[allow(missing_docs)]
         pub amount: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
+        pub to: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
         pub attested: <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
         #[allow(missing_docs)]
         pub aggregated_signatures: alloy::sol_types::private::Bytes,
         #[allow(missing_docs)]
         pub proof: <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
     }
-    ///Container type for the return parameters of the [`claim(address,uint256,(bytes32,uint64),bytes,(bytes32[],bool[]))`](claimCall) function.
+    ///Container type for the return parameters of the [`claim(address,uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))`](claimCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct claimReturn {}
@@ -5324,6 +5347,7 @@ function claim(address token, uint256 amount, AttestedTx.AttestedTx memory attes
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Address,
                 AttestedTx::AttestedTx,
                 alloy::sol_types::sol_data::Bytes,
                 MerkleTree::MultiProof,
@@ -5332,6 +5356,7 @@ function claim(address token, uint256 amount, AttestedTx.AttestedTx memory attes
             type UnderlyingRustTuple<'a> = (
                 alloy::sol_types::private::Address,
                 alloy::sol_types::private::primitives::aliases::U256,
+                alloy::sol_types::private::Address,
                 <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
                 alloy::sol_types::private::Bytes,
                 <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
@@ -5354,6 +5379,7 @@ function claim(address token, uint256 amount, AttestedTx.AttestedTx memory attes
                     (
                         value.token,
                         value.amount,
+                        value.to,
                         value.attested,
                         value.aggregated_signatures,
                         value.proof,
@@ -5367,9 +5393,10 @@ function claim(address token, uint256 amount, AttestedTx.AttestedTx memory attes
                     Self {
                         token: tuple.0,
                         amount: tuple.1,
-                        attested: tuple.2,
-                        aggregated_signatures: tuple.3,
-                        proof: tuple.4,
+                        to: tuple.2,
+                        attested: tuple.3,
+                        aggregated_signatures: tuple.4,
+                        proof: tuple.5,
                     }
                 }
             }
@@ -5418,6 +5445,7 @@ function claim(address token, uint256 amount, AttestedTx.AttestedTx memory attes
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Address,
                 AttestedTx::AttestedTx,
                 alloy::sol_types::sol_data::Bytes,
                 MerkleTree::MultiProof,
@@ -5430,8 +5458,8 @@ function claim(address token, uint256 amount, AttestedTx.AttestedTx memory attes
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "claim(address,uint256,(bytes32,uint64),bytes,(bytes32[],bool[]))";
-            const SELECTOR: [u8; 4] = [100u8, 198u8, 197u8, 166u8];
+            const SIGNATURE: &'static str = "claim(address,uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))";
+            const SELECTOR: [u8; 4] = [29u8, 248u8, 70u8, 13u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -5447,6 +5475,9 @@ function claim(address token, uint256 amount, AttestedTx.AttestedTx memory attes
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.to,
+                    ),
                     <AttestedTx::AttestedTx as alloy_sol_types::SolType>::tokenize(
                         &self.attested,
                     ),
@@ -5482,9 +5513,9 @@ function claim(address token, uint256 amount, AttestedTx.AttestedTx memory attes
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `claimNative(uint256,(bytes32,uint64),bytes,(bytes32[],bool[]))` and selector `0x001a46ae`.
+    /**Function with signature `claimNative(uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))` and selector `0x56b35560`.
 ```solidity
-function claimNative(uint256 amount, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
+function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -5492,13 +5523,15 @@ function claimNative(uint256 amount, AttestedTx.AttestedTx memory attested, byte
         #[allow(missing_docs)]
         pub amount: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
+        pub to: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
         pub attested: <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
         #[allow(missing_docs)]
         pub aggregated_signatures: alloy::sol_types::private::Bytes,
         #[allow(missing_docs)]
         pub proof: <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
     }
-    ///Container type for the return parameters of the [`claimNative(uint256,(bytes32,uint64),bytes,(bytes32[],bool[]))`](claimNativeCall) function.
+    ///Container type for the return parameters of the [`claimNative(uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))`](claimNativeCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct claimNativeReturn {}
@@ -5515,6 +5548,7 @@ function claimNative(uint256 amount, AttestedTx.AttestedTx memory attested, byte
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Address,
                 AttestedTx::AttestedTx,
                 alloy::sol_types::sol_data::Bytes,
                 MerkleTree::MultiProof,
@@ -5522,6 +5556,7 @@ function claimNative(uint256 amount, AttestedTx.AttestedTx memory attested, byte
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
                 alloy::sol_types::private::primitives::aliases::U256,
+                alloy::sol_types::private::Address,
                 <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
                 alloy::sol_types::private::Bytes,
                 <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
@@ -5543,6 +5578,7 @@ function claimNative(uint256 amount, AttestedTx.AttestedTx memory attested, byte
                 fn from(value: claimNativeCall) -> Self {
                     (
                         value.amount,
+                        value.to,
                         value.attested,
                         value.aggregated_signatures,
                         value.proof,
@@ -5555,9 +5591,10 @@ function claimNative(uint256 amount, AttestedTx.AttestedTx memory attested, byte
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         amount: tuple.0,
-                        attested: tuple.1,
-                        aggregated_signatures: tuple.2,
-                        proof: tuple.3,
+                        to: tuple.1,
+                        attested: tuple.2,
+                        aggregated_signatures: tuple.3,
+                        proof: tuple.4,
                     }
                 }
             }
@@ -5605,6 +5642,7 @@ function claimNative(uint256 amount, AttestedTx.AttestedTx memory attested, byte
         impl alloy_sol_types::SolCall for claimNativeCall {
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Address,
                 AttestedTx::AttestedTx,
                 alloy::sol_types::sol_data::Bytes,
                 MerkleTree::MultiProof,
@@ -5617,8 +5655,8 @@ function claimNative(uint256 amount, AttestedTx.AttestedTx memory attested, byte
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "claimNative(uint256,(bytes32,uint64),bytes,(bytes32[],bool[]))";
-            const SELECTOR: [u8; 4] = [0u8, 26u8, 70u8, 174u8];
+            const SIGNATURE: &'static str = "claimNative(uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))";
+            const SELECTOR: [u8; 4] = [86u8, 179u8, 85u8, 96u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -5631,6 +5669,9 @@ function claimNative(uint256 amount, AttestedTx.AttestedTx memory attested, byte
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.to,
+                    ),
                     <AttestedTx::AttestedTx as alloy_sol_types::SolType>::tokenize(
                         &self.attested,
                     ),
@@ -5829,9 +5870,9 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `deposit(address,uint256)` and selector `0x47e7ef24`.
+    /**Function with signature `deposit(address,uint256,address)` and selector `0xf45346dc`.
 ```solidity
-function deposit(address token, uint256 amount) external returns (bytes32);
+function deposit(address token, uint256 amount, address to) external returns (bytes32);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -5840,10 +5881,12 @@ function deposit(address token, uint256 amount) external returns (bytes32);
         pub token: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub amount: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub to: alloy::sol_types::private::Address,
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`deposit(address,uint256)`](depositCall) function.
+    ///Container type for the return parameters of the [`deposit(address,uint256,address)`](depositCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct depositReturn {
@@ -5864,11 +5907,13 @@ function deposit(address token, uint256 amount) external returns (bytes32);
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Address,
             );
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
                 alloy::sol_types::private::Address,
                 alloy::sol_types::private::primitives::aliases::U256,
+                alloy::sol_types::private::Address,
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
@@ -5885,7 +5930,7 @@ function deposit(address token, uint256 amount) external returns (bytes32);
             #[doc(hidden)]
             impl ::core::convert::From<depositCall> for UnderlyingRustTuple<'_> {
                 fn from(value: depositCall) -> Self {
-                    (value.token, value.amount)
+                    (value.token, value.amount, value.to)
                 }
             }
             #[automatically_derived]
@@ -5895,6 +5940,7 @@ function deposit(address token, uint256 amount) external returns (bytes32);
                     Self {
                         token: tuple.0,
                         amount: tuple.1,
+                        to: tuple.2,
                     }
                 }
             }
@@ -5936,6 +5982,7 @@ function deposit(address token, uint256 amount) external returns (bytes32);
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Address,
             );
             type Token<'a> = <Self::Parameters<
                 'a,
@@ -5945,8 +5992,8 @@ function deposit(address token, uint256 amount) external returns (bytes32);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "deposit(address,uint256)";
-            const SELECTOR: [u8; 4] = [71u8, 231u8, 239u8, 36u8];
+            const SIGNATURE: &'static str = "deposit(address,uint256,address)";
+            const SELECTOR: [u8; 4] = [244u8, 83u8, 70u8, 220u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -5962,6 +6009,9 @@ function deposit(address token, uint256 amount) external returns (bytes32);
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.to,
+                    ),
                 )
             }
             #[inline]
@@ -6145,16 +6195,19 @@ function depositIndex() external view returns (uint256);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `depositNative()` and selector `0xdb6b5246`.
+    /**Function with signature `depositNative(address)` and selector `0x33bb7f91`.
 ```solidity
-function depositNative() external payable returns (bytes32);
+function depositNative(address to) external payable returns (bytes32);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct depositNativeCall;
+    pub struct depositNativeCall {
+        #[allow(missing_docs)]
+        pub to: alloy::sol_types::private::Address,
+    }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`depositNative()`](depositNativeCall) function.
+    ///Container type for the return parameters of the [`depositNative(address)`](depositNativeCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct depositNativeReturn {
@@ -6172,9 +6225,9 @@ function depositNative() external payable returns (bytes32);
         {
             #[doc(hidden)]
             #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -6190,14 +6243,14 @@ function depositNative() external payable returns (bytes32);
             #[doc(hidden)]
             impl ::core::convert::From<depositNativeCall> for UnderlyingRustTuple<'_> {
                 fn from(value: depositNativeCall) -> Self {
-                    ()
+                    (value.to,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for depositNativeCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self
+                    Self { to: tuple.0 }
                 }
             }
         }
@@ -6235,7 +6288,7 @@ function depositNative() external payable returns (bytes32);
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for depositNativeCall {
-            type Parameters<'a> = ();
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -6244,8 +6297,8 @@ function depositNative() external payable returns (bytes32);
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "depositNative()";
-            const SELECTOR: [u8; 4] = [219u8, 107u8, 82u8, 70u8];
+            const SIGNATURE: &'static str = "depositNative(address)";
+            const SELECTOR: [u8; 4] = [51u8, 187u8, 127u8, 145u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -6254,7 +6307,11 @@ function depositNative() external payable returns (bytes32);
             }
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
-                ()
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.to,
+                    ),
+                )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
@@ -9158,17 +9215,17 @@ function whitelistedTokens(uint256) external view returns (address);
         ///
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
-            [0u8, 26u8, 70u8, 174u8],
             [1u8, 255u8, 201u8, 167u8],
+            [29u8, 248u8, 70u8, 13u8],
             [33u8, 84u8, 188u8, 68u8],
             [36u8, 138u8, 156u8, 163u8],
             [39u8, 228u8, 92u8, 44u8],
             [47u8, 47u8, 241u8, 93u8],
+            [51u8, 187u8, 127u8, 145u8],
             [54u8, 86u8, 138u8, 190u8],
             [63u8, 75u8, 168u8, 58u8],
-            [71u8, 231u8, 239u8, 36u8],
+            [86u8, 179u8, 85u8, 96u8],
             [92u8, 151u8, 90u8, 187u8],
-            [100u8, 198u8, 197u8, 166u8],
             [103u8, 23u8, 228u8, 28u8],
             [116u8, 134u8, 250u8, 78u8],
             [123u8, 137u8, 137u8, 57u8],
@@ -9181,24 +9238,24 @@ function whitelistedTokens(uint256) external view returns (address);
             [206u8, 84u8, 148u8, 187u8],
             [211u8, 40u8, 97u8, 59u8],
             [213u8, 71u8, 116u8, 31u8],
-            [219u8, 107u8, 82u8, 70u8],
             [230u8, 58u8, 177u8, 233u8],
+            [244u8, 83u8, 70u8, 220u8],
             [252u8, 92u8, 92u8, 179u8],
             [254u8, 174u8, 180u8, 62u8],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
-            ::core::stringify!(claimNative),
             ::core::stringify!(supportsInterface),
+            ::core::stringify!(claim),
             ::core::stringify!(whitelistedTokens),
             ::core::stringify!(getRoleAdmin),
             ::core::stringify!(tokenData),
             ::core::stringify!(grantRole),
+            ::core::stringify!(depositNative),
             ::core::stringify!(renounceRole),
             ::core::stringify!(unpause),
-            ::core::stringify!(deposit),
+            ::core::stringify!(claimNative),
             ::core::stringify!(paused),
-            ::core::stringify!(claim),
             ::core::stringify!(usedNonces),
             ::core::stringify!(migratedContract),
             ::core::stringify!(depositIndex),
@@ -9211,24 +9268,24 @@ function whitelistedTokens(uint256) external view returns (address);
             ::core::stringify!(migrate),
             ::core::stringify!(podConfig),
             ::core::stringify!(revokeRole),
-            ::core::stringify!(depositNative),
             ::core::stringify!(PAUSER_ROLE),
+            ::core::stringify!(deposit),
             ::core::stringify!(whiteListToken),
             ::core::stringify!(mirrorTokens),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
-            <claimNativeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <supportsInterfaceCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <claimCall as alloy_sol_types::SolCall>::SIGNATURE,
             <whitelistedTokensCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getRoleAdminCall as alloy_sol_types::SolCall>::SIGNATURE,
             <tokenDataCall as alloy_sol_types::SolCall>::SIGNATURE,
             <grantRoleCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <depositNativeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <renounceRoleCall as alloy_sol_types::SolCall>::SIGNATURE,
             <unpauseCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <depositCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <claimNativeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <pausedCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <claimCall as alloy_sol_types::SolCall>::SIGNATURE,
             <usedNoncesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <migratedContractCall as alloy_sol_types::SolCall>::SIGNATURE,
             <depositIndexCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -9241,8 +9298,8 @@ function whitelistedTokens(uint256) external view returns (address);
             <migrateCall as alloy_sol_types::SolCall>::SIGNATURE,
             <podConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <revokeRoleCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <depositNativeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <PAUSER_ROLECall as alloy_sol_types::SolCall>::SIGNATURE,
+            <depositCall as alloy_sol_types::SolCall>::SIGNATURE,
             <whiteListTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <mirrorTokensCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
@@ -9362,17 +9419,6 @@ function whitelistedTokens(uint256) external view returns (address);
                 &[u8],
             ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls>] = &[
                 {
-                    fn claimNative(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <claimNativeCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::claimNative)
-                    }
-                    claimNative
-                },
-                {
                     fn supportsInterface(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -9382,6 +9428,15 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::supportsInterface)
                     }
                     supportsInterface
+                },
+                {
+                    fn claim(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <claimCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(BridgeDepositWithdrawCalls::claim)
+                    }
+                    claim
                 },
                 {
                     fn whitelistedTokens(
@@ -9424,6 +9479,17 @@ function whitelistedTokens(uint256) external view returns (address);
                     grantRole
                 },
                 {
+                    fn depositNative(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <depositNativeCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(BridgeDepositWithdrawCalls::depositNative)
+                    }
+                    depositNative
+                },
+                {
                     fn renounceRole(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -9444,13 +9510,15 @@ function whitelistedTokens(uint256) external view returns (address);
                     unpause
                 },
                 {
-                    fn deposit(
+                    fn claimNative(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <depositCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(BridgeDepositWithdrawCalls::deposit)
+                        <claimNativeCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(BridgeDepositWithdrawCalls::claimNative)
                     }
-                    deposit
+                    claimNative
                 },
                 {
                     fn paused(
@@ -9460,15 +9528,6 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::paused)
                     }
                     paused
-                },
-                {
-                    fn claim(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <claimCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(BridgeDepositWithdrawCalls::claim)
-                    }
-                    claim
                 },
                 {
                     fn usedNonces(
@@ -9595,17 +9654,6 @@ function whitelistedTokens(uint256) external view returns (address);
                     revokeRole
                 },
                 {
-                    fn depositNative(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <depositNativeCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::depositNative)
-                    }
-                    depositNative
-                },
-                {
                     fn PAUSER_ROLE(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -9615,6 +9663,15 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::PAUSER_ROLE)
                     }
                     PAUSER_ROLE
+                },
+                {
+                    fn deposit(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <depositCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(BridgeDepositWithdrawCalls::deposit)
+                    }
+                    deposit
                 },
                 {
                     fn whiteListToken(
@@ -9659,17 +9716,6 @@ function whitelistedTokens(uint256) external view returns (address);
                 &[u8],
             ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls>] = &[
                 {
-                    fn claimNative(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <claimNativeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::claimNative)
-                    }
-                    claimNative
-                },
-                {
                     fn supportsInterface(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -9679,6 +9725,17 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::supportsInterface)
                     }
                     supportsInterface
+                },
+                {
+                    fn claim(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <claimCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(BridgeDepositWithdrawCalls::claim)
+                    }
+                    claim
                 },
                 {
                     fn whitelistedTokens(
@@ -9725,6 +9782,17 @@ function whitelistedTokens(uint256) external view returns (address);
                     grantRole
                 },
                 {
+                    fn depositNative(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <depositNativeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(BridgeDepositWithdrawCalls::depositNative)
+                    }
+                    depositNative
+                },
+                {
                     fn renounceRole(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -9747,15 +9815,15 @@ function whitelistedTokens(uint256) external view returns (address);
                     unpause
                 },
                 {
-                    fn deposit(
+                    fn claimNative(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <depositCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                        <claimNativeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(BridgeDepositWithdrawCalls::deposit)
+                            .map(BridgeDepositWithdrawCalls::claimNative)
                     }
-                    deposit
+                    claimNative
                 },
                 {
                     fn paused(
@@ -9767,17 +9835,6 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::paused)
                     }
                     paused
-                },
-                {
-                    fn claim(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <claimCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::claim)
-                    }
-                    claim
                 },
                 {
                     fn usedNonces(
@@ -9912,17 +9969,6 @@ function whitelistedTokens(uint256) external view returns (address);
                     revokeRole
                 },
                 {
-                    fn depositNative(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <depositNativeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::depositNative)
-                    }
-                    depositNative
-                },
-                {
                     fn PAUSER_ROLE(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -9932,6 +9978,17 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::PAUSER_ROLE)
                     }
                     PAUSER_ROLE
+                },
+                {
+                    fn deposit(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <depositCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(BridgeDepositWithdrawCalls::deposit)
+                    }
+                    deposit
                 },
                 {
                     fn whiteListToken(
@@ -11386,6 +11443,7 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
             &self,
             token: alloy::sol_types::private::Address,
             amount: alloy::sol_types::private::primitives::aliases::U256,
+            to: alloy::sol_types::private::Address,
             attested: <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
             aggregated_signatures: alloy::sol_types::private::Bytes,
             proof: <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
@@ -11394,6 +11452,7 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
                 &claimCall {
                     token,
                     amount,
+                    to,
                     attested,
                     aggregated_signatures,
                     proof,
@@ -11404,6 +11463,7 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
         pub fn claimNative(
             &self,
             amount: alloy::sol_types::private::primitives::aliases::U256,
+            to: alloy::sol_types::private::Address,
             attested: <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
             aggregated_signatures: alloy::sol_types::private::Bytes,
             proof: <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
@@ -11411,6 +11471,7 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
             self.call_builder(
                 &claimNativeCall {
                     amount,
+                    to,
                     attested,
                     aggregated_signatures,
                     proof,
@@ -11435,8 +11496,9 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
             &self,
             token: alloy::sol_types::private::Address,
             amount: alloy::sol_types::private::primitives::aliases::U256,
+            to: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, depositCall, N> {
-            self.call_builder(&depositCall { token, amount })
+            self.call_builder(&depositCall { token, amount, to })
         }
         ///Creates a new call builder for the [`depositIndex`] function.
         pub fn depositIndex(
@@ -11447,8 +11509,9 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
         ///Creates a new call builder for the [`depositNative`] function.
         pub fn depositNative(
             &self,
+            to: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, depositNativeCall, N> {
-            self.call_builder(&depositNativeCall)
+            self.call_builder(&depositNativeCall { to })
         }
         ///Creates a new call builder for the [`getRoleAdmin`] function.
         pub fn getRoleAdmin(
