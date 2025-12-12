@@ -6,8 +6,6 @@ import {Bridge} from "pod-protocol/abstract/Bridge.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {IERC20MintableAndBurnable} from "pod-protocol/interfaces/IERC20MintableAndBurnable.sol";
 import {WrappedToken} from "pod-protocol/WrappedToken.sol";
-import {EthGetLogsTypes} from "pod-sdk/types/EthGetLogsTypes.sol";
-import {PodPrecompileHelper} from "pod-protocol/libraries/PodPrecompileHelper.sol";
 
 /**
  * @title BridgeMintBurn
