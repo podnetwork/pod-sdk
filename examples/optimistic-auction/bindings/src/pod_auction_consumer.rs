@@ -38,6 +38,7 @@ struct Proof { bytes32[] path; }
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Array<
                 alloy::sol_types::sol_data::FixedBytes<32>,
@@ -227,9 +228,9 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
         N: alloy_contract::private::Network,
     >(
         address: alloy_sol_types::private::Address,
-        provider: P,
+        __provider: P,
     ) -> MerkleTreeInstance<P, N> {
-        MerkleTreeInstance::<P, N>::new(address, provider)
+        MerkleTreeInstance::<P, N>::new(address, __provider)
     }
     /**A [`MerkleTree`](self) instance.
 
@@ -256,7 +257,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -267,11 +267,11 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
         #[inline]
         pub const fn new(
             address: alloy_sol_types::private::Address,
-            provider: P,
+            __provider: P,
         ) -> Self {
             Self {
                 address,
-                provider,
+                provider: __provider,
                 _network: ::core::marker::PhantomData,
             }
         }
@@ -308,7 +308,6 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -325,7 +324,6 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -386,6 +384,7 @@ struct Certificate { CertifiedReceipt certifiedReceipt; bytes32 leaf; MerkleTree
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             CertifiedReceipt,
             alloy::sol_types::sol_data::FixedBytes<32>,
@@ -640,6 +639,7 @@ struct CertifiedLog { Log log; uint256 logIndex; Certificate certificate; }
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             Log,
             alloy::sol_types::sol_data::Uint<256>,
@@ -888,6 +888,7 @@ struct CertifiedReceipt { bytes32 receiptRoot; bytes aggregateSignature; uint256
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::FixedBytes<32>,
             alloy::sol_types::sol_data::Bytes,
@@ -1147,6 +1148,7 @@ struct Log { address addr; bytes32[] topics; bytes data; }
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Array<
@@ -1378,9 +1380,9 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
         N: alloy_contract::private::Network,
     >(
         address: alloy_sol_types::private::Address,
-        provider: P,
+        __provider: P,
     ) -> PodECDSAInstance<P, N> {
-        PodECDSAInstance::<P, N>::new(address, provider)
+        PodECDSAInstance::<P, N>::new(address, __provider)
     }
     /**A [`PodECDSA`](self) instance.
 
@@ -1407,7 +1409,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -1418,11 +1419,11 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
         #[inline]
         pub const fn new(
             address: alloy_sol_types::private::Address,
-            provider: P,
+            __provider: P,
         ) -> Self {
             Self {
                 address,
-                provider,
+                provider: __provider,
                 _network: ::core::marker::PhantomData,
             }
         }
@@ -1459,7 +1460,6 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -1476,7 +1476,6 @@ See the [wrapper's documentation](`PodECDSAInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -2260,6 +2259,7 @@ struct Bid { address bidder; uint256 bid; }
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<256>,
@@ -2479,6 +2479,7 @@ struct State { Bid winner; Bid blamed; }
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (Bid, Bid);
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
@@ -2686,6 +2687,7 @@ error OwnableInvalidOwner(address owner);
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -2766,6 +2768,7 @@ error OwnableUnauthorizedAccount(address account);
     const _: () = {
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
+        #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -3538,6 +3541,7 @@ constructor(address _podRegistry, uint256 _bondAmount);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
@@ -3632,6 +3636,7 @@ function BOND_AMOUNT() external view returns (uint256);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -3663,6 +3668,7 @@ function BOND_AMOUNT() external view returns (uint256);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -3777,6 +3783,7 @@ function DISPUTE_PERIOD() external view returns (uint256);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -3808,6 +3815,7 @@ function DISPUTE_PERIOD() external view returns (uint256);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -3924,6 +3932,7 @@ function LOG_TOPIC_0() external view returns (bytes32);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -3955,6 +3964,7 @@ function LOG_TOPIC_0() external view returns (bytes32);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
@@ -4067,6 +4077,7 @@ function TWO_TIMES_DISPUTE_PERIOD() external view returns (uint256);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -4100,6 +4111,7 @@ function TWO_TIMES_DISPUTE_PERIOD() external view returns (uint256);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -4214,6 +4226,7 @@ function blameIllAnnounced(PodECDSA.CertifiedLog memory certifiedLog) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (PodECDSA::CertifiedLog,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -4249,6 +4262,7 @@ function blameIllAnnounced(PodECDSA.CertifiedLog memory certifiedLog) external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -4362,6 +4376,7 @@ function blameNoShow(PodECDSA.CertifiedLog memory certifiedLog) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (PodECDSA::CertifiedLog,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -4395,6 +4410,7 @@ function blameNoShow(PodECDSA.CertifiedLog memory certifiedLog) external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -4503,6 +4519,7 @@ function bond() external payable;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -4534,6 +4551,7 @@ function bond() external payable;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -4643,6 +4661,7 @@ function isBonded(address) external view returns (bool);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -4674,6 +4693,7 @@ function isBonded(address) external view returns (bool);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bool,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (bool,);
@@ -4790,6 +4810,7 @@ function owner() external view returns (address);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -4821,6 +4842,7 @@ function owner() external view returns (address);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -4933,6 +4955,7 @@ function podRegistry() external view returns (address);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -4964,6 +4987,7 @@ function podRegistry() external view returns (address);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -5081,6 +5105,7 @@ function read(uint256 auctionId, uint256 deadline) external view returns (State 
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Uint<256>,
@@ -5121,6 +5146,7 @@ function read(uint256 auctionId, uint256 deadline) external view returns (State 
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (State,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -5236,6 +5262,7 @@ function renounceOwnership() external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -5269,6 +5296,7 @@ function renounceOwnership() external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -5382,6 +5410,7 @@ function state(bytes32) external view returns (Bid memory winner, Bid memory bla
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
@@ -5413,6 +5442,7 @@ function state(bytes32) external view returns (Bid memory winner, Bid memory bla
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (Bid, Bid);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -5533,6 +5563,7 @@ function transferOwnership(address newOwner) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
@@ -5566,6 +5597,7 @@ function transferOwnership(address newOwner) external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -5676,6 +5708,7 @@ function unbond() external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -5707,6 +5740,7 @@ function unbond() external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -5811,6 +5845,7 @@ function withdraw() external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -5842,6 +5877,7 @@ function withdraw() external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -5949,6 +5985,7 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (PodECDSA::CertifiedLog,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -5982,6 +6019,7 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -6068,6 +6106,7 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         }
     };
     ///Container for all the [`PodAuctionConsumer`](self) function calls.
+    #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum PodAuctionConsumerCalls {
@@ -6106,7 +6145,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[allow(missing_docs)]
         write(writeCall),
     }
-    #[automatically_derived]
     impl PodAuctionConsumerCalls {
         /// All the selectors of this enum.
         ///
@@ -6133,6 +6171,66 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
             [233u8, 117u8, 27u8, 55u8],
             [242u8, 253u8, 227u8, 139u8],
         ];
+        /// The names of the variants in the same order as `SELECTORS`.
+        pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(podRegistry),
+            ::core::stringify!(withdraw),
+            ::core::stringify!(isBonded),
+            ::core::stringify!(unbond),
+            ::core::stringify!(state),
+            ::core::stringify!(bond),
+            ::core::stringify!(renounceOwnership),
+            ::core::stringify!(read),
+            ::core::stringify!(owner),
+            ::core::stringify!(write),
+            ::core::stringify!(DISPUTE_PERIOD),
+            ::core::stringify!(blameIllAnnounced),
+            ::core::stringify!(BOND_AMOUNT),
+            ::core::stringify!(TWO_TIMES_DISPUTE_PERIOD),
+            ::core::stringify!(blameNoShow),
+            ::core::stringify!(LOG_TOPIC_0),
+            ::core::stringify!(transferOwnership),
+        ];
+        /// The signatures in the same order as `SELECTORS`.
+        pub const SIGNATURES: &'static [&'static str] = &[
+            <podRegistryCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <withdrawCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <isBondedCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <unbondCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <stateCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <bondCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <renounceOwnershipCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <readCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <ownerCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <writeCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <DISPUTE_PERIODCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <blameIllAnnouncedCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <BOND_AMOUNTCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <TWO_TIMES_DISPUTE_PERIODCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <blameNoShowCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <LOG_TOPIC_0Call as alloy_sol_types::SolCall>::SIGNATURE,
+            <transferOwnershipCall as alloy_sol_types::SolCall>::SIGNATURE,
+        ];
+        /// Returns the signature for the given selector, if known.
+        #[inline]
+        pub fn signature_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            match Self::SELECTORS.binary_search(&selector) {
+                ::core::result::Result::Ok(idx) => {
+                    ::core::option::Option::Some(Self::SIGNATURES[idx])
+                }
+                ::core::result::Result::Err(_) => ::core::option::Option::None,
+            }
+        }
+        /// Returns the enum variant name for the given selector, if known.
+        #[inline]
+        pub fn name_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            let sig = Self::signature_by_selector(selector)?;
+            sig.split_once('(').map(|(name, _)| name)
+        }
     }
     #[automatically_derived]
     impl alloy_sol_types::SolInterface for PodAuctionConsumerCalls {
@@ -6750,6 +6848,7 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         }
     }
     ///Container for all the [`PodAuctionConsumer`](self) custom errors.
+    #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum PodAuctionConsumerErrors {
@@ -6758,7 +6857,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[allow(missing_docs)]
         OwnableUnauthorizedAccount(OwnableUnauthorizedAccount),
     }
-    #[automatically_derived]
     impl PodAuctionConsumerErrors {
         /// All the selectors of this enum.
         ///
@@ -6770,6 +6868,36 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
             [17u8, 140u8, 218u8, 167u8],
             [30u8, 79u8, 189u8, 247u8],
         ];
+        /// The names of the variants in the same order as `SELECTORS`.
+        pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(OwnableUnauthorizedAccount),
+            ::core::stringify!(OwnableInvalidOwner),
+        ];
+        /// The signatures in the same order as `SELECTORS`.
+        pub const SIGNATURES: &'static [&'static str] = &[
+            <OwnableUnauthorizedAccount as alloy_sol_types::SolError>::SIGNATURE,
+            <OwnableInvalidOwner as alloy_sol_types::SolError>::SIGNATURE,
+        ];
+        /// Returns the signature for the given selector, if known.
+        #[inline]
+        pub fn signature_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            match Self::SELECTORS.binary_search(&selector) {
+                ::core::result::Result::Ok(idx) => {
+                    ::core::option::Option::Some(Self::SIGNATURES[idx])
+                }
+                ::core::result::Result::Err(_) => ::core::option::Option::None,
+            }
+        }
+        /// Returns the enum variant name for the given selector, if known.
+        #[inline]
+        pub fn name_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            let sig = Self::signature_by_selector(selector)?;
+            sig.split_once('(').map(|(name, _)| name)
+        }
     }
     #[automatically_derived]
     impl alloy_sol_types::SolInterface for PodAuctionConsumerErrors {
@@ -6913,6 +7041,7 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         }
     }
     ///Container for all the [`PodAuctionConsumer`](self) events.
+    #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum PodAuctionConsumerEvents {
@@ -6929,7 +7058,6 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
         #[allow(missing_docs)]
         Unbonded(Unbonded),
     }
-    #[automatically_derived]
     impl PodAuctionConsumerEvents {
         /// All the selectors of this enum.
         ///
@@ -6969,6 +7097,44 @@ function write(PodECDSA.CertifiedLog memory certifiedLog) external;
                 188u8, 143u8, 62u8, 96u8, 133u8, 44u8, 121u8, 9u8, 68u8, 31u8,
             ],
         ];
+        /// The names of the variants in the same order as `SELECTORS`.
+        pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(Unbonded),
+            ::core::stringify!(Bonded),
+            ::core::stringify!(OwnershipTransferred),
+            ::core::stringify!(BidWritten),
+            ::core::stringify!(Slashed),
+            ::core::stringify!(BidBlamed),
+        ];
+        /// The signatures in the same order as `SELECTORS`.
+        pub const SIGNATURES: &'static [&'static str] = &[
+            <Unbonded as alloy_sol_types::SolEvent>::SIGNATURE,
+            <Bonded as alloy_sol_types::SolEvent>::SIGNATURE,
+            <OwnershipTransferred as alloy_sol_types::SolEvent>::SIGNATURE,
+            <BidWritten as alloy_sol_types::SolEvent>::SIGNATURE,
+            <Slashed as alloy_sol_types::SolEvent>::SIGNATURE,
+            <BidBlamed as alloy_sol_types::SolEvent>::SIGNATURE,
+        ];
+        /// Returns the signature for the given selector, if known.
+        #[inline]
+        pub fn signature_by_selector(
+            selector: [u8; 32usize],
+        ) -> ::core::option::Option<&'static str> {
+            match Self::SELECTORS.binary_search(&selector) {
+                ::core::result::Result::Ok(idx) => {
+                    ::core::option::Option::Some(Self::SIGNATURES[idx])
+                }
+                ::core::result::Result::Err(_) => ::core::option::Option::None,
+            }
+        }
+        /// Returns the enum variant name for the given selector, if known.
+        #[inline]
+        pub fn name_by_selector(
+            selector: [u8; 32usize],
+        ) -> ::core::option::Option<&'static str> {
+            let sig = Self::signature_by_selector(selector)?;
+            sig.split_once('(').map(|(name, _)| name)
+        }
     }
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for PodAuctionConsumerEvents {
@@ -7085,9 +7251,9 @@ See the [wrapper's documentation](`PodAuctionConsumerInstance`) for more details
         N: alloy_contract::private::Network,
     >(
         address: alloy_sol_types::private::Address,
-        provider: P,
+        __provider: P,
     ) -> PodAuctionConsumerInstance<P, N> {
-        PodAuctionConsumerInstance::<P, N>::new(address, provider)
+        PodAuctionConsumerInstance::<P, N>::new(address, __provider)
     }
     /**A [`PodAuctionConsumer`](self) instance.
 
@@ -7114,7 +7280,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -7125,11 +7290,11 @@ See the [wrapper's documentation](`PodAuctionConsumerInstance`) for more details
         #[inline]
         pub const fn new(
             address: alloy_sol_types::private::Address,
-            provider: P,
+            __provider: P,
         ) -> Self {
             Self {
                 address,
-                provider,
+                provider: __provider,
                 _network: ::core::marker::PhantomData,
             }
         }
@@ -7166,7 +7331,6 @@ See the [wrapper's documentation](`PodAuctionConsumerInstance`) for more details
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -7289,7 +7453,6 @@ See the [wrapper's documentation](`PodAuctionConsumerInstance`) for more details
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,

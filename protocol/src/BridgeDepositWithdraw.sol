@@ -133,25 +133,69 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     /**
      * @inheritdoc IBridgeDepositWithdraw
      */
-    function claim(PodECDSA.CertifiedLog calldata certifiedLog) public override whenNotPaused {
-        (bytes32 id, address token, uint256 amount, address to) = _decodeDepositLog(certifiedLog.log);
+    function claim(address token, uint256 amount, AttestedTx.AttestedTx calldata attested, bytes calldata aggregated_signatures, MerkleTree.MultiProof calldata proof) public override whenNotPaused {
         address mirrorToken = mirrorTokens[token];
         if (mirrorToken == address(0)) revert MirrorTokenNotFound();
 
         if (!_isValidTokenAmount(mirrorToken, amount, false)) revert InvalidTokenAmount();
 
-        bytes32 requestId = _hashRequest(id, token, amount, to);
-        if (processedRequests[requestId]) revert RequestAlreadyProcessed();
+        console.log("claim called with amount: %s", amount);
+        console.log("Merkle proof path:");
+        for (uint i = 0; i < proof.path.length; i++) {
+            console.logBytes32(proof.path[i]);
+        }
+        console.log("Merkle proof flags:");
+        for (uint i = 0; i < proof.flags.length; i++) {
+            console.logBool(proof.flags[i]);
+        }
 
-        if (certifiedLog.log.addr != bridgeContract) revert InvalidBridgeContract();
+        // Build leaves for validating merkle proof
+        bytes4 selector = bytes4(keccak256("deposit(address,uint256)"));
+        bytes32[] memory leaves = new bytes32[](4);
+        leaves[0] = MerkleTree.hashLeaf("from", keccak256(abi.encode(msg.sender)));
+        leaves[1] = MerkleTree.hashLeaf("to", keccak256(abi.encode(bridgeContract)));
+        leaves[2] = MerkleTree.hashLeaf("value", keccak256(abi.encode(0)));
+        leaves[3] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(token, amount))));
 
-        bool verified = PodECDSA.verifyCertifiedLog(podConfig, certifiedLog);
-        if (!verified) revert InvalidCertificate();
+        sortLeaves(leaves);
 
-        processedRequests[requestId] = true;
+        console.log("leaves:");
+        for (uint i = 0; i < leaves.length; i++) {
+            console.logBytes32(leaves[i]);
+        }
 
-        IERC20(mirrorToken).safeTransfer(to, amount);
-        emit Claim(id, mirrorToken, token, amount, to);
+        bool valid = MerkleTree.verifyMulti(attested.hash, leaves, proof);
+        require(valid, "Invalid Merkle proof");
+
+        // Verify signatures
+        bytes32 attested_hash = AttestedTx.digest(attested);
+        bytes32 signed_hash = keccak256(abi.encode(attested_hash));
+        console.log("Signed hash:");
+        console.logBytes32(signed_hash);
+        console.log("Aggregated signatures:");
+        console.logBytes(aggregated_signatures);
+        address[] memory validators = ECDSA.recoverSigners(signed_hash, aggregated_signatures);
+        console.log("Recovered validators:");
+        for (uint i = 0; i < validators.length; i++) {
+            console.logAddress(validators[i]);
+        }
+
+        uint256 weight = podConfig.registry.computeWeight(validators);
+        console.log("Computed weight:", weight);
+
+        uint256 threshold = Math.mulDiv(
+            podConfig.registry.getValidatorCountAtIndex(attested.committee_epoch),
+            podConfig.thresholdNumerator,
+            podConfig.thresholdDenominator,
+            Math.Rounding.Ceil
+        );
+        console.log("Required threshold:", threshold);
+        require(weight >= threshold, "Not enough validator weight");
+
+        processedRequests[attested.hash] = true;
+
+        IERC20(mirrorToken).safeTransfer(msg.sender, amount);
+        emit Claim(attested.hash, mirrorToken, token, amount, msg.sender);
     }
 
     /**

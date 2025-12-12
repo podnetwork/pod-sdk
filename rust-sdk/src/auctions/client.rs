@@ -1,15 +1,11 @@
 use std::time::SystemTime;
 
-use crate::{
-    network::{PodNetwork, PodReceiptResponse},
-    provider::PodProvider,
-    Address, U256,
-};
+use crate::{network::PodNetwork, provider::PodProvider, Address, U256};
 use alloy_eips::BlockNumberOrTag;
 use anyhow::Context;
 
 use pod_contracts::auction::Auction::AuctionInstance;
-use pod_types::Timestamp;
+use pod_types::{rpc::receipt::PodReceiptResponse, Timestamp};
 
 pub struct AuctionClient {
     pub auction: AuctionInstance<PodProvider, PodNetwork>,

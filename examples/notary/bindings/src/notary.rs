@@ -58,7 +58,6 @@ pub mod Time {
                 > as alloy_sol_types::SolType>::abi_encoded_size(self)
             }
         }
-        #[automatically_derived]
         impl Timestamp {
             /// The Solidity type name.
             pub const NAME: &'static str = stringify!(@ name);
@@ -162,8 +161,8 @@ See the [wrapper's documentation](`TimeInstance`) for more details.*/
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(address: alloy_sol_types::private::Address, provider: P) -> TimeInstance<P, N> {
-        TimeInstance::<P, N>::new(address, provider)
+    >(address: alloy_sol_types::private::Address, __provider: P) -> TimeInstance<P, N> {
+        TimeInstance::<P, N>::new(address, __provider)
     }
     /**A [`Time`](self) instance.
 
@@ -190,7 +189,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -201,11 +199,11 @@ See the [wrapper's documentation](`TimeInstance`) for more details.*/
         #[inline]
         pub const fn new(
             address: alloy_sol_types::private::Address,
-            provider: P,
+            __provider: P,
         ) -> Self {
             Self {
                 address,
-                provider,
+                provider: __provider,
                 _network: ::core::marker::PhantomData,
             }
         }
@@ -242,7 +240,6 @@ See the [wrapper's documentation](`TimeInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -259,7 +256,6 @@ See the [wrapper's documentation](`TimeInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -543,6 +539,7 @@ function timestamp(bytes32 documentHash, Time.Timestamp ts) external;
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 Time::Timestamp,
@@ -583,6 +580,7 @@ function timestamp(bytes32 documentHash, Time.Timestamp ts) external;
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = ();
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = ();
@@ -700,6 +698,7 @@ function timestamps(bytes32) external view returns (Time.Timestamp);
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::FixedBytes<32>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>,);
@@ -731,6 +730,7 @@ function timestamps(bytes32) external view returns (Time.Timestamp);
         }
         {
             #[doc(hidden)]
+            #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (Time::Timestamp,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
@@ -818,6 +818,7 @@ function timestamps(bytes32) external view returns (Time.Timestamp);
         }
     };
     ///Container for all the [`Notary`](self) function calls.
+    #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     pub enum NotaryCalls {
@@ -826,7 +827,6 @@ function timestamps(bytes32) external view returns (Time.Timestamp);
         #[allow(missing_docs)]
         timestamps(timestampsCall),
     }
-    #[automatically_derived]
     impl NotaryCalls {
         /// All the selectors of this enum.
         ///
@@ -838,6 +838,36 @@ function timestamps(bytes32) external view returns (Time.Timestamp);
             [181u8, 135u8, 41u8, 88u8],
             [232u8, 214u8, 0u8, 137u8],
         ];
+        /// The names of the variants in the same order as `SELECTORS`.
+        pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(timestamps),
+            ::core::stringify!(timestamp),
+        ];
+        /// The signatures in the same order as `SELECTORS`.
+        pub const SIGNATURES: &'static [&'static str] = &[
+            <timestampsCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <timestampCall as alloy_sol_types::SolCall>::SIGNATURE,
+        ];
+        /// Returns the signature for the given selector, if known.
+        #[inline]
+        pub fn signature_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            match Self::SELECTORS.binary_search(&selector) {
+                ::core::result::Result::Ok(idx) => {
+                    ::core::option::Option::Some(Self::SIGNATURES[idx])
+                }
+                ::core::result::Result::Err(_) => ::core::option::Option::None,
+            }
+        }
+        /// Returns the enum variant name for the given selector, if known.
+        #[inline]
+        pub fn name_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            let sig = Self::signature_by_selector(selector)?;
+            sig.split_once('(').map(|(name, _)| name)
+        }
     }
     #[automatically_derived]
     impl alloy_sol_types::SolInterface for NotaryCalls {
@@ -965,13 +995,13 @@ function timestamps(bytes32) external view returns (Time.Timestamp);
         }
     }
     ///Container for all the [`Notary`](self) events.
+    #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum NotaryEvents {
         #[allow(missing_docs)]
         DocumentTimestamped(DocumentTimestamped),
     }
-    #[automatically_derived]
     impl NotaryEvents {
         /// All the selectors of this enum.
         ///
@@ -986,6 +1016,34 @@ function timestamps(bytes32) external view returns (Time.Timestamp);
                 123u8, 142u8, 61u8, 44u8, 144u8, 45u8, 164u8, 42u8, 110u8, 131u8,
             ],
         ];
+        /// The names of the variants in the same order as `SELECTORS`.
+        pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(DocumentTimestamped),
+        ];
+        /// The signatures in the same order as `SELECTORS`.
+        pub const SIGNATURES: &'static [&'static str] = &[
+            <DocumentTimestamped as alloy_sol_types::SolEvent>::SIGNATURE,
+        ];
+        /// Returns the signature for the given selector, if known.
+        #[inline]
+        pub fn signature_by_selector(
+            selector: [u8; 32usize],
+        ) -> ::core::option::Option<&'static str> {
+            match Self::SELECTORS.binary_search(&selector) {
+                ::core::result::Result::Ok(idx) => {
+                    ::core::option::Option::Some(Self::SIGNATURES[idx])
+                }
+                ::core::result::Result::Err(_) => ::core::option::Option::None,
+            }
+        }
+        /// Returns the enum variant name for the given selector, if known.
+        #[inline]
+        pub fn name_by_selector(
+            selector: [u8; 32usize],
+        ) -> ::core::option::Option<&'static str> {
+            let sig = Self::signature_by_selector(selector)?;
+            sig.split_once('(').map(|(name, _)| name)
+        }
     }
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for NotaryEvents {
@@ -1044,8 +1102,11 @@ See the [wrapper's documentation](`NotaryInstance`) for more details.*/
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(address: alloy_sol_types::private::Address, provider: P) -> NotaryInstance<P, N> {
-        NotaryInstance::<P, N>::new(address, provider)
+    >(
+        address: alloy_sol_types::private::Address,
+        __provider: P,
+    ) -> NotaryInstance<P, N> {
+        NotaryInstance::<P, N>::new(address, __provider)
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
@@ -1057,11 +1118,11 @@ For more fine-grained control over the deployment process, use [`deploy_builder`
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
-        provider: P,
+        __provider: P,
     ) -> impl ::core::future::Future<
         Output = alloy_contract::Result<NotaryInstance<P, N>>,
     > {
-        NotaryInstance::<P, N>::deploy(provider)
+        NotaryInstance::<P, N>::deploy(__provider)
     }
     /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
 and constructor arguments, if any.
@@ -1072,8 +1133,8 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     pub fn deploy_builder<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(provider: P) -> alloy_contract::RawCallBuilder<P, N> {
-        NotaryInstance::<P, N>::deploy_builder(provider)
+    >(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
+        NotaryInstance::<P, N>::deploy_builder(__provider)
     }
     /**A [`Notary`](self) instance.
 
@@ -1100,7 +1161,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -1111,11 +1171,11 @@ See the [wrapper's documentation](`NotaryInstance`) for more details.*/
         #[inline]
         pub const fn new(
             address: alloy_sol_types::private::Address,
-            provider: P,
+            __provider: P,
         ) -> Self {
             Self {
                 address,
-                provider,
+                provider: __provider,
                 _network: ::core::marker::PhantomData,
             }
         }
@@ -1126,9 +1186,9 @@ Returns a new instance of the contract, if the deployment was successful.
 For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
         #[inline]
         pub async fn deploy(
-            provider: P,
+            __provider: P,
         ) -> alloy_contract::Result<NotaryInstance<P, N>> {
-            let call_builder = Self::deploy_builder(provider);
+            let call_builder = Self::deploy_builder(__provider);
             let contract_address = call_builder.deploy().await?;
             Ok(Self::new(contract_address, call_builder.provider))
         }
@@ -1138,9 +1198,9 @@ and constructor arguments, if any.
 This is a simple wrapper around creating a `RawCallBuilder` with the data set to
 the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
-        pub fn deploy_builder(provider: P) -> alloy_contract::RawCallBuilder<P, N> {
+        pub fn deploy_builder(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
-                provider,
+                __provider,
                 ::core::clone::Clone::clone(&BYTECODE),
             )
         }
@@ -1177,7 +1237,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -1209,7 +1268,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
