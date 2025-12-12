@@ -75,7 +75,11 @@ fn parent_index(index: usize) -> usize {
 }
 
 fn sibling_index(index: usize) -> usize {
-    if index % 2 == 0 { index - 1 } else { index + 1 }
+    if index.is_multiple_of(2) {
+        index - 1
+    } else {
+        index + 1
+    }
 }
 
 fn is_leaf_index(tree_len: usize, index: usize) -> bool {

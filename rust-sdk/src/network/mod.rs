@@ -8,7 +8,7 @@ use alloy_provider::fillers::{
     ChainIdFiller, GasFiller, JoinFill, NonceFiller, RecommendedFillers,
 };
 
-use pod_types::rpc::receipt::PodReceiptResponse;
+pub use pod_types::rpc::receipt::PodReceiptResponse;
 
 use alloy_rpc_types::TransactionRequest;
 use pod_types::Timestamp;

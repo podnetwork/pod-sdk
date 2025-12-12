@@ -1360,9 +1360,9 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "clap",
- "pod-protocol 0.1.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=12abcb9b359dea94825a6d78fefa439e8857263d)",
- "pod-sdk 0.2.0",
- "pod-types 0.2.0",
+ "pod-protocol 0.1.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af)",
+ "pod-sdk 0.4.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af)",
+ "pod-types 0.4.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af)",
  "tokio",
 ]
 
@@ -3752,8 +3752,7 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
 name = "pod-examples-solidity"
-version = "0.2.0"
-source = "git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3#7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3"
+version = "0.4.0"
 dependencies = [
  "alloy",
  "serde",
@@ -3762,6 +3761,7 @@ dependencies = [
 [[package]]
 name = "pod-examples-solidity"
 version = "0.4.0"
+source = "git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af#535a38bbe4a78955546d673e1cadff7caa3201af"
 dependencies = [
  "alloy",
  "serde",
@@ -3786,37 +3786,10 @@ dependencies = [
 [[package]]
 name = "pod-protocol"
 version = "0.1.0"
-source = "git+https://github.com/podnetwork/pod-sdk.git?rev=12abcb9b359dea94825a6d78fefa439e8857263d#12abcb9b359dea94825a6d78fefa439e8857263d"
+source = "git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af#535a38bbe4a78955546d673e1cadff7caa3201af"
 dependencies = [
  "alloy",
  "serde",
-]
-
-[[package]]
-name = "pod-sdk"
-version = "0.2.0"
-source = "git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3#7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3"
-dependencies = [
- "alloy-consensus",
- "alloy-eips",
- "alloy-json-rpc",
- "alloy-network",
- "alloy-primitives",
- "alloy-provider",
- "alloy-pubsub",
- "alloy-rpc-types",
- "alloy-signer",
- "alloy-signer-local",
- "alloy-sol-types",
- "alloy-transport",
- "anyhow",
- "async-trait",
- "futures",
- "hex",
- "pod-examples-solidity 0.2.0",
- "pod-types 0.2.0",
- "serde",
- "tracing",
 ]
 
 [[package]]
@@ -3841,34 +3814,37 @@ dependencies = [
  "hex",
  "pod-examples-solidity 0.4.0",
  "pod-types 0.4.0",
- "secp256k1 0.31.1",
  "serde",
  "tokio-test",
  "tracing",
 ]
 
 [[package]]
-name = "pod-types"
-version = "0.2.0"
-source = "git+https://github.com/podnetwork/pod-sdk.git?rev=7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3#7cd15a0c5436182f3ce6f4115d69f2bd257dd8e3"
+name = "pod-sdk"
+version = "0.4.0"
+source = "git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af#535a38bbe4a78955546d673e1cadff7caa3201af"
 dependencies = [
  "alloy-consensus",
+ "alloy-eips",
+ "alloy-json-rpc",
+ "alloy-network",
  "alloy-primitives",
+ "alloy-provider",
+ "alloy-pubsub",
  "alloy-rpc-types",
  "alloy-signer",
  "alloy-signer-local",
  "alloy-sol-types",
+ "alloy-transport",
  "anyhow",
- "base64 0.22.1",
- "bytes",
+ "async-trait",
+ "futures",
  "hex",
- "itertools 0.13.0",
+ "pod-examples-solidity 0.4.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af)",
+ "pod-types 0.4.0 (git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af)",
+ "secp256k1 0.31.1",
  "serde",
- "serde_with",
- "thiserror",
- "tokio",
  "tracing",
- "utoipa",
 ]
 
 [[package]]
@@ -3894,6 +3870,32 @@ dependencies = [
  "secp256k1 0.31.1",
  "serde",
  "serde_json",
+ "serde_with",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "utoipa",
+]
+
+[[package]]
+name = "pod-types"
+version = "0.4.0"
+source = "git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af#535a38bbe4a78955546d673e1cadff7caa3201af"
+dependencies = [
+ "alloy-consensus",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-rpc-types",
+ "alloy-signer",
+ "alloy-signer-local",
+ "alloy-sol-types",
+ "anyhow",
+ "base64 0.22.1",
+ "bytes",
+ "hex",
+ "itertools 0.14.0",
+ "secp256k1 0.31.1",
+ "serde",
  "serde_with",
  "thiserror",
  "tokio",

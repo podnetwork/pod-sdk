@@ -247,7 +247,7 @@ async fn main() -> anyhow::Result<()> {
 async fn calculate_deadline_and_block_number<T>(
     latest_block: Block<T>,
 ) -> anyhow::Result<(SystemTime, u64)> {
-    let blocks_timestamp_even = (latest_block.header.timestamp % 2) == 0;
+    let blocks_timestamp_even = latest_block.header.timestamp.is_multiple_of(2);
 
     let mut deadline = (SystemTime::now() + Duration::from_secs(5))
         .duration_since(std::time::UNIX_EPOCH)?
