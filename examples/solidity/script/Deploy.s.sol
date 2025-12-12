@@ -44,27 +44,6 @@ contract Deployer is BaseDeployer {
 
             TestMintBalancePrecompile testMintBalance = new TestMintBalancePrecompile();
             console.log("TestMintBalancePrecompile contract deployed at:", address(testMintBalance));
-
-            address OTHER_BRIDGE_CONTRACT = makeAddr("otherBridgeContract");
-            IBridge.TokenLimits memory nativeTokenLimits =
-                IBridge.TokenLimits({minAmount: 0.01 ether, deposit: 5000000 ether, claim: 4000000 ether});
-
-            BridgeMintBurn bridgeMintBurn = new BridgeMintBurn(OTHER_BRIDGE_CONTRACT, nativeTokenLimits, 0);
-            console.log("BridgeMintBurn deployed at:", address(bridgeMintBurn));
-
-            address MIRROR_TOKEN_ADDRESS = makeAddr("mirrorToken");
-
-            WrappedToken token = new WrappedToken("Test Token", "TEST", 18);
-
-            console.log("Token deployed at:", address(token));
-
-            bridgeMintBurn.createAndWhitelistMirrorToken(
-                "Test Token", "TEST", address(token), address(MIRROR_TOKEN_ADDRESS), 18, nativeTokenLimits
-            );
-
-            token.grantRole(token.MINTER_ROLE(), address(bridgeMintBurn));
-            token.grantRole(token.PAUSER_ROLE(), address(bridgeMintBurn));
-            token.grantRole(token.DEFAULT_ADMIN_ROLE(), address(bridgeMintBurn));
         }
 
         vm.stopBroadcast();
