@@ -28,7 +28,7 @@ impl Default for PodTransactionRequest {
     fn default() -> Self {
         let mut inner = TransactionRequest::default();
         inner.set_max_fee_per_gas(1_000_000_000);
-        inner.set_max_priority_fee_per_gas(1_000_000_000);
+        inner.set_max_priority_fee_per_gas(0);
         Self { inner }
     }
 }
@@ -44,6 +44,12 @@ impl Deref for PodTransactionRequest {
 impl DerefMut for PodTransactionRequest {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
+    }
+}
+
+impl From<PodTransactionRequest> for TransactionRequest {
+    fn from(value: PodTransactionRequest) -> Self {
+        value.inner
     }
 }
 
