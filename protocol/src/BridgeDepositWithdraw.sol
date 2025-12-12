@@ -145,7 +145,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     ) public override whenNotPaused {
         address mirrorToken = mirrorTokens[token];
         if (mirrorToken == address(0)) revert MirrorTokenNotFound();
-
+        if (processedRequests[attested.hash] != false) revert RequestAlreadyProcessed();
         if (!_isValidTokenAmount(mirrorToken, amount, false)) revert InvalidTokenAmount();
 
         console.log("claim called with amount: %s", amount);
@@ -217,6 +217,9 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         bytes calldata aggregated_signatures,
         MerkleTree.MultiProof calldata proof
     ) public override whenNotPaused {
+        if (processedRequests[attested.hash] != false) {
+            revert RequestAlreadyProcessed();
+        }
         if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, amount, false)) {
             revert InvalidTokenAmount();
         }
