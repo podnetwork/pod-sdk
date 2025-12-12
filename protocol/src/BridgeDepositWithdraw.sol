@@ -124,7 +124,9 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
             // Move elements of leaves[0..i-1] that are > key one position ahead
             while (j > 0 && leaves[j - 1] > key) {
                 leaves[j] = leaves[j - 1];
-                unchecked { j--; }
+                unchecked {
+                    j--;
+                }
             }
             leaves[j] = key;
         }
@@ -133,7 +135,13 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     /**
      * @inheritdoc IBridgeDepositWithdraw
      */
-    function claim(address token, uint256 amount, AttestedTx.AttestedTx calldata attested, bytes calldata aggregated_signatures, MerkleTree.MultiProof calldata proof) public override whenNotPaused {
+    function claim(
+        address token,
+        uint256 amount,
+        AttestedTx.AttestedTx calldata attested,
+        bytes calldata aggregated_signatures,
+        MerkleTree.MultiProof calldata proof
+    ) public override whenNotPaused {
         address mirrorToken = mirrorTokens[token];
         if (mirrorToken == address(0)) revert MirrorTokenNotFound();
 
@@ -141,11 +149,11 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
 
         console.log("claim called with amount: %s", amount);
         console.log("Merkle proof path:");
-        for (uint i = 0; i < proof.path.length; i++) {
+        for (uint256 i = 0; i < proof.path.length; i++) {
             console.logBytes32(proof.path[i]);
         }
         console.log("Merkle proof flags:");
-        for (uint i = 0; i < proof.flags.length; i++) {
+        for (uint256 i = 0; i < proof.flags.length; i++) {
             console.logBool(proof.flags[i]);
         }
 
@@ -160,7 +168,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         sortLeaves(leaves);
 
         console.log("leaves:");
-        for (uint i = 0; i < leaves.length; i++) {
+        for (uint256 i = 0; i < leaves.length; i++) {
             console.logBytes32(leaves[i]);
         }
 
@@ -176,7 +184,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         console.logBytes(aggregated_signatures);
         address[] memory validators = ECDSA.recoverSigners(signed_hash, aggregated_signatures);
         console.log("Recovered validators:");
-        for (uint i = 0; i < validators.length; i++) {
+        for (uint256 i = 0; i < validators.length; i++) {
             console.logAddress(validators[i]);
         }
 
@@ -201,16 +209,23 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     /**
      * @inheritdoc IBridgeDepositWithdraw
      */
-    function claimNative(uint256 amount, AttestedTx.AttestedTx calldata attested, bytes calldata aggregated_signatures, MerkleTree.MultiProof calldata proof) public override whenNotPaused {
-        if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, amount, false)) revert InvalidTokenAmount();
+    function claimNative(
+        uint256 amount,
+        AttestedTx.AttestedTx calldata attested,
+        bytes calldata aggregated_signatures,
+        MerkleTree.MultiProof calldata proof
+    ) public override whenNotPaused {
+        if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, amount, false)) {
+            revert InvalidTokenAmount();
+        }
 
         console.log("claimNative called with amount: %s", amount);
         console.log("Merkle proof path:");
-        for (uint i = 0; i < proof.path.length; i++) {
+        for (uint256 i = 0; i < proof.path.length; i++) {
             console.logBytes32(proof.path[i]);
         }
         console.log("Merkle proof flags:");
-        for (uint i = 0; i < proof.flags.length; i++) {
+        for (uint256 i = 0; i < proof.flags.length; i++) {
             console.logBool(proof.flags[i]);
         }
 
@@ -225,7 +240,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         sortLeaves(leaves);
 
         console.log("leaves:");
-        for (uint i = 0; i < leaves.length; i++) {
+        for (uint256 i = 0; i < leaves.length; i++) {
             console.logBytes32(leaves[i]);
         }
 
@@ -241,7 +256,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         console.logBytes(aggregated_signatures);
         address[] memory validators = ECDSA.recoverSigners(signed_hash, aggregated_signatures);
         console.log("Recovered validators:");
-        for (uint i = 0; i < validators.length; i++) {
+        for (uint256 i = 0; i < validators.length; i++) {
             console.logAddress(validators[i]);
         }
 
@@ -259,7 +274,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
 
         processedRequests[attested.hash] = true;
 
-        (bool sent, ) = msg.sender.call{value: amount}("");
+        (bool sent,) = msg.sender.call{value: amount}("");
         require(sent, "Failed to transfer native tokens");
         emit ClaimNative(attested.hash, amount, msg.sender);
     }

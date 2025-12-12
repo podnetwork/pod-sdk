@@ -6,10 +6,7 @@ import {console} from "forge-std/console.sol";
 import {WrappedToken} from "pod-protocol/WrappedToken.sol";
 
 contract DeployToken is Script {
-    function run(string memory name, string memory symbol, uint8 decimals)
-        external
-        returns (address token)
-    {
+    function run(string memory name, string memory symbol, uint8 decimals) external returns (address token) {
         vm.startBroadcast();
         WrappedToken t = new WrappedToken(name, symbol, decimals);
         vm.stopBroadcast();

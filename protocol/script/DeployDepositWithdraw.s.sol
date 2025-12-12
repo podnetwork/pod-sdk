@@ -8,10 +8,10 @@ import {IBridge} from "pod-protocol/interfaces/IBridge.sol";
 import {PodRegistry} from "pod-protocol/PodRegistry.sol";
 
 contract DeployDepositWithdraw is BaseDeployer {
-    function run(
-        address podBridgeAddr,
-        IBridge.TokenLimits memory nativeTokenLimits
-    ) external returns (address podRegistry, address depositWithdraw) {
+    function run(address podBridgeAddr, IBridge.TokenLimits memory nativeTokenLimits)
+        external
+        returns (address podRegistry, address depositWithdraw)
+    {
         address[] memory initialValidators = getValidatorAddresses();
         vm.startBroadcast();
         PodRegistry reg = new PodRegistry(initialValidators);

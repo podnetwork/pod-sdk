@@ -31,9 +31,8 @@ library PodPrecompileHelper {
     function getBlockByBlockTag(uint256 chainId, bytes memory blockTag) internal view returns (uint256) {
         EthGetBlockByNumberTypes.PrecompileArgs memory args =
             EthGetBlockByNumberTypes.PrecompileArgs(chainId, EthGetBlockByNumberTypes.RpcArgs(blockTag, false));
-        (bool success, bytes memory output) = EthGetBlockByNumberTypes.PRECOMPILE_ADDRESS.staticcall(
-            abi.encode(args.chainId, args.ethGetBlockByNumberArgs)
-        );
+        (bool success, bytes memory output) = EthGetBlockByNumberTypes.PRECOMPILE_ADDRESS
+            .staticcall(abi.encode(args.chainId, args.ethGetBlockByNumberArgs));
         if (!success) revert PrecompileCallFailed();
         return HexUtils.uintFromBigEndian(abi.decode(output, (EthGetBlockByNumberTypes.RpcBlock)).number);
     }

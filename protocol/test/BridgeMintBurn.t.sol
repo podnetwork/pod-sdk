@@ -433,8 +433,9 @@ contract BridgeMintBurnTest is BridgeBehaviorTest {
     }
 
     function _buildEthGetBlockByNumberArgs() internal pure returns (bytes memory) {
-        EthGetBlockByNumberTypes.PrecompileArgs memory args =
-            EthGetBlockByNumberTypes.PrecompileArgs(1, EthGetBlockByNumberTypes.RpcArgs(hex"66696e616c697a6564", false));
+        EthGetBlockByNumberTypes.PrecompileArgs memory args = EthGetBlockByNumberTypes.PrecompileArgs(
+            1, EthGetBlockByNumberTypes.RpcArgs(hex"66696e616c697a6564", false)
+        );
 
         return abi.encode(args.chainId, args.ethGetBlockByNumberArgs);
     }

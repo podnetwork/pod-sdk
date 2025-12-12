@@ -45,7 +45,7 @@ abstract contract BridgeBehaviorTest is PodTest {
         bridge().pause();
         vm.expectRevert(Pausable.EnforcedPause.selector);
         vm.prank(user);
-        bridge().deposit(address(token()), DEPOSIT_AMOUNT );
+        bridge().deposit(address(token()), DEPOSIT_AMOUNT);
     }
 
     function test_Deposit_MinAndDailyLimit() public {

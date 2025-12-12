@@ -94,8 +94,9 @@ contract PodECDSATest is Test {
         bytes32 logAddressLeaf =
             MerkleTree.hashLeaf("logs[0].address", 0xe4774a087b3f35fd4dc3e664aeebe3e28f7b45b805ff2d3c6867951001cc6b74);
         assertEq(logAddressLeaf, 0xd9c74aa19994428cc9b9f72b363dfd58a156391e783e8cb1eebc64ff6387eb15);
-        bytes32 logDataLeaf =
-            MerkleTree.hashLeaf("logs[0].data.data", 0x5fe7f977e71dba2ea1a68e21057beebb9be2ac30c6410aa38d4f3fbe41dcffd2);
+        bytes32 logDataLeaf = MerkleTree.hashLeaf(
+            "logs[0].data.data", 0x5fe7f977e71dba2ea1a68e21057beebb9be2ac30c6410aa38d4f3fbe41dcffd2
+        );
         assertEq(logDataLeaf, 0x98aac89fa67dcf1589d1adddba4ac3d86bb03a9b800c5b676a590905e1c71fd2);
 
         bytes32[] memory leaves = new bytes32[](2);

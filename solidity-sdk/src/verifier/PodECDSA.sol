@@ -66,10 +66,8 @@ library PodECDSA {
         if (sortedAttestationTimestamps.length % 2 == 1) {
             return sortedAttestationTimestamps[sortedAttestationTimestamps.length / 2];
         } else {
-            return (
-                sortedAttestationTimestamps[sortedAttestationTimestamps.length / 2]
-                    + sortedAttestationTimestamps[sortedAttestationTimestamps.length / 2 - 1]
-            ) / 2;
+            return (sortedAttestationTimestamps[sortedAttestationTimestamps.length / 2]
+                    + sortedAttestationTimestamps[sortedAttestationTimestamps.length / 2 - 1]) / 2;
         }
     }
 

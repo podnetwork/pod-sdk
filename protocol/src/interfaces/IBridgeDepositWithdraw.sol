@@ -30,7 +30,13 @@ interface IBridgeDepositWithdraw is IBridge {
      * @param aggregated_signatures Concatenated 65-byte ECDSA signatures (r,s,v) from validators.
      * @param proof The Merkle multi-proof for verifying transaction fields (from, to, value, input).
      */
-    function claim(address token, uint256 amount, AttestedTx.AttestedTx calldata attested, bytes calldata aggregated_signatures, MerkleTree.MultiProof calldata proof) external;
+    function claim(
+        address token,
+        uint256 amount,
+        AttestedTx.AttestedTx calldata attested,
+        bytes calldata aggregated_signatures,
+        MerkleTree.MultiProof calldata proof
+    ) external;
 
     /**
      * @notice Claim bridged native tokens using an attested transaction proof from Pod.
@@ -42,7 +48,12 @@ interface IBridgeDepositWithdraw is IBridge {
      * @param aggregated_signatures Concatenated 65-byte ECDSA signatures (r,s,v) from validators.
      * @param proof The Merkle multi-proof for verifying transaction fields (from, to, value, input).
      */
-    function claimNative(uint256 amount, AttestedTx.AttestedTx calldata attested, bytes calldata aggregated_signatures, MerkleTree.MultiProof calldata proof) external;
+    function claimNative(
+        uint256 amount,
+        AttestedTx.AttestedTx calldata attested,
+        bytes calldata aggregated_signatures,
+        MerkleTree.MultiProof calldata proof
+    ) external;
 
     /**
      * @dev Error thrown when the certificate verification fails.
