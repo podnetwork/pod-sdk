@@ -137,22 +137,6 @@ async fn vote(
     println!("Gas used: {}", receipt.gas_used);
     println!("Effective gas price: {}", receipt.effective_gas_price);
 
-    // Get committee for verification
-    let committee = pod_provider.get_committee().await?;
-
-    // Verify receipt
-    if receipt.verify_receipt(&committee).is_ok() {
-        println!("\nReceipt verified by committee!");
-        println!("Attestations:");
-        for attestation in &receipt.pod_metadata.attestations {
-            println!("  - Public key: {}", attestation.public_key);
-            println!("    Signature: {}", attestation.signature);
-            println!("    Timestamp: {}", attestation.timestamp);
-        }
-    } else {
-        println!("\nWarning: Receipt verification failed!");
-    }
-
     Ok(())
 }
 

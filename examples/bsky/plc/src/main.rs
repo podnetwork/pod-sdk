@@ -265,11 +265,6 @@ async fn create_plc(
         return Err((StatusCode::BAD_REQUEST, "Transaction failed".to_string()));
     }
 
-    let committee = state.provider.get_committee().await.unwrap();
-    receipt
-        .verify_receipt(&committee)
-        .expect("Receipt verification failed");
-
     Ok(Json(json!({
             "status": "success",
             "did": did.to_string(),

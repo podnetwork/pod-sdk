@@ -16,3 +16,6 @@ members = [
   "protocol/bindings",
 ]
 resolver = "2"
+
+[workspace.dependencies]
+secp256k1 = { version = "0.31.1" }

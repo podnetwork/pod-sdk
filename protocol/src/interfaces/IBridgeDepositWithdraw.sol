@@ -3,6 +3,8 @@ pragma solidity ^0.8.20;
 
 import {IBridge} from "./IBridge.sol";
 import {PodECDSA} from "pod-sdk/verifier/PodECDSA.sol";
+import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
+import {AttestedTx} from "pod-protocol/libraries/AttestedTx.sol";
 
 /**
  * @title IBridgeDepositWithdraw
@@ -24,11 +26,7 @@ interface IBridgeDepositWithdraw is IBridge {
      */
     function claim(PodECDSA.CertifiedLog calldata certifiedLog) external;
 
-    /**
-     * @notice Claim native tokens using a certified log proof.
-     * @param certifiedLog The proof of the deposit represented as a pod certified log.
-     */
-    function claimNative(PodECDSA.CertifiedLog calldata certifiedLog) external;
+    function claimNative(uint256 amount, AttestedTx.AttestedTx calldata attested, bytes calldata aggregated_signatures, MerkleTree.MultiProof calldata proof) external;
 
     /**
      * @dev Error thrown when the certificate verification fails.

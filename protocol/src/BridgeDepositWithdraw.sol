@@ -6,7 +6,13 @@ import {Bridge} from "pod-protocol/abstract/Bridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {PodECDSA} from "pod-sdk/verifier/PodECDSA.sol";
+import {ECDSA} from "pod-sdk/verifier/ECDSA.sol";
+import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {IPodRegistry} from "pod-protocol/interfaces/IPodRegistry.sol";
+import {AttestedTx} from "pod-protocol/libraries/AttestedTx.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+
+import "forge-std/console.sol";
 
 /**
  * @title BridgeDepositWithdraw
@@ -36,7 +42,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         Bridge(_bridgeContract, nativeTokenLimits)
     {
         podConfig =
-            PodECDSA.PodConfig({thresholdNumerator: 2, thresholdDenominator: 3, registry: IPodRegistry(_podRegistry)});
+            PodECDSA.PodConfig({thresholdNumerator: 1, thresholdDenominator: 1, registry: IPodRegistry(_podRegistry)});
     }
 
     /**
@@ -110,6 +116,20 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         }
     }
 
+    function sortLeaves(bytes32[] memory leaves) internal pure {
+        uint256 n = leaves.length;
+        for (uint256 i = 1; i < n; ++i) {
+            bytes32 key = leaves[i];
+            uint256 j = i;
+            // Move elements of leaves[0..i-1] that are > key one position ahead
+            while (j > 0 && leaves[j - 1] > key) {
+                leaves[j] = leaves[j - 1];
+                unchecked { j--; }
+            }
+            leaves[j] = key;
+        }
+    }
+
     /**
      * @inheritdoc IBridgeDepositWithdraw
      */
@@ -137,23 +157,67 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     /**
      * @inheritdoc IBridgeDepositWithdraw
      */
-    function claimNative(PodECDSA.CertifiedLog calldata certifiedLog) public override whenNotPaused {
-        (bytes32 id, uint256 amount, address to) = _decodeDepositNativeLog(certifiedLog.log);
-
+    function claimNative(uint256 amount, AttestedTx.AttestedTx calldata attested, bytes calldata aggregated_signatures, MerkleTree.MultiProof calldata proof) public override whenNotPaused {
         if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, amount, false)) revert InvalidTokenAmount();
 
-        bytes32 requestId = _hashRequest(id, address(0), amount, to);
-        if (processedRequests[requestId]) revert RequestAlreadyProcessed();
+        console.log("claimNative called with amount: %s", amount);
+        console.log("Merkle proof path:");
+        for (uint i = 0; i < proof.path.length; i++) {
+            console.logBytes32(proof.path[i]);
+        }
+        console.log("Merkle proof flags:");
+        for (uint i = 0; i < proof.flags.length; i++) {
+            console.logBool(proof.flags[i]);
+        }
 
-        if (certifiedLog.log.addr != bridgeContract) revert InvalidBridgeContract();
+        // Build leaves for validating merkle proof
+        bytes4 selector = bytes4(keccak256("depositNative()"));
+        bytes32[] memory leaves = new bytes32[](4);
+        leaves[0] = MerkleTree.hashLeaf("from", keccak256(abi.encode(msg.sender)));
+        leaves[1] = MerkleTree.hashLeaf("to", keccak256(abi.encode(bridgeContract)));
+        leaves[2] = MerkleTree.hashLeaf("value", keccak256(abi.encode(amount)));
+        leaves[3] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector)));
 
-        bool verified = PodECDSA.verifyCertifiedLog(podConfig, certifiedLog);
-        if (!verified) revert InvalidCertificate();
+        sortLeaves(leaves);
 
-        processedRequests[requestId] = true;
+        console.log("leaves:");
+        for (uint i = 0; i < leaves.length; i++) {
+            console.logBytes32(leaves[i]);
+        }
 
-        payable(to).transfer(amount);
-        emit ClaimNative(id, amount, to);
+        bool valid = MerkleTree.verifyMulti(attested.hash, leaves, proof);
+        require(valid, "Invalid Merkle proof");
+
+        // Verify signatures
+        bytes32 attested_hash = AttestedTx.digest(attested);
+        bytes32 signed_hash = keccak256(abi.encode(attested_hash));
+        console.log("Signed hash:");
+        console.logBytes32(signed_hash);
+        console.log("Aggregated signatures:");
+        console.logBytes(aggregated_signatures);
+        address[] memory validators = ECDSA.recoverSigners(signed_hash, aggregated_signatures);
+        console.log("Recovered validators:");
+        for (uint i = 0; i < validators.length; i++) {
+            console.logAddress(validators[i]);
+        }
+
+        uint256 weight = podConfig.registry.computeWeight(validators);
+        console.log("Computed weight:", weight);
+
+        uint256 threshold = Math.mulDiv(
+            podConfig.registry.getValidatorCountAtIndex(attested.committee_epoch),
+            podConfig.thresholdNumerator,
+            podConfig.thresholdDenominator,
+            Math.Rounding.Ceil
+        );
+        console.log("Required threshold:", threshold);
+        require(weight >= threshold, "Not enough validator weight");
+
+        processedRequests[attested.hash] = true;
+
+        (bool sent, ) = msg.sender.call{value: amount}("");
+        require(sent, "Failed to transfer native tokens");
+        emit ClaimNative(attested.hash, amount, msg.sender);
     }
 
     /**

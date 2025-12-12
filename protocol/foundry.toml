@@ -9,9 +9,10 @@ cbor_metadata = false
 remappings = [
     "@openzeppelin/=lib/openzeppelin-contracts/",
     "pod-sdk/=../solidity-sdk/src/",
-    "pod-protocol/=./src/"
+    "pod-protocol/=./src/",
 ]
 allow_paths = ["../solidity-sdk"]
+via_ir = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
@@ -20,3 +21,4 @@ exclude = ["lib/**"]
 
 [lint]
 exclude_lints = ["incorrect-shift"]
+

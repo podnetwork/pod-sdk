@@ -1,9 +1,9 @@
-use std::{str::FromStr, time::SystemTime};
+use std::str::FromStr;
 
 use anyhow::Result;
 
 use futures::StreamExt;
-use pod_sdk::{Address, TxKind, U256, alloy_sol_types::SolEvent, provider::PodProviderBuilder};
+use pod_sdk::{Address, U256, alloy_sol_types::SolEvent, provider::PodProviderBuilder};
 
 use pod_examples_solidity::auction::Auction;
 use pod_types::{Timestamp, rpc::filter::LogFilterBuilder};
@@ -18,10 +18,10 @@ async fn main() -> Result<()> {
     println!("committee: {committee:?}");
 
     // sender sends payment
-    let start_time = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)?
-        .as_micros()
-        .try_into()?;
+    // let start_time = SystemTime::now()
+    //     .duration_since(SystemTime::UNIX_EPOCH)?
+    //     .as_micros()
+    //     .try_into()?;
 
     let recipient = Address::from_str("0xC7096D019F96faE581361aFB07311cd6D3a25596").unwrap();
 
@@ -32,28 +32,28 @@ async fn main() -> Result<()> {
     println!("receipt: {receipt:?}");
 
     // recipient listens for new receipts and verifies payment
-    let receipts = pod_provider.get_receipts(None, start_time, None).await?;
-
-    for receipt in receipts.items {
-        if receipt.transaction().to == TxKind::Call(recipient)
-            && receipt.verify_receipt(&committee).is_ok()
-        {
-            println!("found verified receipt {receipt:?}");
-        }
-    }
-
+    // let receipts = pod_provider.get_receipts(None, start_time, None).await?;
+    //
+    // for receipt in receipts.items {
+    //     if receipt.transaction().to == TxKind::Call(recipient)
+    //         && receipt.verify_receipt(&committee).is_ok()
+    //     {
+    //         println!("found verified receipt {receipt:?}");
+    //     }
+    // }
+    //
     // recipient listens for new receipts and verifies payment
-    let recipient_receipts = pod_provider
-        .get_receipts(Some(recipient), start_time, None)
-        .await?;
-
-    for recipient_receipt in recipient_receipts.items {
-        if recipient_receipt.transaction().to == TxKind::Call(recipient)
-            && recipient_receipt.verify_receipt(&committee).is_ok()
-        {
-            println!("found verified receipt {recipient_receipt:?}");
-        }
-    }
+    // let recipient_receipts = pod_provider
+    //     .get_receipts(Some(recipient), start_time, None)
+    //     .await?;
+    //
+    // for recipient_receipt in recipient_receipts.items {
+    //     if recipient_receipt.transaction().to == TxKind::Call(recipient)
+    //         && recipient_receipt.verify_receipt(&committee).is_ok()
+    //     {
+    //         println!("found verified receipt {recipient_receipt:?}");
+    //     }
+    // }
 
     println!("waiting for time to be past perfect");
     pod_provider

@@ -21,6 +21,7 @@ pub struct Receipt {
     pub max_fee_per_gas: u128,
     pub logs: Vec<Log>,
     pub logs_root: Hash,
+    pub tx_hash: Hash,
     pub attested_tx: AttestedTx,
     pub signer: Address,
     pub to: Option<Address>,
@@ -29,7 +30,7 @@ pub struct Receipt {
 
 impl Receipt {
     pub fn tx_hash(&self) -> Hash {
-        self.attested_tx.hash
+        self.tx_hash
     }
 
     fn log_hashes(&self) -> Vec<Hash> {
@@ -86,6 +87,7 @@ impl Merkleizable for Receipt {
         // NOTE: "log_hashes" isn't part of the Receipt struct
         builder.add_slice("log_hashes", &self.log_hashes());
         builder.add_field("logs_root", self.logs_root.abi_encode().hash_custom());
+        builder.add_field("tx_hash", self.tx_hash);
         builder.add_merkleizable("attested_tx", &self.attested_tx);
     }
 }
@@ -111,7 +113,7 @@ impl From<Receipt> for TransactionReceipt {
                         .collect(),
                 },
             }),
-            transaction_hash: val.attested_tx.hash,
+            transaction_hash: val.tx_hash,
             transaction_index: Some(0),
             block_hash: Some(Hash::default()), // Need hash for tx confirmation on Metamask
             block_number: Some(1),             // Need number of tx confirmation on Metamask
@@ -179,6 +181,7 @@ mod test {
             max_fee_per_gas: transaction.max_fee_per_gas,
             logs: logs.clone(),
             logs_root,
+            tx_hash: tx.hash_custom(),
             attested_tx: AttestedTx::new(tx.hash_custom(), 0),
             signer: tx.signer,
             to: Some(to),

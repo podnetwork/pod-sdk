@@ -4,23 +4,20 @@ use alloy_network::{
     BuildResult, Network, NetworkWallet, ReceiptResponse, TransactionBuilder,
     TransactionBuilderError,
 };
-use alloy_primitives::{
-    Address, BlockHash, Bytes, ChainId, Log, Signature, TxHash, TxKind, B256, U256,
-};
+use alloy_primitives::{Address, BlockHash, Bytes, ChainId, Signature, TxHash, TxKind, B256, U256};
 use alloy_provider::fillers::{
     ChainIdFiller, GasFiller, JoinFill, NonceFiller, RecommendedFillers,
 };
 
-use pod_types::{
-    consensus::{attestation::AttestedTx, committee::CommitteeError},
-    ledger::Transaction,
-    metadata::DetailedReceiptMetadata,
-};
+use pod_types::consensus::attestation::AttestedTx;
 
 use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
-use pod_types::{Committee, Hashable, Merkleizable, Receipt, Timestamp};
+use pod_types::Timestamp;
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct PodNetwork;
@@ -300,67 +297,8 @@ pub struct AttestationData {
 pub struct PodReceiptResponse {
     #[serde(flatten)]
     pub receipt: TransactionReceipt,
-    pub pod_metadata: DetailedReceiptMetadata,
-}
-
-impl PodReceiptResponse {
-    pub fn verify_receipt(&self, committee: &Committee) -> Result<(), CommitteeError> {
-        let logs = self
-            .receipt
-            .inner
-            .logs()
-            .iter()
-            .map(|l| l.inner.clone())
-            .collect::<Vec<Log>>();
-
-        let logs_root = logs.to_merkle_tree().hash_custom();
-        let tx_hash = self.pod_metadata.transaction.hash_custom();
-        let to = match self.pod_metadata.transaction.to {
-            TxKind::Create => None,
-            TxKind::Call(address) => Some(address),
-        };
-
-        let receipt = Receipt {
-            status: self.status(),
-            actual_gas_used: self.receipt.gas_used,
-            logs,
-            logs_root,
-            attested_tx: AttestedTx {
-                hash: tx_hash,
-                committee_epoch: self.pod_metadata.committee_epoch,
-            },
-            max_fee_per_gas: self.pod_metadata.transaction.max_fee_per_gas,
-            signer: self.pod_metadata.transaction.signer,
-            to,
-            contract_address: self.receipt.contract_address,
-        };
-
-        committee.verify_aggregate_attestation(
-            receipt.attested_tx.hash_custom(),
-            &self
-                .pod_metadata
-                .attestations
-                .iter()
-                .map(|a| a.signature)
-                .collect(),
-        )?;
-
-        committee.verify_aggregate_attestation(
-            receipt.hash_custom(),
-            &self
-                .pod_metadata
-                .receipt_attestations
-                .iter()
-                .map(|a| a.signature)
-                .collect(),
-        )?;
-
-        Ok(())
-    }
-
-    pub fn transaction(&self) -> &pod_types::Signed<Transaction> {
-        &self.pod_metadata.transaction
-    }
+    pub attested_tx: AttestedTx,
+    pub signatures: HashMap<usize, secp256k1::ecdsa::Signature>,
 }
 
 impl Deref for PodReceiptResponse {

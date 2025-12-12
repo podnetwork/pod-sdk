@@ -40,8 +40,8 @@ pub struct MerkleProof {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct MerkleMultiProof {
-    path: Vec<Hash>,
-    flags: Vec<bool>,
+    pub path: Vec<Hash>,
+    pub flags: Vec<bool>,
 }
 
 impl MerkleProof {
