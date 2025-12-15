@@ -2,28 +2,23 @@
 pragma solidity ^0.8.20;
 
 import {BridgeBehaviorTest} from "./abstract/Bridge.t.sol";
+import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {BridgeDepositWithdraw} from "../src/BridgeDepositWithdraw.sol";
-import {IBridgeDepositWithdraw} from "../src/interfaces/IBridgeDepositWithdraw.sol";
 import {IBridge} from "../src/interfaces/IBridge.sol";
 import {Bridge} from "../src/abstract/Bridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPodRegistry} from "../src/interfaces/IPodRegistry.sol";
 import {PodRegistry} from "../src/PodRegistry.sol";
-import {PodECDSA} from "pod-sdk/verifier/PodECDSA.sol";
-import {ECDSA} from "pod-sdk/verifier/ECDSA.sol";
 import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
-import {AttestedTx} from "../src/libraries/AttestedTx.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
+contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper {
     BridgeDepositWithdraw private _bridge;
     WrappedToken private _token;
     IPodRegistry podRegistry;
-    uint256[] validatorPrivateKeys;
     uint256 constant NUMBER_OF_VALIDATORS = 4;
     address immutable MIRROR_TOKEN = makeAddr("mirrorToken");
-    address immutable OTHER_BRIDGE_CONTRACT = makeAddr("otherBridgeContract");
 
     function bridge() internal view override returns (Bridge) {
         return _bridge;
@@ -38,6 +33,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         address[] memory initialValidators = new address[](NUMBER_OF_VALIDATORS);
 
         validatorPrivateKeys = new uint256[](NUMBER_OF_VALIDATORS);
+        otherBridgeContract = makeAddr("otherBridgeContract");
 
         for (uint256 i = 0; i < NUMBER_OF_VALIDATORS; i++) {
             validatorPrivateKeys[i] = uint256(i + 1);
@@ -45,7 +41,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         }
 
         podRegistry = new PodRegistry(initialValidators);
-        _bridge = new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT, nativeTokenLimits);
+        _bridge = new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract, nativeTokenLimits);
 
         _token = new WrappedToken("InitialToken", "ITKN", 18);
         _token.mint(user, INITIAL_BALANCE);
@@ -319,7 +315,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
     function test_Migrate_NoWhitelistedTokens() public {
         vm.prank(admin);
         BridgeDepositWithdraw fresh =
-            new BridgeDepositWithdraw(address(podRegistry), OTHER_BRIDGE_CONTRACT, nativeTokenLimits);
+            new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract, nativeTokenLimits);
         vm.prank(admin);
         fresh.pause();
         vm.prank(admin);
@@ -497,292 +493,5 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest {
         // MOCK_ADDRESS_FOR_NATIVE_DEPOSIT = address(uint160(uint256(keccak256("MOCK_ADDRESS_FOR_NATIVE_DEPOSIT"))))
         address expectedMockAddress = address(uint160(uint256(keccak256("MOCK_ADDRESS_FOR_NATIVE_DEPOSIT"))));
         assertEq(_bridge.mirrorTokens(podToken), expectedMockAddress);
-    }
-
-    // ========== Helper Functions ==========
-
-    function sortLeaves(bytes32[] memory leaves) internal pure {
-        uint256 n = leaves.length;
-        for (uint256 i = 1; i < n; ++i) {
-            bytes32 key = leaves[i];
-            uint256 j = i;
-            while (j > 0 && leaves[j - 1] > key) {
-                leaves[j] = leaves[j - 1];
-                unchecked {
-                    j--;
-                }
-            }
-            leaves[j] = key;
-        }
-    }
-
-    // OpenZeppelin's commutativeKeccak256 - sorts the two values before hashing
-    function commutativeKeccak256(bytes32 a, bytes32 b) internal pure returns (bytes32) {
-        return a < b ? keccak256(abi.encodePacked(a, b)) : keccak256(abi.encodePacked(b, a));
-    }
-
-    // Build complete merkle tree from 5 sorted leaves and return the root
-    // Tree structure for 5 leaves (indices in array):
-    //          0
-    //        /   \
-    //       1     2
-    //      / \   / \
-    //     3   4 5   6
-    //    / \
-    //   7   8
-    // Leaves are at indices: 4, 5, 6, 7, 8 (for 5 leaves)
-    function buildMerkleTree(bytes32[] memory sortedLeaves) internal pure returns (bytes32) {
-        uint256 n = sortedLeaves.length;
-        if (n == 0) return bytes32(0);
-        if (n == 1) return sortedLeaves[0];
-
-        uint256 treeLen = 2 * n - 1;
-        bytes32[] memory tree = new bytes32[](treeLen);
-
-        // Place leaves at the end of the tree array (in reverse order)
-        for (uint256 i = 0; i < n; i++) {
-            tree[treeLen - 1 - i] = sortedLeaves[i];
-        }
-
-        // Build tree from bottom up
-        for (uint256 i = treeLen - n; i > 0;) {
-            unchecked {
-                i--;
-            }
-            uint256 leftIdx = 2 * i + 1;
-            uint256 rightIdx = 2 * i + 2;
-            tree[i] = commutativeKeccak256(tree[leftIdx], tree[rightIdx]);
-        }
-
-        return tree[0];
-    }
-
-    // Find the index of a leaf in the sorted leaves array, then map to tree index
-    function findLeafTreeIndex(bytes32[] memory sortedLeaves, bytes32 leaf) internal pure returns (uint256) {
-        uint256 n = sortedLeaves.length;
-        uint256 treeLen = 2 * n - 1;
-        for (uint256 i = 0; i < n; i++) {
-            if (sortedLeaves[i] == leaf) {
-                return treeLen - 1 - i;
-            }
-        }
-        revert("Leaf not found");
-    }
-
-    // Generate multi-proof for given leaves from a tree built from sortedLeaves
-    function generateMultiProof(bytes32[] memory sortedLeaves, bytes32[] memory proofLeaves)
-        internal
-        pure
-        returns (MerkleTree.MultiProof memory)
-    {
-        uint256 n = sortedLeaves.length;
-        uint256 treeLen = 2 * n - 1;
-
-        // Build the full tree
-        bytes32[] memory tree = new bytes32[](treeLen);
-        for (uint256 i = 0; i < n; i++) {
-            tree[treeLen - 1 - i] = sortedLeaves[i];
-        }
-        for (uint256 i = treeLen - n; i > 0;) {
-            unchecked {
-                i--;
-            }
-            uint256 leftIdx = 2 * i + 1;
-            uint256 rightIdx = 2 * i + 2;
-            tree[i] = commutativeKeccak256(tree[leftIdx], tree[rightIdx]);
-        }
-
-        // Get tree indices for proof leaves (sorted in descending order)
-        uint256[] memory indices = new uint256[](proofLeaves.length);
-        for (uint256 i = 0; i < proofLeaves.length; i++) {
-            indices[i] = findLeafTreeIndex(sortedLeaves, proofLeaves[i]);
-        }
-        // Sort indices in descending order
-        for (uint256 i = 0; i < indices.length; i++) {
-            for (uint256 j = i + 1; j < indices.length; j++) {
-                if (indices[j] > indices[i]) {
-                    (indices[i], indices[j]) = (indices[j], indices[i]);
-                }
-            }
-        }
-
-        // Generate multi-proof using the same algorithm as Rust implementation
-        bytes32[] memory pathDynamic = new bytes32[](treeLen);
-        bool[] memory flagsDynamic = new bool[](treeLen);
-        uint256 pathLen = 0;
-        uint256 flagsLen = 0;
-
-        // Use a queue-like approach with fixed array
-        uint256[] memory stack = new uint256[](treeLen);
-        uint256 stackStart = 0;
-        uint256 stackEnd = indices.length;
-        for (uint256 i = 0; i < indices.length; i++) {
-            stack[i] = indices[i];
-        }
-
-        while (stackStart < stackEnd) {
-            uint256 j = stack[stackStart];
-            stackStart++;
-
-            if (j == 0) break;
-
-            uint256 s = (j % 2 == 0) ? j - 1 : j + 1; // sibling
-            uint256 p = (j - 1) / 2; // parent
-
-            bool siblingInStack = false;
-            if (stackStart < stackEnd && stack[stackStart] == s) {
-                siblingInStack = true;
-            }
-
-            if (siblingInStack) {
-                flagsDynamic[flagsLen++] = true;
-                stackStart++; // pop sibling
-            } else {
-                flagsDynamic[flagsLen++] = false;
-                pathDynamic[pathLen++] = tree[s];
-            }
-
-            stack[stackEnd++] = p;
-        }
-
-        // Copy to correctly sized arrays
-        bytes32[] memory path = new bytes32[](pathLen);
-        bool[] memory flags = new bool[](flagsLen);
-        for (uint256 i = 0; i < pathLen; i++) {
-            path[i] = pathDynamic[i];
-        }
-        for (uint256 i = 0; i < flagsLen; i++) {
-            flags[i] = flagsDynamic[i];
-        }
-
-        return MerkleTree.MultiProof({path: path, flags: flags});
-    }
-
-    function createTokenClaimProof(address claimToken, uint256 amount, address to, uint256 numberOfRequiredSignatures)
-        internal
-        view
-        returns (
-            bytes32 txHash,
-            uint64 committeeEpoch,
-            bytes memory aggregatedSignatures,
-            MerkleTree.MultiProof memory proof
-        )
-    {
-        committeeEpoch = 0;
-
-        // Build all 5 leaves for the complete transaction merkle tree
-        // Following the Rust Merkleizable implementation for SignedTransaction:
-        // from, to, value, input, nonce
-        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
-        address txFrom = address(0xDEAD); // arbitrary sender
-        uint256 txValue = 0; // no native value for ERC20 deposit
-        uint64 txNonce = 0;
-
-        bytes32[] memory allLeaves = new bytes32[](5);
-        allLeaves[0] = MerkleTree.hashLeaf("from", keccak256(abi.encode(txFrom)));
-        allLeaves[1] = MerkleTree.hashLeaf("to", keccak256(abi.encode(OTHER_BRIDGE_CONTRACT)));
-        allLeaves[2] = MerkleTree.hashLeaf("value", keccak256(abi.encode(txValue)));
-        allLeaves[3] =
-            MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(claimToken, amount, to))));
-        allLeaves[4] = MerkleTree.hashLeaf("nonce", keccak256(abi.encode(txNonce)));
-
-        sortLeaves(allLeaves);
-
-        // Build complete merkle tree and get root (txHash)
-        txHash = buildMerkleTree(allLeaves);
-
-        // The contract verifies 2 leaves: to, input
-        bytes32[] memory proofLeaves = new bytes32[](2);
-        proofLeaves[0] = MerkleTree.hashLeaf("to", keccak256(abi.encode(OTHER_BRIDGE_CONTRACT)));
-        proofLeaves[1] =
-            MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(claimToken, amount, to))));
-        sortLeaves(proofLeaves);
-
-        // Generate multi-proof
-        proof = generateMultiProof(allLeaves, proofLeaves);
-
-        // Sign the attested transaction
-        AttestedTx.AttestedTx memory attested = AttestedTx.AttestedTx({hash: txHash, committee_epoch: committeeEpoch});
-        bytes32 attestedHash = AttestedTx.digest(attested);
-        bytes32 signedHash = keccak256(abi.encode(attestedHash));
-
-        bytes[] memory signatures = new bytes[](numberOfRequiredSignatures);
-        for (uint256 i = 0; i < numberOfRequiredSignatures; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], signedHash);
-            signatures[i] = ECDSA._serialize_signature(v, r, s);
-        }
-        aggregatedSignatures = ECDSA.aggregate_signatures(signatures);
-    }
-
-    function createNativeClaimProof(uint256 amount, address to, uint256 numberOfRequiredSignatures)
-        internal
-        view
-        returns (
-            bytes32 txHash,
-            uint64 committeeEpoch,
-            bytes memory aggregatedSignatures,
-            MerkleTree.MultiProof memory proof
-        )
-    {
-        committeeEpoch = 0;
-
-        // Build all 5 leaves for the complete transaction merkle tree
-        bytes4 selector = bytes4(keccak256("depositNative(address)"));
-        address txFrom = address(0xDEAD); // arbitrary sender
-        uint64 txNonce = 0;
-
-        bytes32[] memory allLeaves = new bytes32[](5);
-        allLeaves[0] = MerkleTree.hashLeaf("from", keccak256(abi.encode(txFrom)));
-        allLeaves[1] = MerkleTree.hashLeaf("to", keccak256(abi.encode(OTHER_BRIDGE_CONTRACT)));
-        allLeaves[2] = MerkleTree.hashLeaf("value", keccak256(abi.encode(amount)));
-        allLeaves[3] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(to))));
-        allLeaves[4] = MerkleTree.hashLeaf("nonce", keccak256(abi.encode(txNonce)));
-
-        sortLeaves(allLeaves);
-
-        // Build complete merkle tree and get root (txHash)
-        txHash = buildMerkleTree(allLeaves);
-
-        // The contract verifies 3 leaves: to, value, input
-        bytes32[] memory proofLeaves = new bytes32[](3);
-        proofLeaves[0] = MerkleTree.hashLeaf("to", keccak256(abi.encode(OTHER_BRIDGE_CONTRACT)));
-        proofLeaves[1] = MerkleTree.hashLeaf("value", keccak256(abi.encode(amount)));
-        proofLeaves[2] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(to))));
-        sortLeaves(proofLeaves);
-
-        // Generate multi-proof
-        proof = generateMultiProof(allLeaves, proofLeaves);
-
-        // Sign the attested transaction
-        AttestedTx.AttestedTx memory attested = AttestedTx.AttestedTx({hash: txHash, committee_epoch: committeeEpoch});
-        bytes32 attestedHash = AttestedTx.digest(attested);
-        bytes32 signedHash = keccak256(abi.encode(attestedHash));
-
-        bytes[] memory signatures = new bytes[](numberOfRequiredSignatures);
-        for (uint256 i = 0; i < numberOfRequiredSignatures; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], signedHash);
-            signatures[i] = ECDSA._serialize_signature(v, r, s);
-        }
-        aggregatedSignatures = ECDSA.aggregate_signatures(signatures);
-    }
-
-    // Helper for token-to-native claims (same structure as createTokenClaimProof but named differently for clarity)
-    function createTokenClaimProofForNative(
-        address claimToken,
-        uint256 amount,
-        address to,
-        uint256 numberOfRequiredSignatures
-    )
-        internal
-        view
-        returns (
-            bytes32 txHash,
-            uint64 committeeEpoch,
-            bytes memory aggregatedSignatures,
-            MerkleTree.MultiProof memory proof
-        )
-    {
-        // Uses same logic as createTokenClaimProof since the source transaction is deposit()
-        return createTokenClaimProof(claimToken, amount, to, numberOfRequiredSignatures);
     }
 }

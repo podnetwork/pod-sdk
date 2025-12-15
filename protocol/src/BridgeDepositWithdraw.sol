@@ -33,6 +33,11 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     uint256 public depositIndex;
 
     /**
+     * @dev Pre-computed hash of bridgeContract for merkle leaf construction.
+     */
+    bytes32 private immutable BRIDGE_CONTRACT_HASH;
+
+    /**
      * @dev Constructor.
      * @param _podRegistry The address of the PodRegistry to use.
      */
@@ -41,6 +46,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     {
         podConfig =
             PodECDSA.PodConfig({thresholdNumerator: 1, thresholdDenominator: 1, registry: IPodRegistry(_podRegistry)});
+        BRIDGE_CONTRACT_HASH = keccak256(abi.encode(_bridgeContract));
     }
 
     /**
@@ -90,6 +96,54 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         }
     }
 
+    /// @dev Hashes a single bytes32 value using inline assembly (equivalent to keccak256(abi.encode(value)))
+    function _hashBytes32(bytes32 value) internal pure returns (bytes32 result) {
+        assembly {
+            mstore(0x00, value)
+            result := keccak256(0x00, 0x20)
+        }
+    }
+
+    /// @dev Hashes a single uint256 value using inline assembly (equivalent to keccak256(abi.encode(value)))
+    function _hashUint256(uint256 value) internal pure returns (bytes32 result) {
+        assembly {
+            mstore(0x00, value)
+            result := keccak256(0x00, 0x20)
+        }
+    }
+
+    /// @dev Hashes depositNative input: selector + address (36 bytes) using inline assembly
+    /// Equivalent to keccak256(abi.encodePacked(bytes4(keccak256("depositNative(address)")), abi.encode(addr)))
+    function _hashDepositNativeInput(address addr) internal pure returns (bytes32 result) {
+        bytes4 selector = bytes4(keccak256("depositNative(address)"));
+        assembly {
+            let ptr := mload(0x40)
+            // Store selector in first 4 bytes
+            mstore(ptr, selector)
+            // Store address (32 bytes, right-padded) starting at byte 4
+            mstore(add(ptr, 0x04), addr)
+            result := keccak256(ptr, 0x24) // 36 bytes = 0x24
+        }
+    }
+
+    /// @dev Hashes deposit input: selector + token + amount + to (100 bytes) using inline assembly
+    /// Equivalent to keccak256(abi.encodePacked(bytes4(keccak256("deposit(address,uint256,address)")), abi.encode(token, amount, to)))
+    function _hashDepositInput(address token, uint256 amount, address to) internal pure returns (bytes32 result) {
+        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
+        assembly {
+            let ptr := mload(0x40)
+            // Store selector in first 4 bytes
+            mstore(ptr, selector)
+            // Store token (32 bytes) starting at byte 4
+            mstore(add(ptr, 0x04), token)
+            // Store amount (32 bytes) starting at byte 36
+            mstore(add(ptr, 0x24), amount)
+            // Store to (32 bytes) starting at byte 68
+            mstore(add(ptr, 0x44), to)
+            result := keccak256(ptr, 0x64) // 100 bytes = 0x64
+        }
+    }
+
     /**
      * @inheritdoc IBridgeDepositWithdraw
      */
@@ -110,10 +164,9 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         if (!_isValidTokenAmount(mirrorToken, amount, false)) revert InvalidTokenAmount();
 
         // Build leaves for validating merkle proof (no 'from' verification - anyone can claim)
-        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
         bytes32[] memory leaves = new bytes32[](2);
-        leaves[0] = MerkleTree.hashLeaf("to", keccak256(abi.encode(bridgeContract)));
-        leaves[1] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(token, amount, to))));
+        leaves[0] = MerkleTree.hashLeaf("to", BRIDGE_CONTRACT_HASH);
+        leaves[1] = MerkleTree.hashLeaf("input", _hashDepositInput(token, amount, to));
 
         sortLeaves(leaves);
 
@@ -124,9 +177,8 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
         // Reconstruct AttestedTx and verify signatures
-        AttestedTx.AttestedTx memory attested = AttestedTx.AttestedTx({hash: txHash, committee_epoch: committeeEpoch});
-        bytes32 attestedHash = AttestedTx.digest(attested);
-        bytes32 signedHash = keccak256(abi.encode(attestedHash));
+        bytes32 attestedHash = AttestedTx.digest(txHash, committeeEpoch);
+        bytes32 signedHash = _hashBytes32(attestedHash);
         address[] memory validators = ECDSA.recoverSigners(signedHash, aggregatedSignatures);
 
         uint256 weight = podConfig.registry.computeWeight(validators);
@@ -174,11 +226,10 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         }
 
         // Build leaves for validating merkle proof (no 'from' verification - anyone can claim)
-        bytes4 selector = bytes4(keccak256("depositNative(address)"));
         bytes32[] memory leaves = new bytes32[](3);
-        leaves[0] = MerkleTree.hashLeaf("to", keccak256(abi.encode(bridgeContract)));
-        leaves[1] = MerkleTree.hashLeaf("value", keccak256(abi.encode(amount)));
-        leaves[2] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(to))));
+        leaves[0] = MerkleTree.hashLeaf("to", BRIDGE_CONTRACT_HASH);
+        leaves[1] = MerkleTree.hashLeaf("value", _hashUint256(amount));
+        leaves[2] = MerkleTree.hashLeaf("input", _hashDepositNativeInput(to));
 
         sortLeaves(leaves);
 
@@ -189,9 +240,8 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
         // Reconstruct AttestedTx and verify signatures
-        AttestedTx.AttestedTx memory attested = AttestedTx.AttestedTx({hash: txHash, committee_epoch: committeeEpoch});
-        bytes32 attestedHash = AttestedTx.digest(attested);
-        bytes32 signedHash = keccak256(abi.encode(attestedHash));
+        bytes32 attestedHash = AttestedTx.digest(txHash, committeeEpoch);
+        bytes32 signedHash = _hashBytes32(attestedHash);
         address[] memory validators = ECDSA.recoverSigners(signedHash, aggregatedSignatures);
 
         uint256 weight = podConfig.registry.computeWeight(validators);
