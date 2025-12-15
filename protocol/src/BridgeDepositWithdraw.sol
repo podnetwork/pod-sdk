@@ -12,8 +12,6 @@ import {IPodRegistry} from "pod-protocol/interfaces/IPodRegistry.sol";
 import {AttestedTx} from "pod-protocol/libraries/AttestedTx.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import "forge-std/console.sol";
-
 /**
  * @title BridgeDepositWithdraw
  * @notice Implementation of the deposit-withdraw bridge.
@@ -43,46 +41,6 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     {
         podConfig =
             PodECDSA.PodConfig({thresholdNumerator: 1, thresholdDenominator: 1, registry: IPodRegistry(_podRegistry)});
-    }
-
-    /**
-     * @dev Decodes the log into the deposit details.
-     * @param log The log to decode.
-     * @return id The id of the deposit.
-     * @return token The token of the deposit.
-     * @return amount The amount of the deposit.
-     * @return to The address to send the tokens to.
-     */
-    function _decodeDepositLog(PodECDSA.Log calldata log)
-        internal
-        pure
-        returns (bytes32 id, address token, uint256 amount, address to)
-    {
-        if (log.topics[0] != DEPOSIT_TOPIC_0 || log.topics.length != 3) {
-            revert InvalidDepositLog();
-        }
-        id = log.topics[1];
-        token = address(uint160(uint256(log.topics[2])));
-        (amount, to) = abi.decode(log.data, (uint256, address));
-    }
-
-    /**
-     * @dev Decodes the log into native deposit details.
-     * @param log The log to decode.
-     * @return id The id of the deposit.
-     * @return amount The amount of the deposit.
-     * @return to The address to send the tokens to.
-     */
-    function _decodeDepositNativeLog(PodECDSA.Log calldata log)
-        internal
-        pure
-        returns (bytes32 id, uint256 amount, address to)
-    {
-        if (log.topics[0] != DEPOSIT_NATIVE_TOPIC_0 || log.topics.length != 2) {
-            revert InvalidDepositLog();
-        }
-        id = log.topics[1];
-        (amount, to) = abi.decode(log.data, (uint256, address));
     }
 
     /**
@@ -139,72 +97,61 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         address token,
         uint256 amount,
         address to,
-        AttestedTx.AttestedTx calldata attested,
-        bytes calldata aggregated_signatures,
+        uint64 committeeEpoch,
+        bytes calldata aggregatedSignatures,
         MerkleTree.MultiProof calldata proof
     ) public override whenNotPaused {
+        // Check if token is configured - mirrorTokens stores the local token for a given source token
+        // A token is configured if it has tokenData with minAmount > 0
         address mirrorToken = mirrorTokens[token];
+        // For token-to-native: mirrorToken will be MOCK_ADDRESS_FOR_NATIVE_DEPOSIT
+        // For token-to-token: mirrorToken will be an ERC20 address
         if (mirrorToken == address(0)) revert MirrorTokenNotFound();
-        if (processedRequests[attested.hash] != false) revert RequestAlreadyProcessed();
         if (!_isValidTokenAmount(mirrorToken, amount, false)) revert InvalidTokenAmount();
 
-        console.log("claim called with amount: %s", amount);
-        console.log("Merkle proof path:");
-        for (uint256 i = 0; i < proof.path.length; i++) {
-            console.logBytes32(proof.path[i]);
-        }
-        console.log("Merkle proof flags:");
-        for (uint256 i = 0; i < proof.flags.length; i++) {
-            console.logBool(proof.flags[i]);
-        }
-
-        // Build leaves for validating merkle proof
+        // Build leaves for validating merkle proof (no 'from' verification - anyone can claim)
         bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
-        bytes32[] memory leaves = new bytes32[](4);
-        leaves[0] = MerkleTree.hashLeaf("from", keccak256(abi.encode(msg.sender)));
-        leaves[1] = MerkleTree.hashLeaf("to", keccak256(abi.encode(bridgeContract)));
-        leaves[2] = MerkleTree.hashLeaf("value", keccak256(abi.encode(0)));
-        leaves[3] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(token, amount, to))));
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = MerkleTree.hashLeaf("to", keccak256(abi.encode(bridgeContract)));
+        leaves[1] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(token, amount, to))));
 
         sortLeaves(leaves);
 
-        console.log("leaves:");
-        for (uint256 i = 0; i < leaves.length; i++) {
-            console.logBytes32(leaves[i]);
-        }
+        // Compute the merkle root from leaves and proof
+        bytes32 txHash = MerkleTree.processMulti(leaves, proof);
 
-        bool valid = MerkleTree.verifyMulti(attested.hash, leaves, proof);
-        require(valid, "Invalid Merkle proof");
+        // Check if already processed
+        if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-        // Verify signatures
-        bytes32 attested_hash = AttestedTx.digest(attested);
-        bytes32 signed_hash = keccak256(abi.encode(attested_hash));
-        console.log("Signed hash:");
-        console.logBytes32(signed_hash);
-        console.log("Aggregated signatures:");
-        console.logBytes(aggregated_signatures);
-        address[] memory validators = ECDSA.recoverSigners(signed_hash, aggregated_signatures);
-        console.log("Recovered validators:");
-        for (uint256 i = 0; i < validators.length; i++) {
-            console.logAddress(validators[i]);
-        }
+        // Reconstruct AttestedTx and verify signatures
+        AttestedTx.AttestedTx memory attested = AttestedTx.AttestedTx({hash: txHash, committee_epoch: committeeEpoch});
+        bytes32 attestedHash = AttestedTx.digest(attested);
+        bytes32 signedHash = keccak256(abi.encode(attestedHash));
+        address[] memory validators = ECDSA.recoverSigners(signedHash, aggregatedSignatures);
 
         uint256 weight = podConfig.registry.computeWeight(validators);
-        console.log("Computed weight:", weight);
 
         uint256 threshold = Math.mulDiv(
-            podConfig.registry.getValidatorCountAtIndex(attested.committee_epoch),
+            podConfig.registry.getValidatorCountAtIndex(committeeEpoch),
             podConfig.thresholdNumerator,
             podConfig.thresholdDenominator,
             Math.Rounding.Ceil
         );
-        console.log("Required threshold:", threshold);
         require(weight >= threshold, "Not enough validator weight");
 
-        processedRequests[attested.hash] = true;
+        processedRequests[txHash] = true;
 
-        IERC20(mirrorToken).safeTransfer(to, amount);
-        emit Claim(attested.hash, mirrorToken, token, amount, to);
+        // Transfer based on whether mirrorToken is native or ERC20
+        if (mirrorToken == MOCK_ADDRESS_FOR_NATIVE_DEPOSIT) {
+            // Token-to-native: transfer native tokens
+            (bool sent,) = to.call{value: amount}("");
+            require(sent, "Failed to transfer native tokens");
+            emit ClaimNative(txHash, amount, to);
+        } else {
+            // Token-to-token: transfer ERC20
+            IERC20(mirrorToken).safeTransfer(to, amount);
+            emit Claim(txHash, mirrorToken, token, amount, to);
+        }
     }
 
     /**
@@ -213,84 +160,87 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     function claimNative(
         uint256 amount,
         address to,
-        AttestedTx.AttestedTx calldata attested,
-        bytes calldata aggregated_signatures,
+        uint64 committeeEpoch,
+        bytes calldata aggregatedSignatures,
         MerkleTree.MultiProof calldata proof
     ) public override whenNotPaused {
-        if (processedRequests[attested.hash] != false) {
-            revert RequestAlreadyProcessed();
-        }
-        if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, amount, false)) {
+        // Check if pod native maps to an ERC20 token via mirrorTokens[MOCK_ADDRESS_FOR_NATIVE_DEPOSIT]
+        // If not set (address(0)), output is native; otherwise output is the mapped ERC20 token
+        address nativeMirror = mirrorTokens[MOCK_ADDRESS_FOR_NATIVE_DEPOSIT];
+        address outputToken = nativeMirror == address(0) ? MOCK_ADDRESS_FOR_NATIVE_DEPOSIT : nativeMirror;
+
+        if (!_isValidTokenAmount(outputToken, amount, false)) {
             revert InvalidTokenAmount();
         }
 
-        console.log("claimNative called with amount: %s", amount);
-        console.log("Merkle proof path:");
-        for (uint256 i = 0; i < proof.path.length; i++) {
-            console.logBytes32(proof.path[i]);
-        }
-        console.log("Merkle proof flags:");
-        for (uint256 i = 0; i < proof.flags.length; i++) {
-            console.logBool(proof.flags[i]);
-        }
-
-        // Build leaves for validating merkle proof
+        // Build leaves for validating merkle proof (no 'from' verification - anyone can claim)
         bytes4 selector = bytes4(keccak256("depositNative(address)"));
-        bytes32[] memory leaves = new bytes32[](4);
-        leaves[0] = MerkleTree.hashLeaf("from", keccak256(abi.encode(msg.sender)));
-        leaves[1] = MerkleTree.hashLeaf("to", keccak256(abi.encode(bridgeContract)));
-        leaves[2] = MerkleTree.hashLeaf("value", keccak256(abi.encode(amount)));
-        leaves[3] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(to))));
+        bytes32[] memory leaves = new bytes32[](3);
+        leaves[0] = MerkleTree.hashLeaf("to", keccak256(abi.encode(bridgeContract)));
+        leaves[1] = MerkleTree.hashLeaf("value", keccak256(abi.encode(amount)));
+        leaves[2] = MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(to))));
 
         sortLeaves(leaves);
 
-        console.log("leaves:");
-        for (uint256 i = 0; i < leaves.length; i++) {
-            console.logBytes32(leaves[i]);
-        }
+        // Compute the merkle root from leaves and proof
+        bytes32 txHash = MerkleTree.processMulti(leaves, proof);
 
-        bool valid = MerkleTree.verifyMulti(attested.hash, leaves, proof);
-        require(valid, "Invalid Merkle proof");
+        // Check if already processed
+        if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-        // Verify signatures
-        bytes32 attested_hash = AttestedTx.digest(attested);
-        bytes32 signed_hash = keccak256(abi.encode(attested_hash));
-        console.log("Signed hash:");
-        console.logBytes32(signed_hash);
-        console.log("Aggregated signatures:");
-        console.logBytes(aggregated_signatures);
-        address[] memory validators = ECDSA.recoverSigners(signed_hash, aggregated_signatures);
-        console.log("Recovered validators:");
-        for (uint256 i = 0; i < validators.length; i++) {
-            console.logAddress(validators[i]);
-        }
+        // Reconstruct AttestedTx and verify signatures
+        AttestedTx.AttestedTx memory attested = AttestedTx.AttestedTx({hash: txHash, committee_epoch: committeeEpoch});
+        bytes32 attestedHash = AttestedTx.digest(attested);
+        bytes32 signedHash = keccak256(abi.encode(attestedHash));
+        address[] memory validators = ECDSA.recoverSigners(signedHash, aggregatedSignatures);
 
         uint256 weight = podConfig.registry.computeWeight(validators);
-        console.log("Computed weight:", weight);
 
         uint256 threshold = Math.mulDiv(
-            podConfig.registry.getValidatorCountAtIndex(attested.committee_epoch),
+            podConfig.registry.getValidatorCountAtIndex(committeeEpoch),
             podConfig.thresholdNumerator,
             podConfig.thresholdDenominator,
             Math.Rounding.Ceil
         );
-        console.log("Required threshold:", threshold);
         require(weight >= threshold, "Not enough validator weight");
 
-        processedRequests[attested.hash] = true;
+        processedRequests[txHash] = true;
 
-        (bool sent,) = to.call{value: amount}("");
-        require(sent, "Failed to transfer native tokens");
-        emit ClaimNative(attested.hash, amount, to);
+        // Transfer based on whether native maps to an ERC20 token
+        if (nativeMirror == address(0)) {
+            // Native-to-native: transfer native tokens
+            (bool sent,) = to.call{value: amount}("");
+            require(sent, "Failed to transfer native tokens");
+            emit ClaimNative(txHash, amount, to);
+        } else {
+            // Native-to-token: transfer ERC20
+            IERC20(nativeMirror).safeTransfer(to, amount);
+            emit Claim(txHash, nativeMirror, address(0), amount, to);
+        }
     }
 
     /**
      * @inheritdoc IBridgeDepositWithdraw
+     * @param token Token that will be deposited in the contract (local/destination token).
+     * @param mirrorToken Token that will be deposited in the mirror contract (source token).
+     * @param limits Token limits associated with the token.
      */
     function whiteListToken(address token, address mirrorToken, TokenLimits calldata limits)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        _whitelistToken(token, mirrorToken, limits);
+        if (token == MOCK_ADDRESS_FOR_NATIVE_DEPOSIT) {
+            // Local is native: when someone deposits mirrorToken on Pod (could be pod-native), they claim native here
+            if (mirrorTokens[mirrorToken] != address(0)) {
+                revert InvalidTokenConfig();
+            }
+            // tokenData for native is already configured in constructor
+            _configureTokenData(token, limits, false);
+            mirrorTokens[mirrorToken] = token;
+            // don't whitelist token - it's native
+        } else {
+            // Local is ERC20: when someone deposits native or another token on Pod (mirrorToken), they claim ERC20 here
+            _whitelistToken(token, mirrorToken, limits);
+        }
     }
 }

@@ -23,16 +23,6 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     /**
-     * @dev The topic 0 (event signature) of the deposit event.
-     */
-    bytes32 constant DEPOSIT_TOPIC_0 = keccak256("Deposit(bytes32,address,uint256,address)");
-
-    /**
-     * @dev The topic 0 (event signature) of the deposit native event.
-     */
-    bytes32 constant DEPOSIT_NATIVE_TOPIC_0 = keccak256("DepositNative(bytes32,uint256,address)");
-
-    /**
      * @dev The mock address for native deposit.
      */
     address constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT =
@@ -120,10 +110,14 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      * @dev Reverts with ContractMigrated if the contract has already been migrated.
      */
     modifier notMigrated() {
+        _notMigrated();
+        _;
+    }
+
+    function _notMigrated() internal view {
         if (migratedContract != address(0)) {
             revert ContractMigrated();
         }
-        _;
     }
 
     /**
@@ -187,25 +181,6 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
         handleDepositNative();
         emit DepositNative(id, msg.value, to);
         return id;
-    }
-
-    /**
-     * @dev Internal function to hash a request.
-     * @param id The request index.
-     * @param token The token to hash.
-     * @param amount The amount of tokens to hash.
-     * @param to The address to hash.
-     * @return hash The hash of the request used for uniquely identifying a bridging request.
-     */
-    function _hashRequest(bytes32 id, address token, uint256 amount, address to) internal pure returns (bytes32 hash) {
-        assembly {
-            let ptr := mload(0x40)
-            mstore(ptr, id)
-            mstore(add(ptr, 0x20), shl(96, token))
-            mstore(add(ptr, 0x34), amount)
-            mstore(add(ptr, 0x54), shl(96, to))
-            hash := keccak256(ptr, 0x68)
-        }
     }
 
     /**

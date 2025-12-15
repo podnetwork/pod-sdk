@@ -2,371 +2,6 @@
 /**
 
 ```solidity
-library AttestedTx {
-    struct AttestedTx { bytes32 hash; uint64 committee_epoch; }
-}
-```*/
-#[allow(
-    non_camel_case_types,
-    non_snake_case,
-    clippy::pub_underscore_fields,
-    clippy::style,
-    clippy::empty_structs_with_brackets
-)]
-pub mod AttestedTx {
-    use super::*;
-    use alloy::sol_types as alloy_sol_types;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**```solidity
-struct AttestedTx { bytes32 hash; uint64 committee_epoch; }
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct AttestedTx {
-        #[allow(missing_docs)]
-        pub hash: alloy::sol_types::private::FixedBytes<32>,
-        #[allow(missing_docs)]
-        pub committee_epoch: u64,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        #[allow(dead_code)]
-        type UnderlyingSolTuple<'a> = (
-            alloy::sol_types::sol_data::FixedBytes<32>,
-            alloy::sol_types::sol_data::Uint<64>,
-        );
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = (alloy::sol_types::private::FixedBytes<32>, u64);
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<AttestedTx> for UnderlyingRustTuple<'_> {
-            fn from(value: AttestedTx) -> Self {
-                (value.hash, value.committee_epoch)
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for AttestedTx {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self {
-                    hash: tuple.0,
-                    committee_epoch: tuple.1,
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolValue for AttestedTx {
-            type SolType = Self;
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::private::SolTypeValue<Self> for AttestedTx {
-            #[inline]
-            fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::FixedBytes<
-                        32,
-                    > as alloy_sol_types::SolType>::tokenize(&self.hash),
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.committee_epoch),
-                )
-            }
-            #[inline]
-            fn stv_abi_encoded_size(&self) -> usize {
-                if let Some(size) = <Self as alloy_sol_types::SolType>::ENCODED_SIZE {
-                    return size;
-                }
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
-            }
-            #[inline]
-            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
-                <Self as alloy_sol_types::SolStruct>::eip712_hash_struct(self)
-            }
-            #[inline]
-            fn stv_abi_encode_packed_to(
-                &self,
-                out: &mut alloy_sol_types::private::Vec<u8>,
-            ) {
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_encode_packed_to(&tuple, out)
-            }
-            #[inline]
-            fn stv_abi_packed_encoded_size(&self) -> usize {
-                if let Some(size) = <Self as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE {
-                    return size;
-                }
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_packed_encoded_size(&tuple)
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolType for AttestedTx {
-            type RustType = Self;
-            type Token<'a> = <UnderlyingSolTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SOL_NAME: &'static str = <Self as alloy_sol_types::SolStruct>::NAME;
-            const ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
-                '_,
-            > as alloy_sol_types::SolType>::ENCODED_SIZE;
-            const PACKED_ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
-                '_,
-            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
-            #[inline]
-            fn valid_token(token: &Self::Token<'_>) -> bool {
-                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::valid_token(token)
-            }
-            #[inline]
-            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
-                let tuple = <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::detokenize(token);
-                <Self as ::core::convert::From<UnderlyingRustTuple<'_>>>::from(tuple)
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolStruct for AttestedTx {
-            const NAME: &'static str = "AttestedTx";
-            #[inline]
-            fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
-                alloy_sol_types::private::Cow::Borrowed(
-                    "AttestedTx(bytes32 hash,uint64 committee_epoch)",
-                )
-            }
-            #[inline]
-            fn eip712_components() -> alloy_sol_types::private::Vec<
-                alloy_sol_types::private::Cow<'static, str>,
-            > {
-                alloy_sol_types::private::Vec::new()
-            }
-            #[inline]
-            fn eip712_encode_type() -> alloy_sol_types::private::Cow<'static, str> {
-                <Self as alloy_sol_types::SolStruct>::eip712_root_type()
-            }
-            #[inline]
-            fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
-                [
-                    <alloy::sol_types::sol_data::FixedBytes<
-                        32,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.hash)
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.committee_epoch,
-                        )
-                        .0,
-                ]
-                    .concat()
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::EventTopic for AttestedTx {
-            #[inline]
-            fn topic_preimage_length(rust: &Self::RustType) -> usize {
-                0usize
-                    + <alloy::sol_types::sol_data::FixedBytes<
-                        32,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(&rust.hash)
-                    + <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.committee_epoch,
-                    )
-            }
-            #[inline]
-            fn encode_topic_preimage(
-                rust: &Self::RustType,
-                out: &mut alloy_sol_types::private::Vec<u8>,
-            ) {
-                out.reserve(
-                    <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
-                );
-                <alloy::sol_types::sol_data::FixedBytes<
-                    32,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.hash,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.committee_epoch,
-                    out,
-                );
-            }
-            #[inline]
-            fn encode_topic(
-                rust: &Self::RustType,
-            ) -> alloy_sol_types::abi::token::WordToken {
-                let mut out = alloy_sol_types::private::Vec::new();
-                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    rust,
-                    &mut out,
-                );
-                alloy_sol_types::abi::token::WordToken(
-                    alloy_sol_types::private::keccak256(out),
-                )
-            }
-        }
-    };
-    use alloy::contract as alloy_contract;
-    /**Creates a new wrapper around an on-chain [`AttestedTx`](self) contract instance.
-
-See the [wrapper's documentation](`AttestedTxInstance`) for more details.*/
-    #[inline]
-    pub const fn new<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    >(
-        address: alloy_sol_types::private::Address,
-        __provider: P,
-    ) -> AttestedTxInstance<P, N> {
-        AttestedTxInstance::<P, N>::new(address, __provider)
-    }
-    /**A [`AttestedTx`](self) instance.
-
-Contains type-safe methods for interacting with an on-chain instance of the
-[`AttestedTx`](self) contract located at a given `address`, using a given
-provider `P`.
-
-If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-be used to deploy a new instance of the contract.
-
-See the [module-level documentation](self) for all the available methods.*/
-    #[derive(Clone)]
-    pub struct AttestedTxInstance<P, N = alloy_contract::private::Ethereum> {
-        address: alloy_sol_types::private::Address,
-        provider: P,
-        _network: ::core::marker::PhantomData<N>,
-    }
-    #[automatically_derived]
-    impl<P, N> ::core::fmt::Debug for AttestedTxInstance<P, N> {
-        #[inline]
-        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("AttestedTxInstance").field(&self.address).finish()
-        }
-    }
-    /// Instantiation and getters/setters.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > AttestedTxInstance<P, N> {
-        /**Creates a new wrapper around an on-chain [`AttestedTx`](self) contract instance.
-
-See the [wrapper's documentation](`AttestedTxInstance`) for more details.*/
-        #[inline]
-        pub const fn new(
-            address: alloy_sol_types::private::Address,
-            __provider: P,
-        ) -> Self {
-            Self {
-                address,
-                provider: __provider,
-                _network: ::core::marker::PhantomData,
-            }
-        }
-        /// Returns a reference to the address.
-        #[inline]
-        pub const fn address(&self) -> &alloy_sol_types::private::Address {
-            &self.address
-        }
-        /// Sets the address.
-        #[inline]
-        pub fn set_address(&mut self, address: alloy_sol_types::private::Address) {
-            self.address = address;
-        }
-        /// Sets the address and returns `self`.
-        pub fn at(mut self, address: alloy_sol_types::private::Address) -> Self {
-            self.set_address(address);
-            self
-        }
-        /// Returns a reference to the provider.
-        #[inline]
-        pub const fn provider(&self) -> &P {
-            &self.provider
-        }
-    }
-    impl<P: ::core::clone::Clone, N> AttestedTxInstance<&P, N> {
-        /// Clones the provider and returns a new instance with the cloned provider.
-        #[inline]
-        pub fn with_cloned_provider(self) -> AttestedTxInstance<P, N> {
-            AttestedTxInstance {
-                address: self.address,
-                provider: ::core::clone::Clone::clone(&self.provider),
-                _network: ::core::marker::PhantomData,
-            }
-        }
-    }
-    /// Function calls.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > AttestedTxInstance<P, N> {
-        /// Creates a new call builder using this contract instance's provider and address.
-        ///
-        /// Note that the call can be any function call, not just those defined in this
-        /// contract. Prefer using the other methods for building type-safe contract calls.
-        pub fn call_builder<C: alloy_sol_types::SolCall>(
-            &self,
-            call: &C,
-        ) -> alloy_contract::SolCallBuilder<&P, C, N> {
-            alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
-        }
-    }
-    /// Event filters.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > AttestedTxInstance<P, N> {
-        /// Creates a new event filter using this contract instance's provider and address.
-        ///
-        /// Note that the type can be any event, not just those defined in this contract.
-        /// Prefer using the other methods for building type-safe event filters.
-        pub fn event_filter<E: alloy_sol_types::SolEvent>(
-            &self,
-        ) -> alloy_contract::Event<&P, E, N> {
-            alloy_contract::Event::new_sol(&self.provider, &self.address)
-        }
-    }
-}
-///Module containing a contract's types and functions.
-/**
-
-```solidity
 library IBridge {
     struct TokenLimits { uint256 minAmount; uint256 deposit; uint256 claim; }
     struct TokenUsage { uint256 consumed; uint256 lastUpdated; }
@@ -1354,13 +989,6 @@ See the [wrapper's documentation](`MerkleTreeInstance`) for more details.*/
 
 Generated by the following Solidity interface...
 ```solidity
-library AttestedTx {
-    struct AttestedTx {
-        bytes32 hash;
-        uint64 committee_epoch;
-    }
-}
-
 library IBridge {
     struct TokenLimits {
         uint256 minAmount;
@@ -1413,8 +1041,8 @@ interface BridgeDepositWithdraw {
     function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
     function PAUSER_ROLE() external view returns (bytes32);
     function bridgeContract() external view returns (address);
-    function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
-    function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
+    function claim(address token, uint256 amount, address to, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) external;
+    function claimNative(uint256 amount, address to, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) external;
     function configureToken(address token, IBridge.TokenLimits memory limits) external;
     function deposit(address token, uint256 amount, address to) external returns (bytes32);
     function depositIndex() external view returns (uint256);
@@ -1540,24 +1168,12 @@ interface BridgeDepositWithdraw {
         "internalType": "address"
       },
       {
-        "name": "attested",
-        "type": "tuple",
-        "internalType": "struct AttestedTx.AttestedTx",
-        "components": [
-          {
-            "name": "hash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "committee_epoch",
-            "type": "uint64",
-            "internalType": "uint64"
-          }
-        ]
+        "name": "committeeEpoch",
+        "type": "uint64",
+        "internalType": "uint64"
       },
       {
-        "name": "aggregated_signatures",
+        "name": "aggregatedSignatures",
         "type": "bytes",
         "internalType": "bytes"
       },
@@ -1597,24 +1213,12 @@ interface BridgeDepositWithdraw {
         "internalType": "address"
       },
       {
-        "name": "attested",
-        "type": "tuple",
-        "internalType": "struct AttestedTx.AttestedTx",
-        "components": [
-          {
-            "name": "hash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "committee_epoch",
-            "type": "uint64",
-            "internalType": "uint64"
-          }
-        ]
+        "name": "committeeEpoch",
+        "type": "uint64",
+        "internalType": "uint64"
       },
       {
-        "name": "aggregated_signatures",
+        "name": "aggregatedSignatures",
         "type": "bytes",
         "internalType": "bytes"
       },
@@ -5309,9 +4913,9 @@ function bridgeContract() external view returns (address);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `claim(address,uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))` and selector `0x1df8460d`.
+    /**Function with signature `claim(address,uint256,address,uint64,bytes,(bytes32[],bool[]))` and selector `0x7683f59e`.
 ```solidity
-function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
+function claim(address token, uint256 amount, address to, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -5323,13 +4927,13 @@ function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx 
         #[allow(missing_docs)]
         pub to: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
-        pub attested: <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
+        pub committeeEpoch: u64,
         #[allow(missing_docs)]
-        pub aggregated_signatures: alloy::sol_types::private::Bytes,
+        pub aggregatedSignatures: alloy::sol_types::private::Bytes,
         #[allow(missing_docs)]
         pub proof: <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
     }
-    ///Container type for the return parameters of the [`claim(address,uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))`](claimCall) function.
+    ///Container type for the return parameters of the [`claim(address,uint256,address,uint64,bytes,(bytes32[],bool[]))`](claimCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct claimReturn {}
@@ -5348,7 +4952,7 @@ function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx 
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Address,
-                AttestedTx::AttestedTx,
+                alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Bytes,
                 MerkleTree::MultiProof,
             );
@@ -5357,7 +4961,7 @@ function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx 
                 alloy::sol_types::private::Address,
                 alloy::sol_types::private::primitives::aliases::U256,
                 alloy::sol_types::private::Address,
-                <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
+                u64,
                 alloy::sol_types::private::Bytes,
                 <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
             );
@@ -5380,8 +4984,8 @@ function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx 
                         value.token,
                         value.amount,
                         value.to,
-                        value.attested,
-                        value.aggregated_signatures,
+                        value.committeeEpoch,
+                        value.aggregatedSignatures,
                         value.proof,
                     )
                 }
@@ -5394,8 +4998,8 @@ function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx 
                         token: tuple.0,
                         amount: tuple.1,
                         to: tuple.2,
-                        attested: tuple.3,
-                        aggregated_signatures: tuple.4,
+                        committeeEpoch: tuple.3,
+                        aggregatedSignatures: tuple.4,
                         proof: tuple.5,
                     }
                 }
@@ -5446,7 +5050,7 @@ function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx 
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Address,
-                AttestedTx::AttestedTx,
+                alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Bytes,
                 MerkleTree::MultiProof,
             );
@@ -5458,8 +5062,8 @@ function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx 
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "claim(address,uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))";
-            const SELECTOR: [u8; 4] = [29u8, 248u8, 70u8, 13u8];
+            const SIGNATURE: &'static str = "claim(address,uint256,address,uint64,bytes,(bytes32[],bool[]))";
+            const SELECTOR: [u8; 4] = [118u8, 131u8, 245u8, 158u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -5478,11 +5082,11 @@ function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx 
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.to,
                     ),
-                    <AttestedTx::AttestedTx as alloy_sol_types::SolType>::tokenize(
-                        &self.attested,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.committeeEpoch),
                     <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
-                        &self.aggregated_signatures,
+                        &self.aggregatedSignatures,
                     ),
                     <MerkleTree::MultiProof as alloy_sol_types::SolType>::tokenize(
                         &self.proof,
@@ -5513,9 +5117,9 @@ function claim(address token, uint256 amount, address to, AttestedTx.AttestedTx 
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `claimNative(uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))` and selector `0x56b35560`.
+    /**Function with signature `claimNative(uint256,address,uint64,bytes,(bytes32[],bool[]))` and selector `0x394220d4`.
 ```solidity
-function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory attested, bytes memory aggregated_signatures, MerkleTree.MultiProof memory proof) external;
+function claimNative(uint256 amount, address to, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -5525,13 +5129,13 @@ function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory at
         #[allow(missing_docs)]
         pub to: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
-        pub attested: <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
+        pub committeeEpoch: u64,
         #[allow(missing_docs)]
-        pub aggregated_signatures: alloy::sol_types::private::Bytes,
+        pub aggregatedSignatures: alloy::sol_types::private::Bytes,
         #[allow(missing_docs)]
         pub proof: <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
     }
-    ///Container type for the return parameters of the [`claimNative(uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))`](claimNativeCall) function.
+    ///Container type for the return parameters of the [`claimNative(uint256,address,uint64,bytes,(bytes32[],bool[]))`](claimNativeCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct claimNativeReturn {}
@@ -5549,7 +5153,7 @@ function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory at
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Address,
-                AttestedTx::AttestedTx,
+                alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Bytes,
                 MerkleTree::MultiProof,
             );
@@ -5557,7 +5161,7 @@ function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory at
             type UnderlyingRustTuple<'a> = (
                 alloy::sol_types::private::primitives::aliases::U256,
                 alloy::sol_types::private::Address,
-                <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
+                u64,
                 alloy::sol_types::private::Bytes,
                 <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
             );
@@ -5579,8 +5183,8 @@ function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory at
                     (
                         value.amount,
                         value.to,
-                        value.attested,
-                        value.aggregated_signatures,
+                        value.committeeEpoch,
+                        value.aggregatedSignatures,
                         value.proof,
                     )
                 }
@@ -5592,8 +5196,8 @@ function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory at
                     Self {
                         amount: tuple.0,
                         to: tuple.1,
-                        attested: tuple.2,
-                        aggregated_signatures: tuple.3,
+                        committeeEpoch: tuple.2,
+                        aggregatedSignatures: tuple.3,
                         proof: tuple.4,
                     }
                 }
@@ -5643,7 +5247,7 @@ function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory at
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Address,
-                AttestedTx::AttestedTx,
+                alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Bytes,
                 MerkleTree::MultiProof,
             );
@@ -5655,8 +5259,8 @@ function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory at
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "claimNative(uint256,address,(bytes32,uint64),bytes,(bytes32[],bool[]))";
-            const SELECTOR: [u8; 4] = [86u8, 179u8, 85u8, 96u8];
+            const SIGNATURE: &'static str = "claimNative(uint256,address,uint64,bytes,(bytes32[],bool[]))";
+            const SELECTOR: [u8; 4] = [57u8, 66u8, 32u8, 212u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -5672,11 +5276,11 @@ function claimNative(uint256 amount, address to, AttestedTx.AttestedTx memory at
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.to,
                     ),
-                    <AttestedTx::AttestedTx as alloy_sol_types::SolType>::tokenize(
-                        &self.attested,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.committeeEpoch),
                     <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
-                        &self.aggregated_signatures,
+                        &self.aggregatedSignatures,
                     ),
                     <MerkleTree::MultiProof as alloy_sol_types::SolType>::tokenize(
                         &self.proof,
@@ -9216,18 +8820,18 @@ function whitelistedTokens(uint256) external view returns (address);
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
             [1u8, 255u8, 201u8, 167u8],
-            [29u8, 248u8, 70u8, 13u8],
             [33u8, 84u8, 188u8, 68u8],
             [36u8, 138u8, 156u8, 163u8],
             [39u8, 228u8, 92u8, 44u8],
             [47u8, 47u8, 241u8, 93u8],
             [51u8, 187u8, 127u8, 145u8],
             [54u8, 86u8, 138u8, 190u8],
+            [57u8, 66u8, 32u8, 212u8],
             [63u8, 75u8, 168u8, 58u8],
-            [86u8, 179u8, 85u8, 96u8],
             [92u8, 151u8, 90u8, 187u8],
             [103u8, 23u8, 228u8, 28u8],
             [116u8, 134u8, 250u8, 78u8],
+            [118u8, 131u8, 245u8, 158u8],
             [123u8, 137u8, 137u8, 57u8],
             [132u8, 86u8, 203u8, 89u8],
             [145u8, 209u8, 72u8, 84u8],
@@ -9246,18 +8850,18 @@ function whitelistedTokens(uint256) external view returns (address);
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
             ::core::stringify!(supportsInterface),
-            ::core::stringify!(claim),
             ::core::stringify!(whitelistedTokens),
             ::core::stringify!(getRoleAdmin),
             ::core::stringify!(tokenData),
             ::core::stringify!(grantRole),
             ::core::stringify!(depositNative),
             ::core::stringify!(renounceRole),
-            ::core::stringify!(unpause),
             ::core::stringify!(claimNative),
+            ::core::stringify!(unpause),
             ::core::stringify!(paused),
             ::core::stringify!(usedNonces),
             ::core::stringify!(migratedContract),
+            ::core::stringify!(claim),
             ::core::stringify!(depositIndex),
             ::core::stringify!(pause),
             ::core::stringify!(hasRole),
@@ -9276,18 +8880,18 @@ function whitelistedTokens(uint256) external view returns (address);
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
             <supportsInterfaceCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <claimCall as alloy_sol_types::SolCall>::SIGNATURE,
             <whitelistedTokensCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getRoleAdminCall as alloy_sol_types::SolCall>::SIGNATURE,
             <tokenDataCall as alloy_sol_types::SolCall>::SIGNATURE,
             <grantRoleCall as alloy_sol_types::SolCall>::SIGNATURE,
             <depositNativeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <renounceRoleCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <unpauseCall as alloy_sol_types::SolCall>::SIGNATURE,
             <claimNativeCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <unpauseCall as alloy_sol_types::SolCall>::SIGNATURE,
             <pausedCall as alloy_sol_types::SolCall>::SIGNATURE,
             <usedNoncesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <migratedContractCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <claimCall as alloy_sol_types::SolCall>::SIGNATURE,
             <depositIndexCall as alloy_sol_types::SolCall>::SIGNATURE,
             <pauseCall as alloy_sol_types::SolCall>::SIGNATURE,
             <hasRoleCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -9430,15 +9034,6 @@ function whitelistedTokens(uint256) external view returns (address);
                     supportsInterface
                 },
                 {
-                    fn claim(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <claimCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(BridgeDepositWithdrawCalls::claim)
-                    }
-                    claim
-                },
-                {
                     fn whitelistedTokens(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -9501,15 +9096,6 @@ function whitelistedTokens(uint256) external view returns (address);
                     renounceRole
                 },
                 {
-                    fn unpause(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <unpauseCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(BridgeDepositWithdrawCalls::unpause)
-                    }
-                    unpause
-                },
-                {
                     fn claimNative(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -9519,6 +9105,15 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::claimNative)
                     }
                     claimNative
+                },
+                {
+                    fn unpause(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <unpauseCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(BridgeDepositWithdrawCalls::unpause)
+                    }
+                    unpause
                 },
                 {
                     fn paused(
@@ -9550,6 +9145,15 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::migratedContract)
                     }
                     migratedContract
+                },
+                {
+                    fn claim(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <claimCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(BridgeDepositWithdrawCalls::claim)
+                    }
+                    claim
                 },
                 {
                     fn depositIndex(
@@ -9727,17 +9331,6 @@ function whitelistedTokens(uint256) external view returns (address);
                     supportsInterface
                 },
                 {
-                    fn claim(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <claimCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::claim)
-                    }
-                    claim
-                },
-                {
                     fn whitelistedTokens(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -9804,17 +9397,6 @@ function whitelistedTokens(uint256) external view returns (address);
                     renounceRole
                 },
                 {
-                    fn unpause(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <unpauseCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::unpause)
-                    }
-                    unpause
-                },
-                {
                     fn claimNative(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
@@ -9824,6 +9406,17 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::claimNative)
                     }
                     claimNative
+                },
+                {
+                    fn unpause(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <unpauseCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(BridgeDepositWithdrawCalls::unpause)
+                    }
+                    unpause
                 },
                 {
                     fn paused(
@@ -9857,6 +9450,17 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::migratedContract)
                     }
                     migratedContract
+                },
+                {
+                    fn claim(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
+                        <claimCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(BridgeDepositWithdrawCalls::claim)
+                    }
+                    claim
                 },
                 {
                     fn depositIndex(
@@ -11444,8 +11048,8 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
             token: alloy::sol_types::private::Address,
             amount: alloy::sol_types::private::primitives::aliases::U256,
             to: alloy::sol_types::private::Address,
-            attested: <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
-            aggregated_signatures: alloy::sol_types::private::Bytes,
+            committeeEpoch: u64,
+            aggregatedSignatures: alloy::sol_types::private::Bytes,
             proof: <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
         ) -> alloy_contract::SolCallBuilder<&P, claimCall, N> {
             self.call_builder(
@@ -11453,8 +11057,8 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
                     token,
                     amount,
                     to,
-                    attested,
-                    aggregated_signatures,
+                    committeeEpoch,
+                    aggregatedSignatures,
                     proof,
                 },
             )
@@ -11464,16 +11068,16 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
             &self,
             amount: alloy::sol_types::private::primitives::aliases::U256,
             to: alloy::sol_types::private::Address,
-            attested: <AttestedTx::AttestedTx as alloy::sol_types::SolType>::RustType,
-            aggregated_signatures: alloy::sol_types::private::Bytes,
+            committeeEpoch: u64,
+            aggregatedSignatures: alloy::sol_types::private::Bytes,
             proof: <MerkleTree::MultiProof as alloy::sol_types::SolType>::RustType,
         ) -> alloy_contract::SolCallBuilder<&P, claimNativeCall, N> {
             self.call_builder(
                 &claimNativeCall {
                     amount,
                     to,
-                    attested,
-                    aggregated_signatures,
+                    committeeEpoch,
+                    aggregatedSignatures,
                     proof,
                 },
             )
