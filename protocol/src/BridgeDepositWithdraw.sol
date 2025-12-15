@@ -161,7 +161,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         // For token-to-native: mirrorToken will be MOCK_ADDRESS_FOR_NATIVE_DEPOSIT
         // For token-to-token: mirrorToken will be an ERC20 address
         if (mirrorToken == address(0)) revert MirrorTokenNotFound();
-        if (!_isValidTokenAmount(mirrorToken, amount, false)) revert InvalidTokenAmount();
+        checkValidClaim(mirrorToken, amount);
 
         // Build leaves for validating merkle proof (no 'from' verification - anyone can claim)
         bytes32[] memory leaves = new bytes32[](2);
@@ -221,9 +221,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         address nativeMirror = mirrorTokens[MOCK_ADDRESS_FOR_NATIVE_DEPOSIT];
         address outputToken = nativeMirror == address(0) ? MOCK_ADDRESS_FOR_NATIVE_DEPOSIT : nativeMirror;
 
-        if (!_isValidTokenAmount(outputToken, amount, false)) {
-            revert InvalidTokenAmount();
-        }
+        checkValidClaim(outputToken, amount);
 
         // Build leaves for validating merkle proof (no 'from' verification - anyone can claim)
         bytes32[] memory leaves = new bytes32[](3);

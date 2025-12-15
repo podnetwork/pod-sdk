@@ -120,43 +120,31 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
         }
     }
 
-    /**
-     * @dev Internal function to check if the token amount is valid.
-     * @param token The token to check.
-     * @param amount The amount of tokens to check.
-     * @param isDeposit Whether the amount is for a deposit or a claim.
-     * @return True if the token amount is valid, false otherwise.
-     * @dev Reverts with DailyLimitExhausted if the daily token deposit or claim limit is exhausted.
-     */
-    function _isValidTokenAmount(address token, uint256 amount, bool isDeposit) internal returns (bool) {
+    function checkValidDeposit(address token, uint256 amount) internal {
         TokenData storage t = tokenData[token];
+        checkInLimits(t.deposit, t.limits.minAmount, t.limits.deposit, amount);
+    }
 
-        if (t.limits.minAmount == 0 || amount < t.limits.minAmount) {
-            return false;
+    function checkValidClaim(address token, uint256 amount) internal {
+        TokenData storage t = tokenData[token];
+        checkInLimits(t.claim, t.limits.minAmount, t.limits.claim, amount);
+    }
+
+    function checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
+        internal
+    {
+        if (minAmount == 0 || amount < minAmount) {
+            revert InvalidTokenAmount();
+        }
+        if (block.timestamp >= usage.lastUpdated + 1 days) {
+            usage.lastUpdated = block.timestamp;
+            usage.consumed = 0;
         }
 
-        if (isDeposit) {
-            if (block.timestamp >= t.deposit.lastUpdated + 1 days) {
-                t.deposit.lastUpdated = block.timestamp;
-                t.deposit.consumed = 0;
-            }
-
-            if (t.deposit.consumed + amount > t.limits.deposit) {
-                revert DailyLimitExhausted();
-            }
-            t.deposit.consumed += amount;
-        } else if (!isDeposit) {
-            if (block.timestamp >= t.claim.lastUpdated + 1 days) {
-                t.claim.lastUpdated = block.timestamp;
-                t.claim.consumed = 0;
-            }
-
-            if (t.claim.consumed + amount > t.limits.claim) {
-                revert DailyLimitExhausted();
-            }
-            t.claim.consumed += amount;
+        if (usage.consumed + amount > maxTotalAmount) {
+            revert DailyLimitExhausted();
         }
-        return true;
+        usage.consumed += amount;
     }
 
     /**
@@ -164,7 +152,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      */
     function deposit(address token, uint256 amount, address to) external override whenNotPaused returns (bytes32) {
         if (to == address(0)) revert InvalidToAddress();
-        if (!_isValidTokenAmount(token, amount, true)) revert InvalidTokenAmount();
+        checkValidDeposit(token, amount);
         bytes32 id = _getDepositId();
         handleDeposit(token, amount);
         emit Deposit(id, token, amount, to);
@@ -176,7 +164,7 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      */
     function depositNative(address to) external payable override whenNotPaused returns (bytes32) {
         if (to == address(0)) revert InvalidToAddress();
-        if (!_isValidTokenAmount(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, msg.value, true)) revert InvalidTokenAmount();
+        checkValidDeposit(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, msg.value);
         bytes32 id = _getDepositId();
         handleDepositNative();
         emit DepositNative(id, msg.value, to);
@@ -195,10 +183,9 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
             revert InvalidTokenConfig();
         }
 
-        TokenUsage memory depositUsage = TokenUsage(0, block.timestamp);
-        TokenUsage memory claimUsage = TokenUsage(0, block.timestamp);
-
-        TokenData memory data = TokenData(limits, depositUsage, claimUsage);
+        TokenUsage memory depositUsage = TokenUsage({consumed: 0, lastUpdated: block.timestamp});
+        TokenUsage memory claimUsage = TokenUsage({consumed: 0, lastUpdated: block.timestamp});
+        TokenData memory data = TokenData({limits: limits, deposit: depositUsage, claim: claimUsage});
         tokenData[token] = data;
     }
 
