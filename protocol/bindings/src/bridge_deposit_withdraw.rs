@@ -1056,7 +1056,6 @@ interface BridgeDepositWithdraw {
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
     function tokenData(address) external view returns (IBridge.TokenLimits memory limits, IBridge.TokenUsage memory deposit, IBridge.TokenUsage memory claim);
     function unpause() external;
-    function usedNonces(uint256) external view returns (bool);
     function whiteListToken(address token, address mirrorToken, IBridge.TokenLimits memory limits) external;
     function whitelistedTokens(uint256) external view returns (address);
 }
@@ -1546,25 +1545,6 @@ interface BridgeDepositWithdraw {
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "usedNonces",
-    "inputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -7374,157 +7354,6 @@ function unpause() external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `usedNonces(uint256)` and selector `0x6717e41c`.
-```solidity
-function usedNonces(uint256) external view returns (bool);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct usedNoncesCall(pub alloy::sol_types::private::primitives::aliases::U256);
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`usedNonces(uint256)`](usedNoncesCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct usedNoncesReturn {
-        #[allow(missing_docs)]
-        pub _0: bool,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U256,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<usedNoncesCall> for UnderlyingRustTuple<'_> {
-                fn from(value: usedNoncesCall) -> Self {
-                    (value.0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for usedNoncesCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self(tuple.0)
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bool,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (bool,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<usedNoncesReturn> for UnderlyingRustTuple<'_> {
-                fn from(value: usedNoncesReturn) -> Self {
-                    (value._0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for usedNoncesReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for usedNoncesCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = bool;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "usedNonces(uint256)";
-            const SELECTOR: [u8; 4] = [103u8, 23u8, 228u8, 28u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.0),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: usedNoncesReturn = r.into();
-                        r._0
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: usedNoncesReturn = r.into();
-                        r._0
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `whiteListToken(address,address,(uint256,uint256,uint256))` and selector `0xfc5c5cb3`.
 ```solidity
 function whiteListToken(address token, address mirrorToken, IBridge.TokenLimits memory limits) external;
@@ -7902,8 +7731,6 @@ function whitelistedTokens(uint256) external view returns (address);
         #[allow(missing_docs)]
         unpause(unpauseCall),
         #[allow(missing_docs)]
-        usedNonces(usedNoncesCall),
-        #[allow(missing_docs)]
         whiteListToken(whiteListTokenCall),
         #[allow(missing_docs)]
         whitelistedTokens(whitelistedTokensCall),
@@ -7924,7 +7751,6 @@ function whitelistedTokens(uint256) external view returns (address);
             [54u8, 86u8, 138u8, 190u8],
             [63u8, 75u8, 168u8, 58u8],
             [92u8, 151u8, 90u8, 187u8],
-            [103u8, 23u8, 228u8, 28u8],
             [116u8, 134u8, 250u8, 78u8],
             [118u8, 131u8, 245u8, 158u8],
             [123u8, 137u8, 137u8, 57u8],
@@ -7952,7 +7778,6 @@ function whitelistedTokens(uint256) external view returns (address);
             ::core::stringify!(renounceRole),
             ::core::stringify!(unpause),
             ::core::stringify!(paused),
-            ::core::stringify!(usedNonces),
             ::core::stringify!(migratedContract),
             ::core::stringify!(claim),
             ::core::stringify!(depositIndex),
@@ -7980,7 +7805,6 @@ function whitelistedTokens(uint256) external view returns (address);
             <renounceRoleCall as alloy_sol_types::SolCall>::SIGNATURE,
             <unpauseCall as alloy_sol_types::SolCall>::SIGNATURE,
             <pausedCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <usedNoncesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <migratedContractCall as alloy_sol_types::SolCall>::SIGNATURE,
             <claimCall as alloy_sol_types::SolCall>::SIGNATURE,
             <depositIndexCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -8023,7 +7847,7 @@ function whitelistedTokens(uint256) external view returns (address);
     impl alloy_sol_types::SolInterface for BridgeDepositWithdrawCalls {
         const NAME: &'static str = "BridgeDepositWithdrawCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 25usize;
+        const COUNT: usize = 24usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -8079,9 +7903,6 @@ function whitelistedTokens(uint256) external view returns (address);
                     <tokenDataCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::unpause(_) => <unpauseCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::usedNonces(_) => {
-                    <usedNoncesCall as alloy_sol_types::SolCall>::SELECTOR
-                }
                 Self::whiteListToken(_) => {
                     <whiteListTokenCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -8186,17 +8007,6 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::paused)
                     }
                     paused
-                },
-                {
-                    fn usedNonces(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <usedNoncesCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::usedNonces)
-                    }
-                    usedNonces
                 },
                 {
                     fn migratedContract(
@@ -8469,17 +8279,6 @@ function whitelistedTokens(uint256) external view returns (address);
                             .map(BridgeDepositWithdrawCalls::paused)
                     }
                     paused
-                },
-                {
-                    fn usedNonces(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<BridgeDepositWithdrawCalls> {
-                        <usedNoncesCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(BridgeDepositWithdrawCalls::usedNonces)
-                    }
-                    usedNonces
                 },
                 {
                     fn migratedContract(
@@ -8759,9 +8558,6 @@ function whitelistedTokens(uint256) external view returns (address);
                 Self::unpause(inner) => {
                     <unpauseCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
-                Self::usedNonces(inner) => {
-                    <usedNoncesCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
-                }
                 Self::whiteListToken(inner) => {
                     <whiteListTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -8887,12 +8683,6 @@ function whitelistedTokens(uint256) external view returns (address);
                 }
                 Self::unpause(inner) => {
                     <unpauseCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
-                }
-                Self::usedNonces(inner) => {
-                    <usedNoncesCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
                 }
                 Self::whiteListToken(inner) => {
                     <whiteListTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(
@@ -10092,13 +9882,6 @@ See the [wrapper's documentation](`BridgeDepositWithdrawInstance`) for more deta
         ///Creates a new call builder for the [`unpause`] function.
         pub fn unpause(&self) -> alloy_contract::SolCallBuilder<&P, unpauseCall, N> {
             self.call_builder(&unpauseCall)
-        }
-        ///Creates a new call builder for the [`usedNonces`] function.
-        pub fn usedNonces(
-            &self,
-            _0: alloy::sol_types::private::primitives::aliases::U256,
-        ) -> alloy_contract::SolCallBuilder<&P, usedNoncesCall, N> {
-            self.call_builder(&usedNoncesCall(_0))
         }
         ///Creates a new call builder for the [`whiteListToken`] function.
         pub fn whiteListToken(

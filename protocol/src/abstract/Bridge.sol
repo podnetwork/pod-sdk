@@ -50,11 +50,6 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     address[] public whitelistedTokens;
 
     /**
-     * @dev Map nonce to used nonces.
-     */
-    mapping(uint256 => bool) public usedNonces;
-
-    /**
      * @dev Address of the migrated contract.
      */
     address public migratedContract;
@@ -171,9 +166,8 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
             revert InvalidTokenConfig();
         }
 
-        TokenUsage memory depositUsage = TokenUsage({consumed: 0, lastUpdated: block.timestamp});
-        TokenUsage memory claimUsage = TokenUsage({consumed: 0, lastUpdated: block.timestamp});
-        TokenData memory data = TokenData({limits: limits, deposit: depositUsage, claim: claimUsage});
+        TokenUsage memory usage = TokenUsage({consumed: 0, lastUpdated: block.timestamp});
+        TokenData memory data = TokenData({limits: limits, deposit: usage, claim: usage});
         tokenData[token] = data;
     }
 
