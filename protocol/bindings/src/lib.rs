@@ -4,5 +4,5 @@
 //! Do not manually edit these files.
 //! These files may be overwritten by the codegen system at any time.
 pub mod r#bridge_deposit_withdraw;
-pub mod r#bridge_mint_burn;
+pub mod r#i_bridge_mint_burn;
 pub mod r#wrapped_token;

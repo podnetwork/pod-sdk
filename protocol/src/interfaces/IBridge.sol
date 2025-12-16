@@ -108,20 +108,6 @@ interface IBridge {
     }
 
     /**
-     * @dev Request information.
-     * @param id The request index.
-     * @param token The token to bridge.
-     * @param amount The amount of tokens to bridge.
-     * @param to The address to send the tokens to.
-     */
-    struct RequestInfo {
-        uint256 id;
-        address token;
-        uint256 amount;
-        address to;
-    }
-
-    /**
      * @dev Update a token's configuration information.
      * Token limits need to be set to half the desired value, due to users being able to deposit and claim at the boundry condition.
      * If the desired deposit limit is 1000 tokens, the limit should be set to 500 tokens.

@@ -27,29 +27,4 @@ interface IBridgeMintBurn is IBridge {
         uint8 mirrorTokenDecimals,
         TokenLimits calldata limits
     ) external returns (address);
-
-    /**
-     * @notice Claim bridged tokens using external precompile verification.
-     * @param id Deposit ID to claim.
-     * @param token Source chain token address (address(0) for native).
-     * @param blockNumber The block number that contains the log to of the deposit.
-     */
-    function claim(bytes32 id, address token, uint256 blockNumber) external;
-
-    /**
-     * @dev Event emitted when native tokens are burned.
-     * @param sender The address that burned the native tokens.
-     * @param value The amount of native tokens burned.
-     */
-    event BurnNative(address sender, uint256 value);
-
-    /**
-     * @dev Error thrown when the external precompile call fails.
-     */
-    error PrecompileCallFailed();
-
-    /**
-     * @dev Error thrown when the block is not finalized.
-     */
-    error BlockNotFinalized();
 }
