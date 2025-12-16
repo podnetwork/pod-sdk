@@ -177,8 +177,7 @@ abstract contract BridgeClaimProofHelper is Test {
 
         proof = generateMultiProof(allLeaves, proofLeaves);
 
-        bytes32 attestedHash = AttestedTx.digest(txHash, committeeEpoch);
-        bytes32 signedHash = keccak256(abi.encode(attestedHash));
+        bytes32 signedHash = AttestedTx.digest(txHash, committeeEpoch);
 
         bytes[] memory signatures = new bytes[](numberOfRequiredSignatures);
         for (uint256 i = 0; i < numberOfRequiredSignatures; i++) {

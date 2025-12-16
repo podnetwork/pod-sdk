@@ -133,8 +133,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
         // Reconstruct AttestedTx and verify signatures
-        bytes32 attestedHash = AttestedTx.digest(txHash, committeeEpoch);
-        bytes32 signedHash = _hashBytes32(attestedHash);
+        bytes32 signedHash = AttestedTx.digest(txHash, committeeEpoch);
         address[] memory validators = ECDSA.recoverSigners(signedHash, aggregatedSignatures);
 
         uint256 weight = podConfig.registry.computeWeight(validators);
