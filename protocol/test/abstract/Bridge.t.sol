@@ -58,59 +58,6 @@ abstract contract BridgeBehaviorTest is PodTest {
         bridge().deposit(address(token()), tokenLimits.deposit + 1, user);
     }
 
-    function test_DepositNative_RevertIfLessThanMinAmount() public {
-        vm.deal(user, DEPOSIT_AMOUNT);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
-        vm.prank(user);
-        bridge().depositNative{value: nativeTokenLimits.minAmount - 1}(user);
-    }
-
-    function test_DepositNative_RevertIfMoreThanDailyLimit() public {
-        vm.deal(user, nativeTokenLimits.deposit + 1);
-        vm.prank(admin);
-        bridge().pause();
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        vm.prank(user);
-        bridge().depositNative{value: nativeTokenLimits.deposit + 1}(user);
-    }
-
-    function test_DepositNative_RevertIfMoreThanClaimLimitButSucceedAfterOneDay() public {
-        vm.deal(user, nativeTokenLimits.deposit + DEPOSIT_AMOUNT);
-        vm.prank(user);
-        vm.warp(block.timestamp + 1 days - 1);
-        bridge().depositNative{value: DEPOSIT_AMOUNT}(user);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
-        vm.prank(user);
-        bridge().depositNative{value: nativeTokenLimits.deposit - 1}(user);
-        vm.warp(block.timestamp + 2);
-        vm.prank(user);
-        bridge().depositNative{value: nativeTokenLimits.deposit - 1}(user);
-    }
-
-    function test_DepositNative_RevertIfPaused() public {
-        vm.deal(user, DEPOSIT_AMOUNT);
-        vm.prank(admin);
-        bridge().pause();
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        vm.prank(user);
-        bridge().depositNative{value: DEPOSIT_AMOUNT}(user);
-    }
-
-    function test_DepositNative_RevertIfInvalidAmount() public {
-        vm.deal(user, DEPOSIT_AMOUNT);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
-        vm.prank(user);
-        bridge().depositNative{value: nativeTokenLimits.minAmount - 1}(user);
-    }
-
-    function test_DepositNative_TracksConsumed() public {
-        vm.deal(user, DEPOSIT_AMOUNT);
-        vm.prank(user);
-        bridge().depositNative{value: DEPOSIT_AMOUNT}(user);
-        (, IBridge.TokenUsage memory dep,) = bridge().tokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT);
-        assertEq(dep.consumed, DEPOSIT_AMOUNT);
-    }
-
     function test_Deposit_Pause() public {
         vm.prank(admin);
         bridge().pause();

@@ -17,18 +17,12 @@ echo "PK_SOURCE_CHAIN: $PK_SOURCE_CHAIN"
 echo "POD_BRIDGE_ADDR: $POD_BRIDGE_ADDR"
 echo "POD_COMMITTEE_KEYS: $POD_COMMITTEE_KEYS"
 
-# Limits
-: "${NATIVE_MIN:=10000000000000000}"            # 0.01 ether
-: "${NATIVE_DEP:=500000000000000000000}"        # 500e18
-: "${NATIVE_CLA:=500000000000000000000}"        # 500e18
-
-
 # Deploy BridgeDepositWithdraw on Source chain (Anvil/Sepolia)
 OUTPUT=$(forge script ./script/DeployDepositWithdraw.s.sol:DeployDepositWithdraw \
   --rpc-url "$SOURCE_CHAIN_RPC" --private-key "$PK_SOURCE_CHAIN" --broadcast --slow \
   --json \
-  --sig "run(address,(uint256,uint256,uint256))" \
-  "$POD_BRIDGE_ADDR" "($NATIVE_MIN,$NATIVE_DEP,$NATIVE_CLA)")
+  --sig "run(address)" \
+  "$POD_BRIDGE_ADDR")
 
 SOURCE_CHAIN_BRIDGE_ADDR=$(jq -sr 'map(.returns?.depositWithdraw?.value // empty) | map(select(. != "")) | last' <<< "$OUTPUT")
 

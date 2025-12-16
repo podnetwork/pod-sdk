@@ -43,30 +43,4 @@ interface IBridgeDepositWithdraw is IBridge {
         bytes calldata aggregatedSignatures,
         MerkleTree.MultiProof calldata proof
     ) external;
-
-    /**
-     * @notice Claim for a native deposit on the source chain.
-     * @dev Verifies the depositNative transaction via merkle proof and aggregated validator signatures.
-     *      The transaction hash (AttestedTx.hash) is computed from the merkle proof.
-     *      Anyone can call this function to claim on behalf of the original depositor.
-     *      If mirrorTokens[MOCK_ADDRESS_FOR_NATIVE_DEPOSIT] is set, ERC20 tokens are transferred; otherwise native tokens.
-     *      To configure native-to-token bridging, call whiteListToken(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, tokenAddress, limits).
-     * @param amount The deposited amount to claim.
-     * @param to The address to receive the tokens (must match the 'to' specified in the deposit).
-     * @param committeeEpoch The committee epoch for validator signature verification.
-     * @param aggregatedSignatures Concatenated 65-byte ECDSA signatures (r,s,v) from validators.
-     * @param proof The Merkle multi-proof for verifying transaction fields (to, value, input).
-     */
-    function claimNative(
-        uint256 amount,
-        address to,
-        uint64 committeeEpoch,
-        bytes calldata aggregatedSignatures,
-        MerkleTree.MultiProof calldata proof
-    ) external;
-
-    /**
-     * @dev Error thrown when the certificate verification fails.
-     */
-    error InvalidCertificate();
 }

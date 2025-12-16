@@ -33,17 +33,11 @@ abstract contract BridgeMintBurn is Bridge, IBridgeMintBurn {
 
     /**
      * @dev Handles the deposit of tokens. The tokens are burned from the msg.sender.
-     * @param token The token to deposit.
+     *      For native deposits (token=address(0)), the native tokens are held by the contract.
+     * @param token The token to deposit (address(0) for native).
      * @param amount The amount of tokens to deposit.
      */
     function handleDeposit(address token, uint256 amount) internal override {
-        // not implemented in solidity
-    }
-
-    /**
-     * @inheritdoc Bridge
-     */
-    function handleDepositNative() internal override {
         // not implemented in solidity
     }
 
@@ -59,13 +53,6 @@ abstract contract BridgeMintBurn is Bridge, IBridgeMintBurn {
         view
         returns (uint256 decodedAmount, address decodedTo, bytes32 requestId)
     {
-        // not implemented in solidity
-    }
-
-    /**
-     * @inheritdoc IBridgeMintBurn
-     */
-    function claimNative(bytes32 id, uint256 blockNumber) external override whenNotPaused {
         // not implemented in solidity
     }
 

@@ -31,17 +31,10 @@ interface IBridgeMintBurn is IBridge {
     /**
      * @notice Claim bridged tokens using external precompile verification.
      * @param id Deposit ID to claim.
-     * @param token Source chain token address.
+     * @param token Source chain token address (address(0) for native).
      * @param blockNumber The block number that contains the log to of the deposit.
      */
     function claim(bytes32 id, address token, uint256 blockNumber) external;
-
-    /**
-     * @notice Claim native tokens using external precompile verification.
-     * @param id Deposit ID to claim.
-     * @param blockNumber The block number that contains the log to of the native deposit.
-     */
-    function claimNative(bytes32 id, uint256 blockNumber) external;
 
     /**
      * @dev Event emitted when native tokens are burned.

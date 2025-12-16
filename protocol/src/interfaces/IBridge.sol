@@ -50,31 +50,18 @@ interface IBridge {
     error InvalidBridgeContract();
 
     /**
-     * @dev Error thrown when the deposit log is invalid.
+     * @dev Error thrown when attempting to deposit native tokens (not supported on this bridge).
      */
-    error InvalidDepositLog();
-
-    /**
-     * @dev Error thrown when the nonce is invalid.
-     */
-    error InvalidNonce();
+    error NativeDepositNotSupported();
 
     /**
      * @dev Event emitted when a deposit is made.
      * @param id The request index.
-     * @param token The token to bridge.
+     * @param token The token to bridge (address(0) for native).
      * @param amount The amount of tokens to bridge.
      * @param to The address to send the tokens to.
      */
     event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address indexed to);
-
-    /**
-     * @dev Event emitted when a native deposit is made.
-     * @param id The request index.
-     * @param amount The amount of native tokens to bridge.
-     * @param to The address to send the native tokens to.
-     */
-    event DepositNative(bytes32 indexed id, uint256 amount, address indexed to);
 
     /**
      * @dev Event emitted when a claim is made.
@@ -85,14 +72,6 @@ interface IBridge {
      * @param to The address to send the tokens to.
      */
     event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
-
-    /**
-     * @dev Event emitted when a native claim is made.
-     * @param id The request index.
-     * @param amount The amount of native tokens to bridge.
-     * @param to The address to send the native tokens to.
-     */
-    event ClaimNative(bytes32 indexed id, uint256 amount, address indexed to);
 
     /**
      * @dev Token limits.
@@ -159,20 +138,13 @@ interface IBridge {
     /**
      * @dev Deposit tokens to bridge to the destination chain.
      * @notice Function used to bridge tokens to the destination chain.
-     * @param token The token to bridge.
-     * @param amount The amount of tokens to bridge.
+     *         Use token=address(0) for native deposits (must send msg.value).
+     * @param token The token to bridge (address(0) for native).
+     * @param amount The amount of tokens to bridge (ignored for native, uses msg.value).
      * @param to The address to receive the tokens on the destination chain.
      * @return id The request index.
      */
-    function deposit(address token, uint256 amount, address to) external returns (bytes32);
-
-    /**
-     * @dev Deposit native tokens to bridge to the destination chain.
-     * @notice Function used to bridge native tokens to the destination chain.
-     * @param to The address to receive the tokens on the destination chain.
-     * @return id The request index.
-     */
-    function depositNative(address to) external payable returns (bytes32);
+    function deposit(address token, uint256 amount, address to) external payable returns (bytes32);
 
     /**
      * @dev Pauses the contract.

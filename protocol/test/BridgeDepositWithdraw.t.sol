@@ -12,6 +12,7 @@ import {PodRegistry} from "../src/PodRegistry.sol";
 import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {IBridgeDepositWithdraw} from "../src/interfaces/IBridgeDepositWithdraw.sol";
 
 contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper {
     BridgeDepositWithdraw private _bridge;
@@ -41,7 +42,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper
         }
 
         podRegistry = new PodRegistry(initialValidators);
-        _bridge = new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract, nativeTokenLimits);
+        _bridge = new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract);
 
         _token = new WrappedToken("InitialToken", "ITKN", 18);
         _token.mint(user, INITIAL_BALANCE);
@@ -75,25 +76,6 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user);
         assertEq(_token.balanceOf(user), ub - DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_bridge)), bb + DEPOSIT_AMOUNT);
-    }
-
-    function test_DepositNative_EmitsEvent() public {
-        vm.deal(user, DEPOSIT_AMOUNT);
-        vm.expectEmit(true, true, true, true);
-        emit IBridge.DepositNative(0, DEPOSIT_AMOUNT, user);
-        vm.prank(user);
-        bridge().depositNative{value: DEPOSIT_AMOUNT}(user);
-        assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
-    }
-
-    function test_DepositNative_IncrementsIndexSequentially() public {
-        vm.deal(user, 2 * DEPOSIT_AMOUNT);
-        vm.prank(user);
-        _bridge.depositNative{value: DEPOSIT_AMOUNT}(user);
-        assertEq(_bridge.depositIndex(), 1);
-        vm.prank(user);
-        _bridge.depositNative{value: DEPOSIT_AMOUNT}(user);
-        assertEq(_bridge.depositIndex(), 2);
     }
 
     function test_Deposit_RevertWithoutAllowance() public {
@@ -217,87 +199,6 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper
         _bridge.claim(MIRROR_TOKEN, tokenLimits.minAmount - 1, user, committeeEpoch, aggregatedSignatures, proof);
     }
 
-    // ========== ClaimNative Tests ==========
-
-    function test_ClaimNative() public {
-        vm.deal(admin, DEPOSIT_AMOUNT);
-        vm.prank(admin);
-        _bridge.depositNative{value: DEPOSIT_AMOUNT}(admin);
-        assertEq(address(bridge()).balance, DEPOSIT_AMOUNT);
-        assertEq(user.balance, 0);
-
-        // Create claim proof with all 4 validators signing
-        (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
-            createNativeClaimProof(DEPOSIT_AMOUNT, user, 4);
-
-        // Expect ClaimNative event with actual txHash
-        vm.expectEmit(true, true, true, true);
-        emit IBridge.ClaimNative(txHash, DEPOSIT_AMOUNT, user);
-        _bridge.claimNative(DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
-
-        assertEq(address(bridge()).balance, 0);
-        assertEq(user.balance, DEPOSIT_AMOUNT);
-
-        (, IBridge.TokenUsage memory dep, IBridge.TokenUsage memory claimUsage) =
-            bridge().tokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT);
-        assertEq(dep.consumed, DEPOSIT_AMOUNT);
-        assertEq(claimUsage.consumed, DEPOSIT_AMOUNT);
-    }
-
-    function test_ClaimNative_RevertIfPaused() public {
-        vm.prank(admin);
-        _bridge.pause();
-
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
-            createNativeClaimProof(DEPOSIT_AMOUNT, user, 3);
-
-        vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
-        _bridge.claimNative(DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
-    }
-
-    function test_ClaimNative_RevertIfNotEnoughSignatures() public {
-        vm.deal(admin, DEPOSIT_AMOUNT);
-        vm.prank(admin);
-        _bridge.depositNative{value: DEPOSIT_AMOUNT}(admin);
-
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
-            createNativeClaimProof(DEPOSIT_AMOUNT, user, 2);
-
-        vm.expectRevert("Not enough validator weight");
-        _bridge.claimNative(DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
-    }
-
-    function test_ClaimNative_RevertIfInvalidAmount() public {
-        vm.deal(admin, DEPOSIT_AMOUNT);
-        vm.prank(admin);
-        _bridge.depositNative{value: DEPOSIT_AMOUNT}(admin);
-
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
-            createNativeClaimProof(nativeTokenLimits.minAmount - 1, user, 3);
-
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
-        _bridge.claimNative(nativeTokenLimits.minAmount - 1, user, committeeEpoch, aggregatedSignatures, proof);
-    }
-
-    function test_ClaimNative_RevertIfAlreadyClaimed() public {
-        vm.deal(admin, 2 * DEPOSIT_AMOUNT);
-        vm.prank(admin);
-        _bridge.depositNative{value: 2 * DEPOSIT_AMOUNT}(admin);
-
-        // Create proof once and reuse for both claims
-        (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
-            createNativeClaimProof(DEPOSIT_AMOUNT, user, 4);
-
-        // First claim should emit ClaimNative event with actual txHash
-        vm.expectEmit(true, true, true, true);
-        emit IBridge.ClaimNative(txHash, DEPOSIT_AMOUNT, user);
-        _bridge.claimNative(DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
-
-        // Second claim with same proof should fail
-        vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
-        _bridge.claimNative(DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
-    }
-
     // ========== Migration Tests ==========
 
     function test_Migrate_TransfersAllTokenBalances() public {
@@ -314,8 +215,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper
 
     function test_Migrate_NoWhitelistedTokens() public {
         vm.prank(admin);
-        BridgeDepositWithdraw fresh =
-            new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract, nativeTokenLimits);
+        BridgeDepositWithdraw fresh = new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract);
         vm.prank(admin);
         fresh.pause();
         vm.prank(admin);
@@ -379,119 +279,12 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper
         assertEq(dep2.consumed, 0);
     }
 
-    // ========== Token-to-Native Bridging Tests ==========
+    // ========== Native Deposit Not Supported ==========
 
-    function test_Claim_TokenToNative() public {
-        // Setup: whitelist where local=native, source=podToken (ERC20 on Pod)
-        // When someone deposits podToken on Pod, they claim native here
-        address podToken = makeAddr("podToken");
-        vm.prank(admin);
-        _bridge.whiteListToken(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, podToken, tokenLimits);
-
-        // Fund the bridge with native tokens
-        vm.deal(address(_bridge), DEPOSIT_AMOUNT);
-
-        uint256 initialBalance = user.balance;
-        assertEq(address(_bridge).balance, DEPOSIT_AMOUNT);
-
-        // Create claim proof for token deposit that results in native payout
-        (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
-            createTokenClaimProofForNative(podToken, DEPOSIT_AMOUNT, user, 4);
-
-        // Expect ClaimNative event (since output is native)
-        vm.expectEmit(true, true, true, true);
-        emit IBridge.ClaimNative(txHash, DEPOSIT_AMOUNT, user);
-        _bridge.claim(podToken, DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
-
-        assertEq(user.balance, initialBalance + DEPOSIT_AMOUNT);
-        assertEq(address(_bridge).balance, 0);
-    }
-
-    function test_Claim_TokenToNative_RevertIfNotEnoughSignatures() public {
-        address podToken = makeAddr("podToken");
-        vm.prank(admin);
-        _bridge.whiteListToken(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, podToken, tokenLimits);
-
-        vm.deal(address(_bridge), DEPOSIT_AMOUNT);
-
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
-            createTokenClaimProofForNative(podToken, DEPOSIT_AMOUNT, user, 2);
-
-        vm.expectRevert("Not enough validator weight");
-        _bridge.claim(podToken, DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
-    }
-
-    function test_ClaimNative_NativeToToken() public {
-        // Setup: configure native-to-token mapping
-        // local=nativeOutputToken (ERC20), source=native (MOCK_ADDRESS_FOR_NATIVE_DEPOSIT)
-        // When someone deposits native on Pod, they claim nativeOutputToken here
-        WrappedToken nativeOutputToken = new WrappedToken("NativeOutput", "NOUT", 18);
-        vm.prank(admin);
-        _bridge.whiteListToken(address(nativeOutputToken), MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, tokenLimits);
-
-        // Mint tokens to bridge for payout
-        nativeOutputToken.mint(address(_bridge), DEPOSIT_AMOUNT);
-
-        uint256 initialTokenBalance = nativeOutputToken.balanceOf(user);
-
-        // Create claim proof for native deposit that results in token payout
-        (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
-            createNativeClaimProof(DEPOSIT_AMOUNT, user, 4);
-
-        // Expect Claim event (since output is token)
-        vm.expectEmit(true, true, true, true);
-        emit IBridge.Claim(txHash, address(nativeOutputToken), address(0), DEPOSIT_AMOUNT, user);
-        _bridge.claimNative(DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
-
-        assertEq(nativeOutputToken.balanceOf(user), initialTokenBalance + DEPOSIT_AMOUNT);
-    }
-
-    function test_ClaimNative_NativeToToken_RevertIfNotEnoughSignatures() public {
-        WrappedToken nativeOutputToken = new WrappedToken("NativeOutput", "NOUT", 18);
-        vm.prank(admin);
-        _bridge.whiteListToken(address(nativeOutputToken), MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, tokenLimits);
-
-        nativeOutputToken.mint(address(_bridge), DEPOSIT_AMOUNT);
-
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
-            createNativeClaimProof(DEPOSIT_AMOUNT, user, 2);
-
-        vm.expectRevert("Not enough validator weight");
-        _bridge.claimNative(DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
-    }
-
-    function test_WhitelistNativeToToken() public {
-        // local=nativeOutputToken (ERC20), source=native (MOCK_ADDRESS_FOR_NATIVE_DEPOSIT)
-        WrappedToken nativeOutputToken = new WrappedToken("NativeOutput", "NOUT", 18);
-        vm.prank(admin);
-        _bridge.whiteListToken(address(nativeOutputToken), MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, tokenLimits);
-
-        // Check that mirrorTokens[MOCK_ADDRESS_FOR_NATIVE_DEPOSIT] = nativeOutputToken
-        assertEq(_bridge.mirrorTokens(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT), address(nativeOutputToken));
-    }
-
-    function test_WhitelistNativeToToken_RevertIfAlreadySet() public {
-        WrappedToken nativeOutputToken = new WrappedToken("NativeOutput", "NOUT", 18);
-        WrappedToken anotherToken = new WrappedToken("Another", "ANO", 18);
-
-        vm.prank(admin);
-        _bridge.whiteListToken(address(nativeOutputToken), MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, tokenLimits);
-
-        // Second call should revert
-        vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
-        _bridge.whiteListToken(address(anotherToken), MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, tokenLimits);
-    }
-
-    function test_WhitelistTokenToNative() public {
-        // local=native (MOCK_ADDRESS_FOR_NATIVE_DEPOSIT), source=podToken (ERC20 on Pod)
-        address podToken = makeAddr("podToken");
-        vm.prank(admin);
-        _bridge.whiteListToken(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, podToken, tokenLimits);
-
-        // Check that mirrorTokens maps podToken to MOCK_ADDRESS_FOR_NATIVE_DEPOSIT
-        // MOCK_ADDRESS_FOR_NATIVE_DEPOSIT = address(uint160(uint256(keccak256("MOCK_ADDRESS_FOR_NATIVE_DEPOSIT"))))
-        address expectedMockAddress = address(uint160(uint256(keccak256("MOCK_ADDRESS_FOR_NATIVE_DEPOSIT"))));
-        assertEq(_bridge.mirrorTokens(podToken), expectedMockAddress);
+    function test_DepositNative_NotSupported() public {
+        vm.deal(user, DEPOSIT_AMOUNT);
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.NativeDepositNotSupported.selector));
+        bridge().deposit{value: DEPOSIT_AMOUNT}(address(0), 0, user);
     }
 }

@@ -40,10 +40,9 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     /**
      * @dev Constructor.
      * @param _podRegistry The address of the PodRegistry to use.
+     * @param _bridgeContract The address of the bridge contract on the other chain.
      */
-    constructor(address _podRegistry, address _bridgeContract, TokenLimits memory nativeTokenLimits)
-        Bridge(_bridgeContract, nativeTokenLimits)
-    {
+    constructor(address _podRegistry, address _bridgeContract) Bridge(_bridgeContract) {
         podConfig =
             PodECDSA.PodConfig({thresholdNumerator: 1, thresholdDenominator: 1, registry: IPodRegistry(_podRegistry)});
         BRIDGE_CONTRACT_HASH = keccak256(abi.encode(_bridgeContract));
@@ -51,6 +50,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
 
     /**
      * @dev Handles the deposit of tokens. The tokens are transferred from the msg.sender to the contract.
+     * @dev Native deposits are not supported on this bridge.
      * @param token The token to deposit.
      * @param amount The amount of tokens to deposit.
      */
@@ -104,28 +104,6 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         }
     }
 
-    /// @dev Hashes a single uint256 value using inline assembly (equivalent to keccak256(abi.encode(value)))
-    function _hashUint256(uint256 value) internal pure returns (bytes32 result) {
-        assembly {
-            mstore(0x00, value)
-            result := keccak256(0x00, 0x20)
-        }
-    }
-
-    /// @dev Hashes depositNative input: selector + address (36 bytes) using inline assembly
-    /// Equivalent to keccak256(abi.encodePacked(bytes4(keccak256("depositNative(address)")), abi.encode(addr)))
-    function _hashDepositNativeInput(address addr) internal pure returns (bytes32 result) {
-        bytes4 selector = bytes4(keccak256("depositNative(address)"));
-        assembly {
-            let ptr := mload(0x40)
-            // Store selector in first 4 bytes
-            mstore(ptr, selector)
-            // Store address (32 bytes, right-padded) starting at byte 4
-            mstore(add(ptr, 0x04), addr)
-            result := keccak256(ptr, 0x24) // 36 bytes = 0x24
-        }
-    }
-
     /// @dev Hashes deposit input: selector + token + amount + to (100 bytes) using inline assembly
     /// Equivalent to keccak256(abi.encodePacked(bytes4(keccak256("deposit(address,uint256,address)")), abi.encode(token, amount, to)))
     function _hashDepositInput(address token, uint256 amount, address to) internal pure returns (bytes32 result) {
@@ -155,13 +133,9 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         bytes calldata aggregatedSignatures,
         MerkleTree.MultiProof calldata proof
     ) public override whenNotPaused {
-        // Check if token is configured - mirrorTokens stores the local token for a given source token
-        // A token is configured if it has tokenData with minAmount > 0
-        address mirrorToken = mirrorTokens[token];
-        // For token-to-native: mirrorToken will be MOCK_ADDRESS_FOR_NATIVE_DEPOSIT
-        // For token-to-token: mirrorToken will be an ERC20 address
-        if (mirrorToken == address(0)) revert MirrorTokenNotFound();
-        checkValidClaim(mirrorToken, amount);
+        address localToken = mirrorTokens[token];
+        if (localToken == address(0)) revert MirrorTokenNotFound();
+        checkValidClaim(localToken, amount);
 
         // Build leaves for validating merkle proof (no 'from' verification - anyone can claim)
         bytes32[] memory leaves = new bytes32[](2);
@@ -193,78 +167,8 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
 
         processedRequests[txHash] = true;
 
-        // Transfer based on whether mirrorToken is native or ERC20
-        if (mirrorToken == MOCK_ADDRESS_FOR_NATIVE_DEPOSIT) {
-            // Token-to-native: transfer native tokens
-            (bool sent,) = to.call{value: amount}("");
-            require(sent, "Failed to transfer native tokens");
-            emit ClaimNative(txHash, amount, to);
-        } else {
-            // Token-to-token: transfer ERC20
-            IERC20(mirrorToken).safeTransfer(to, amount);
-            emit Claim(txHash, mirrorToken, token, amount, to);
-        }
-    }
-
-    /**
-     * @inheritdoc IBridgeDepositWithdraw
-     */
-    function claimNative(
-        uint256 amount,
-        address to,
-        uint64 committeeEpoch,
-        bytes calldata aggregatedSignatures,
-        MerkleTree.MultiProof calldata proof
-    ) public override whenNotPaused {
-        // Check if pod native maps to an ERC20 token via mirrorTokens[MOCK_ADDRESS_FOR_NATIVE_DEPOSIT]
-        // If not set (address(0)), output is native; otherwise output is the mapped ERC20 token
-        address nativeMirror = mirrorTokens[MOCK_ADDRESS_FOR_NATIVE_DEPOSIT];
-        address outputToken = nativeMirror == address(0) ? MOCK_ADDRESS_FOR_NATIVE_DEPOSIT : nativeMirror;
-
-        checkValidClaim(outputToken, amount);
-
-        // Build leaves for validating merkle proof (no 'from' verification - anyone can claim)
-        bytes32[] memory leaves = new bytes32[](3);
-        leaves[0] = MerkleTree.hashLeaf("to", BRIDGE_CONTRACT_HASH);
-        leaves[1] = MerkleTree.hashLeaf("value", _hashUint256(amount));
-        leaves[2] = MerkleTree.hashLeaf("input", _hashDepositNativeInput(to));
-
-        sortLeaves(leaves);
-
-        // Compute the merkle root from leaves and proof
-        bytes32 txHash = MerkleTree.processMulti(leaves, proof);
-
-        // Check if already processed
-        if (processedRequests[txHash]) revert RequestAlreadyProcessed();
-
-        // Reconstruct AttestedTx and verify signatures
-        bytes32 attestedHash = AttestedTx.digest(txHash, committeeEpoch);
-        bytes32 signedHash = _hashBytes32(attestedHash);
-        address[] memory validators = ECDSA.recoverSigners(signedHash, aggregatedSignatures);
-
-        uint256 weight = podConfig.registry.computeWeight(validators);
-
-        uint256 threshold = Math.mulDiv(
-            podConfig.registry.getValidatorCountAtIndex(committeeEpoch),
-            podConfig.thresholdNumerator,
-            podConfig.thresholdDenominator,
-            Math.Rounding.Ceil
-        );
-        require(weight >= threshold, "Not enough validator weight");
-
-        processedRequests[txHash] = true;
-
-        // Transfer based on whether native maps to an ERC20 token
-        if (nativeMirror == address(0)) {
-            // Native-to-native: transfer native tokens
-            (bool sent,) = to.call{value: amount}("");
-            require(sent, "Failed to transfer native tokens");
-            emit ClaimNative(txHash, amount, to);
-        } else {
-            // Native-to-token: transfer ERC20
-            IERC20(nativeMirror).safeTransfer(to, amount);
-            emit Claim(txHash, nativeMirror, address(0), amount, to);
-        }
+        IERC20(localToken).safeTransfer(to, amount);
+        emit Claim(txHash, localToken, token, amount, to);
     }
 
     /**
@@ -277,18 +181,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        if (token == MOCK_ADDRESS_FOR_NATIVE_DEPOSIT) {
-            // Local is native: when someone deposits mirrorToken on Pod (could be pod-native), they claim native here
-            if (mirrorTokens[mirrorToken] != address(0)) {
-                revert InvalidTokenConfig();
-            }
-            // tokenData for native is already configured in constructor
-            _configureTokenData(token, limits, false);
-            mirrorTokens[mirrorToken] = token;
-            // don't whitelist token - it's native
-        } else {
-            // Local is ERC20: when someone deposits native or another token on Pod (mirrorToken), they claim ERC20 here
-            _whitelistToken(token, mirrorToken, limits);
-        }
+        require(token != address(0), "Token address cannot be zero");
+        _whitelistToken(token, mirrorToken, limits);
     }
 }

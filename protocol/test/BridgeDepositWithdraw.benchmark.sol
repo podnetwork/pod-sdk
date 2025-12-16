@@ -36,7 +36,7 @@ contract BridgeDepositWithdrawBenchmark is BridgeClaimProofHelper {
         }
 
         podRegistry = new PodRegistry(initialValidators);
-        bridge = new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract, nativeTokenLimits);
+        bridge = new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract);
 
         // Setup token for claim() benchmarks
         token = new WrappedToken("TestToken", "TKN", 18);
@@ -44,43 +44,6 @@ contract BridgeDepositWithdrawBenchmark is BridgeClaimProofHelper {
         token.mint(address(bridge), 1000e18);
 
         vm.stopPrank();
-
-        // Fund the bridge with native tokens for claimNative
-        vm.deal(address(bridge), 1000 ether);
-    }
-
-    // ========== claimNative Benchmarks ==========
-
-    function _benchmarkClaimNative(uint256 numValidators) internal {
-        _setupWithValidators(numValidators);
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
-            createNativeClaimProof(DEPOSIT_AMOUNT, user, numValidators);
-
-        uint256 gasBefore = gasleft();
-        bridge.claimNative(DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
-        uint256 gasUsed = gasBefore - gasleft();
-
-        console.log("claimNative gas with %d validators: %d", numValidators, gasUsed);
-    }
-
-    function test_benchmark_claimNative_4validators() public {
-        _benchmarkClaimNative(4);
-    }
-
-    function test_benchmark_claimNative_10validators() public {
-        _benchmarkClaimNative(10);
-    }
-
-    function test_benchmark_claimNative_20validators() public {
-        _benchmarkClaimNative(20);
-    }
-
-    function test_benchmark_claimNative_50validators() public {
-        _benchmarkClaimNative(50);
-    }
-
-    function test_benchmark_claimNative_100validators() public {
-        _benchmarkClaimNative(100);
     }
 
     // ========== claim Benchmarks ==========

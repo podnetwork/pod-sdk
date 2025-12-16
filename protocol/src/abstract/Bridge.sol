@@ -24,9 +24,9 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
 
     /**
      * @dev The mock address for native deposit.
+     * @notice Address as proposed in EIP-7528
      */
-    address constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT =
-        address(uint160(uint256(keccak256("MOCK_ADDRESS_FOR_NATIVE_DEPOSIT"))));
+    address constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     /**
      * @dev Map token address to token data.
@@ -68,28 +68,20 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
      * @dev Constructor.
      * @notice Grants the DEFAULT_ADMIN_ROLE and PAUSER_ROLE to the msg.sender.
      */
-    constructor(address _bridgeContract, TokenLimits memory nativeTokenLimits) {
+    constructor(address _bridgeContract) {
         if (_bridgeContract == address(0)) revert InvalidBridgeContract();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
         bridgeContract = _bridgeContract;
-        _configureTokenData(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, nativeTokenLimits, true);
     }
 
     /**
      * @dev Internal function to handle the deposit of tokens.
      * This is a callback defining the different token handling logic for the different bridge contracts.
-     * @param token The token to deposit.
+     * @param token The token to deposit (address(0) for native).
      * @param amount The amount of tokens to deposit.
      */
     function handleDeposit(address token, uint256 amount) internal virtual;
-
-    /**
-     * @dev Internal function to handle the deposit of native tokens.
-     * This is a callback defining the different native token handling logic for the different bridge contracts.
-     * Default implementation is an empty function.
-     */
-    function handleDepositNative() internal virtual {}
 
     /**
      * @dev Internal function to get the deposit ID.
@@ -150,24 +142,20 @@ abstract contract Bridge is IBridge, AccessControl, Pausable {
     /**
      * @inheritdoc IBridge
      */
-    function deposit(address token, uint256 amount, address to) external override whenNotPaused returns (bytes32) {
+    function deposit(address token, uint256 amount, address to)
+        external
+        payable
+        override
+        whenNotPaused
+        returns (bytes32)
+    {
         if (to == address(0)) revert InvalidToAddress();
+        if (token == address(0)) revert NativeDepositNotSupported();
+
         checkValidDeposit(token, amount);
         bytes32 id = _getDepositId();
         handleDeposit(token, amount);
         emit Deposit(id, token, amount, to);
-        return id;
-    }
-
-    /**
-     * @inheritdoc IBridge
-     */
-    function depositNative(address to) external payable override whenNotPaused returns (bytes32) {
-        if (to == address(0)) revert InvalidToAddress();
-        checkValidDeposit(MOCK_ADDRESS_FOR_NATIVE_DEPOSIT, msg.value);
-        bytes32 id = _getDepositId();
-        handleDepositNative();
-        emit DepositNative(id, msg.value, to);
         return id;
     }
 
