@@ -1,5 +1,4 @@
 use alloy_sol_types::SolValue;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, VecDeque},
@@ -104,10 +103,8 @@ impl StandardMerkleTree {
     }
 
     pub fn new(leaves: Vec<Hash>) -> Self {
-        let leaves_sorted = leaves.into_iter().sorted().collect::<Vec<_>>();
-
-        let tree = MerkleTree::new(&leaves_sorted);
-        let indices = leaves_sorted
+        let tree = MerkleTree::new(&leaves);
+        let indices = leaves
             .into_iter()
             .enumerate()
             .map(|(i, leaf)| (leaf, tree.length() - i - 1))
@@ -368,14 +365,7 @@ impl MerkleTree {
             return None;
         }
 
-        let sorted_indices = indices
-            .iter()
-            .cloned()
-            .sorted_by(|a, b| b.cmp(a))
-            .unique()
-            .collect::<Vec<_>>();
-
-        let mut stack = VecDeque::from(sorted_indices);
+        let mut stack = VecDeque::from(indices.to_vec());
         let mut path = Vec::new();
         let mut flags = Vec::new();
 
@@ -424,9 +414,7 @@ impl MerkleTree {
             return false;
         }
 
-        // This is a deviation from OpenZeppelin's implementation,
-        // which expects leaves to be given in sorted order.
-        let mut stack = leaves.iter().cloned().sorted().collect::<Vec<Hash>>();
+        let mut stack = leaves.to_vec();
 
         let mut path = proof.path.to_vec();
 

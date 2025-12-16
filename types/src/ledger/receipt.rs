@@ -202,9 +202,8 @@ mod test {
 
         let log_data_leaf =
             StandardMerkleTree::hash_leaf("logs[0].data.data", log.data.data.hash_custom());
-        let mut leaves = vec![log_address_leaf, log_data_leaf];
+        let leaves = [log_address_leaf, log_data_leaf];
         let proof = receipt_tree.generate_multi_proof(&leaves).unwrap();
-        leaves.sort();
         assert!(StandardMerkleTree::verify_multi_proof(
             receipt_root,
             &leaves,

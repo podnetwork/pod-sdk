@@ -10,21 +10,6 @@ abstract contract BridgeClaimProofHelper is Test {
     uint256[] internal validatorPrivateKeys;
     address internal otherBridgeContract;
 
-    function sortLeaves(bytes32[] memory leaves) internal pure {
-        uint256 n = leaves.length;
-        for (uint256 i = 1; i < n; ++i) {
-            bytes32 key = leaves[i];
-            uint256 j = i;
-            while (j > 0 && leaves[j - 1] > key) {
-                leaves[j] = leaves[j - 1];
-                unchecked {
-                    j--;
-                }
-            }
-            leaves[j] = key;
-        }
-    }
-
     // OpenZeppelin's commutativeKeccak256 - sorts the two values before hashing
     function commutativeKeccak256(bytes32 a, bytes32 b) internal pure returns (bytes32) {
         return a < b ? keccak256(abi.encodePacked(a, b)) : keccak256(abi.encodePacked(b, a));
@@ -183,14 +168,12 @@ abstract contract BridgeClaimProofHelper is Test {
             MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(claimToken, amount, to))));
         allLeaves[4] = MerkleTree.hashLeaf("nonce", keccak256(abi.encode(txNonce)));
 
-        sortLeaves(allLeaves);
         txHash = buildMerkleTree(allLeaves);
 
         bytes32[] memory proofLeaves = new bytes32[](2);
         proofLeaves[0] = MerkleTree.hashLeaf("to", keccak256(abi.encode(otherBridgeContract)));
         proofLeaves[1] =
             MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(claimToken, amount, to))));
-        sortLeaves(proofLeaves);
 
         proof = generateMultiProof(allLeaves, proofLeaves);
 

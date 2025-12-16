@@ -80,22 +80,6 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         }
     }
 
-    function sortLeaves(bytes32[] memory leaves) internal pure {
-        uint256 n = leaves.length;
-        for (uint256 i = 1; i < n; ++i) {
-            bytes32 key = leaves[i];
-            uint256 j = i;
-            // Move elements of leaves[0..i-1] that are > key one position ahead
-            while (j > 0 && leaves[j - 1] > key) {
-                leaves[j] = leaves[j - 1];
-                unchecked {
-                    j--;
-                }
-            }
-            leaves[j] = key;
-        }
-    }
-
     /// @dev Hashes a single bytes32 value using inline assembly (equivalent to keccak256(abi.encode(value)))
     function _hashBytes32(bytes32 value) internal pure returns (bytes32 result) {
         assembly {
@@ -141,8 +125,6 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         bytes32[] memory leaves = new bytes32[](2);
         leaves[0] = MerkleTree.hashLeaf("to", BRIDGE_CONTRACT_HASH);
         leaves[1] = MerkleTree.hashLeaf("input", _hashDepositInput(token, amount, to));
-
-        sortLeaves(leaves);
 
         // Compute the merkle root from leaves and proof
         bytes32 txHash = MerkleTree.processMulti(leaves, proof);
