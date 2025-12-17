@@ -1,24 +1,17 @@
 use alloy_consensus::{TxEnvelope, TxType, TypedTransaction};
 use alloy_eips::eip2930::AccessList;
 use alloy_network::{
-    BuildResult, Network, NetworkWallet, ReceiptResponse, TransactionBuilder,
-    TransactionBuilderError,
+    BuildResult, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError,
 };
-use alloy_primitives::{
-    Address, BlockHash, Bytes, ChainId, Log, Signature, TxHash, TxKind, B256, U256,
-};
+use alloy_primitives::{Address, Bytes, ChainId, Signature, TxKind, U256};
 use alloy_provider::fillers::{
     ChainIdFiller, GasFiller, JoinFill, NonceFiller, RecommendedFillers,
 };
 
-use pod_types::{
-    consensus::{attestation::AttestedTx, committee::CommitteeError},
-    ledger::Transaction,
-    metadata::DetailedReceiptMetadata,
-};
+pub use pod_types::rpc::receipt::PodReceiptResponse;
 
-use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
-use pod_types::{Committee, Hashable, Merkleizable, Receipt, Timestamp};
+use alloy_rpc_types::TransactionRequest;
+use pod_types::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
@@ -35,7 +28,7 @@ impl Default for PodTransactionRequest {
     fn default() -> Self {
         let mut inner = TransactionRequest::default();
         inner.set_max_fee_per_gas(1_000_000_000);
-        inner.set_max_priority_fee_per_gas(1_000_000_000);
+        inner.set_max_priority_fee_per_gas(0);
         Self { inner }
     }
 }
@@ -51,6 +44,12 @@ impl Deref for PodTransactionRequest {
 impl DerefMut for PodTransactionRequest {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
+    }
+}
+
+impl From<PodTransactionRequest> for TransactionRequest {
+    fn from(value: PodTransactionRequest) -> Self {
+        value.inner
     }
 }
 
@@ -223,152 +222,11 @@ impl TransactionBuilder<PodNetwork> for PodTransactionRequest {
     }
 }
 
-impl ReceiptResponse for PodReceiptResponse {
-    fn contract_address(&self) -> Option<Address> {
-        // For now not allowing deployments
-        None
-    }
-
-    fn status(&self) -> bool {
-        self.receipt.status()
-    }
-
-    fn block_hash(&self) -> Option<BlockHash> {
-        // todo
-        Some(BlockHash::default())
-    }
-
-    fn block_number(&self) -> Option<u64> {
-        // todo
-        None
-    }
-
-    fn transaction_hash(&self) -> TxHash {
-        self.receipt.transaction_hash()
-    }
-
-    fn transaction_index(&self) -> Option<u64> {
-        // todo
-        None
-    }
-
-    fn gas_used(&self) -> u64 {
-        self.receipt.gas_used()
-    }
-
-    fn effective_gas_price(&self) -> u128 {
-        self.receipt.effective_gas_price()
-    }
-
-    fn blob_gas_used(&self) -> Option<u64> {
-        // todo
-        None
-    }
-
-    fn blob_gas_price(&self) -> Option<u128> {
-        // todo
-        None
-    }
-
-    fn from(&self) -> Address {
-        self.receipt.from()
-    }
-
-    fn to(&self) -> Option<Address> {
-        self.receipt.to()
-    }
-
-    fn cumulative_gas_used(&self) -> u64 {
-        // todo
-        self.receipt.cumulative_gas_used()
-    }
-
-    fn state_root(&self) -> Option<B256> {
-        // todo
-        None
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AttestationData {
     pub public_key: Address,
     pub signature: Signature,
     pub timestamp: Timestamp,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PodReceiptResponse {
-    #[serde(flatten)]
-    pub receipt: TransactionReceipt,
-    pub pod_metadata: DetailedReceiptMetadata,
-}
-
-impl PodReceiptResponse {
-    pub fn verify_receipt(&self, committee: &Committee) -> Result<(), CommitteeError> {
-        let logs = self
-            .receipt
-            .inner
-            .logs()
-            .iter()
-            .map(|l| l.inner.clone())
-            .collect::<Vec<Log>>();
-
-        let logs_root = logs.to_merkle_tree().hash_custom();
-        let tx_hash = self.pod_metadata.transaction.hash_custom();
-        let to = match self.pod_metadata.transaction.to {
-            TxKind::Create => None,
-            TxKind::Call(address) => Some(address),
-        };
-
-        let receipt = Receipt {
-            status: self.status(),
-            actual_gas_used: self.receipt.gas_used,
-            logs,
-            logs_root,
-            attested_tx: AttestedTx {
-                tx_hash,
-                success: self.pod_metadata.tx_attestation_status,
-                committee_epoch: self.pod_metadata.committee_epoch,
-            },
-            max_fee_per_gas: self.pod_metadata.transaction.max_fee_per_gas,
-            signer: self.pod_metadata.transaction.signer,
-            to,
-            contract_address: self.receipt.contract_address,
-        };
-
-        committee.verify_aggregate_attestation(
-            receipt.attested_tx.hash_custom(),
-            &self
-                .pod_metadata
-                .attestations
-                .iter()
-                .map(|a| a.signature)
-                .collect(),
-        )?;
-
-        committee.verify_aggregate_attestation(
-            receipt.hash_custom(),
-            &self
-                .pod_metadata
-                .receipt_attestations
-                .iter()
-                .map(|a| a.signature)
-                .collect(),
-        )?;
-
-        Ok(())
-    }
-
-    pub fn transaction(&self) -> &pod_types::Signed<Transaction> {
-        &self.pod_metadata.transaction
-    }
-}
-
-impl Deref for PodReceiptResponse {
-    type Target = TransactionReceipt;
-    fn deref(&self) -> &TransactionReceipt {
-        &self.receipt
-    }
 }
 
 impl Network for PodNetwork {

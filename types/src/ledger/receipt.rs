@@ -21,6 +21,7 @@ pub struct Receipt {
     pub max_fee_per_gas: u128,
     pub logs: Vec<Log>,
     pub logs_root: Hash,
+    pub tx_hash: Hash,
     pub attested_tx: AttestedTx,
     pub signer: Address,
     pub to: Option<Address>,
@@ -29,7 +30,7 @@ pub struct Receipt {
 
 impl Receipt {
     pub fn tx_hash(&self) -> Hash {
-        self.attested_tx.tx_hash
+        self.tx_hash
     }
 
     fn log_hashes(&self) -> Vec<Hash> {
@@ -86,6 +87,7 @@ impl Merkleizable for Receipt {
         // NOTE: "log_hashes" isn't part of the Receipt struct
         builder.add_slice("log_hashes", &self.log_hashes());
         builder.add_field("logs_root", self.logs_root.abi_encode().hash_custom());
+        builder.add_field("tx_hash", self.tx_hash);
         builder.add_merkleizable("attested_tx", &self.attested_tx);
     }
 }
@@ -107,11 +109,11 @@ impl From<Receipt> for TransactionReceipt {
                     logs: val
                         .logs
                         .into_iter()
-                        .map(|l| log::to_rpc_format(l, val.attested_tx.tx_hash))
+                        .map(|l| log::to_rpc_format(l, val.attested_tx.hash))
                         .collect(),
                 },
             }),
-            transaction_hash: val.attested_tx.tx_hash,
+            transaction_hash: val.tx_hash,
             transaction_index: Some(0),
             block_hash: Some(Hash::default()), // Need hash for tx confirmation on Metamask
             block_number: Some(1),             // Need number of tx confirmation on Metamask
@@ -143,7 +145,7 @@ mod test {
         let to: Address = "217f5658c6ecc27d439922263ad9bb8e992e0373".parse().unwrap();
         let transaction = Transaction {
             chain_id: 0x50d,
-            to: TxKind::Call(to.clone()),
+            to: TxKind::Call(to),
             nonce: 1337,
             gas_limit: 25_000,
             max_fee_per_gas: 20_000_000_000,
@@ -179,7 +181,8 @@ mod test {
             max_fee_per_gas: transaction.max_fee_per_gas,
             logs: logs.clone(),
             logs_root,
-            attested_tx: AttestedTx::success(tx.hash_custom(), 0),
+            tx_hash: tx.hash_custom(),
+            attested_tx: AttestedTx::new(tx.hash_custom(), 0),
             signer: tx.signer,
             to: Some(to),
             contract_address: None,
@@ -189,7 +192,7 @@ mod test {
         let receipt_root = receipt_tree.hash_custom();
 
         let log_address_leaf =
-            StandardMerkleTree::hash_leaf("logs[0].address".to_string(), log.address.hash_custom());
+            StandardMerkleTree::hash_leaf("logs[0].address", log.address.hash_custom());
         let proof = receipt_tree.generate_proof(log_address_leaf).unwrap();
         assert!(StandardMerkleTree::verify_proof(
             receipt_root,
@@ -197,13 +200,10 @@ mod test {
             proof
         ));
 
-        let log_data_leaf = StandardMerkleTree::hash_leaf(
-            "logs[0].data.data".to_string(),
-            log.data.data.hash_custom(),
-        );
-        let mut leaves = vec![log_address_leaf, log_data_leaf];
+        let log_data_leaf =
+            StandardMerkleTree::hash_leaf("logs[0].data.data", log.data.data.hash_custom());
+        let leaves = [log_address_leaf, log_data_leaf];
         let proof = receipt_tree.generate_multi_proof(&leaves).unwrap();
-        leaves.sort();
         assert!(StandardMerkleTree::verify_multi_proof(
             receipt_root,
             &leaves,

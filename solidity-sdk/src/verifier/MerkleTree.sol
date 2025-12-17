@@ -24,4 +24,8 @@ library MerkleTree {
     function verifyMulti(bytes32 root, bytes32[] memory leaves, MultiProof memory proof) public pure returns (bool) {
         return MerkleProof.multiProofVerify(proof.path, proof.flags, root, leaves);
     }
+
+    function processMulti(bytes32[] memory leaves, MultiProof memory proof) public pure returns (bytes32) {
+        return MerkleProof.processMultiProof(proof.path, proof.flags, leaves);
+    }
 }

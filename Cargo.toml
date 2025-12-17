@@ -6,11 +6,16 @@ members = [
   "examples/notary",
   "examples/optimistic-auction",
   "examples/auction",
+  "examples/bridge-flow",
   "examples/rust",
   "examples/voting/client",
   "examples/nfts",
   "examples/tokens",
   "examples/bsky/plc",
   "examples/optimism-tx-auction",
+  "protocol/bindings",
 ]
 resolver = "2"
+
+[workspace.dependencies]
+secp256k1 = { version = "0.31.1" }

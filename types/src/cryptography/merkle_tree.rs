@@ -1,5 +1,4 @@
 use alloy_sol_types::SolValue;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, VecDeque},
@@ -40,8 +39,8 @@ pub struct MerkleProof {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct MerkleMultiProof {
-    path: Vec<Hash>,
-    flags: Vec<bool>,
+    pub path: Vec<Hash>,
+    pub flags: Vec<bool>,
 }
 
 impl MerkleProof {
@@ -75,7 +74,11 @@ fn parent_index(index: usize) -> usize {
 }
 
 fn sibling_index(index: usize) -> usize {
-    if index % 2 == 0 { index - 1 } else { index + 1 }
+    if index.is_multiple_of(2) {
+        index - 1
+    } else {
+        index + 1
+    }
 }
 
 fn is_leaf_index(tree_len: usize, index: usize) -> bool {
@@ -95,15 +98,13 @@ impl Hashable for MerkleTree {
 }
 
 impl StandardMerkleTree {
-    pub fn hash_leaf(prefix: String, leaf: Hash) -> Hash {
+    pub fn hash_leaf(prefix: &str, leaf: Hash) -> Hash {
         (prefix, leaf).abi_encode_packed().hash_custom()
     }
 
     pub fn new(leaves: Vec<Hash>) -> Self {
-        let leaves_sorted = leaves.into_iter().sorted().collect::<Vec<_>>();
-
-        let tree = MerkleTree::new(&leaves_sorted);
-        let indices = leaves_sorted
+        let tree = MerkleTree::new(&leaves);
+        let indices = leaves
             .into_iter()
             .enumerate()
             .map(|(i, leaf)| (leaf, tree.length() - i - 1))
@@ -160,7 +161,7 @@ pub fn index_prefix(prefix: &str, index: usize) -> String {
 }
 
 fn apply_prefix_to_leaf(prefix: &str, (sub_prefix, leaf): (String, Hash)) -> Hash {
-    StandardMerkleTree::hash_leaf(join_prefix(prefix, &sub_prefix), leaf)
+    StandardMerkleTree::hash_leaf(&join_prefix(prefix, &sub_prefix), leaf)
 }
 
 fn apply_prefix_to_leaves(prefix: &str, leaves: Vec<(String, Hash)>) -> Vec<Hash> {
@@ -222,7 +223,7 @@ pub trait Merkleizable {
         let leaves = self
             .leaves()
             .into_iter()
-            .map(|(path, leaf)| StandardMerkleTree::hash_leaf(path, leaf))
+            .map(|(path, leaf)| StandardMerkleTree::hash_leaf(&path, leaf))
             .collect::<Vec<_>>();
 
         StandardMerkleTree::new(leaves)
@@ -364,14 +365,7 @@ impl MerkleTree {
             return None;
         }
 
-        let sorted_indices = indices
-            .iter()
-            .cloned()
-            .sorted_by(|a, b| b.cmp(a))
-            .unique()
-            .collect::<Vec<_>>();
-
-        let mut stack = VecDeque::from(sorted_indices);
+        let mut stack = VecDeque::from(indices.to_vec());
         let mut path = Vec::new();
         let mut flags = Vec::new();
 
@@ -420,9 +414,7 @@ impl MerkleTree {
             return false;
         }
 
-        // This is a deviation from OpenZeppelin's implementation,
-        // which expects leaves to be given in sorted order.
-        let mut stack = leaves.iter().cloned().sorted().collect::<Vec<Hash>>();
+        let mut stack = leaves.to_vec();
 
         let mut path = proof.path.to_vec();
 
@@ -455,9 +447,9 @@ mod test {
     #[test]
     pub fn test_standard_tree_proof() {
         let leaves = vec![
-            StandardMerkleTree::hash_leaf("0".to_string(), 1u32.abi_encode().hash_custom()),
-            StandardMerkleTree::hash_leaf("1".to_string(), 2u32.abi_encode().hash_custom()),
-            StandardMerkleTree::hash_leaf("2".to_string(), 3u32.abi_encode().hash_custom()),
+            StandardMerkleTree::hash_leaf("0", 1u32.abi_encode().hash_custom()),
+            StandardMerkleTree::hash_leaf("1", 2u32.abi_encode().hash_custom()),
+            StandardMerkleTree::hash_leaf("2", 3u32.abi_encode().hash_custom()),
         ];
         let tree = StandardMerkleTree::new(leaves.clone());
         let leaf = leaves[1];
@@ -468,9 +460,9 @@ mod test {
     #[test]
     pub fn test_standard_tree_multi_proof() {
         let leaves = vec![
-            StandardMerkleTree::hash_leaf("0".to_string(), 1u32.abi_encode().hash_custom()),
-            StandardMerkleTree::hash_leaf("1".to_string(), 2u32.abi_encode().hash_custom()),
-            StandardMerkleTree::hash_leaf("2".to_string(), 3u32.abi_encode().hash_custom()),
+            StandardMerkleTree::hash_leaf("0", 1u32.abi_encode().hash_custom()),
+            StandardMerkleTree::hash_leaf("1", 2u32.abi_encode().hash_custom()),
+            StandardMerkleTree::hash_leaf("2", 3u32.abi_encode().hash_custom()),
         ];
         let tree = StandardMerkleTree::new(leaves.clone());
         let proof = tree.generate_multi_proof(&leaves).unwrap();

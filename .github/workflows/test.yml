@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
 
 env:
@@ -12,21 +12,23 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-    - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@1.92
 
-    - name: Version
-      run: cargo version
+      - uses: Swatinem/rust-cache@v2
 
-    - name: Build
-      run: cargo build --verbose
+      - name: Version
+        run: cargo version
 
-    - name: Run tests
-      run: cargo test --verbose
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Run tests
+        run: cargo test --verbose
 
   contracts:
-    name: examples-solidity 
+    name: examples-solidity
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -36,7 +38,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.4.3
+          version: v1.5.0
 
       - name: Show Forge version
         run: |
@@ -68,7 +70,7 @@ jobs:
         id: bindings
 
   protocol:
-    name: protocol 
+    name: protocol
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +80,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.1 
+          version: v1.5.0
 
       - name: Run Forge fmt
         run: |
@@ -98,8 +100,14 @@ jobs:
         id: test
         working-directory: protocol
 
+      - name: Check bindings
+        run: |
+          make check
+        working-directory: protocol
+        id: bindings
+
   solidity-sdk:
-    name: solidity-sdk 
+    name: solidity-sdk
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -109,7 +117,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.1
+          version: v1.5.0
 
       - name: Run Forge fmt
         run: |
@@ -130,7 +138,7 @@ jobs:
         working-directory: solidity-sdk
 
   optimistic-auction:
-    name: optimistic-auction 
+    name: optimistic-auction
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -140,7 +148,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.1
+          version: v1.5.0
 
       - name: Run Forge fmt
         run: |
@@ -167,7 +175,7 @@ jobs:
         id: bindings
 
   voting:
-    name: voting 
+    name: voting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -177,7 +185,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.1
+          version: v1.5.0
 
       - name: Run Forge fmt
         run: |
@@ -204,7 +212,7 @@ jobs:
         id: bindings
 
   notary:
-    name: notary 
+    name: notary
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -214,7 +222,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.1
+          version: v1.5.0
 
       - name: Run Forge fmt
         run: |

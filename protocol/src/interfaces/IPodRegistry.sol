@@ -19,6 +19,7 @@ interface IPodRegistry {
     struct Snapshot {
         uint256 activeAsOfTimestamp;
         uint256 bitmap;
+        uint8 validatorCount;
     }
 
     /// @notice Error thrown when a validator is a zero address

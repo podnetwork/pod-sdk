@@ -11,10 +11,7 @@ library FastTypes {
         c._values[key] += value;
     }
 
-    function requireGte(SharedCounter storage c, bytes32 key, uint256 value, string memory errorMessage)
-        internal
-        view
-    {
+    function requireGte(SharedCounter storage c, bytes32 key, uint256 value, string memory errorMessage) internal view {
         requireQuorum(c._values[key] >= value, errorMessage);
     }
 
