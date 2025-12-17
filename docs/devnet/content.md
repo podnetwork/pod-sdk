@@ -9,7 +9,3 @@ url: /
 ! import ./intro.md
 
 ! import ./config.md
-
----
-
-! import ./precompile.md

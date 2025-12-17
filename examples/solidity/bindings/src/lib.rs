@@ -4,8 +4,11 @@
 //! Do not manually edit these files.
 //! These files may be overwritten by the codegen system at any time.
 pub mod r#auction;
+pub mod r#ethereum_erc20_balance;
 pub mod r#fast_types;
+pub mod r#ierc20;
 pub mod r#pi2;
+pub mod r#quorum_restricted_action;
 pub mod r#ranked_feed;
 pub mod r#time;
 pub mod r#voting;
