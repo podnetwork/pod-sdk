@@ -5,7 +5,7 @@ CMD=forge bind --crate-name pod-examples-solidity \
     --crate-version ${VERSION}\
     --crate-description ${DESCRIPTION}\
     --crate-license ${LICENSE}\
-    --bindings-path ./bindings --alloy-version 1.0.36 --force --no-metadata --skip script
+    --bindings-path ./bindings --alloy-version 1.2.1 --force --no-metadata --skip script
 
 generate:
 	${CMD} --overwrite
