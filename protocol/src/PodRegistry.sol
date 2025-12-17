@@ -194,11 +194,12 @@ contract PodRegistry is IPodRegistry, Ownable {
      * @inheritdoc IPodRegistry
      */
     function computeWeight(address[] memory subset) public view returns (uint256 weight) {
-        if (history.length == 0) {
+        uint256 historyLength = history.length;
+        if (historyLength == 0) {
             return 0;
         }
 
-        return computeWeight(subset, block.timestamp, history.length - 1);
+        return _computeWeight(subset, history[historyLength - 1].bitmap); 
     }
 
     /**
@@ -220,7 +221,15 @@ contract PodRegistry is IPodRegistry, Ownable {
             revert SnapshotTooOld();
         }
 
-        uint256 counted = 0;
+        return _computeWeight(subset, snapshot.bitmap);
+    }
+
+
+    function _computeWeight(address[] memory subset, uint256 validatorBitmap)
+        internal
+        view
+        returns (uint256 weight)
+    {
         for (uint256 i = 0; i < subset.length; i++) {
             uint8 index = validatorIndex[subset[i]];
             if (index == 0) {
@@ -228,12 +237,13 @@ contract PodRegistry is IPodRegistry, Ownable {
             }
             index = index - 1;
 
-            if (_isBitSet(snapshot.bitmap, index) && !_isBitSet(counted, index)) {
-                counted = _setBit(counted, index);
-                weight++;
-            }
+            uint256 mask = (1 << index);
+            if ((validatorBitmap & mask) != 0) weight++; // found an active validator
+            validatorBitmap &= ~mask; // clear bit to avoid double counting
         }
     }
+
+
 
     /**
      * @inheritdoc IPodRegistry
