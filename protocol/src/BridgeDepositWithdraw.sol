@@ -80,14 +80,6 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         }
     }
 
-    /// @dev Hashes a single bytes32 value using inline assembly (equivalent to keccak256(abi.encode(value)))
-    function _hashBytes32(bytes32 value) internal pure returns (bytes32 result) {
-        assembly {
-            mstore(0x00, value)
-            result := keccak256(0x00, 0x20)
-        }
-    }
-
     /// @dev Hashes deposit input: selector + token + amount + to (100 bytes) using inline assembly
     /// Equivalent to keccak256(abi.encodePacked(bytes4(keccak256("deposit(address,uint256,address)")), abi.encode(token, amount, to)))
     function _hashDepositInput(address token, uint256 amount, address to) internal pure returns (bytes32 result) {

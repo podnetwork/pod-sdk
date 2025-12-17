@@ -183,7 +183,8 @@ contract PodRegistry is IPodRegistry, Ownable {
      * @dev Internal function called whenever the validator set changes
      */
     function _createSnapshot() internal {
-        history.push(Snapshot({activeAsOfTimestamp: block.timestamp, bitmap: activeValidatorBitmap}));
+        uint8 count = _popCount(activeValidatorBitmap);
+        history.push(Snapshot({activeAsOfTimestamp: block.timestamp, bitmap: activeValidatorBitmap, validatorCount: count}));
         emit SnapshotCreated(block.timestamp, activeValidatorBitmap);
     }
 
@@ -223,9 +224,10 @@ contract PodRegistry is IPodRegistry, Ownable {
             if (index == 0) {
                 continue;
             }
+            index = index - 1;
 
-            if (_isBitSet(snapshot.bitmap, index - 1) && !_isBitSet(counted, index - 1)) {
-                counted = _setBit(counted, index - 1);
+            if (_isBitSet(snapshot.bitmap, index) && !_isBitSet(counted, index)) {
+                counted = _setBit(counted, index);
                 weight++;
             }
         }
@@ -269,6 +271,7 @@ contract PodRegistry is IPodRegistry, Ownable {
      * @inheritdoc IPodRegistry
      */
     function getActiveValidatorCount() public view returns (uint8 count) {
+        // TODO: calculate count when updating the bitmap instead of counting on demand
         return _popCount(activeValidatorBitmap);
     }
 
@@ -276,8 +279,7 @@ contract PodRegistry is IPodRegistry, Ownable {
      * @inheritdoc IPodRegistry
      */
     function getValidatorCountAtIndex(uint256 snapshotIndex) public view returns (uint8 count) {
-        uint256 bitmap = history[snapshotIndex].bitmap;
-        return _popCount(bitmap);
+        return history[snapshotIndex].validatorCount;
     }
 
     /**
@@ -285,7 +287,7 @@ contract PodRegistry is IPodRegistry, Ownable {
      */
     function getValidatorsAtIndex(uint256 snapshotIndex) public view returns (address[] memory) {
         uint256 bitmap = history[snapshotIndex].bitmap;
-        uint8 count = _popCount(bitmap);
+        uint8 count = history[snapshotIndex].validatorCount;
         address[] memory subset = new address[](count);
         uint8 j = 0;
         for (uint8 i = 0; i < validators.length; i++) {
