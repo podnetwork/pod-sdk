@@ -5,7 +5,6 @@ import {BridgeBehaviorTest} from "./abstract/Bridge.t.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {BridgeDepositWithdraw} from "../src/BridgeDepositWithdraw.sol";
 import {IBridge} from "../src/interfaces/IBridge.sol";
-import {Bridge} from "../src/abstract/Bridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPodRegistry} from "../src/interfaces/IPodRegistry.sol";
 import {PodRegistry} from "../src/PodRegistry.sol";
@@ -20,7 +19,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper
     uint256 constant NUMBER_OF_VALIDATORS = 4;
     address immutable MIRROR_TOKEN = makeAddr("mirrorToken");
 
-    function bridge() internal view override returns (Bridge) {
+    function bridge() internal view override returns (BridgeDepositWithdraw) {
         return _bridge;
     }
 

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IBridgeDepositWithdraw} from "pod-protocol/interfaces/IBridgeDepositWithdraw.sol";
-import {Bridge} from "pod-protocol/abstract/Bridge.sol";
+import {IBridge} from "./interfaces/IBridge.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {PodECDSA} from "pod-sdk/verifier/PodECDSA.sol";
@@ -18,59 +20,148 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
  * @dev This contract implements the IBridgeDepositWithdraw interface and provides the functionality for
  * depositing and withdrawing tokens between chains.
  */
-contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
+contract BridgeDepositWithdraw is IBridge, AccessControl, Pausable {
     using SafeERC20 for IERC20;
 
-    /**
-     * @dev The PodConfig for the bridge. The config defines the required number
-     * of signatures to consider a certificate valid and the PodRegistry to use.
-     */
-    PodECDSA.PodConfig public podConfig;
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
-    /**
-     * @dev The index of the next deposit.
-     */
+    // The mock address for native deposit. EIP-7528
+    address constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+
+    mapping(address => TokenData) public tokenData;
+    mapping(address => address) public mirrorTokens;
+    mapping(bytes32 => bool) public processedRequests;
+
+    address[] public whitelistedTokens;
+    address public migratedContract;
+    address public bridgeContract; // bridge contract on the other chain
+
+    PodECDSA.PodConfig public podConfig;
     uint256 public depositIndex;
 
-    /**
-     * @dev Pre-computed hash of bridgeContract for merkle leaf construction.
-     */
-    bytes32 private immutable BRIDGE_CONTRACT_HASH;
+    bytes32 private immutable BRIDGE_CONTRACT_HASH; // keccak256(abi.encode(bridgeContract))
 
     /**
      * @dev Constructor.
      * @param _podRegistry The address of the PodRegistry to use.
      * @param _bridgeContract The address of the bridge contract on the other chain.
      */
-    constructor(address _podRegistry, address _bridgeContract) Bridge(_bridgeContract) {
+    constructor(address _podRegistry, address _bridgeContract) {
+        if (_bridgeContract == address(0)) revert InvalidBridgeContract();
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(PAUSER_ROLE, msg.sender);
+        bridgeContract = _bridgeContract;
+
         podConfig =
             PodECDSA.PodConfig({thresholdNumerator: 1, thresholdDenominator: 1, registry: IPodRegistry(_podRegistry)});
         BRIDGE_CONTRACT_HASH = keccak256(abi.encode(_bridgeContract));
     }
+    
+    modifier notMigrated() {
+        _notMigrated();
+        _;
+    }
 
-    /**
-     * @dev Handles the deposit of tokens. The tokens are transferred from the msg.sender to the contract.
-     * @dev Native deposits are not supported on this bridge.
-     * @param token The token to deposit.
-     * @param amount The amount of tokens to deposit.
-     */
-    function handleDeposit(address token, uint256 amount) internal override {
+    function _notMigrated() internal view {
+        if (migratedContract != address(0)) {
+            revert ContractMigrated();
+        }
+    }
+
+    function handleDeposit(address token, uint256 amount) internal {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
     }
 
-    /**
-     * @dev Internal function to get the deposit ID.
-     * @return id The request ID of the deposit.
-     */
-    function _getDepositId() internal override returns (bytes32) {
+    function checkValidDeposit(address token, uint256 amount) internal {
+        TokenData storage t = tokenData[token];
+        checkInLimits(t.deposit, t.limits.minAmount, t.limits.deposit, amount);
+    }
+
+    function checkValidClaim(address token, uint256 amount) internal {
+        TokenData storage t = tokenData[token];
+        checkInLimits(t.claim, t.limits.minAmount, t.limits.claim, amount);
+    }
+
+    function checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
+        internal
+    {
+        if (minAmount == 0 || amount < minAmount) {
+            revert InvalidTokenAmount();
+        }
+        if (block.timestamp >= usage.lastUpdated + 1 days) {
+            usage.lastUpdated = block.timestamp;
+            usage.consumed = 0;
+        }
+
+        if (usage.consumed + amount > maxTotalAmount) {
+            revert DailyLimitExhausted();
+        }
+        usage.consumed += amount;
+    }
+
+    function deposit(address token, uint256 amount, address to)
+        external
+        payable
+        whenNotPaused
+        returns (bytes32)
+    {
+        if (to == address(0)) revert InvalidToAddress();
+        if (token == address(0)) revert NativeDepositNotSupported();
+
+        checkValidDeposit(token, amount);
+        bytes32 id = _getDepositId();
+        handleDeposit(token, amount);
+        emit Deposit(id, token, amount, to);
+        return id;
+    }
+
+    function _configureTokenData(address token, TokenLimits memory limits, bool newToken) internal {
+        uint256 currMinAmount = tokenData[token].limits.minAmount;
+        if (limits.minAmount == 0 || (newToken ? currMinAmount != 0 : currMinAmount == 0)) {
+            revert InvalidTokenConfig();
+        }
+
+        TokenUsage memory usage = TokenUsage({consumed: 0, lastUpdated: block.timestamp});
+        TokenData memory data = TokenData({limits: limits, deposit: usage, claim: usage});
+        tokenData[token] = data;
+    }
+
+    
+    function configureToken(address token, TokenLimits memory limits) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _configureTokenData(token, limits, false);
+    }
+
+    function _whitelistToken(address token, address mirrorToken, TokenLimits memory limits) internal {
+        if (mirrorTokens[mirrorToken] != address(0)) {
+            revert InvalidTokenConfig();
+        }
+
+        _configureTokenData(token, limits, true);
+        whitelistedTokens.push(token);
+        mirrorTokens[mirrorToken] = token;
+    }
+
+    
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    function unpause() external notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
+    }
+
+    function migrate(address _newContract) public whenPaused notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
+        handleMigrate(_newContract);
+        migratedContract = _newContract;
+    }
+    
+    
+    function _getDepositId() internal returns (bytes32) {
         return bytes32(depositIndex++);
     }
 
-    /**
-     * @dev Handles the migration of tokens. The tokens are transferred from the contract to the new contract.
-     * @param _newContract The address of the new contract.
-     */
-    function handleMigrate(address _newContract) internal override {
+    
+    function handleMigrate(address _newContract) internal {
         for (uint256 i = 0; i < whitelistedTokens.length; i++) {
             address token = whitelistedTokens[i];
             uint256 tokenBalance = IERC20(token).balanceOf(address(this));
@@ -98,9 +189,6 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         }
     }
 
-    /**
-     * @inheritdoc IBridgeDepositWithdraw
-     */
     function claim(
         address token,
         uint256 amount,
@@ -108,7 +196,7 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
         uint64 committeeEpoch,
         bytes calldata aggregatedSignatures,
         MerkleTree.MultiProof calldata proof
-    ) public override whenNotPaused {
+    ) public whenNotPaused {
         address localToken = mirrorTokens[token];
         if (localToken == address(0)) revert MirrorTokenNotFound();
         checkValidClaim(localToken, amount);
@@ -145,7 +233,6 @@ contract BridgeDepositWithdraw is Bridge, IBridgeDepositWithdraw {
     }
 
     /**
-     * @inheritdoc IBridgeDepositWithdraw
      * @param token Token that will be deposited in the contract (local/destination token).
      * @param mirrorToken Token that will be deposited in the mirror contract (source token).
      * @param limits Token limits associated with the token.

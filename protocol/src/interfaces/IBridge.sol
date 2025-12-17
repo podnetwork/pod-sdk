@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
+
 /**
  * @title IBridge
  * @notice Interface for cross-chain token bridging contracts.
@@ -151,4 +153,36 @@ interface IBridge {
      * @notice Migration can only be done once on this contract
      */
     function migrate(address _newContract) external;
+
+    /**
+     * @notice Whitelist a token for bridging.
+     * @dev Use MOCK_ADDRESS_FOR_NATIVE_DEPOSIT for token to indicate native currency.
+     *      - token=MOCK_ADDRESS_FOR_NATIVE_DEPOSIT: source mirrorToken maps to local native currency.
+     * @param token Token that will be deposited in the contract (local/destination token).
+     * @param mirrorToken Token that will be deposited in the mirror contract (source token).
+     * @param limits Daily limits for deposits and claims.
+     */
+    function whiteListToken(address token, address mirrorToken, TokenLimits calldata limits) external;
+
+    /**
+     * @notice Claim bridged tokens using an attested transaction proof from Pod.
+     * @dev Verifies the deposit transaction via merkle proof and aggregated validator signatures.
+     *      The transaction hash (AttestedTx.hash) is computed from the merkle proof.
+     *      Anyone can call this function to claim on behalf of the original depositor.
+     *      If mirrorToken is address(0), native tokens are transferred; otherwise ERC20 tokens.
+     * @param token The token address on Pod that was deposited.
+     * @param amount The amount of tokens that were deposited on Pod (and to claim).
+     * @param to The address to receive the tokens (must match the 'to' specified in the deposit).
+     * @param committeeEpoch The committee epoch for validator signature verification.
+     * @param aggregatedSignatures Concatenated 65-byte ECDSA signatures (r,s,v) from validators.
+     * @param proof The Merkle multi-proof for verifying transaction fields (to, input).
+     */
+    function claim(
+        address token,
+        uint256 amount,
+        address to,
+        uint64 committeeEpoch,
+        bytes calldata aggregatedSignatures,
+        MerkleTree.MultiProof calldata proof
+    ) external;
 }

@@ -9,7 +9,7 @@ import {PodRegistry} from "../src/PodRegistry.sol";
 import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 
-contract BridgeDepositWithdrawBenchmark is BridgeClaimProofHelper {
+contract BridgeBenchmark is BridgeClaimProofHelper {
     BridgeDepositWithdraw private bridge;
     PodRegistry private podRegistry;
     WrappedToken private token;
