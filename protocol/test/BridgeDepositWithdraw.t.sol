@@ -12,7 +12,6 @@ import {PodRegistry} from "../src/PodRegistry.sol";
 import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {IBridgeDepositWithdraw} from "../src/interfaces/IBridgeDepositWithdraw.sol";
 
 contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper {
     BridgeDepositWithdraw private _bridge;

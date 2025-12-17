@@ -184,7 +184,9 @@ contract PodRegistry is IPodRegistry, Ownable {
      */
     function _createSnapshot() internal {
         uint8 count = _popCount(activeValidatorBitmap);
-        history.push(Snapshot({activeAsOfTimestamp: block.timestamp, bitmap: activeValidatorBitmap, validatorCount: count}));
+        history.push(
+            Snapshot({activeAsOfTimestamp: block.timestamp, bitmap: activeValidatorBitmap, validatorCount: count})
+        );
         emit SnapshotCreated(block.timestamp, activeValidatorBitmap);
     }
 
