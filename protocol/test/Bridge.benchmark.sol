@@ -3,14 +3,14 @@ pragma solidity ^0.8.20;
 
 import {console} from "forge-std/Test.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
-import {BridgeDepositWithdraw} from "../src/BridgeDepositWithdraw.sol";
+import {Bridge} from "../src/Bridge.sol";
 import {IBridge} from "../src/interfaces/IBridge.sol";
 import {PodRegistry} from "../src/PodRegistry.sol";
 import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 
 contract BridgeBenchmark is BridgeClaimProofHelper {
-    BridgeDepositWithdraw private bridge;
+    Bridge private bridge;
     PodRegistry private podRegistry;
     WrappedToken private token;
 
@@ -36,7 +36,7 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
         }
 
         podRegistry = new PodRegistry(initialValidators);
-        bridge = new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract);
+        bridge = new Bridge(address(podRegistry), otherBridgeContract);
 
         // Setup token for claim() benchmarks
         token = new WrappedToken("TestToken", "TKN", 18);

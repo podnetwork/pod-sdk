@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {BridgeBehaviorTest} from "./abstract/Bridge.t.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
-import {BridgeDepositWithdraw} from "../src/BridgeDepositWithdraw.sol";
+import {Bridge} from "../src/Bridge.sol";
 import {IBridge} from "../src/interfaces/IBridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPodRegistry} from "../src/interfaces/IPodRegistry.sol";
@@ -12,14 +12,14 @@ import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper {
-    BridgeDepositWithdraw private _bridge;
+contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
+    Bridge private _bridge;
     WrappedToken private _token;
     IPodRegistry podRegistry;
     uint256 constant NUMBER_OF_VALIDATORS = 4;
     address immutable MIRROR_TOKEN = makeAddr("mirrorToken");
 
-    function bridge() internal view override returns (BridgeDepositWithdraw) {
+    function bridge() internal view override returns (Bridge) {
         return _bridge;
     }
 
@@ -40,7 +40,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper
         }
 
         podRegistry = new PodRegistry(initialValidators);
-        _bridge = new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract);
+        _bridge = new Bridge(address(podRegistry), otherBridgeContract);
 
         _token = new WrappedToken("InitialToken", "ITKN", 18);
         _token.mint(user, INITIAL_BALANCE);
@@ -213,7 +213,7 @@ contract BridgeDepositWithdrawTest is BridgeBehaviorTest, BridgeClaimProofHelper
 
     function test_Migrate_NoWhitelistedTokens() public {
         vm.prank(admin);
-        BridgeDepositWithdraw fresh = new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract);
+        Bridge fresh = new Bridge(address(podRegistry), otherBridgeContract);
         vm.prank(admin);
         fresh.pause();
         vm.prank(admin);

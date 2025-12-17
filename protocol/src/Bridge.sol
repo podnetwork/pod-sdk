@@ -20,7 +20,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
  * @dev This contract implements the IBridgeDepositWithdraw interface and provides the functionality for
  * depositing and withdrawing tokens between chains.
  */
-contract BridgeDepositWithdraw is IBridge, AccessControl, Pausable {
+contract Bridge is IBridge, AccessControl, Pausable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
