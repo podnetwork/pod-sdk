@@ -216,6 +216,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         bytes32 signedHash = AttestedTx.digest(txHash, committeeEpoch);
         address[] memory validators = ECDSA.recoverSigners(signedHash, aggregatedSignatures);
 
+        // TODO: compute weight assumes that its the latest validator set!
         uint256 weight = podConfig.registry.computeWeight(validators);
 
         uint256 threshold = Math.mulDiv(
