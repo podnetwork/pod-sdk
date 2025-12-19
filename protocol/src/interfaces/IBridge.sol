@@ -52,11 +52,6 @@ interface IBridge {
     error InvalidBridgeContract();
 
     /**
-     * @dev Error thrown when attempting to deposit native tokens (not supported on this bridge).
-     */
-    error NativeDepositNotSupported();
-
-    /**
      * @dev Event emitted when a deposit is made.
      * @param id The request index.
      * @param token The token to bridge (address(0) for native).

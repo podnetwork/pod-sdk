@@ -29,6 +29,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
 
     function setUpSuite() public override {
         vm.startPrank(admin);
+        uint8 f = uint8((NUMBER_OF_VALIDATORS - 1) / 3);
         address[] memory initialValidators = new address[](NUMBER_OF_VALIDATORS);
 
         validatorPrivateKeys = new uint256[](NUMBER_OF_VALIDATORS);
@@ -39,7 +40,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
         }
 
-        podRegistry = new PodRegistry(initialValidators);
+        podRegistry = new PodRegistry(initialValidators, f);
         _bridge = new Bridge(address(podRegistry), otherBridgeContract);
 
         _token = new WrappedToken("InitialToken", "ITKN", 18);
@@ -282,7 +283,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
     function test_DepositNative_NotSupported() public {
         vm.deal(user, DEPOSIT_AMOUNT);
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.NativeDepositNotSupported.selector));
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
         bridge().deposit{value: DEPOSIT_AMOUNT}(address(0), 0, user);
     }
 }

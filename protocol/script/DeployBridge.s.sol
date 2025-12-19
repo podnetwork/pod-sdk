@@ -10,7 +10,8 @@ contract Deploy is BaseDeployer {
     function run(address podBridgeAddr) external returns (address podRegistry, address depositWithdraw) {
         address[] memory initialValidators = getValidatorAddresses();
         vm.startBroadcast();
-        PodRegistry reg = new PodRegistry(initialValidators);
+        uint8 f = uint8((initialValidators.length - 1) / 3);
+        PodRegistry reg = new PodRegistry(initialValidators, f);
         Bridge bdw = new Bridge(address(reg), podBridgeAddr);
         vm.stopBroadcast();
         console.log("PodRegistry deployed at:", address(reg));

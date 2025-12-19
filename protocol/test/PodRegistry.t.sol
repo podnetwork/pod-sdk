@@ -5,6 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {PodRegistry} from "../src/PodRegistry.sol";
 import {IPodRegistry} from "../src/interfaces/IPodRegistry.sol";
 
+import {console} from "forge-std/console.sol";
+
 contract PodRegistryTest is Test {
     PodRegistry public registry;
     address public owner = address(1);
@@ -18,7 +20,7 @@ contract PodRegistryTest is Test {
         initialValidators[0] = validator1;
         initialValidators[1] = validator2;
         vm.prank(owner);
-        registry = new PodRegistry(initialValidators);
+        registry = new PodRegistry(initialValidators, 1);
     }
 
     function test_Initialization() public view {
@@ -369,8 +371,11 @@ contract PodRegistryTest is Test {
         vm.prank(owner);
         registry.addValidator(validator3); // snapshot at index 1
         uint256 timestampAtAdd = block.timestamp;
+        console.log(timestampAtAdd);
 
+        console.log(timestampAtAdd);
         vm.warp(block.timestamp + 5);
+        console.log(timestampAtAdd);
         vm.prank(owner);
         registry.banValidator(validator1); // snapshot at index 2
 
@@ -379,6 +384,7 @@ contract PodRegistryTest is Test {
         subset[0] = validator1;
         subset[1] = validator3;
 
+        console.log(timestampAtAdd);
         vm.expectRevert(abi.encodeWithSignature("SnapshotTooNew()"));
         registry.computeWeight(subset, timestampAtAdd, 2);
     }
@@ -392,7 +398,7 @@ contract PodRegistryTest is Test {
     }
 
     function test_ComputeWeight_NoHistoryReturnsZero() public {
-        PodRegistry emptyRegistry = new PodRegistry(new address[](0));
+        PodRegistry emptyRegistry = new PodRegistry(new address[](0), 0);
         address[] memory subset = new address[](1);
         subset[0] = validator1;
         assertEq(emptyRegistry.computeWeight(subset), 0);

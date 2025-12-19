@@ -12,7 +12,6 @@ import {ECDSA} from "pod-sdk/verifier/ECDSA.sol";
 import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {IPodRegistry} from "pod-protocol/interfaces/IPodRegistry.sol";
 import {AttestedTx} from "pod-protocol/libraries/AttestedTx.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title BridgeDepositWithdraw
@@ -36,9 +35,9 @@ contract Bridge is IBridge, AccessControl, Pausable {
     address public migratedContract;
     address public bridgeContract; // bridge contract on the other chain
 
-    PodECDSA.PodConfig public podConfig;
     uint256 public depositIndex;
 
+    IPodRegistry immutable public podRegistry;
     bytes32 private immutable BRIDGE_CONTRACT_HASH; // keccak256(abi.encode(bridgeContract))
 
     /**
@@ -52,8 +51,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         _grantRole(PAUSER_ROLE, msg.sender);
         bridgeContract = _bridgeContract;
 
-        podConfig =
-            PodECDSA.PodConfig({thresholdNumerator: 1, thresholdDenominator: 1, registry: IPodRegistry(_podRegistry)});
+        podRegistry = IPodRegistry(_podRegistry);
         BRIDGE_CONTRACT_HASH = keccak256(abi.encode(_bridgeContract));
     }
     
@@ -68,35 +66,22 @@ contract Bridge is IBridge, AccessControl, Pausable {
         }
     }
 
-    function handleDeposit(address token, uint256 amount) internal {
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-    }
-
-    function checkValidDeposit(address token, uint256 amount) internal {
-        TokenData storage t = tokenData[token];
-        checkInLimits(t.deposit, t.limits.minAmount, t.limits.deposit, amount);
-    }
-
-    function checkValidClaim(address token, uint256 amount) internal {
-        TokenData storage t = tokenData[token];
-        checkInLimits(t.claim, t.limits.minAmount, t.limits.claim, amount);
-    }
-
     function checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
         internal
     {
-        if (minAmount == 0 || amount < minAmount) {
+        uint256 consumed = usage.consumed;
+        if (amount < minAmount) {
             revert InvalidTokenAmount();
         }
         if (block.timestamp >= usage.lastUpdated + 1 days) {
             usage.lastUpdated = block.timestamp;
-            usage.consumed = 0;
+            consumed = 0;
         }
 
-        if (usage.consumed + amount > maxTotalAmount) {
+        if (consumed + amount > maxTotalAmount) {
             revert DailyLimitExhausted();
         }
-        usage.consumed += amount;
+        usage.consumed = consumed + amount;
     }
 
     function deposit(address token, uint256 amount, address to)
@@ -106,11 +91,16 @@ contract Bridge is IBridge, AccessControl, Pausable {
         returns (bytes32)
     {
         if (to == address(0)) revert InvalidToAddress();
-        if (token == address(0)) revert NativeDepositNotSupported();
 
-        checkValidDeposit(token, amount);
+        TokenData storage t = tokenData[token];
+        if (t.limits.minAmount == 0) {
+            revert InvalidTokenAmount(); 
+        }
+        checkInLimits(t.deposit, t.limits.minAmount, t.limits.deposit, amount);
+
         bytes32 id = _getDepositId();
-        handleDeposit(token, amount);
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+
         emit Deposit(id, token, amount, to);
         return id;
     }
@@ -199,7 +189,9 @@ contract Bridge is IBridge, AccessControl, Pausable {
     ) public whenNotPaused {
         address localToken = mirrorTokens[token];
         if (localToken == address(0)) revert MirrorTokenNotFound();
-        checkValidClaim(localToken, amount);
+
+        TokenData storage t = tokenData[localToken];
+        checkInLimits(t.claim, t.limits.minAmount, t.limits.claim, amount);
 
         // Build leaves for validating merkle proof (no 'from' verification - anyone can claim)
         bytes32[] memory leaves = new bytes32[](2);
@@ -217,15 +209,8 @@ contract Bridge is IBridge, AccessControl, Pausable {
         address[] memory validators = ECDSA.recoverSigners(signedHash, aggregatedSignatures);
 
         // TODO: compute weight assumes that its the latest validator set!
-        uint256 weight = podConfig.registry.computeWeight(validators);
-
-        uint256 threshold = Math.mulDiv(
-            podConfig.registry.getValidatorCountAtIndex(committeeEpoch),
-            podConfig.thresholdNumerator,
-            podConfig.thresholdDenominator,
-            Math.Rounding.Ceil
-        );
-        require(weight >= threshold, "Not enough validator weight");
+        (uint256 weight, uint256 n, uint256 f) = podRegistry.computeWeightWithConfig(validators);
+        require(weight >= n - f, "Not enough validator weight");
 
         processedRequests[txHash] = true;
 

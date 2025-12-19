@@ -19,7 +19,8 @@ interface IPodRegistry {
     struct Snapshot {
         uint256 activeAsOfTimestamp;
         uint256 bitmap;
-        uint8 validatorCount;
+        uint8 validatorCount; // n
+        uint8 adverserialResilience; // f
     }
 
     /// @notice Error thrown when a validator is a zero address
@@ -151,6 +152,19 @@ interface IPodRegistry {
      * @dev Uses the most recent snapshot for computation
      */
     function computeWeight(address[] memory subset) external view returns (uint256 weight);
+
+    /**
+     * @notice Compute the weight of a subset of currently active validators
+     * @param subset Array of validator addresses to compute weight for
+     * @return weight The computed weight (count of unique active validators in the subset)
+     * @return n The total number of active validators
+     * @return f The adversarial resilience (maximum number of faulty validators tolerated)
+     * @dev Uses the most recent snapshot for computation
+     */
+    function computeWeightWithConfig(address[] memory subset)
+        external
+        view
+        returns (uint256 weight, uint256 n, uint256 f);
 
     /**
      * @notice Compute the weight of a subset of validators at a specific historical point

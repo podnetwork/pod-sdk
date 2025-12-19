@@ -35,7 +35,8 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
         }
 
-        podRegistry = new PodRegistry(initialValidators);
+        uint8 f = uint8((initialValidators.length - 1) / 3);
+        podRegistry = new PodRegistry(initialValidators, f);
         bridge = new Bridge(address(podRegistry), otherBridgeContract);
 
         // Setup token for claim() benchmarks
