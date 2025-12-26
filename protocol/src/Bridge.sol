@@ -7,9 +7,7 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {PodECDSA} from "pod-sdk/verifier/PodECDSA.sol";
 import {ECDSA} from "pod-sdk/verifier/ECDSA.sol";
-import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {IPodRegistry} from "pod-protocol/interfaces/IPodRegistry.sol";
 import {AttestedTx} from "pod-protocol/libraries/AttestedTx.sol";
 
@@ -185,7 +183,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         address to,
         uint64 committeeEpoch,
         bytes calldata aggregatedSignatures,
-        MerkleTree.MultiProof calldata proof
+        bytes calldata proof 
     ) public whenNotPaused {
         address localToken = mirrorTokens[token];
         if (localToken == address(0)) revert MirrorTokenNotFound();
@@ -193,13 +191,12 @@ contract Bridge is IBridge, AccessControl, Pausable {
         TokenData storage t = tokenData[localToken];
         checkInLimits(t.claim, t.limits.minAmount, t.limits.claim, amount);
 
-        // Build leaves for validating merkle proof (no 'from' verification - anyone can claim)
-        bytes32[] memory leaves = new bytes32[](2);
-        leaves[0] = MerkleTree.hashLeaf("to", BRIDGE_CONTRACT_HASH);
-        leaves[1] = MerkleTree.hashLeaf("input", _hashDepositInput(token, amount, to));
-
-        // Compute the merkle root from leaves and proof
-        bytes32 txHash = MerkleTree.processMulti(leaves, proof);
+        bytes32 data = _hashDepositInput(token, amount, to);
+        bytes32 txHash = keccak256(abi.encodePacked(
+            BRIDGE_CONTRACT_HASH,
+            data,
+            proof
+        ));
 
         // Check if already processed
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();

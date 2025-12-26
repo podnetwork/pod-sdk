@@ -371,11 +371,8 @@ contract PodRegistryTest is Test {
         vm.prank(owner);
         registry.addValidator(validator3); // snapshot at index 1
         uint256 timestampAtAdd = block.timestamp;
-        console.log(timestampAtAdd);
 
-        console.log(timestampAtAdd);
         vm.warp(block.timestamp + 5);
-        console.log(timestampAtAdd);
         vm.prank(owner);
         registry.banValidator(validator1); // snapshot at index 2
 
@@ -384,7 +381,6 @@ contract PodRegistryTest is Test {
         subset[0] = validator1;
         subset[1] = validator3;
 
-        console.log(timestampAtAdd);
         vm.expectRevert(abi.encodeWithSignature("SnapshotTooNew()"));
         registry.computeWeight(subset, timestampAtAdd, 2);
     }

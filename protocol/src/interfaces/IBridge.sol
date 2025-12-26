@@ -178,6 +178,6 @@ interface IBridge {
         address to,
         uint64 committeeEpoch,
         bytes calldata aggregatedSignatures,
-        MerkleTree.MultiProof calldata proof
+        bytes calldata proof
     ) external;
 }

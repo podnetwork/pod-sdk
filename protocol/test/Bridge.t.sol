@@ -8,7 +8,6 @@ import {IBridge} from "../src/interfaces/IBridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPodRegistry} from "../src/interfaces/IPodRegistry.sol";
 import {PodRegistry} from "../src/PodRegistry.sol";
-import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
@@ -97,7 +96,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         assertEq(_token.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
 
         // Create claim proof with all 4 validators signing
-        (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
+        (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4);
 
         // Expect Claim event with actual txHash
@@ -119,7 +118,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin);
 
         // Only 2 signatures (need 3 for 4 validators with threshold 1/1)
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
+        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 2);
 
         vm.expectRevert("Not enough validator weight");
@@ -130,22 +129,13 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin);
 
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
+        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4);
 
-        // Tamper with the proof by changing a path element
-        // This will compute a different root, causing signature verification to fail
-        if (proof.path.length > 0) {
-            proof.path[0] = bytes32(uint256(proof.path[0]) ^ 1);
-        } else {
-            // If no path elements, add a fake one to corrupt the proof
-            bytes32[] memory tamperedPath = new bytes32[](1);
-            tamperedPath[0] = bytes32(uint256(0x1234));
-            proof.path = tamperedPath;
-        }
+        bytes memory tamperedProof = bytes.concat(proof, abi.encode(keccak256("tamper"))); 
 
         vm.expectRevert(); // Will fail due to signature mismatch on different root
-        _bridge.claim(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
+        _bridge.claim(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, tamperedProof);
     }
 
     function test_Claim_RevertIfAlreadyClaimed() public {
@@ -153,7 +143,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin);
 
         // Create proof once and reuse for both claims
-        (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
+        (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4);
 
         // First claim should emit Claim event with actual txHash
@@ -168,7 +158,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfMirrorTokenNotFound() public {
         address unknownToken = makeAddr("unknownToken");
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
+        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(unknownToken, DEPOSIT_AMOUNT, user, 3);
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.MirrorTokenNotFound.selector));
@@ -179,7 +169,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.pause();
 
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
+        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3);
 
         vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
@@ -191,7 +181,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin);
 
         // Try to claim less than minimum
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
+        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(MIRROR_TOKEN, tokenLimits.minAmount - 1, user, 3);
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));

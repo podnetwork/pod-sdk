@@ -51,7 +51,7 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
 
     function _benchmarkClaim(uint256 numValidators) internal {
         _setupWithValidators(numValidators);
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
+        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(mirrorToken, DEPOSIT_AMOUNT, user, numValidators);
 
         uint256 gasBefore = gasleft();
