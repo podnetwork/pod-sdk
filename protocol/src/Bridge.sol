@@ -67,19 +67,22 @@ contract Bridge is IBridge, AccessControl, Pausable {
     function checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
         internal
     {
-        uint256 consumed = usage.consumed;
         if (amount < minAmount) {
             revert InvalidTokenAmount();
         }
-        if (block.timestamp >= usage.lastUpdated + 1 days) {
-            usage.lastUpdated = block.timestamp;
-            consumed = 0;
-        }
 
-        if (consumed + amount > maxTotalAmount) {
-            revert DailyLimitExhausted();
+        // Check limits and if exceeded, check if we can reset daily usage
+        uint256 newConsumed = usage.consumed + amount;
+        if (newConsumed > maxTotalAmount) {
+            if (block.timestamp < usage.lastUpdated + 1 days || amount > maxTotalAmount)
+                revert DailyLimitExhausted();
+            else {
+                usage.lastUpdated = block.timestamp;
+                usage.consumed = amount;
+            }
+        } else {
+            usage.consumed = newConsumed;
         }
-        usage.consumed = consumed + amount;
     }
 
     function deposit(address token, uint256 amount, address to)
@@ -96,9 +99,9 @@ contract Bridge is IBridge, AccessControl, Pausable {
         }
         checkInLimits(t.deposit, t.limits.minAmount, t.limits.deposit, amount);
 
-        bytes32 id = _getDepositId();
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
+        bytes32 id = _getDepositId();
         emit Deposit(id, token, amount, to);
         return id;
     }
