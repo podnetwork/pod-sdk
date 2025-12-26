@@ -13,7 +13,7 @@ echo "Running BridgeDepositWithdraw benchmarks..."
 echo ""
 
 # Run forge test and capture output (need -vv for logs)
-OUTPUT=$(forge test --match-contract BridgeDepositWithdrawBenchmark -vv 2>&1)
+OUTPUT=$(forge test --match-contract BridgeBenchmark -vv 2>&1)
 
 # Extract gas values using grep and awk
 declare -A claim_gas

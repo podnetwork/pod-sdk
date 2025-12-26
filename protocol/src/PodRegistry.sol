@@ -35,31 +35,13 @@ contract PodRegistry is IPodRegistry, Ownable {
      */
     uint256 constant CHECK_COUNT = 3;
 
-    /**
-     * @notice Array of historical snapshots for time-based verification
-     */
     Snapshot[] public history;
-
-    /**
-     * @notice Mapping from validator address to their 1-based index
-     */
-    mapping(address => uint8) public validatorIndex;
-
-    /**
-     * @notice Array of validators in the registry. We also use `validators.length + 1` to track the 1-based
-     * index of the next validator to add.
-     */
+    mapping(address => uint8) public validatorIndex; // validator address to their 1-based index
     address[] public validators;
 
-    /**
-     * @notice Bitmap of the currently active validators
-     */
     uint256 public activeValidatorBitmap;
-
-    /**
-     * @notice Bitmap of the currently banned validators
-     */
     uint256 public bannedValidatorBitmap;
+    uint8 public latestAdverserialResilience; 
 
     /**
      * @notice Initialize the registry with a set of initial validators. Only creates one snapshot
@@ -67,11 +49,12 @@ contract PodRegistry is IPodRegistry, Ownable {
      * @param initialValidators Array of validator addresses to initialize with
      * @dev The contract owner will be set to msg.sender
      */
-    constructor(address[] memory initialValidators) Ownable(msg.sender) {
+    constructor(address[] memory initialValidators, uint8 adverserialResilience) Ownable(msg.sender) {
         for (uint8 i = 0; i < initialValidators.length; i++) {
             _addValidator(initialValidators[i]);
             activeValidatorBitmap |= (1 << i);
         }
+        latestAdverserialResilience = adverserialResilience;
 
         _createSnapshot();
     }
@@ -106,6 +89,10 @@ contract PodRegistry is IPodRegistry, Ownable {
         _activateValidator(index);
 
         emit ValidatorAdded(validator);
+    }
+
+    function updateResilience(uint8 newResilience) external onlyOwner {
+        latestAdverserialResilience = newResilience;
     }
 
     /**
@@ -185,7 +172,12 @@ contract PodRegistry is IPodRegistry, Ownable {
     function _createSnapshot() internal {
         uint8 count = _popCount(activeValidatorBitmap);
         history.push(
-            Snapshot({activeAsOfTimestamp: block.timestamp, bitmap: activeValidatorBitmap, validatorCount: count})
+            Snapshot({
+                activeAsOfTimestamp: block.timestamp, 
+                bitmap: activeValidatorBitmap, 
+                validatorCount: count, 
+                adverserialResilience: latestAdverserialResilience
+            })
         );
         emit SnapshotCreated(block.timestamp, activeValidatorBitmap);
     }
@@ -194,11 +186,24 @@ contract PodRegistry is IPodRegistry, Ownable {
      * @inheritdoc IPodRegistry
      */
     function computeWeight(address[] memory subset) public view returns (uint256 weight) {
-        if (history.length == 0) {
+        uint256 historyLength = history.length;
+        if (historyLength == 0) {
             return 0;
         }
 
-        return computeWeight(subset, block.timestamp, history.length - 1);
+        return _computeWeight(subset, history[historyLength - 1].bitmap); 
+    }
+
+    function computeWeightWithConfig(address[] memory subset) public view returns (uint256 weight, uint256 n, uint256 f) {
+        uint256 historyLength = history.length;
+        if (historyLength == 0) {
+            return (0, 0, 0);
+        }
+
+        Snapshot memory curr = history[historyLength - 1];
+        weight = _computeWeight(subset, curr.bitmap); 
+        n = curr.validatorCount;
+        f = curr.adverserialResilience;
     }
 
     /**
@@ -220,7 +225,15 @@ contract PodRegistry is IPodRegistry, Ownable {
             revert SnapshotTooOld();
         }
 
-        uint256 counted = 0;
+        return _computeWeight(subset, snapshot.bitmap);
+    }
+
+
+    function _computeWeight(address[] memory subset, uint256 validatorBitmap)
+        internal
+        view
+        returns (uint256 weight)
+    {
         for (uint256 i = 0; i < subset.length; i++) {
             uint8 index = validatorIndex[subset[i]];
             if (index == 0) {
@@ -228,12 +241,13 @@ contract PodRegistry is IPodRegistry, Ownable {
             }
             index = index - 1;
 
-            if (_isBitSet(snapshot.bitmap, index) && !_isBitSet(counted, index)) {
-                counted = _setBit(counted, index);
-                weight++;
-            }
+            uint256 mask = (1 << index);
+            if ((validatorBitmap & mask) != 0) weight++; // found an active validator
+            validatorBitmap &= ~mask; // clear bit to avoid double counting
         }
     }
+
+
 
     /**
      * @inheritdoc IPodRegistry

@@ -18,7 +18,7 @@ echo "POD_BRIDGE_ADDR: $POD_BRIDGE_ADDR"
 echo "POD_COMMITTEE_KEYS: $POD_COMMITTEE_KEYS"
 
 # Deploy BridgeDepositWithdraw on Source chain (Anvil/Sepolia)
-OUTPUT=$(forge script ./script/DeployDepositWithdraw.s.sol:DeployDepositWithdraw \
+OUTPUT=$(forge script ./script/DeployBridge.s.sol:Deploy \
   --rpc-url "$SOURCE_CHAIN_RPC" --private-key "$PK_SOURCE_CHAIN" --broadcast --slow \
   --json \
   --sig "run(address)" \

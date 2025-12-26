@@ -150,7 +150,7 @@ abstract contract BridgeClaimProofHelper is Test {
             bytes32 txHash,
             uint64 committeeEpoch,
             bytes memory aggregatedSignatures,
-            MerkleTree.MultiProof memory proof
+            bytes memory proof
         )
     {
         committeeEpoch = 0;
@@ -160,22 +160,22 @@ abstract contract BridgeClaimProofHelper is Test {
         uint256 txValue = 0;
         uint64 txNonce = 0;
 
-        bytes32[] memory allLeaves = new bytes32[](5);
-        allLeaves[0] = MerkleTree.hashLeaf("from", keccak256(abi.encode(txFrom)));
-        allLeaves[1] = MerkleTree.hashLeaf("to", keccak256(abi.encode(otherBridgeContract)));
-        allLeaves[2] = MerkleTree.hashLeaf("value", keccak256(abi.encode(txValue)));
-        allLeaves[3] =
-            MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(claimToken, amount, to))));
-        allLeaves[4] = MerkleTree.hashLeaf("nonce", keccak256(abi.encode(txNonce)));
-
-        txHash = buildMerkleTree(allLeaves);
-
-        bytes32[] memory proofLeaves = new bytes32[](2);
-        proofLeaves[0] = MerkleTree.hashLeaf("to", keccak256(abi.encode(otherBridgeContract)));
-        proofLeaves[1] =
-            MerkleTree.hashLeaf("input", keccak256(abi.encodePacked(selector, abi.encode(claimToken, amount, to))));
-
-        proof = generateMultiProof(allLeaves, proofLeaves);
+        bytes32 data = keccak256(abi.encodePacked(
+            selector,
+            abi.encode(claimToken, amount, to)
+        ));
+        txHash = keccak256(abi.encodePacked(
+            keccak256(abi.encode(otherBridgeContract)),
+            data,
+            keccak256(abi.encode(txValue)),
+            keccak256(abi.encode(txFrom)),
+            keccak256(abi.encode(txNonce))
+        ));
+        proof = abi.encodePacked(
+            keccak256(abi.encode(txValue)),
+            keccak256(abi.encode(txFrom)),
+            keccak256(abi.encode(txNonce))
+        );
 
         bytes32 signedHash = AttestedTx.digest(txHash, committeeEpoch);
 

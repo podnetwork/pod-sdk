@@ -9,9 +9,10 @@ import {PodRegistry} from "../src/PodRegistry.sol";
 contract PodRegistryDeployer is BaseDeployer {
     function run() public {
         address[] memory initialValidators = getValidatorAddresses();
+        uint256 f = (initialValidators.length - 1) / 3;
 
         vm.startBroadcast();
-        PodRegistry podRegistry = new PodRegistry(initialValidators);
+        PodRegistry podRegistry = new PodRegistry(initialValidators, uint8(f));
         vm.stopBroadcast();
 
         console.log("PodRegistry deployed:");

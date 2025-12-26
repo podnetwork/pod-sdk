@@ -70,41 +70,35 @@ library ECDSA {
             }
         }
     }
-
-    // Takes an aggregate signature and returns the decoded ECDSA signatures.
-    function disaggregate_signatures(bytes memory aggregate) internal pure returns (bytes[] memory signatures) {
-        require(aggregate.length % 65 == 0, "invalid aggregate length");
-
-        uint256 signatureCount = aggregate.length / 65;
-        signatures = new bytes[](signatureCount);
-
-        assembly {
-            let aggregatePtr := add(aggregate, 32)
-
-            for { let i := 0 } lt(i, signatureCount) { i := add(i, 1) } {
-                let signature := mload(64)
-                mstore(signature, 65)
-
-                mstore(add(signature, 32), mload(aggregatePtr))
-                mstore(add(signature, 64), mload(add(aggregatePtr, 32)))
-                mstore8(add(signature, 96), byte(0, mload(add(aggregatePtr, 64))))
-
-                mstore(add(signatures, mul(32, add(i, 1))), signature)
-                aggregatePtr := add(aggregatePtr, 65)
-                mstore(64, add(signature, 97))
-            }
-        }
-    }
-
+    
     function recoverSigner(bytes32 digest, Signature memory signature) internal pure returns (address) {
         return ecrecover(digest, signature.v, signature.r, signature.s);
     }
 
     function recoverSigners(bytes32 digest, bytes memory aggregateSignature) internal pure returns (address[] memory) {
-        bytes[] memory signatures = disaggregate_signatures(aggregateSignature);
-        address[] memory signers = new address[](signatures.length);
-        for (uint256 i = 0; i < signatures.length; i++) {
-            signers[i] = recoverSigner(digest, deserialize_signature(signatures[i]));
+        require(aggregateSignature.length % 65 == 0, "invalid aggregate length");
+
+        uint256 signatureCount = aggregateSignature.length / 65;
+        address[] memory signers = new address[](signatureCount);
+
+        uint256 offset;
+        assembly {
+            offset := add(aggregateSignature, 32)
+        }
+
+        for (uint256 i = 0; i < signatureCount; i++) {
+            bytes32 r;
+            bytes32 s;
+            uint8 v;
+
+            assembly {
+                r := mload(offset)
+                s := mload(add(offset, 32))
+                v := byte(0, mload(add(offset, 64)))
+            }
+
+            signers[i] = ecrecover(digest, v, r, s); 
+            offset += 65;
         }
 
         return signers;

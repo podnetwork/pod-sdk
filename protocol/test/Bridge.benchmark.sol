@@ -3,14 +3,14 @@ pragma solidity ^0.8.20;
 
 import {console} from "forge-std/Test.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
-import {BridgeDepositWithdraw} from "../src/BridgeDepositWithdraw.sol";
+import {Bridge} from "../src/Bridge.sol";
 import {IBridge} from "../src/interfaces/IBridge.sol";
 import {PodRegistry} from "../src/PodRegistry.sol";
 import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 
-contract BridgeDepositWithdrawBenchmark is BridgeClaimProofHelper {
-    BridgeDepositWithdraw private bridge;
+contract BridgeBenchmark is BridgeClaimProofHelper {
+    Bridge private bridge;
     PodRegistry private podRegistry;
     WrappedToken private token;
 
@@ -35,8 +35,9 @@ contract BridgeDepositWithdrawBenchmark is BridgeClaimProofHelper {
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
         }
 
-        podRegistry = new PodRegistry(initialValidators);
-        bridge = new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract);
+        uint8 f = uint8((initialValidators.length - 1) / 3);
+        podRegistry = new PodRegistry(initialValidators, f);
+        bridge = new Bridge(address(podRegistry), otherBridgeContract);
 
         // Setup token for claim() benchmarks
         token = new WrappedToken("TestToken", "TKN", 18);
@@ -50,7 +51,7 @@ contract BridgeDepositWithdrawBenchmark is BridgeClaimProofHelper {
 
     function _benchmarkClaim(uint256 numValidators) internal {
         _setupWithValidators(numValidators);
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
+        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(mirrorToken, DEPOSIT_AMOUNT, user, numValidators);
 
         uint256 gasBefore = gasleft();
