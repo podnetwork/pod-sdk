@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
-
 /**
  * @title IBridge
  * @notice Interface for cross-chain token bridging contracts.
@@ -127,7 +125,7 @@ interface IBridge {
      * @param to The address to receive the tokens on the destination chain.
      * @return id The request index.
      */
-    function deposit(address token, uint256 amount, address to) external payable returns (bytes32);
+    function deposit(address token, uint256 amount, address to) external returns (bytes32);
 
     /**
      * @dev Pauses the contract.

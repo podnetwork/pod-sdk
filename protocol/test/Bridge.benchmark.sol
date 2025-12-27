@@ -5,13 +5,12 @@ import {console} from "forge-std/Test.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {Bridge} from "../src/Bridge.sol";
 import {IBridge} from "../src/interfaces/IBridge.sol";
-import {PodRegistry} from "../src/PodRegistry.sol";
-import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
+import {Registry} from "../src/Registry.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 
 contract BridgeBenchmark is BridgeClaimProofHelper {
     Bridge private bridge;
-    PodRegistry private podRegistry;
+    Registry private registry;
     WrappedToken private token;
 
     address private admin = makeAddr("admin");
@@ -36,8 +35,8 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
         }
 
         uint8 f = uint8((initialValidators.length - 1) / 3);
-        podRegistry = new PodRegistry(initialValidators, f);
-        bridge = new Bridge(address(podRegistry), otherBridgeContract);
+        registry = new Registry(initialValidators, f);
+        bridge = new Bridge(address(registry), otherBridgeContract);
 
         // Setup token for claim() benchmarks
         token = new WrappedToken("TestToken", "TKN", 18);

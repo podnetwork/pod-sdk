@@ -2,14 +2,12 @@
 pragma solidity ^0.8.20;
 
 import {IBridge} from "./interfaces/IBridge.sol";
+import {Registry} from "./Registry.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ECDSA} from "pod-sdk/verifier/ECDSA.sol";
-import {IPodRegistry} from "pod-protocol/interfaces/IPodRegistry.sol";
-import {AttestedTx} from "pod-protocol/libraries/AttestedTx.sol";
 
 /**
  * @title BridgeDepositWithdraw
@@ -35,33 +33,29 @@ contract Bridge is IBridge, AccessControl, Pausable {
 
     uint256 public depositIndex;
 
-    IPodRegistry immutable public podRegistry;
+    Registry immutable public REGISTRY;
     bytes32 private immutable BRIDGE_CONTRACT_HASH; // keccak256(abi.encode(bridgeContract))
 
     /**
      * @dev Constructor.
-     * @param _podRegistry The address of the PodRegistry to use.
+     * @param _registry The address of the Registry to use.
      * @param _bridgeContract The address of the bridge contract on the other chain.
      */
-    constructor(address _podRegistry, address _bridgeContract) {
+    constructor(address _registry, address _bridgeContract) {
         if (_bridgeContract == address(0)) revert InvalidBridgeContract();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
         bridgeContract = _bridgeContract;
 
-        podRegistry = IPodRegistry(_podRegistry);
+        REGISTRY = Registry(_registry);
         BRIDGE_CONTRACT_HASH = keccak256(abi.encode(_bridgeContract));
     }
     
     modifier notMigrated() {
-        _notMigrated();
-        _;
-    }
-
-    function _notMigrated() internal view {
         if (migratedContract != address(0)) {
             revert ContractMigrated();
         }
+        _;
     }
 
     function checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
@@ -87,7 +81,6 @@ contract Bridge is IBridge, AccessControl, Pausable {
 
     function deposit(address token, uint256 amount, address to)
         external
-        payable
         whenNotPaused
         returns (bytes32)
     {
@@ -204,12 +197,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         // Check if already processed
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-        // Reconstruct AttestedTx and verify signatures
-        bytes32 signedHash = AttestedTx.digest(txHash, committeeEpoch);
-        address[] memory validators = ECDSA.recoverSigners(signedHash, aggregatedSignatures);
-
-        // TODO: compute weight assumes that its the latest validator set!
-        (uint256 weight, uint256 n, uint256 f) = podRegistry.computeWeightWithConfig(validators);
+        (uint256 weight, uint256 n, uint256 f) = REGISTRY.computeTxWeight(txHash, aggregatedSignatures, committeeEpoch);
         require(weight >= n - f, "Not enough validator weight");
 
         processedRequests[txHash] = true;

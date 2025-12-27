@@ -1,14 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-library ECDSA {
+library Attestation {
     struct Signature {
         uint8 v;
         bytes32 r;
         bytes32 s;
     }
 
-    function _serialize_signature(uint8 v, bytes32 r, bytes32 s) internal pure returns (bytes memory signature) {
+    // Pre-computed: keccak256(abi.encode(
+    //     keccak256("EIP712Domain(string name,string version,uint256 chainId)"),
+    //     keccak256(bytes("attest_tx")),
+    //     keccak256(bytes("1")),
+    //     0x50d
+    // ))
+    bytes32 private constant DOMAIN_SEPARATOR = 0x6f09feb1948d377c1eec05c649d5a37024b1ab05ace39b7a3becb9ed1ce1aba1;
+
+    function _serializeSignature(uint8 v, bytes32 r, bytes32 s) internal pure returns (bytes memory signature) {
         signature = new bytes(65);
         assembly {
             mstore(add(signature, 32), r)
@@ -17,18 +25,18 @@ library ECDSA {
         }
     }
 
-    function serialize_signature(Signature memory signature) internal pure returns (bytes memory) {
-        return _serialize_signature(signature.v, signature.r, signature.s);
+    function serializeSignature(Signature memory signature) internal pure returns (bytes memory) {
+        return _serializeSignature(signature.v, signature.r, signature.s);
     }
 
-    function serialize_signatures(Signature[] memory signatures) internal pure returns (bytes[] memory serialized) {
+    function serializeSignatures(Signature[] memory signatures) internal pure returns (bytes[] memory serialized) {
         serialized = new bytes[](signatures.length);
         for (uint256 i = 0; i < signatures.length; i++) {
-            serialized[i] = _serialize_signature(signatures[i].v, signatures[i].r, signatures[i].s);
+            serialized[i] = _serializeSignature(signatures[i].v, signatures[i].r, signatures[i].s);
         }
     }
 
-    function _deserialize_signature(bytes memory signature) internal pure returns (uint8 v, bytes32 r, bytes32 s) {
+    function _deserializeSignature(bytes memory signature) internal pure returns (uint8 v, bytes32 r, bytes32 s) {
         require(signature.length == 65, "invalid signature length");
         assembly {
             let ptr := add(signature, 32)
@@ -38,14 +46,14 @@ library ECDSA {
         }
     }
 
-    function deserialize_signature(bytes memory signature) internal pure returns (Signature memory) {
-        (uint8 v, bytes32 r, bytes32 s) = _deserialize_signature(signature);
+    function deserializeSignature(bytes memory signature) internal pure returns (Signature memory) {
+        (uint8 v, bytes32 r, bytes32 s) = _deserializeSignature(signature);
         return Signature(v, r, s);
     }
 
     // Takes encoded ECDSA signatures and returns them concatenated.
     // Each signature should be 65 bytes long.
-    function aggregate_signatures(bytes[] memory signatures) internal pure returns (bytes memory aggregate) {
+    function aggregateSignatures(bytes[] memory signatures) internal pure returns (bytes memory aggregate) {
         uint256 signatureCount = signatures.length;
         aggregate = new bytes(signatureCount * 65);
         assembly {
@@ -125,5 +133,27 @@ library ECDSA {
         }
 
         return true;
+    }
+
+    
+    // EIP-712 digest = keccak256("\x19\x01" || domainSeparator || structHash)
+    function computeTxDigest(bytes32 txHash, uint64 committeeEpoch) public pure returns (bytes32 result) {
+        bytes32 selector = keccak256("AttestedTx(bytes32 hash,uint64 committee_epoch)");
+
+        assembly {
+            let ptr := mload(0x40)
+
+            // structHash = keccak256(abi.encode(selector, txHash, committeeEpoch))
+            mstore(ptr, selector)
+            mstore(add(ptr, 0x20), txHash)
+            mstore(add(ptr, 0x40), committeeEpoch)
+            let structHash := keccak256(ptr, 0x60)
+
+            // result = keccak256("\x19\x01" || DOMAIN_SEPARATOR || structHash)
+            mstore(ptr, "\x19\x01")
+            mstore(add(ptr, 0x02), DOMAIN_SEPARATOR)
+            mstore(add(ptr, 0x22), structHash)
+            result := keccak256(ptr, 0x42)
+        }
     }
 }
