@@ -12,7 +12,7 @@ contract Deploy is BaseDeployer {
         vm.startBroadcast();
         uint8 f = uint8((initialValidators.length - 1) / 3);
         Registry reg = new Registry(initialValidators, f);
-        Bridge bdw = new Bridge(address(reg), podBridgeAddr);
+        Bridge bdw = new Bridge(address(reg), podBridgeAddr, 0x50d);
         vm.stopBroadcast();
         console.log("PodRegistry deployed at:", address(reg));
         console.log("BridgeDepositWithdraw deployed at:", address(bdw));

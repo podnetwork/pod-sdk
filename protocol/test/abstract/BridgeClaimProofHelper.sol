@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {Attestation} from "../../src/lib/Attestation.sol";
 
 abstract contract BridgeClaimProofHelper is Test {
     uint256[] internal validatorPrivateKeys;
@@ -24,7 +23,7 @@ abstract contract BridgeClaimProofHelper is Test {
         }
     }
 
-    function createTokenClaimProof(address claimToken, uint256 amount, address to, uint256 numberOfRequiredSignatures)
+    function createTokenClaimProof(address claimToken, uint256 amount, address to, uint256 numberOfRequiredSignatures, bytes32 domainSeparator)
         internal
         view
         returns (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof)
@@ -38,14 +37,12 @@ abstract contract BridgeClaimProofHelper is Test {
 
         bytes32 data = keccak256(abi.encodeWithSelector(selector, claimToken, amount, to));
 
-        txHash = keccak256(abi.encode(otherBridgeContract, data, txValue, txFrom, txNonce));
+        txHash = keccak256(abi.encode(domainSeparator, otherBridgeContract, data, txValue, txFrom, txNonce));
         proof = abi.encode(txValue, txFrom, txNonce);
-
-        bytes32 signedHash = Attestation.computeTxDigest(txHash, committeeEpoch);
 
         bytes[] memory signatures = new bytes[](numberOfRequiredSignatures);
         for (uint256 i = 0; i < numberOfRequiredSignatures; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], signedHash);
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], txHash);
             signatures[i] = serializeSignature(v, r, s);
         }
         aggregatedSignatures = aggregateSignatures(signatures);

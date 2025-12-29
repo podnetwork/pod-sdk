@@ -34,19 +34,28 @@ contract Bridge is IBridge, AccessControl, Pausable {
 
     Registry public immutable REGISTRY;
     address public immutable BRIDGE_CONTRACT;
+    bytes32 public immutable DOMAIN_SEPARATOR;
 
     /**
      * @dev Constructor.
      * @param _registry The address of the Registry to use.
      * @param _bridgeContract The address of the bridge contract on the other chain.
      */
-    constructor(address _registry, address _bridgeContract) {
+    constructor(address _registry, address _bridgeContract, uint256 _bridgeNetworkChainId) {
         if (_bridgeContract == address(0)) revert InvalidBridgeContract();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
 
         REGISTRY = Registry(_registry);
         BRIDGE_CONTRACT = _bridgeContract;
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256("pod network"),
+                keccak256("attest_tx"),
+                keccak256("1"),
+                _bridgeNetworkChainId
+            )
+        );
     }
 
     modifier notMigrated() {
@@ -156,9 +165,10 @@ contract Bridge is IBridge, AccessControl, Pausable {
     {
         bytes4 selector = DEPOSIT_SELECTOR;
         address bridgeContract = BRIDGE_CONTRACT;
+        bytes32 domainSeperator = DOMAIN_SEPARATOR;
 
-        uint256 lenTx = 32 + 32 + proof.length; // bridgeContract + dataHash + proof
-        uint256 lenData = 4 + 32 + 32 + 32; // selector + token + amount + to
+        uint256 lenTx = 32 + 32 + 32 + proof.length; // DOMAIN_SEPARATOR + bridgeContract + dataHash + proof
+        uint256 lenData = 4 + 32 + 32 + 32; // DOMAIN_SEPARATOR + selector + token + amount + to
         bytes memory scratch = new bytes(lenTx > lenData ? lenTx : lenData); // reuse memory
         bytes32 dataHash;
         assembly {
@@ -172,9 +182,10 @@ contract Bridge is IBridge, AccessControl, Pausable {
             dataHash := keccak256(ptr, 0x64)
 
             // Compute final hash
-            mstore(ptr, bridgeContract)
-            mstore(add(ptr, 0x20), dataHash)
-            calldatacopy(add(ptr, 0x40), proof.offset, proof.length)
+            mstore(ptr, domainSeperator)
+            mstore(add(ptr, 0x20), bridgeContract)
+            mstore(add(ptr, 0x40), dataHash)
+            calldatacopy(add(ptr, 0x60), proof.offset, proof.length)
 
             result := keccak256(ptr, lenTx)
         }

@@ -20,6 +20,7 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
     uint256 minAmount = 1e18;
     uint256 depositLimit = 500e18;
     uint256 claimLimit = 400e18;
+    uint256 chainId = 0x50d;
 
     function _setupWithValidators(uint256 numValidators) internal {
         vm.startPrank(admin);
@@ -35,7 +36,7 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
 
         uint8 f = uint8((initialValidators.length - 1) / 3);
         registry = new Registry(initialValidators, f);
-        bridge = new Bridge(address(registry), otherBridgeContract);
+        bridge = new Bridge(address(registry), otherBridgeContract, chainId);
 
         // Setup token for claim() benchmarks
         token = new WrappedToken("TestToken", "TKN", 18);
@@ -49,8 +50,9 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
 
     function _benchmarkClaim(uint256 numValidators) internal {
         _setupWithValidators(numValidators);
+        bytes32 domainSeparator = bridge.DOMAIN_SEPARATOR();
         (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(mirrorToken, DEPOSIT_AMOUNT, user, numValidators);
+            createTokenClaimProof(mirrorToken, DEPOSIT_AMOUNT, user, numValidators, domainSeparator);
 
         uint256 gasBefore = gasleft();
         bridge.claim(address(token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
