@@ -232,6 +232,7 @@ contract Registry is Ownable {
             n = s.validatorCount;
             f = s.adverserialResilience;
         }
+        validatorBitmap &= ~bannedValidatorBitmap; // remove banned validators
 
         uint256 count = aggregateSignature.length / 65;
         for (uint256 i = 0; i < count; i++) {
@@ -240,9 +241,8 @@ contract Registry is Ownable {
             if (index == 0) {
                 continue;
             }
-            index = index - 1;
 
-            uint256 mask = (1 << index);
+            uint256 mask = (1 << (index - 1));
             if ((validatorBitmap & mask) != 0) weight++; // found an active validator
             validatorBitmap &= ~mask; // clear bit to avoid double counting
         }
