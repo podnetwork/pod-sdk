@@ -221,7 +221,6 @@ contract Registry is Ownable {
         uint64 epoch
     ) public view returns (uint256 weight, uint256 n, uint256 f) {
         bytes32 signedHash = Attestation.computeTxDigest(txHash, epoch);
-        address[] memory subset = Attestation.recoverSigners(signedHash, aggregateSignature);
         
         uint256 validatorBitmap;
         if (epoch > history.length) {
@@ -237,8 +236,10 @@ contract Registry is Ownable {
             f = s.adverserialResilience;
         }
 
-        for (uint256 i = 0; i < subset.length; i++) {
-            uint8 index = validatorIndex[subset[i]];
+        uint256 count = aggregateSignature.length / 65;
+        for (uint256 i = 0; i < count; i++) {
+            address signer = Attestation.recoverSignerAt(signedHash, aggregateSignature, i);
+            uint8 index = validatorIndex[signer];
             if (index == 0) {
                 continue;
             }

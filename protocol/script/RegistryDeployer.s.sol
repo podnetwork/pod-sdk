@@ -12,6 +12,7 @@ contract RegistryDeployer is BaseDeployer {
         uint256 f = (initialValidators.length - 1) / 3;
 
         vm.startBroadcast();
+        // forge-lint: disable-next-line(unsafe-typecast)
         Registry registry = new Registry(initialValidators, uint8(f));
         vm.stopBroadcast();
 

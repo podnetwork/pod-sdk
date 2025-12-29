@@ -8,6 +8,23 @@ abstract contract BridgeClaimProofHelper is Test {
     uint256[] internal validatorPrivateKeys;
     address internal otherBridgeContract;
 
+    function serializeSignature(uint8 v, bytes32 r, bytes32 s) internal pure returns (bytes memory) {
+        return abi.encodePacked(r, s, v);
+    }
+
+    function aggregateSignatures(bytes[] memory signatures) internal pure returns (bytes memory aggregate) {
+        uint256 signatureCount = signatures.length;
+        aggregate = new bytes(signatureCount * 65);
+        for (uint256 i = 0; i < signatureCount; i++) {
+            bytes memory signature = signatures[i];
+            require(signature.length == 65, "invalid signature length");
+            for (uint256 j = 0; j < 65; j++) {
+                aggregate[i * 65 + j] = signature[j];
+            }
+        }
+    }
+
+
     function createTokenClaimProof(address claimToken, uint256 amount, address to, uint256 numberOfRequiredSignatures)
         internal
         view
@@ -25,21 +42,24 @@ abstract contract BridgeClaimProofHelper is Test {
         uint256 txValue = 0;
         uint64 txNonce = 0;
 
-        bytes32 data = keccak256(abi.encodePacked(
+        bytes32 data = keccak256(abi.encodeWithSelector(
             selector,
-            abi.encode(claimToken, amount, to)
+            claimToken, 
+            amount, 
+            to
         ));
-        txHash = keccak256(abi.encodePacked(
-            keccak256(abi.encode(otherBridgeContract)),
+
+        txHash = keccak256(abi.encode(
+            otherBridgeContract,
             data,
-            keccak256(abi.encode(txValue)),
-            keccak256(abi.encode(txFrom)),
-            keccak256(abi.encode(txNonce))
+            txValue,
+            txFrom,
+            txNonce
         ));
-        proof = abi.encodePacked(
-            keccak256(abi.encode(txValue)),
-            keccak256(abi.encode(txFrom)),
-            keccak256(abi.encode(txNonce))
+        proof = abi.encode(
+            txValue,
+            txFrom,
+            txNonce
         );
 
         bytes32 signedHash = Attestation.computeTxDigest(txHash, committeeEpoch);
@@ -47,8 +67,8 @@ abstract contract BridgeClaimProofHelper is Test {
         bytes[] memory signatures = new bytes[](numberOfRequiredSignatures);
         for (uint256 i = 0; i < numberOfRequiredSignatures; i++) {
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], signedHash);
-            signatures[i] = Attestation._serializeSignature(v, r, s);
+            signatures[i] = serializeSignature(v, r, s);
         }
-        aggregatedSignatures = Attestation.aggregateSignatures(signatures);
+        aggregatedSignatures = aggregateSignatures(signatures);
     }
 }

@@ -19,6 +19,8 @@ contract Bridge is IBridge, AccessControl, Pausable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes4 internal constant DEPOSIT_SELECTOR = bytes4(keccak256("deposit(address,uint256,address)"));
+
 
     // The mock address for native deposit. EIP-7528
     address constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -29,12 +31,11 @@ contract Bridge is IBridge, AccessControl, Pausable {
 
     address[] public whitelistedTokens;
     address public migratedContract;
-    address public bridgeContract; // bridge contract on the other chain
 
     uint256 public depositIndex;
 
     Registry immutable public REGISTRY;
-    bytes32 private immutable BRIDGE_CONTRACT_HASH; // keccak256(abi.encode(bridgeContract))
+    address immutable public BRIDGE_CONTRACT; 
 
     /**
      * @dev Constructor.
@@ -45,17 +46,20 @@ contract Bridge is IBridge, AccessControl, Pausable {
         if (_bridgeContract == address(0)) revert InvalidBridgeContract();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
-        bridgeContract = _bridgeContract;
 
         REGISTRY = Registry(_registry);
-        BRIDGE_CONTRACT_HASH = keccak256(abi.encode(_bridgeContract));
+        BRIDGE_CONTRACT = _bridgeContract;
     }
     
     modifier notMigrated() {
+        _notMigrated();
+        _;
+    }
+           
+    function _notMigrated() internal view {
         if (migratedContract != address(0)) {
             revert ContractMigrated();
         }
-        _;
     }
 
     function checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
@@ -155,21 +159,30 @@ contract Bridge is IBridge, AccessControl, Pausable {
         }
     }
 
-    /// @dev Hashes deposit input: selector + token + amount + to (100 bytes) using inline assembly
-    /// Equivalent to keccak256(abi.encodePacked(bytes4(keccak256("deposit(address,uint256,address)")), abi.encode(token, amount, to)))
-    function _hashDepositInput(address token, uint256 amount, address to) internal pure returns (bytes32 result) {
-        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
+    function depositTxHash(address token, uint256 amount, address to, bytes calldata proof) internal view returns (bytes32 result) {
+        bytes4 selector = DEPOSIT_SELECTOR;
+        address bridgeContract = BRIDGE_CONTRACT; 
+
+        uint256 lenTx = 32 + 32 + proof.length; // bridgeContract + dataHash + proof
+        uint256 lenData = 4 + 32 + 32 + 32; // selector + token + amount + to
+        bytes memory scratch = new bytes(lenTx > lenData ? lenTx : lenData); // reuse memory
+        bytes32 dataHash;
         assembly {
-            let ptr := mload(0x40)
-            // Store selector in first 4 bytes
+            // Compute dataHash
+            let ptr := add(scratch, 0x20)
             mstore(ptr, selector)
-            // Store token (32 bytes) starting at byte 4
             mstore(add(ptr, 0x04), token)
-            // Store amount (32 bytes) starting at byte 36
             mstore(add(ptr, 0x24), amount)
-            // Store to (32 bytes) starting at byte 68
             mstore(add(ptr, 0x44), to)
-            result := keccak256(ptr, 0x64) // 100 bytes = 0x64
+
+            dataHash := keccak256(ptr, 0x64) 
+
+            // Compute final hash
+            mstore(ptr, bridgeContract)
+            mstore(add(ptr, 0x20), dataHash)
+            calldatacopy(add(ptr, 0x40), proof.offset, proof.length)
+
+            result := keccak256(ptr, lenTx) 
         }
     }
 
@@ -187,12 +200,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         TokenData storage t = tokenData[localToken];
         checkInLimits(t.claim, t.limits.minAmount, t.limits.claim, amount);
 
-        bytes32 data = _hashDepositInput(token, amount, to);
-        bytes32 txHash = keccak256(abi.encodePacked(
-            BRIDGE_CONTRACT_HASH,
-            data,
-            proof
-        ));
+        bytes32 txHash = depositTxHash(token, amount, to, proof);
 
         // Check if already processed
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
