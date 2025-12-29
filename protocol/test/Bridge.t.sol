@@ -132,7 +132,7 @@
 //         (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
 //             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4);
 //
-//         bytes memory tamperedProof = bytes.concat(proof, abi.encode(keccak256("tamper"))); 
+//         bytes memory tamperedProof = bytes.concat(proof, abi.encode(keccak256("tamper")));
 //
 //         vm.expectRevert(); // Will fail due to signature mismatch on different root
 //         _bridge.claim(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, tamperedProof);

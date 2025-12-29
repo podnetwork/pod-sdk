@@ -69,18 +69,6 @@ interface IBridge {
     event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
 
     /**
-     * @dev Token limits.
-     * @param minAmount The minimum amount of tokens that can be deposited.
-     * @param deposit The daily deposit limit for the token.
-     * @param claim The daily claim limit for the token.
-     */
-    struct TokenLimits {
-        uint256 minAmount;
-        uint256 deposit;
-        uint256 claim;
-    }
-
-    /**
      * @dev Token usage.
      * @param consumed The amount of tokens that have been used.
      * @param lastUpdated The timestamp when the consumed limits were last updated.
@@ -92,14 +80,20 @@ interface IBridge {
 
     /**
      * @dev Token data.
-     * @param limits The token limits.
-     * @param deposit The token usage for deposits.
-     * @param claim The token usage for claims.
+     * @param minAmount The minimum amount for deposits and claims.
+     * @param depositLimit The daily deposit limit.
+     * @param claimLimit The daily claim limit.
+     * @param deposit The deposit usage data.
+     * @param claim The claim usage data.
+     * @param mirrorToken The address of the token on the source chain.
      */
     struct TokenData {
-        TokenLimits limits;
-        TokenUsage deposit;
-        TokenUsage claim;
+        uint256 minAmount;
+        uint256 depositLimit;
+        uint256 claimLimit;
+        TokenUsage depositUsage;
+        TokenUsage claimUsage;
+        address mirrorToken; // Address of the token on the source chain
     }
 
     /**
@@ -112,9 +106,11 @@ interface IBridge {
      * @notice Token can be disabled by setting deposit and claim limits to zero.
      * @notice Access is restricted to the admin.
      * @param token The token to configure.
-     * @param limits The token's new configuration limits.
+     * @param minAmount The minimum amount for deposits and claims.
+     * @param depositLimit The daily deposit limit.
+     * @param claimLimit The daily claim limit.
      */
-    function configureToken(address token, TokenLimits calldata limits) external;
+    function configureToken(address token, uint256 minAmount, uint256 depositLimit, uint256 claimLimit) external;
 
     /**
      * @dev Deposit tokens to bridge to the destination chain.
@@ -153,9 +149,17 @@ interface IBridge {
      *      - token=MOCK_ADDRESS_FOR_NATIVE_DEPOSIT: source mirrorToken maps to local native currency.
      * @param token Token that will be deposited in the contract (local/destination token).
      * @param mirrorToken Token that will be deposited in the mirror contract (source token).
-     * @param limits Daily limits for deposits and claims.
+     * @param minAmount Minimum amount for deposits and claims.
+     * @param depositLimit Daily deposit limit.
+     * @param claimLimit Daily claim limit.
      */
-    function whiteListToken(address token, address mirrorToken, TokenLimits calldata limits) external;
+    function whiteListToken(
+        address token,
+        address mirrorToken,
+        uint256 minAmount,
+        uint256 depositLimit,
+        uint256 claimLimit
+    ) external;
 
     /**
      * @notice Claim bridged tokens using an attested transaction proof from Pod.

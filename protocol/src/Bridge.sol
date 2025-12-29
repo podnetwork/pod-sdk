@@ -21,12 +21,10 @@ contract Bridge is IBridge, AccessControl, Pausable {
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes4 internal constant DEPOSIT_SELECTOR = bytes4(keccak256("deposit(address,uint256,address)"));
 
-
     // The mock address for native deposit. EIP-7528
     address constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     mapping(address => TokenData) public tokenData;
-    mapping(address => address) public mirrorTokens;
     mapping(bytes32 => bool) public processedRequests;
 
     address[] public whitelistedTokens;
@@ -34,8 +32,8 @@ contract Bridge is IBridge, AccessControl, Pausable {
 
     uint256 public depositIndex;
 
-    Registry immutable public REGISTRY;
-    address immutable public BRIDGE_CONTRACT; 
+    Registry public immutable REGISTRY;
+    address public immutable BRIDGE_CONTRACT;
 
     /**
      * @dev Constructor.
@@ -50,12 +48,12 @@ contract Bridge is IBridge, AccessControl, Pausable {
         REGISTRY = Registry(_registry);
         BRIDGE_CONTRACT = _bridgeContract;
     }
-    
+
     modifier notMigrated() {
         _notMigrated();
         _;
     }
-           
+
     function _notMigrated() internal view {
         if (migratedContract != address(0)) {
             revert ContractMigrated();
@@ -65,6 +63,10 @@ contract Bridge is IBridge, AccessControl, Pausable {
     function checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
         internal
     {
+        if (minAmount == 0) {
+            revert InvalidTokenConfig();
+        }
+
         if (amount < minAmount) {
             revert InvalidTokenAmount();
         }
@@ -72,9 +74,9 @@ contract Bridge is IBridge, AccessControl, Pausable {
         // Check limits and if exceeded, check if we can reset daily usage
         uint256 newConsumed = usage.consumed + amount;
         if (newConsumed > maxTotalAmount) {
-            if (block.timestamp < usage.lastUpdated + 1 days || amount > maxTotalAmount)
+            if (block.timestamp < usage.lastUpdated + 1 days || amount > maxTotalAmount) {
                 revert DailyLimitExhausted();
-            else {
+            } else {
                 usage.lastUpdated = block.timestamp;
                 usage.consumed = amount;
             }
@@ -83,53 +85,47 @@ contract Bridge is IBridge, AccessControl, Pausable {
         }
     }
 
-    function deposit(address token, uint256 amount, address to)
-        external
-        whenNotPaused
-        returns (bytes32)
-    {
+    function deposit(address token, uint256 amount, address to) external whenNotPaused returns (bytes32) {
         if (to == address(0)) revert InvalidToAddress();
 
         TokenData storage t = tokenData[token];
-        if (t.limits.minAmount == 0) {
-            revert InvalidTokenAmount(); 
-        }
-        checkInLimits(t.deposit, t.limits.minAmount, t.limits.deposit, amount);
+        checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        bytes32 id = bytes32(depositIndex++);
 
-        bytes32 id = _getDepositId();
         emit Deposit(id, token, amount, to);
+
         return id;
     }
 
-    function _configureTokenData(address token, TokenLimits memory limits, bool newToken) internal {
-        uint256 currMinAmount = tokenData[token].limits.minAmount;
-        if (limits.minAmount == 0 || (newToken ? currMinAmount != 0 : currMinAmount == 0)) {
+    function _configureTokenData(address token, uint256 minAmount, uint256 depositLimit, uint256 claimLimit) internal {
+        if (minAmount == 0) {
             revert InvalidTokenConfig();
         }
 
         TokenUsage memory usage = TokenUsage({consumed: 0, lastUpdated: block.timestamp});
-        TokenData memory data = TokenData({limits: limits, deposit: usage, claim: usage});
+        TokenData memory data = TokenData({
+            minAmount: minAmount,
+            depositLimit: depositLimit,
+            claimLimit: claimLimit,
+            depositUsage: usage,
+            claimUsage: usage,
+            mirrorToken: tokenData[token].mirrorToken
+        });
         tokenData[token] = data;
     }
 
-    
-    function configureToken(address token, TokenLimits memory limits) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _configureTokenData(token, limits, false);
-    }
-
-    function _whitelistToken(address token, address mirrorToken, TokenLimits memory limits) internal {
-        if (mirrorTokens[mirrorToken] != address(0)) {
+    function configureToken(address token, uint256 minAmount, uint256 depositLimit, uint256 claimLimit)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (tokenData[token].minAmount == 0) {
             revert InvalidTokenConfig();
         }
-
-        _configureTokenData(token, limits, true);
-        whitelistedTokens.push(token);
-        mirrorTokens[mirrorToken] = token;
+        _configureTokenData(token, minAmount, depositLimit, claimLimit);
     }
 
-    
     function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
@@ -142,13 +138,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         handleMigrate(_newContract);
         migratedContract = _newContract;
     }
-    
-    
-    function _getDepositId() internal returns (bytes32) {
-        return bytes32(depositIndex++);
-    }
 
-    
     function handleMigrate(address _newContract) internal {
         for (uint256 i = 0; i < whitelistedTokens.length; i++) {
             address token = whitelistedTokens[i];
@@ -159,9 +149,13 @@ contract Bridge is IBridge, AccessControl, Pausable {
         }
     }
 
-    function depositTxHash(address token, uint256 amount, address to, bytes calldata proof) internal view returns (bytes32 result) {
+    function depositTxHash(address token, uint256 amount, address to, bytes calldata proof)
+        internal
+        view
+        returns (bytes32 result)
+    {
         bytes4 selector = DEPOSIT_SELECTOR;
-        address bridgeContract = BRIDGE_CONTRACT; 
+        address bridgeContract = BRIDGE_CONTRACT;
 
         uint256 lenTx = 32 + 32 + proof.length; // bridgeContract + dataHash + proof
         uint256 lenData = 4 + 32 + 32 + 32; // selector + token + amount + to
@@ -175,14 +169,14 @@ contract Bridge is IBridge, AccessControl, Pausable {
             mstore(add(ptr, 0x24), amount)
             mstore(add(ptr, 0x44), to)
 
-            dataHash := keccak256(ptr, 0x64) 
+            dataHash := keccak256(ptr, 0x64)
 
             // Compute final hash
             mstore(ptr, bridgeContract)
             mstore(add(ptr, 0x20), dataHash)
             calldatacopy(add(ptr, 0x40), proof.offset, proof.length)
 
-            result := keccak256(ptr, lenTx) 
+            result := keccak256(ptr, lenTx)
         }
     }
 
@@ -192,15 +186,13 @@ contract Bridge is IBridge, AccessControl, Pausable {
         address to,
         uint64 committeeEpoch,
         bytes calldata aggregatedSignatures,
-        bytes calldata proof 
+        bytes calldata proof
     ) public whenNotPaused {
-        address localToken = mirrorTokens[token];
-        if (localToken == address(0)) revert MirrorTokenNotFound();
+        TokenData storage t = tokenData[token];
+        checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, amount);
 
-        TokenData storage t = tokenData[localToken];
-        checkInLimits(t.claim, t.limits.minAmount, t.limits.claim, amount);
-
-        bytes32 txHash = depositTxHash(token, amount, to, proof);
+        address mirrorToken = t.mirrorToken;
+        bytes32 txHash = depositTxHash(mirrorToken, amount, to, proof);
 
         // Check if already processed
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
@@ -210,20 +202,29 @@ contract Bridge is IBridge, AccessControl, Pausable {
 
         processedRequests[txHash] = true;
 
-        IERC20(localToken).safeTransfer(to, amount);
-        emit Claim(txHash, localToken, token, amount, to);
+        IERC20(token).safeTransfer(to, amount);
+        emit Claim(txHash, token, mirrorToken, amount, to);
     }
 
     /**
      * @param token Token that will be deposited in the contract (local/destination token).
      * @param mirrorToken Token that will be deposited in the mirror contract (source token).
-     * @param limits Token limits associated with the token.
+     * @param minAmount Minimum amount for deposits and claims.
+     * @param depositLimit Daily deposit limit.
+     * @param claimLimit Daily claim limit.
      */
-    function whiteListToken(address token, address mirrorToken, TokenLimits calldata limits)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        require(token != address(0), "Token address cannot be zero");
-        _whitelistToken(token, mirrorToken, limits);
+    function whiteListToken(
+        address token,
+        address mirrorToken,
+        uint256 minAmount,
+        uint256 depositLimit,
+        uint256 claimLimit
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (token == address(0) || mirrorToken == address(0) || tokenData[token].minAmount != 0) {
+            revert InvalidTokenConfig();
+        }
+        tokenData[token].mirrorToken = mirrorToken;
+        _configureTokenData(token, minAmount, depositLimit, claimLimit);
+        whitelistedTokens.push(token);
     }
 }

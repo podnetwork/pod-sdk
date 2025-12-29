@@ -24,16 +24,10 @@ abstract contract BridgeClaimProofHelper is Test {
         }
     }
 
-
     function createTokenClaimProof(address claimToken, uint256 amount, address to, uint256 numberOfRequiredSignatures)
         internal
         view
-        returns (
-            bytes32 txHash,
-            uint64 committeeEpoch,
-            bytes memory aggregatedSignatures,
-            bytes memory proof
-        )
+        returns (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof)
     {
         committeeEpoch = 0;
 
@@ -42,25 +36,10 @@ abstract contract BridgeClaimProofHelper is Test {
         uint256 txValue = 0;
         uint64 txNonce = 0;
 
-        bytes32 data = keccak256(abi.encodeWithSelector(
-            selector,
-            claimToken, 
-            amount, 
-            to
-        ));
+        bytes32 data = keccak256(abi.encodeWithSelector(selector, claimToken, amount, to));
 
-        txHash = keccak256(abi.encode(
-            otherBridgeContract,
-            data,
-            txValue,
-            txFrom,
-            txNonce
-        ));
-        proof = abi.encode(
-            txValue,
-            txFrom,
-            txNonce
-        );
+        txHash = keccak256(abi.encode(otherBridgeContract, data, txValue, txFrom, txNonce));
+        proof = abi.encode(txValue, txFrom, txNonce);
 
         bytes32 signedHash = Attestation.computeTxDigest(txHash, committeeEpoch);
 

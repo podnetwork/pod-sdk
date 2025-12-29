@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import {console} from "forge-std/Test.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {Bridge} from "../src/Bridge.sol";
-import {IBridge} from "../src/interfaces/IBridge.sol";
 import {Registry} from "../src/Registry.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 
@@ -18,9 +17,9 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
     address private mirrorToken = makeAddr("mirrorToken");
 
     uint256 private constant DEPOSIT_AMOUNT = 100e18;
-    IBridge.TokenLimits private nativeTokenLimits =
-        IBridge.TokenLimits({minAmount: 0.01 ether, deposit: 500e18, claim: 400e18});
-    IBridge.TokenLimits private tokenLimits = IBridge.TokenLimits({minAmount: 1e18, deposit: 500e18, claim: 400e18});
+    uint256 minAmount = 1e18;
+    uint256 depositLimit = 500e18;
+    uint256 claimLimit = 400e18;
 
     function _setupWithValidators(uint256 numValidators) internal {
         vm.startPrank(admin);
@@ -40,7 +39,7 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
 
         // Setup token for claim() benchmarks
         token = new WrappedToken("TestToken", "TKN", 18);
-        bridge.whiteListToken(address(token), mirrorToken, tokenLimits);
+        bridge.whiteListToken(address(token), mirrorToken, minAmount, depositLimit, claimLimit);
         token.mint(address(bridge), 1000e18);
 
         vm.stopPrank();
@@ -54,7 +53,7 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
             createTokenClaimProof(mirrorToken, DEPOSIT_AMOUNT, user, numValidators);
 
         uint256 gasBefore = gasleft();
-        bridge.claim(mirrorToken, DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
+        bridge.claim(address(token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
         uint256 gasUsed = gasBefore - gasleft();
 
         console.log("claim gas with %d validators: %d", numValidators, gasUsed);

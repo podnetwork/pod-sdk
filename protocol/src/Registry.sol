@@ -69,12 +69,12 @@ contract Registry is Ownable {
 
     Snapshot[] public history;
     // validator address to their 1-based index, 0 means not found
-    mapping(address => uint8) public validatorIndex; 
+    mapping(address => uint8) public validatorIndex;
     address[] public validators;
 
     uint256 public activeValidatorBitmap;
     uint256 public bannedValidatorBitmap;
-    uint8 public adverserialResilience; 
+    uint8 public adverserialResilience;
     uint8 public validatorCount;
 
     constructor(address[] memory _validators, uint8 _adverserialResilience) Ownable(msg.sender) {
@@ -91,7 +91,7 @@ contract Registry is Ownable {
                 revert ValidatorAlreadyExists();
             }
             validators.push(validator);
-            validatorIndex[validator] = i + 1; 
+            validatorIndex[validator] = i + 1;
             activeValidatorBitmap = _setBit(activeValidatorBitmap, i);
         }
 
@@ -99,11 +99,10 @@ contract Registry is Ownable {
         adverserialResilience = _adverserialResilience;
     }
 
-    function updateConfig(
-        address[] memory newValidators,
-        address[] memory removedValidators,
-        uint8 newResilience
-    ) external onlyOwner {
+    function updateConfig(address[] memory newValidators, address[] memory removedValidators, uint8 newResilience)
+        external
+        onlyOwner
+    {
         _createSnapshot();
 
         if (validators.length + newValidators.length > MAX_VALIDATOR_COUNT) {
@@ -119,10 +118,10 @@ contract Registry is Ownable {
             if (validatorIndex[validator] != 0) {
                 revert ValidatorAlreadyExists();
             }
-            
+
             validators.push(validator);
             uint8 index = uint8(validators.length);
-            validatorIndex[validator] = index; 
+            validatorIndex[validator] = index;
             activeValidatorBitmap = _setBit(activeValidatorBitmap, index - 1);
             emit ValidatorAdded(validator);
         }
@@ -193,7 +192,7 @@ contract Registry is Ownable {
         if (index == 0) {
             revert ValidatorDoesNotExist();
         }
-        
+
         if (_isBitSet(activeValidatorBitmap, index - 1)) {
             revert CallerAlreadyActive();
         }
@@ -206,22 +205,22 @@ contract Registry is Ownable {
     function _createSnapshot() internal {
         history.push(
             Snapshot({
-                expiryTimestamp: block.timestamp, 
-                bitmap: activeValidatorBitmap, 
+                expiryTimestamp: block.timestamp,
+                bitmap: activeValidatorBitmap,
                 validatorCount: validatorCount,
-                adverserialResilience: adverserialResilience 
+                adverserialResilience: adverserialResilience
             })
         );
         emit SnapshotCreated(block.timestamp, activeValidatorBitmap);
     }
 
-    function computeTxWeight(
-        bytes32 txHash,
-        bytes calldata aggregateSignature,
-        uint64 epoch
-    ) public view returns (uint256 weight, uint256 n, uint256 f) {
+    function computeTxWeight(bytes32 txHash, bytes calldata aggregateSignature, uint64 epoch)
+        public
+        view
+        returns (uint256 weight, uint256 n, uint256 f)
+    {
         bytes32 signedHash = Attestation.computeTxDigest(txHash, epoch);
-        
+
         uint256 validatorBitmap;
         if (epoch > history.length) {
             revert InvalidSnapshotIndex();
@@ -269,14 +268,10 @@ contract Registry is Ownable {
         if (index == 0) {
             return false;
         }
-        return _isBitSet(bannedValidatorBitmap, index - 1); 
+        return _isBitSet(bannedValidatorBitmap, index - 1);
     }
 
-    function getSnapshotAtIndex(uint256 snapshotIndex)
-        external
-        view
-        returns (Snapshot memory)
-    {
+    function getSnapshotAtIndex(uint256 snapshotIndex) external view returns (Snapshot memory) {
         return history[snapshotIndex];
     }
 
@@ -287,7 +282,7 @@ contract Registry is Ownable {
     function _isBitSet(uint256 bitmap, uint8 i) internal pure returns (bool) {
         return (bitmap & (1 << i)) != 0;
     }
-    
+
     function _setBit(uint256 bitmap, uint8 i) internal pure returns (uint256) {
         return bitmap | (1 << i);
     }

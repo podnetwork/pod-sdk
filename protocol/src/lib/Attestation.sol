@@ -8,15 +8,21 @@ library Attestation {
         bytes32 s;
     }
 
-    bytes32 private constant DOMAIN_SEPARATOR = keccak256(abi.encode(
-        keccak256("EIP712Domain(string name,string version,uint256 chainId)"),
-        keccak256(bytes("attest_tx")),
-        keccak256(bytes("1")),
-        0x50d
-    ));
+    bytes32 private constant DOMAIN_SEPARATOR = keccak256(
+        abi.encode(
+            keccak256("EIP712Domain(string name,string version,uint256 chainId)"),
+            keccak256(bytes("attest_tx")),
+            keccak256(bytes("1")),
+            0x50d
+        )
+    );
     bytes4 private constant ATTSTX_TYPEHASH = bytes4(keccak256("AttestedTx(bytes32 hash,uint64 committee_epoch)"));
 
-    function recoverSignerAt(bytes32 digest, bytes calldata aggregateSignature, uint256 index) internal pure returns (address signer) {
+    function recoverSignerAt(bytes32 digest, bytes calldata aggregateSignature, uint256 index)
+        internal
+        pure
+        returns (address signer)
+    {
         uint256 offset;
         bytes32 r;
         bytes32 s;
@@ -29,7 +35,7 @@ library Attestation {
             v := byte(0, calldataload(add(offset, 64)))
         }
 
-        signer = ecrecover(digest, v, r, s); 
+        signer = ecrecover(digest, v, r, s);
     }
 
     // EIP-712 digest = keccak256("\x19\x01" || domainSeparator || structHash)
