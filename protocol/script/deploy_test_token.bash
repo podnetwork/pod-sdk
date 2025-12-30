@@ -31,7 +31,7 @@ echo "Source chain token: $SOURCE_CHAIN_TOKEN_ADDR"
 
 # 2) Whitelist the token on Source chain
 cast send \
-  "$SOURCE_CHAIN_BRIDGE_ADDR" "whiteListToken(address,address,(uint256,uint256,uint256))" \
-  "$SOURCE_CHAIN_TOKEN_ADDR" "$POD_MIRROR_TOKEN" "($TOKEN_MIN,$TOKEN_DEP,$TOKEN_CLA)" \
+  "$SOURCE_CHAIN_BRIDGE_ADDR" "whiteListToken(address,address,uint256,uint256,uint256)" \
+  "$SOURCE_CHAIN_TOKEN_ADDR" "$POD_MIRROR_TOKEN" "$TOKEN_MIN" "$TOKEN_DEP" "$TOKEN_CLA" \
   --rpc-url "$SOURCE_CHAIN_RPC" --private-key "$PK_SOURCE_CHAIN"
 

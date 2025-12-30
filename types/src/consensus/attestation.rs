@@ -1,5 +1,5 @@
 use alloy_primitives::{Address, Signature};
-use alloy_sol_types::{SolStruct, SolValue};
+use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -131,18 +131,12 @@ impl<T> From<Indexed<Attestation<T>>> for TimestampedHeadlessAttestation {
     }
 }
 
-mod sol {
-    alloy_sol_types::sol! {
-        #[derive(Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-        #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-        struct AttestedTx {
-            bytes32 hash;
-            uint64 committee_epoch;
-        }
-    }
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+pub struct AttestedTx {
+    pub hash: Hash,
+    pub committee_epoch: u64,
 }
-
-pub use sol::AttestedTx;
 
 impl AttestedTx {
     pub fn new(hash: Hash, committee_epoch: u64) -> Self {
@@ -150,16 +144,6 @@ impl AttestedTx {
             hash,
             committee_epoch,
         }
-    }
-}
-
-impl Hashable for AttestedTx {
-    fn hash_custom(&self) -> Hash {
-        self.eip712_signing_hash(&alloy_sol_types::eip712_domain! {
-            name: "attest_tx",
-            version: "1",
-            chain_id: 0x50d,
-        })
     }
 }
 

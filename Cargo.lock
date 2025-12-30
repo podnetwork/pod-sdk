@@ -1941,12 +1941,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dotenv"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
-
-[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3541,25 +3535,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "optimistic-auction"
-version = "0.1.0"
-dependencies = [
- "alloy-network",
- "alloy-primitives",
- "alloy-provider",
- "alloy-signer-local",
- "alloy-sol-types",
- "anyhow",
- "clap",
- "dotenv",
- "pod-examples-solidity 0.4.0",
- "pod-optimistic-auction",
- "pod-sdk 0.4.0",
- "pod-types 0.4.0",
- "tokio",
-]
-
-[[package]]
 name = "ordered-multimap"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3761,14 +3736,6 @@ dependencies = [
 name = "pod-examples-solidity"
 version = "0.4.0"
 source = "git+https://github.com/podnetwork/pod-sdk.git?rev=535a38bbe4a78955546d673e1cadff7caa3201af#535a38bbe4a78955546d673e1cadff7caa3201af"
-dependencies = [
- "alloy",
- "serde",
-]
-
-[[package]]
-name = "pod-optimistic-auction"
-version = "0.1.0"
 dependencies = [
  "alloy",
  "serde",

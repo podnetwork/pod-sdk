@@ -1,405 +1,8 @@
-///Module containing a contract's types and functions.
-/**
-
-```solidity
-library IBridge {
-    struct TokenLimits { uint256 minAmount; uint256 deposit; uint256 claim; }
-}
-```*/
-#[allow(
-    non_camel_case_types,
-    non_snake_case,
-    clippy::pub_underscore_fields,
-    clippy::style,
-    clippy::empty_structs_with_brackets
-)]
-pub mod IBridge {
-    use super::*;
-    use alloy::sol_types as alloy_sol_types;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**```solidity
-struct TokenLimits { uint256 minAmount; uint256 deposit; uint256 claim; }
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct TokenLimits {
-        #[allow(missing_docs)]
-        pub minAmount: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
-        pub deposit: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
-        pub claim: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        #[allow(dead_code)]
-        type UnderlyingSolTuple<'a> = (
-            alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Uint<256>,
-        );
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = (
-            alloy::sol_types::private::primitives::aliases::U256,
-            alloy::sol_types::private::primitives::aliases::U256,
-            alloy::sol_types::private::primitives::aliases::U256,
-        );
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<TokenLimits> for UnderlyingRustTuple<'_> {
-            fn from(value: TokenLimits) -> Self {
-                (value.minAmount, value.deposit, value.claim)
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for TokenLimits {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self {
-                    minAmount: tuple.0,
-                    deposit: tuple.1,
-                    claim: tuple.2,
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolValue for TokenLimits {
-            type SolType = Self;
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::private::SolTypeValue<Self> for TokenLimits {
-            #[inline]
-            fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.minAmount),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.deposit),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.claim),
-                )
-            }
-            #[inline]
-            fn stv_abi_encoded_size(&self) -> usize {
-                if let Some(size) = <Self as alloy_sol_types::SolType>::ENCODED_SIZE {
-                    return size;
-                }
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
-            }
-            #[inline]
-            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
-                <Self as alloy_sol_types::SolStruct>::eip712_hash_struct(self)
-            }
-            #[inline]
-            fn stv_abi_encode_packed_to(
-                &self,
-                out: &mut alloy_sol_types::private::Vec<u8>,
-            ) {
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_encode_packed_to(&tuple, out)
-            }
-            #[inline]
-            fn stv_abi_packed_encoded_size(&self) -> usize {
-                if let Some(size) = <Self as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE {
-                    return size;
-                }
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_packed_encoded_size(&tuple)
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolType for TokenLimits {
-            type RustType = Self;
-            type Token<'a> = <UnderlyingSolTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SOL_NAME: &'static str = <Self as alloy_sol_types::SolStruct>::NAME;
-            const ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
-                '_,
-            > as alloy_sol_types::SolType>::ENCODED_SIZE;
-            const PACKED_ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
-                '_,
-            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
-            #[inline]
-            fn valid_token(token: &Self::Token<'_>) -> bool {
-                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::valid_token(token)
-            }
-            #[inline]
-            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
-                let tuple = <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::detokenize(token);
-                <Self as ::core::convert::From<UnderlyingRustTuple<'_>>>::from(tuple)
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolStruct for TokenLimits {
-            const NAME: &'static str = "TokenLimits";
-            #[inline]
-            fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
-                alloy_sol_types::private::Cow::Borrowed(
-                    "TokenLimits(uint256 minAmount,uint256 deposit,uint256 claim)",
-                )
-            }
-            #[inline]
-            fn eip712_components() -> alloy_sol_types::private::Vec<
-                alloy_sol_types::private::Cow<'static, str>,
-            > {
-                alloy_sol_types::private::Vec::new()
-            }
-            #[inline]
-            fn eip712_encode_type() -> alloy_sol_types::private::Cow<'static, str> {
-                <Self as alloy_sol_types::SolStruct>::eip712_root_type()
-            }
-            #[inline]
-            fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
-                [
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.minAmount)
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.deposit)
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.claim)
-                        .0,
-                ]
-                    .concat()
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::EventTopic for TokenLimits {
-            #[inline]
-            fn topic_preimage_length(rust: &Self::RustType) -> usize {
-                0usize
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.minAmount,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.deposit,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(&rust.claim)
-            }
-            #[inline]
-            fn encode_topic_preimage(
-                rust: &Self::RustType,
-                out: &mut alloy_sol_types::private::Vec<u8>,
-            ) {
-                out.reserve(
-                    <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.minAmount,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.deposit,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.claim,
-                    out,
-                );
-            }
-            #[inline]
-            fn encode_topic(
-                rust: &Self::RustType,
-            ) -> alloy_sol_types::abi::token::WordToken {
-                let mut out = alloy_sol_types::private::Vec::new();
-                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    rust,
-                    &mut out,
-                );
-                alloy_sol_types::abi::token::WordToken(
-                    alloy_sol_types::private::keccak256(out),
-                )
-            }
-        }
-    };
-    use alloy::contract as alloy_contract;
-    /**Creates a new wrapper around an on-chain [`IBridge`](self) contract instance.
-
-See the [wrapper's documentation](`IBridgeInstance`) for more details.*/
-    #[inline]
-    pub const fn new<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    >(
-        address: alloy_sol_types::private::Address,
-        __provider: P,
-    ) -> IBridgeInstance<P, N> {
-        IBridgeInstance::<P, N>::new(address, __provider)
-    }
-    /**A [`IBridge`](self) instance.
-
-Contains type-safe methods for interacting with an on-chain instance of the
-[`IBridge`](self) contract located at a given `address`, using a given
-provider `P`.
-
-If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-be used to deploy a new instance of the contract.
-
-See the [module-level documentation](self) for all the available methods.*/
-    #[derive(Clone)]
-    pub struct IBridgeInstance<P, N = alloy_contract::private::Ethereum> {
-        address: alloy_sol_types::private::Address,
-        provider: P,
-        _network: ::core::marker::PhantomData<N>,
-    }
-    #[automatically_derived]
-    impl<P, N> ::core::fmt::Debug for IBridgeInstance<P, N> {
-        #[inline]
-        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("IBridgeInstance").field(&self.address).finish()
-        }
-    }
-    /// Instantiation and getters/setters.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > IBridgeInstance<P, N> {
-        /**Creates a new wrapper around an on-chain [`IBridge`](self) contract instance.
-
-See the [wrapper's documentation](`IBridgeInstance`) for more details.*/
-        #[inline]
-        pub const fn new(
-            address: alloy_sol_types::private::Address,
-            __provider: P,
-        ) -> Self {
-            Self {
-                address,
-                provider: __provider,
-                _network: ::core::marker::PhantomData,
-            }
-        }
-        /// Returns a reference to the address.
-        #[inline]
-        pub const fn address(&self) -> &alloy_sol_types::private::Address {
-            &self.address
-        }
-        /// Sets the address.
-        #[inline]
-        pub fn set_address(&mut self, address: alloy_sol_types::private::Address) {
-            self.address = address;
-        }
-        /// Sets the address and returns `self`.
-        pub fn at(mut self, address: alloy_sol_types::private::Address) -> Self {
-            self.set_address(address);
-            self
-        }
-        /// Returns a reference to the provider.
-        #[inline]
-        pub const fn provider(&self) -> &P {
-            &self.provider
-        }
-    }
-    impl<P: ::core::clone::Clone, N> IBridgeInstance<&P, N> {
-        /// Clones the provider and returns a new instance with the cloned provider.
-        #[inline]
-        pub fn with_cloned_provider(self) -> IBridgeInstance<P, N> {
-            IBridgeInstance {
-                address: self.address,
-                provider: ::core::clone::Clone::clone(&self.provider),
-                _network: ::core::marker::PhantomData,
-            }
-        }
-    }
-    /// Function calls.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > IBridgeInstance<P, N> {
-        /// Creates a new call builder using this contract instance's provider and address.
-        ///
-        /// Note that the call can be any function call, not just those defined in this
-        /// contract. Prefer using the other methods for building type-safe contract calls.
-        pub fn call_builder<C: alloy_sol_types::SolCall>(
-            &self,
-            call: &C,
-        ) -> alloy_contract::SolCallBuilder<&P, C, N> {
-            alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
-        }
-    }
-    /// Event filters.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > IBridgeInstance<P, N> {
-        /// Creates a new event filter using this contract instance's provider and address.
-        ///
-        /// Note that the type can be any event, not just those defined in this contract.
-        /// Prefer using the other methods for building type-safe event filters.
-        pub fn event_filter<E: alloy_sol_types::SolEvent>(
-            &self,
-        ) -> alloy_contract::Event<&P, E, N> {
-            alloy_contract::Event::new_sol(&self.provider, &self.address)
-        }
-    }
-}
 /**
 
 Generated by the following Solidity interface...
 ```solidity
-library IBridge {
-    struct TokenLimits {
-        uint256 minAmount;
-        uint256 deposit;
-        uint256 claim;
-    }
-}
-
-interface IBridgeMintBurn {
+interface IBridge {
     error ContractMigrated();
     error DailyLimitExhausted();
     error InvalidBridgeContract();
@@ -407,24 +10,62 @@ interface IBridgeMintBurn {
     error InvalidTokenAmount();
     error InvalidTokenConfig();
     error MirrorTokenNotFound();
-    error NativeDepositNotSupported();
     error RequestAlreadyProcessed();
 
     event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
     event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address indexed to);
 
-    function configureToken(address token, IBridge.TokenLimits memory limits) external;
-    function createAndWhitelistMirrorToken(string memory tokenName, string memory tokenSymbol, address existingToken, address mirrorToken, uint8 mirrorTokenDecimals, IBridge.TokenLimits memory limits) external returns (address);
-    function deposit(address token, uint256 amount, address to) external payable returns (bytes32);
+    function claim(address token, uint256 amount, address to, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) external;
+    function configureToken(address token, uint256 minAmount, uint256 depositLimit, uint256 claimLimit) external;
+    function deposit(address token, uint256 amount, address to) external returns (bytes32);
     function migrate(address _newContract) external;
     function pause() external;
     function unpause() external;
+    function whiteListToken(address token, address mirrorToken, uint256 minAmount, uint256 depositLimit, uint256 claimLimit) external;
 }
 ```
 
 ...which was generated by the following JSON ABI:
 ```json
 [
+  {
+    "type": "function",
+    "name": "claim",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "committeeEpoch",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "aggregatedSignatures",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "proof",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
   {
     "type": "function",
     "name": "configureToken",
@@ -435,90 +76,22 @@ interface IBridgeMintBurn {
         "internalType": "address"
       },
       {
-        "name": "limits",
-        "type": "tuple",
-        "internalType": "struct IBridge.TokenLimits",
-        "components": [
-          {
-            "name": "minAmount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "deposit",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "claim",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ]
+        "name": "minAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "depositLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "claimLimit",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "createAndWhitelistMirrorToken",
-    "inputs": [
-      {
-        "name": "tokenName",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "tokenSymbol",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "existingToken",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "mirrorToken",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "mirrorTokenDecimals",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "limits",
-        "type": "tuple",
-        "internalType": "struct IBridge.TokenLimits",
-        "components": [
-          {
-            "name": "minAmount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "deposit",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "claim",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ]
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -548,7 +121,7 @@ interface IBridgeMintBurn {
         "internalType": "bytes32"
       }
     ],
-    "stateMutability": "payable"
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -574,6 +147,39 @@ interface IBridgeMintBurn {
     "type": "function",
     "name": "unpause",
     "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "whiteListToken",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "mirrorToken",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "minAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "depositLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "claimLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -682,11 +288,6 @@ interface IBridgeMintBurn {
   },
   {
     "type": "error",
-    "name": "NativeDepositNotSupported",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "RequestAlreadyProcessed",
     "inputs": []
   }
@@ -699,7 +300,7 @@ interface IBridgeMintBurn {
     clippy::style,
     clippy::empty_structs_with_brackets
 )]
-pub mod IBridgeMintBurn {
+pub mod IBridge {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
     /// The creation / init bytecode of the contract.
@@ -1242,82 +843,6 @@ error MirrorTokenNotFound();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `NativeDepositNotSupported()` and selector `0x926249b3`.
-```solidity
-error NativeDepositNotSupported();
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct NativeDepositNotSupported;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        #[allow(dead_code)]
-        type UnderlyingSolTuple<'a> = ();
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = ();
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<NativeDepositNotSupported>
-        for UnderlyingRustTuple<'_> {
-            fn from(value: NativeDepositNotSupported) -> Self {
-                ()
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>>
-        for NativeDepositNotSupported {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolError for NativeDepositNotSupported {
-            type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "NativeDepositNotSupported()";
-            const SELECTOR: [u8; 4] = [146u8, 98u8, 73u8, 179u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Self::new)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `RequestAlreadyProcessed()` and selector `0xa6bc74c4`.
 ```solidity
 error RequestAlreadyProcessed();
@@ -1667,9 +1192,213 @@ event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `configureToken(address,(uint256,uint256,uint256))` and selector `0x9267b153`.
+    /**Function with signature `claim(address,uint256,address,uint64,bytes,bytes)` and selector `0x38b87e4e`.
 ```solidity
-function configureToken(address token, IBridge.TokenLimits memory limits) external;
+function claim(address token, uint256 amount, address to, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct claimCall {
+        #[allow(missing_docs)]
+        pub token: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub amount: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub to: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub committeeEpoch: u64,
+        #[allow(missing_docs)]
+        pub aggregatedSignatures: alloy::sol_types::private::Bytes,
+        #[allow(missing_docs)]
+        pub proof: alloy::sol_types::private::Bytes,
+    }
+    ///Container type for the return parameters of the [`claim(address,uint256,address,uint64,bytes,bytes)`](claimCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct claimReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Bytes,
+                alloy::sol_types::sol_data::Bytes,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Address,
+                alloy::sol_types::private::primitives::aliases::U256,
+                alloy::sol_types::private::Address,
+                u64,
+                alloy::sol_types::private::Bytes,
+                alloy::sol_types::private::Bytes,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<claimCall> for UnderlyingRustTuple<'_> {
+                fn from(value: claimCall) -> Self {
+                    (
+                        value.token,
+                        value.amount,
+                        value.to,
+                        value.committeeEpoch,
+                        value.aggregatedSignatures,
+                        value.proof,
+                    )
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for claimCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        token: tuple.0,
+                        amount: tuple.1,
+                        to: tuple.2,
+                        committeeEpoch: tuple.3,
+                        aggregatedSignatures: tuple.4,
+                        proof: tuple.5,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<claimReturn> for UnderlyingRustTuple<'_> {
+                fn from(value: claimReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for claimReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl claimReturn {
+            fn _tokenize(
+                &self,
+            ) -> <claimCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for claimCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Bytes,
+                alloy::sol_types::sol_data::Bytes,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = claimReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "claim(address,uint256,address,uint64,bytes,bytes)";
+            const SELECTOR: [u8; 4] = [56u8, 184u8, 126u8, 78u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.token,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.to,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.committeeEpoch),
+                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
+                        &self.aggregatedSignatures,
+                    ),
+                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
+                        &self.proof,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                claimReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `configureToken(address,uint256,uint256,uint256)` and selector `0x8e5ec399`.
+```solidity
+function configureToken(address token, uint256 minAmount, uint256 depositLimit, uint256 claimLimit) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1677,9 +1406,13 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
         #[allow(missing_docs)]
         pub token: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
-        pub limits: <IBridge::TokenLimits as alloy::sol_types::SolType>::RustType,
+        pub minAmount: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub depositLimit: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub claimLimit: alloy::sol_types::private::primitives::aliases::U256,
     }
-    ///Container type for the return parameters of the [`configureToken(address,(uint256,uint256,uint256))`](configureTokenCall) function.
+    ///Container type for the return parameters of the [`configureToken(address,uint256,uint256,uint256)`](configureTokenCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct configureTokenReturn {}
@@ -1696,12 +1429,16 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Address,
-                IBridge::TokenLimits,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<256>,
             );
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
                 alloy::sol_types::private::Address,
-                <IBridge::TokenLimits as alloy::sol_types::SolType>::RustType,
+                alloy::sol_types::private::primitives::aliases::U256,
+                alloy::sol_types::private::primitives::aliases::U256,
+                alloy::sol_types::private::primitives::aliases::U256,
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
@@ -1718,7 +1455,7 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
             #[doc(hidden)]
             impl ::core::convert::From<configureTokenCall> for UnderlyingRustTuple<'_> {
                 fn from(value: configureTokenCall) -> Self {
-                    (value.token, value.limits)
+                    (value.token, value.minAmount, value.depositLimit, value.claimLimit)
                 }
             }
             #[automatically_derived]
@@ -1727,7 +1464,9 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         token: tuple.0,
-                        limits: tuple.1,
+                        minAmount: tuple.1,
+                        depositLimit: tuple.2,
+                        claimLimit: tuple.3,
                     }
                 }
             }
@@ -1777,7 +1516,9 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
         impl alloy_sol_types::SolCall for configureTokenCall {
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::Address,
-                IBridge::TokenLimits,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<256>,
             );
             type Token<'a> = <Self::Parameters<
                 'a,
@@ -1787,8 +1528,8 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "configureToken(address,(uint256,uint256,uint256))";
-            const SELECTOR: [u8; 4] = [146u8, 103u8, 177u8, 83u8];
+            const SIGNATURE: &'static str = "configureToken(address,uint256,uint256,uint256)";
+            const SELECTOR: [u8; 4] = [142u8, 94u8, 195u8, 153u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -1801,9 +1542,15 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.token,
                     ),
-                    <IBridge::TokenLimits as alloy_sol_types::SolType>::tokenize(
-                        &self.limits,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.minAmount),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.depositLimit),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.claimLimit),
                 )
             }
             #[inline]
@@ -1830,225 +1577,9 @@ function configureToken(address token, IBridge.TokenLimits memory limits) extern
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `createAndWhitelistMirrorToken(string,string,address,address,uint8,(uint256,uint256,uint256))` and selector `0xdf6b022b`.
-```solidity
-function createAndWhitelistMirrorToken(string memory tokenName, string memory tokenSymbol, address existingToken, address mirrorToken, uint8 mirrorTokenDecimals, IBridge.TokenLimits memory limits) external returns (address);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct createAndWhitelistMirrorTokenCall {
-        #[allow(missing_docs)]
-        pub tokenName: alloy::sol_types::private::String,
-        #[allow(missing_docs)]
-        pub tokenSymbol: alloy::sol_types::private::String,
-        #[allow(missing_docs)]
-        pub existingToken: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub mirrorToken: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub mirrorTokenDecimals: u8,
-        #[allow(missing_docs)]
-        pub limits: <IBridge::TokenLimits as alloy::sol_types::SolType>::RustType,
-    }
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`createAndWhitelistMirrorToken(string,string,address,address,uint8,(uint256,uint256,uint256))`](createAndWhitelistMirrorTokenCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct createAndWhitelistMirrorTokenReturn {
-        #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::Address,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::String,
-                alloy::sol_types::sol_data::String,
-                alloy::sol_types::sol_data::Address,
-                alloy::sol_types::sol_data::Address,
-                alloy::sol_types::sol_data::Uint<8>,
-                IBridge::TokenLimits,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::String,
-                alloy::sol_types::private::String,
-                alloy::sol_types::private::Address,
-                alloy::sol_types::private::Address,
-                u8,
-                <IBridge::TokenLimits as alloy::sol_types::SolType>::RustType,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<createAndWhitelistMirrorTokenCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: createAndWhitelistMirrorTokenCall) -> Self {
-                    (
-                        value.tokenName,
-                        value.tokenSymbol,
-                        value.existingToken,
-                        value.mirrorToken,
-                        value.mirrorTokenDecimals,
-                        value.limits,
-                    )
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for createAndWhitelistMirrorTokenCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        tokenName: tuple.0,
-                        tokenSymbol: tuple.1,
-                        existingToken: tuple.2,
-                        mirrorToken: tuple.3,
-                        mirrorTokenDecimals: tuple.4,
-                        limits: tuple.5,
-                    }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<createAndWhitelistMirrorTokenReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: createAndWhitelistMirrorTokenReturn) -> Self {
-                    (value._0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for createAndWhitelistMirrorTokenReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for createAndWhitelistMirrorTokenCall {
-            type Parameters<'a> = (
-                alloy::sol_types::sol_data::String,
-                alloy::sol_types::sol_data::String,
-                alloy::sol_types::sol_data::Address,
-                alloy::sol_types::sol_data::Address,
-                alloy::sol_types::sol_data::Uint<8>,
-                IBridge::TokenLimits,
-            );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::Address;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "createAndWhitelistMirrorToken(string,string,address,address,uint8,(uint256,uint256,uint256))";
-            const SELECTOR: [u8; 4] = [223u8, 107u8, 2u8, 43u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
-                        &self.tokenName,
-                    ),
-                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
-                        &self.tokenSymbol,
-                    ),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.existingToken,
-                    ),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.mirrorToken,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<
-                        8,
-                    > as alloy_sol_types::SolType>::tokenize(&self.mirrorTokenDecimals),
-                    <IBridge::TokenLimits as alloy_sol_types::SolType>::tokenize(
-                        &self.limits,
-                    ),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: createAndWhitelistMirrorTokenReturn = r.into();
-                        r._0
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: createAndWhitelistMirrorTokenReturn = r.into();
-                        r._0
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `deposit(address,uint256,address)` and selector `0xf45346dc`.
 ```solidity
-function deposit(address token, uint256 amount, address to) external payable returns (bytes32);
+function deposit(address token, uint256 amount, address to) external returns (bytes32);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2640,15 +2171,211 @@ function unpause() external;
             }
         }
     };
-    ///Container for all the [`IBridgeMintBurn`](self) function calls.
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `whiteListToken(address,address,uint256,uint256,uint256)` and selector `0xb9aa7c13`.
+```solidity
+function whiteListToken(address token, address mirrorToken, uint256 minAmount, uint256 depositLimit, uint256 claimLimit) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct whiteListTokenCall {
+        #[allow(missing_docs)]
+        pub token: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub mirrorToken: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub minAmount: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub depositLimit: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub claimLimit: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    ///Container type for the return parameters of the [`whiteListToken(address,address,uint256,uint256,uint256)`](whiteListTokenCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct whiteListTokenReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<256>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Address,
+                alloy::sol_types::private::Address,
+                alloy::sol_types::private::primitives::aliases::U256,
+                alloy::sol_types::private::primitives::aliases::U256,
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<whiteListTokenCall> for UnderlyingRustTuple<'_> {
+                fn from(value: whiteListTokenCall) -> Self {
+                    (
+                        value.token,
+                        value.mirrorToken,
+                        value.minAmount,
+                        value.depositLimit,
+                        value.claimLimit,
+                    )
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for whiteListTokenCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        token: tuple.0,
+                        mirrorToken: tuple.1,
+                        minAmount: tuple.2,
+                        depositLimit: tuple.3,
+                        claimLimit: tuple.4,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<whiteListTokenReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: whiteListTokenReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for whiteListTokenReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl whiteListTokenReturn {
+            fn _tokenize(
+                &self,
+            ) -> <whiteListTokenCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for whiteListTokenCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<256>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = whiteListTokenReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "whiteListToken(address,address,uint256,uint256,uint256)";
+            const SELECTOR: [u8; 4] = [185u8, 170u8, 124u8, 19u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.token,
+                    ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.mirrorToken,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.minAmount),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.depositLimit),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.claimLimit),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                whiteListTokenReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    ///Container for all the [`IBridge`](self) function calls.
     #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    pub enum IBridgeMintBurnCalls {
+    pub enum IBridgeCalls {
+        #[allow(missing_docs)]
+        claim(claimCall),
         #[allow(missing_docs)]
         configureToken(configureTokenCall),
-        #[allow(missing_docs)]
-        createAndWhitelistMirrorToken(createAndWhitelistMirrorTokenCall),
         #[allow(missing_docs)]
         deposit(depositCall),
         #[allow(missing_docs)]
@@ -2657,8 +2384,10 @@ function unpause() external;
         pause(pauseCall),
         #[allow(missing_docs)]
         unpause(unpauseCall),
+        #[allow(missing_docs)]
+        whiteListToken(whiteListTokenCall),
     }
-    impl IBridgeMintBurnCalls {
+    impl IBridgeCalls {
         /// All the selectors of this enum.
         ///
         /// Note that the selectors might not be in the same order as the variants.
@@ -2666,29 +2395,32 @@ function unpause() external;
         ///
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
+            [56u8, 184u8, 126u8, 78u8],
             [63u8, 75u8, 168u8, 58u8],
             [132u8, 86u8, 203u8, 89u8],
-            [146u8, 103u8, 177u8, 83u8],
+            [142u8, 94u8, 195u8, 153u8],
+            [185u8, 170u8, 124u8, 19u8],
             [206u8, 84u8, 148u8, 187u8],
-            [223u8, 107u8, 2u8, 43u8],
             [244u8, 83u8, 70u8, 220u8],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(claim),
             ::core::stringify!(unpause),
             ::core::stringify!(pause),
             ::core::stringify!(configureToken),
+            ::core::stringify!(whiteListToken),
             ::core::stringify!(migrate),
-            ::core::stringify!(createAndWhitelistMirrorToken),
             ::core::stringify!(deposit),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
+            <claimCall as alloy_sol_types::SolCall>::SIGNATURE,
             <unpauseCall as alloy_sol_types::SolCall>::SIGNATURE,
             <pauseCall as alloy_sol_types::SolCall>::SIGNATURE,
             <configureTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <whiteListTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <migrateCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <createAndWhitelistMirrorTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <depositCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
@@ -2713,23 +2445,24 @@ function unpause() external;
         }
     }
     #[automatically_derived]
-    impl alloy_sol_types::SolInterface for IBridgeMintBurnCalls {
-        const NAME: &'static str = "IBridgeMintBurnCalls";
+    impl alloy_sol_types::SolInterface for IBridgeCalls {
+        const NAME: &'static str = "IBridgeCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 6usize;
+        const COUNT: usize = 7usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
+                Self::claim(_) => <claimCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::configureToken(_) => {
                     <configureTokenCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::createAndWhitelistMirrorToken(_) => {
-                    <createAndWhitelistMirrorTokenCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::deposit(_) => <depositCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::migrate(_) => <migrateCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::pause(_) => <pauseCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::unpause(_) => <unpauseCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::whiteListToken(_) => {
+                    <whiteListTokenCall as alloy_sol_types::SolCall>::SELECTOR
+                }
             }
         }
         #[inline]
@@ -2746,64 +2479,61 @@ function unpause() external;
             selector: [u8; 4],
             data: &[u8],
         ) -> alloy_sol_types::Result<Self> {
-            static DECODE_SHIMS: &[fn(
-                &[u8],
-            ) -> alloy_sol_types::Result<IBridgeMintBurnCalls>] = &[
+            static DECODE_SHIMS: &[fn(&[u8]) -> alloy_sol_types::Result<IBridgeCalls>] = &[
                 {
-                    fn unpause(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
+                    fn claim(data: &[u8]) -> alloy_sol_types::Result<IBridgeCalls> {
+                        <claimCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(IBridgeCalls::claim)
+                    }
+                    claim
+                },
+                {
+                    fn unpause(data: &[u8]) -> alloy_sol_types::Result<IBridgeCalls> {
                         <unpauseCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(IBridgeMintBurnCalls::unpause)
+                            .map(IBridgeCalls::unpause)
                     }
                     unpause
                 },
                 {
-                    fn pause(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
+                    fn pause(data: &[u8]) -> alloy_sol_types::Result<IBridgeCalls> {
                         <pauseCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(IBridgeMintBurnCalls::pause)
+                            .map(IBridgeCalls::pause)
                     }
                     pause
                 },
                 {
                     fn configureToken(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
+                    ) -> alloy_sol_types::Result<IBridgeCalls> {
                         <configureTokenCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
                             )
-                            .map(IBridgeMintBurnCalls::configureToken)
+                            .map(IBridgeCalls::configureToken)
                     }
                     configureToken
                 },
                 {
-                    fn migrate(
+                    fn whiteListToken(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
+                    ) -> alloy_sol_types::Result<IBridgeCalls> {
+                        <whiteListTokenCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IBridgeCalls::whiteListToken)
+                    }
+                    whiteListToken
+                },
+                {
+                    fn migrate(data: &[u8]) -> alloy_sol_types::Result<IBridgeCalls> {
                         <migrateCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(IBridgeMintBurnCalls::migrate)
+                            .map(IBridgeCalls::migrate)
                     }
                     migrate
                 },
                 {
-                    fn createAndWhitelistMirrorToken(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
-                        <createAndWhitelistMirrorTokenCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(IBridgeMintBurnCalls::createAndWhitelistMirrorToken)
-                    }
-                    createAndWhitelistMirrorToken
-                },
-                {
-                    fn deposit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
+                    fn deposit(data: &[u8]) -> alloy_sol_types::Result<IBridgeCalls> {
                         <depositCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(IBridgeMintBurnCalls::deposit)
+                            .map(IBridgeCalls::deposit)
                     }
                     deposit
                 },
@@ -2826,70 +2556,71 @@ function unpause() external;
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
-            ) -> alloy_sol_types::Result<IBridgeMintBurnCalls>] = &[
+            ) -> alloy_sol_types::Result<IBridgeCalls>] = &[
                 {
-                    fn unpause(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
+                    fn claim(data: &[u8]) -> alloy_sol_types::Result<IBridgeCalls> {
+                        <claimCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IBridgeCalls::claim)
+                    }
+                    claim
+                },
+                {
+                    fn unpause(data: &[u8]) -> alloy_sol_types::Result<IBridgeCalls> {
                         <unpauseCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnCalls::unpause)
+                            .map(IBridgeCalls::unpause)
                     }
                     unpause
                 },
                 {
-                    fn pause(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
+                    fn pause(data: &[u8]) -> alloy_sol_types::Result<IBridgeCalls> {
                         <pauseCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnCalls::pause)
+                            .map(IBridgeCalls::pause)
                     }
                     pause
                 },
                 {
                     fn configureToken(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
+                    ) -> alloy_sol_types::Result<IBridgeCalls> {
                         <configureTokenCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnCalls::configureToken)
+                            .map(IBridgeCalls::configureToken)
                     }
                     configureToken
                 },
                 {
-                    fn migrate(
+                    fn whiteListToken(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
+                    ) -> alloy_sol_types::Result<IBridgeCalls> {
+                        <whiteListTokenCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IBridgeCalls::whiteListToken)
+                    }
+                    whiteListToken
+                },
+                {
+                    fn migrate(data: &[u8]) -> alloy_sol_types::Result<IBridgeCalls> {
                         <migrateCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnCalls::migrate)
+                            .map(IBridgeCalls::migrate)
                     }
                     migrate
                 },
                 {
-                    fn createAndWhitelistMirrorToken(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
-                        <createAndWhitelistMirrorTokenCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(IBridgeMintBurnCalls::createAndWhitelistMirrorToken)
-                    }
-                    createAndWhitelistMirrorToken
-                },
-                {
-                    fn deposit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnCalls> {
+                    fn deposit(data: &[u8]) -> alloy_sol_types::Result<IBridgeCalls> {
                         <depositCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnCalls::deposit)
+                            .map(IBridgeCalls::deposit)
                     }
                     deposit
                 },
@@ -2907,13 +2638,11 @@ function unpause() external;
         #[inline]
         fn abi_encoded_size(&self) -> usize {
             match self {
+                Self::claim(inner) => {
+                    <claimCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                }
                 Self::configureToken(inner) => {
                     <configureTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::createAndWhitelistMirrorToken(inner) => {
-                    <createAndWhitelistMirrorTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -2929,19 +2658,21 @@ function unpause() external;
                 Self::unpause(inner) => {
                     <unpauseCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
+                Self::whiteListToken(inner) => {
+                    <whiteListTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
             }
         }
         #[inline]
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
+                Self::claim(inner) => {
+                    <claimCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                }
                 Self::configureToken(inner) => {
                     <configureTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::createAndWhitelistMirrorToken(inner) => {
-                    <createAndWhitelistMirrorTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -2958,14 +2689,20 @@ function unpause() external;
                 Self::unpause(inner) => {
                     <unpauseCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
+                Self::whiteListToken(inner) => {
+                    <whiteListTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
             }
         }
     }
-    ///Container for all the [`IBridgeMintBurn`](self) custom errors.
+    ///Container for all the [`IBridge`](self) custom errors.
     #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
-    pub enum IBridgeMintBurnErrors {
+    pub enum IBridgeErrors {
         #[allow(missing_docs)]
         ContractMigrated(ContractMigrated),
         #[allow(missing_docs)]
@@ -2981,11 +2718,9 @@ function unpause() external;
         #[allow(missing_docs)]
         MirrorTokenNotFound(MirrorTokenNotFound),
         #[allow(missing_docs)]
-        NativeDepositNotSupported(NativeDepositNotSupported),
-        #[allow(missing_docs)]
         RequestAlreadyProcessed(RequestAlreadyProcessed),
     }
-    impl IBridgeMintBurnErrors {
+    impl IBridgeErrors {
         /// All the selectors of this enum.
         ///
         /// Note that the selectors might not be in the same order as the variants.
@@ -2998,7 +2733,6 @@ function unpause() external;
             [63u8, 79u8, 104u8, 150u8],
             [102u8, 218u8, 128u8, 55u8],
             [138u8, 163u8, 167u8, 47u8],
-            [146u8, 98u8, 73u8, 179u8],
             [166u8, 188u8, 116u8, 196u8],
             [168u8, 221u8, 182u8, 77u8],
             [189u8, 196u8, 223u8, 114u8],
@@ -3010,7 +2744,6 @@ function unpause() external;
             ::core::stringify!(ContractMigrated),
             ::core::stringify!(InvalidBridgeContract),
             ::core::stringify!(InvalidToAddress),
-            ::core::stringify!(NativeDepositNotSupported),
             ::core::stringify!(RequestAlreadyProcessed),
             ::core::stringify!(MirrorTokenNotFound),
             ::core::stringify!(DailyLimitExhausted),
@@ -3022,7 +2755,6 @@ function unpause() external;
             <ContractMigrated as alloy_sol_types::SolError>::SIGNATURE,
             <InvalidBridgeContract as alloy_sol_types::SolError>::SIGNATURE,
             <InvalidToAddress as alloy_sol_types::SolError>::SIGNATURE,
-            <NativeDepositNotSupported as alloy_sol_types::SolError>::SIGNATURE,
             <RequestAlreadyProcessed as alloy_sol_types::SolError>::SIGNATURE,
             <MirrorTokenNotFound as alloy_sol_types::SolError>::SIGNATURE,
             <DailyLimitExhausted as alloy_sol_types::SolError>::SIGNATURE,
@@ -3049,10 +2781,10 @@ function unpause() external;
         }
     }
     #[automatically_derived]
-    impl alloy_sol_types::SolInterface for IBridgeMintBurnErrors {
-        const NAME: &'static str = "IBridgeMintBurnErrors";
+    impl alloy_sol_types::SolInterface for IBridgeErrors {
+        const NAME: &'static str = "IBridgeErrors";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 9usize;
+        const COUNT: usize = 8usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -3077,9 +2809,6 @@ function unpause() external;
                 Self::MirrorTokenNotFound(_) => {
                     <MirrorTokenNotFound as alloy_sol_types::SolError>::SELECTOR
                 }
-                Self::NativeDepositNotSupported(_) => {
-                    <NativeDepositNotSupported as alloy_sol_types::SolError>::SELECTOR
-                }
                 Self::RequestAlreadyProcessed(_) => {
                     <RequestAlreadyProcessed as alloy_sol_types::SolError>::SELECTOR
                 }
@@ -3101,103 +2830,92 @@ function unpause() external;
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_SHIMS: &[fn(
                 &[u8],
-            ) -> alloy_sol_types::Result<IBridgeMintBurnErrors>] = &[
+            ) -> alloy_sol_types::Result<IBridgeErrors>] = &[
                 {
                     fn InvalidTokenConfig(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <InvalidTokenConfig as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::InvalidTokenConfig)
+                            .map(IBridgeErrors::InvalidTokenConfig)
                     }
                     InvalidTokenConfig
                 },
                 {
                     fn InvalidTokenAmount(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <InvalidTokenAmount as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::InvalidTokenAmount)
+                            .map(IBridgeErrors::InvalidTokenAmount)
                     }
                     InvalidTokenAmount
                 },
                 {
                     fn ContractMigrated(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <ContractMigrated as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::ContractMigrated)
+                            .map(IBridgeErrors::ContractMigrated)
                     }
                     ContractMigrated
                 },
                 {
                     fn InvalidBridgeContract(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <InvalidBridgeContract as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::InvalidBridgeContract)
+                            .map(IBridgeErrors::InvalidBridgeContract)
                     }
                     InvalidBridgeContract
                 },
                 {
                     fn InvalidToAddress(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <InvalidToAddress as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::InvalidToAddress)
+                            .map(IBridgeErrors::InvalidToAddress)
                     }
                     InvalidToAddress
                 },
                 {
-                    fn NativeDepositNotSupported(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
-                        <NativeDepositNotSupported as alloy_sol_types::SolError>::abi_decode_raw(
-                                data,
-                            )
-                            .map(IBridgeMintBurnErrors::NativeDepositNotSupported)
-                    }
-                    NativeDepositNotSupported
-                },
-                {
                     fn RequestAlreadyProcessed(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <RequestAlreadyProcessed as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::RequestAlreadyProcessed)
+                            .map(IBridgeErrors::RequestAlreadyProcessed)
                     }
                     RequestAlreadyProcessed
                 },
                 {
                     fn MirrorTokenNotFound(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <MirrorTokenNotFound as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::MirrorTokenNotFound)
+                            .map(IBridgeErrors::MirrorTokenNotFound)
                     }
                     MirrorTokenNotFound
                 },
                 {
                     fn DailyLimitExhausted(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <DailyLimitExhausted as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::DailyLimitExhausted)
+                            .map(IBridgeErrors::DailyLimitExhausted)
                     }
                     DailyLimitExhausted
                 },
@@ -3220,103 +2938,92 @@ function unpause() external;
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
-            ) -> alloy_sol_types::Result<IBridgeMintBurnErrors>] = &[
+            ) -> alloy_sol_types::Result<IBridgeErrors>] = &[
                 {
                     fn InvalidTokenConfig(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <InvalidTokenConfig as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::InvalidTokenConfig)
+                            .map(IBridgeErrors::InvalidTokenConfig)
                     }
                     InvalidTokenConfig
                 },
                 {
                     fn InvalidTokenAmount(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <InvalidTokenAmount as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::InvalidTokenAmount)
+                            .map(IBridgeErrors::InvalidTokenAmount)
                     }
                     InvalidTokenAmount
                 },
                 {
                     fn ContractMigrated(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <ContractMigrated as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::ContractMigrated)
+                            .map(IBridgeErrors::ContractMigrated)
                     }
                     ContractMigrated
                 },
                 {
                     fn InvalidBridgeContract(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <InvalidBridgeContract as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::InvalidBridgeContract)
+                            .map(IBridgeErrors::InvalidBridgeContract)
                     }
                     InvalidBridgeContract
                 },
                 {
                     fn InvalidToAddress(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <InvalidToAddress as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::InvalidToAddress)
+                            .map(IBridgeErrors::InvalidToAddress)
                     }
                     InvalidToAddress
                 },
                 {
-                    fn NativeDepositNotSupported(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
-                        <NativeDepositNotSupported as alloy_sol_types::SolError>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(IBridgeMintBurnErrors::NativeDepositNotSupported)
-                    }
-                    NativeDepositNotSupported
-                },
-                {
                     fn RequestAlreadyProcessed(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <RequestAlreadyProcessed as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::RequestAlreadyProcessed)
+                            .map(IBridgeErrors::RequestAlreadyProcessed)
                     }
                     RequestAlreadyProcessed
                 },
                 {
                     fn MirrorTokenNotFound(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <MirrorTokenNotFound as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::MirrorTokenNotFound)
+                            .map(IBridgeErrors::MirrorTokenNotFound)
                     }
                     MirrorTokenNotFound
                 },
                 {
                     fn DailyLimitExhausted(
                         data: &[u8],
-                    ) -> alloy_sol_types::Result<IBridgeMintBurnErrors> {
+                    ) -> alloy_sol_types::Result<IBridgeErrors> {
                         <DailyLimitExhausted as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(IBridgeMintBurnErrors::DailyLimitExhausted)
+                            .map(IBridgeErrors::DailyLimitExhausted)
                     }
                     DailyLimitExhausted
                 },
@@ -3366,11 +3073,6 @@ function unpause() external;
                 }
                 Self::MirrorTokenNotFound(inner) => {
                     <MirrorTokenNotFound as alloy_sol_types::SolError>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::NativeDepositNotSupported(inner) => {
-                    <NativeDepositNotSupported as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -3426,12 +3128,6 @@ function unpause() external;
                         out,
                     )
                 }
-                Self::NativeDepositNotSupported(inner) => {
-                    <NativeDepositNotSupported as alloy_sol_types::SolError>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
                 Self::RequestAlreadyProcessed(inner) => {
                     <RequestAlreadyProcessed as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
@@ -3441,17 +3137,17 @@ function unpause() external;
             }
         }
     }
-    ///Container for all the [`IBridgeMintBurn`](self) events.
+    ///Container for all the [`IBridge`](self) events.
     #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, PartialEq, Eq, Hash)]
-    pub enum IBridgeMintBurnEvents {
+    pub enum IBridgeEvents {
         #[allow(missing_docs)]
         Claim(Claim),
         #[allow(missing_docs)]
         Deposit(Deposit),
     }
-    impl IBridgeMintBurnEvents {
+    impl IBridgeEvents {
         /// All the selectors of this enum.
         ///
         /// Note that the selectors might not be in the same order as the variants.
@@ -3503,8 +3199,8 @@ function unpause() external;
         }
     }
     #[automatically_derived]
-    impl alloy_sol_types::SolEventInterface for IBridgeMintBurnEvents {
-        const NAME: &'static str = "IBridgeMintBurnEvents";
+    impl alloy_sol_types::SolEventInterface for IBridgeEvents {
+        const NAME: &'static str = "IBridgeEvents";
         const COUNT: usize = 2usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
@@ -3534,7 +3230,7 @@ function unpause() external;
         }
     }
     #[automatically_derived]
-    impl alloy_sol_types::private::IntoLogData for IBridgeMintBurnEvents {
+    impl alloy_sol_types::private::IntoLogData for IBridgeEvents {
         fn to_log_data(&self) -> alloy_sol_types::private::LogData {
             match self {
                 Self::Claim(inner) => {
@@ -3557,9 +3253,9 @@ function unpause() external;
         }
     }
     use alloy::contract as alloy_contract;
-    /**Creates a new wrapper around an on-chain [`IBridgeMintBurn`](self) contract instance.
+    /**Creates a new wrapper around an on-chain [`IBridge`](self) contract instance.
 
-See the [wrapper's documentation](`IBridgeMintBurnInstance`) for more details.*/
+See the [wrapper's documentation](`IBridgeInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
@@ -3567,8 +3263,8 @@ See the [wrapper's documentation](`IBridgeMintBurnInstance`) for more details.*/
     >(
         address: alloy_sol_types::private::Address,
         __provider: P,
-    ) -> IBridgeMintBurnInstance<P, N> {
-        IBridgeMintBurnInstance::<P, N>::new(address, __provider)
+    ) -> IBridgeInstance<P, N> {
+        IBridgeInstance::<P, N>::new(address, __provider)
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
@@ -3582,9 +3278,9 @@ For more fine-grained control over the deployment process, use [`deploy_builder`
     >(
         __provider: P,
     ) -> impl ::core::future::Future<
-        Output = alloy_contract::Result<IBridgeMintBurnInstance<P, N>>,
+        Output = alloy_contract::Result<IBridgeInstance<P, N>>,
     > {
-        IBridgeMintBurnInstance::<P, N>::deploy(__provider)
+        IBridgeInstance::<P, N>::deploy(__provider)
     }
     /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
 and constructor arguments, if any.
@@ -3596,12 +3292,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
-        IBridgeMintBurnInstance::<P, N>::deploy_builder(__provider)
+        IBridgeInstance::<P, N>::deploy_builder(__provider)
     }
-    /**A [`IBridgeMintBurn`](self) instance.
+    /**A [`IBridge`](self) instance.
 
 Contains type-safe methods for interacting with an on-chain instance of the
-[`IBridgeMintBurn`](self) contract located at a given `address`, using a given
+[`IBridge`](self) contract located at a given `address`, using a given
 provider `P`.
 
 If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
@@ -3610,26 +3306,26 @@ be used to deploy a new instance of the contract.
 
 See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
-    pub struct IBridgeMintBurnInstance<P, N = alloy_contract::private::Ethereum> {
+    pub struct IBridgeInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
         provider: P,
         _network: ::core::marker::PhantomData<N>,
     }
     #[automatically_derived]
-    impl<P, N> ::core::fmt::Debug for IBridgeMintBurnInstance<P, N> {
+    impl<P, N> ::core::fmt::Debug for IBridgeInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("IBridgeMintBurnInstance").field(&self.address).finish()
+            f.debug_tuple("IBridgeInstance").field(&self.address).finish()
         }
     }
     /// Instantiation and getters/setters.
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > IBridgeMintBurnInstance<P, N> {
-        /**Creates a new wrapper around an on-chain [`IBridgeMintBurn`](self) contract instance.
+    > IBridgeInstance<P, N> {
+        /**Creates a new wrapper around an on-chain [`IBridge`](self) contract instance.
 
-See the [wrapper's documentation](`IBridgeMintBurnInstance`) for more details.*/
+See the [wrapper's documentation](`IBridgeInstance`) for more details.*/
         #[inline]
         pub const fn new(
             address: alloy_sol_types::private::Address,
@@ -3649,7 +3345,7 @@ For more fine-grained control over the deployment process, use [`deploy_builder`
         #[inline]
         pub async fn deploy(
             __provider: P,
-        ) -> alloy_contract::Result<IBridgeMintBurnInstance<P, N>> {
+        ) -> alloy_contract::Result<IBridgeInstance<P, N>> {
             let call_builder = Self::deploy_builder(__provider);
             let contract_address = call_builder.deploy().await?;
             Ok(Self::new(contract_address, call_builder.provider))
@@ -3687,11 +3383,11 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self.provider
         }
     }
-    impl<P: ::core::clone::Clone, N> IBridgeMintBurnInstance<&P, N> {
+    impl<P: ::core::clone::Clone, N> IBridgeInstance<&P, N> {
         /// Clones the provider and returns a new instance with the cloned provider.
         #[inline]
-        pub fn with_cloned_provider(self) -> IBridgeMintBurnInstance<P, N> {
-            IBridgeMintBurnInstance {
+        pub fn with_cloned_provider(self) -> IBridgeInstance<P, N> {
+            IBridgeInstance {
                 address: self.address,
                 provider: ::core::clone::Clone::clone(&self.provider),
                 _network: ::core::marker::PhantomData,
@@ -3702,7 +3398,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > IBridgeMintBurnInstance<P, N> {
+    > IBridgeInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -3713,37 +3409,41 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, C, N> {
             alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
         }
+        ///Creates a new call builder for the [`claim`] function.
+        pub fn claim(
+            &self,
+            token: alloy::sol_types::private::Address,
+            amount: alloy::sol_types::private::primitives::aliases::U256,
+            to: alloy::sol_types::private::Address,
+            committeeEpoch: u64,
+            aggregatedSignatures: alloy::sol_types::private::Bytes,
+            proof: alloy::sol_types::private::Bytes,
+        ) -> alloy_contract::SolCallBuilder<&P, claimCall, N> {
+            self.call_builder(
+                &claimCall {
+                    token,
+                    amount,
+                    to,
+                    committeeEpoch,
+                    aggregatedSignatures,
+                    proof,
+                },
+            )
+        }
         ///Creates a new call builder for the [`configureToken`] function.
         pub fn configureToken(
             &self,
             token: alloy::sol_types::private::Address,
-            limits: <IBridge::TokenLimits as alloy::sol_types::SolType>::RustType,
+            minAmount: alloy::sol_types::private::primitives::aliases::U256,
+            depositLimit: alloy::sol_types::private::primitives::aliases::U256,
+            claimLimit: alloy::sol_types::private::primitives::aliases::U256,
         ) -> alloy_contract::SolCallBuilder<&P, configureTokenCall, N> {
             self.call_builder(
                 &configureTokenCall {
                     token,
-                    limits,
-                },
-            )
-        }
-        ///Creates a new call builder for the [`createAndWhitelistMirrorToken`] function.
-        pub fn createAndWhitelistMirrorToken(
-            &self,
-            tokenName: alloy::sol_types::private::String,
-            tokenSymbol: alloy::sol_types::private::String,
-            existingToken: alloy::sol_types::private::Address,
-            mirrorToken: alloy::sol_types::private::Address,
-            mirrorTokenDecimals: u8,
-            limits: <IBridge::TokenLimits as alloy::sol_types::SolType>::RustType,
-        ) -> alloy_contract::SolCallBuilder<&P, createAndWhitelistMirrorTokenCall, N> {
-            self.call_builder(
-                &createAndWhitelistMirrorTokenCall {
-                    tokenName,
-                    tokenSymbol,
-                    existingToken,
-                    mirrorToken,
-                    mirrorTokenDecimals,
-                    limits,
+                    minAmount,
+                    depositLimit,
+                    claimLimit,
                 },
             )
         }
@@ -3771,12 +3471,31 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         pub fn unpause(&self) -> alloy_contract::SolCallBuilder<&P, unpauseCall, N> {
             self.call_builder(&unpauseCall)
         }
+        ///Creates a new call builder for the [`whiteListToken`] function.
+        pub fn whiteListToken(
+            &self,
+            token: alloy::sol_types::private::Address,
+            mirrorToken: alloy::sol_types::private::Address,
+            minAmount: alloy::sol_types::private::primitives::aliases::U256,
+            depositLimit: alloy::sol_types::private::primitives::aliases::U256,
+            claimLimit: alloy::sol_types::private::primitives::aliases::U256,
+        ) -> alloy_contract::SolCallBuilder<&P, whiteListTokenCall, N> {
+            self.call_builder(
+                &whiteListTokenCall {
+                    token,
+                    mirrorToken,
+                    minAmount,
+                    depositLimit,
+                    claimLimit,
+                },
+            )
+        }
     }
     /// Event filters.
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    > IBridgeMintBurnInstance<P, N> {
+    > IBridgeInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.

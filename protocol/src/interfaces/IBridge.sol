@@ -50,11 +50,6 @@ interface IBridge {
     error InvalidBridgeContract();
 
     /**
-     * @dev Error thrown when attempting to deposit native tokens (not supported on this bridge).
-     */
-    error NativeDepositNotSupported();
-
-    /**
      * @dev Event emitted when a deposit is made.
      * @param id The request index.
      * @param token The token to bridge (address(0) for native).
@@ -74,18 +69,6 @@ interface IBridge {
     event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
 
     /**
-     * @dev Token limits.
-     * @param minAmount The minimum amount of tokens that can be deposited.
-     * @param deposit The daily deposit limit for the token.
-     * @param claim The daily claim limit for the token.
-     */
-    struct TokenLimits {
-        uint256 minAmount;
-        uint256 deposit;
-        uint256 claim;
-    }
-
-    /**
      * @dev Token usage.
      * @param consumed The amount of tokens that have been used.
      * @param lastUpdated The timestamp when the consumed limits were last updated.
@@ -97,14 +80,20 @@ interface IBridge {
 
     /**
      * @dev Token data.
-     * @param limits The token limits.
-     * @param deposit The token usage for deposits.
-     * @param claim The token usage for claims.
+     * @param minAmount The minimum amount for deposits and claims.
+     * @param depositLimit The daily deposit limit.
+     * @param claimLimit The daily claim limit.
+     * @param deposit The deposit usage data.
+     * @param claim The claim usage data.
+     * @param mirrorToken The address of the token on the source chain.
      */
     struct TokenData {
-        TokenLimits limits;
-        TokenUsage deposit;
-        TokenUsage claim;
+        uint256 minAmount;
+        uint256 depositLimit;
+        uint256 claimLimit;
+        TokenUsage depositUsage;
+        TokenUsage claimUsage;
+        address mirrorToken; // Address of the token on the source chain
     }
 
     /**
@@ -117,9 +106,11 @@ interface IBridge {
      * @notice Token can be disabled by setting deposit and claim limits to zero.
      * @notice Access is restricted to the admin.
      * @param token The token to configure.
-     * @param limits The token's new configuration limits.
+     * @param minAmount The minimum amount for deposits and claims.
+     * @param depositLimit The daily deposit limit.
+     * @param claimLimit The daily claim limit.
      */
-    function configureToken(address token, TokenLimits calldata limits) external;
+    function configureToken(address token, uint256 minAmount, uint256 depositLimit, uint256 claimLimit) external;
 
     /**
      * @dev Deposit tokens to bridge to the destination chain.
@@ -130,7 +121,7 @@ interface IBridge {
      * @param to The address to receive the tokens on the destination chain.
      * @return id The request index.
      */
-    function deposit(address token, uint256 amount, address to) external payable returns (bytes32);
+    function deposit(address token, uint256 amount, address to) external returns (bytes32);
 
     /**
      * @dev Pauses the contract.
@@ -151,4 +142,44 @@ interface IBridge {
      * @notice Migration can only be done once on this contract
      */
     function migrate(address _newContract) external;
+
+    /**
+     * @notice Whitelist a token for bridging.
+     * @dev Use MOCK_ADDRESS_FOR_NATIVE_DEPOSIT for token to indicate native currency.
+     *      - token=MOCK_ADDRESS_FOR_NATIVE_DEPOSIT: source mirrorToken maps to local native currency.
+     * @param token Token that will be deposited in the contract (local/destination token).
+     * @param mirrorToken Token that will be deposited in the mirror contract (source token).
+     * @param minAmount Minimum amount for deposits and claims.
+     * @param depositLimit Daily deposit limit.
+     * @param claimLimit Daily claim limit.
+     */
+    function whiteListToken(
+        address token,
+        address mirrorToken,
+        uint256 minAmount,
+        uint256 depositLimit,
+        uint256 claimLimit
+    ) external;
+
+    /**
+     * @notice Claim bridged tokens using an attested transaction proof from Pod.
+     * @dev Verifies the deposit transaction via merkle proof and aggregated validator signatures.
+     *      The transaction hash (AttestedTx.hash) is computed from the merkle proof.
+     *      Anyone can call this function to claim on behalf of the original depositor.
+     *      If mirrorToken is address(0), native tokens are transferred; otherwise ERC20 tokens.
+     * @param token The token address on Pod that was deposited.
+     * @param amount The amount of tokens that were deposited on Pod (and to claim).
+     * @param to The address to receive the tokens (must match the 'to' specified in the deposit).
+     * @param committeeEpoch The committee epoch for validator signature verification.
+     * @param aggregatedSignatures Concatenated 65-byte ECDSA signatures (r,s,v) from validators.
+     * @param proof The Merkle multi-proof for verifying transaction fields (to, input).
+     */
+    function claim(
+        address token,
+        uint256 amount,
+        address to,
+        uint64 committeeEpoch,
+        bytes calldata aggregatedSignatures,
+        bytes calldata proof
+    ) external;
 }

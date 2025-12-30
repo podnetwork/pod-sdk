@@ -4,7 +4,6 @@ members = [
   "types",
   "rust-sdk",
   "examples/notary",
-  "examples/optimistic-auction",
   "examples/auction",
   "examples/bridge-flow",
   "examples/rust",

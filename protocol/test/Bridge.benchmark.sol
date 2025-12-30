@@ -3,15 +3,13 @@ pragma solidity ^0.8.20;
 
 import {console} from "forge-std/Test.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
-import {BridgeDepositWithdraw} from "../src/BridgeDepositWithdraw.sol";
-import {IBridge} from "../src/interfaces/IBridge.sol";
-import {PodRegistry} from "../src/PodRegistry.sol";
-import {MerkleTree} from "pod-sdk/verifier/MerkleTree.sol";
+import {Bridge} from "../src/Bridge.sol";
+import {Registry} from "../src/Registry.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 
-contract BridgeDepositWithdrawBenchmark is BridgeClaimProofHelper {
-    BridgeDepositWithdraw private bridge;
-    PodRegistry private podRegistry;
+contract BridgeBenchmark is BridgeClaimProofHelper {
+    Bridge private bridge;
+    Registry private registry;
     WrappedToken private token;
 
     address private admin = makeAddr("admin");
@@ -19,9 +17,10 @@ contract BridgeDepositWithdrawBenchmark is BridgeClaimProofHelper {
     address private mirrorToken = makeAddr("mirrorToken");
 
     uint256 private constant DEPOSIT_AMOUNT = 100e18;
-    IBridge.TokenLimits private nativeTokenLimits =
-        IBridge.TokenLimits({minAmount: 0.01 ether, deposit: 500e18, claim: 400e18});
-    IBridge.TokenLimits private tokenLimits = IBridge.TokenLimits({minAmount: 1e18, deposit: 500e18, claim: 400e18});
+    uint256 minAmount = 1e18;
+    uint256 depositLimit = 500e18;
+    uint256 claimLimit = 400e18;
+    uint256 chainId = 0x50d;
 
     function _setupWithValidators(uint256 numValidators) internal {
         vm.startPrank(admin);
@@ -35,12 +34,13 @@ contract BridgeDepositWithdrawBenchmark is BridgeClaimProofHelper {
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
         }
 
-        podRegistry = new PodRegistry(initialValidators);
-        bridge = new BridgeDepositWithdraw(address(podRegistry), otherBridgeContract);
+        uint8 f = uint8((initialValidators.length - 1) / 3);
+        registry = new Registry(initialValidators, f);
+        bridge = new Bridge(address(registry), otherBridgeContract, chainId);
 
         // Setup token for claim() benchmarks
         token = new WrappedToken("TestToken", "TKN", 18);
-        bridge.whiteListToken(address(token), mirrorToken, tokenLimits);
+        bridge.whiteListToken(address(token), mirrorToken, minAmount, depositLimit, claimLimit);
         token.mint(address(bridge), 1000e18);
 
         vm.stopPrank();
@@ -50,11 +50,12 @@ contract BridgeDepositWithdrawBenchmark is BridgeClaimProofHelper {
 
     function _benchmarkClaim(uint256 numValidators) internal {
         _setupWithValidators(numValidators);
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, MerkleTree.MultiProof memory proof) =
-            createTokenClaimProof(mirrorToken, DEPOSIT_AMOUNT, user, numValidators);
+        bytes32 domainSeparator = bridge.DOMAIN_SEPARATOR();
+        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
+            createTokenClaimProof(mirrorToken, DEPOSIT_AMOUNT, user, numValidators, domainSeparator);
 
         uint256 gasBefore = gasleft();
-        bridge.claim(mirrorToken, DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
+        bridge.claim(address(token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
         uint256 gasUsed = gasBefore - gasleft();
 
         console.log("claim gas with %d validators: %d", numValidators, gasUsed);

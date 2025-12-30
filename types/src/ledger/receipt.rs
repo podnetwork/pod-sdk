@@ -109,7 +109,7 @@ impl From<Receipt> for TransactionReceipt {
                     logs: val
                         .logs
                         .into_iter()
-                        .map(|l| log::to_rpc_format(l, val.attested_tx.hash))
+                        .map(|l| log::to_rpc_format(l, val.tx_hash))
                         .collect(),
                 },
             }),
