@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 pod-sdk = { path = "../../rust-sdk" }
 
-alloy = { version = "1.0.36", features = ["sol-types", "contract"] }
+alloy = { version = "1.2.1", features = ["sol-types", "contract"] }
 op-alloy = { version = "0.20.0", features = ["full"] }
 tokio = { version = "1.47.1", features = ["full"] }
 clap = { version = "4.5.48", features = ["derive"] }
