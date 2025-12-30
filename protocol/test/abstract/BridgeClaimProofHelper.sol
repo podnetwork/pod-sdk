@@ -23,7 +23,13 @@ abstract contract BridgeClaimProofHelper is Test {
         }
     }
 
-    function createTokenClaimProof(address claimToken, uint256 amount, address to, uint256 numberOfRequiredSignatures, bytes32 domainSeparator)
+    function createTokenClaimProof(
+        address claimToken,
+        uint256 amount,
+        address to,
+        uint256 numberOfRequiredSignatures,
+        bytes32 domainSeparator
+    )
         internal
         view
         returns (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof)

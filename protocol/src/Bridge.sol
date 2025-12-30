@@ -49,12 +49,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         REGISTRY = Registry(_registry);
         BRIDGE_CONTRACT = _bridgeContract;
         DOMAIN_SEPARATOR = keccak256(
-            abi.encode(
-                keccak256("pod network"),
-                keccak256("attest_tx"),
-                keccak256("1"),
-                _bridgeNetworkChainId
-            )
+            abi.encode(keccak256("pod network"), keccak256("attest_tx"), keccak256("1"), _bridgeNetworkChainId)
         );
     }
 

@@ -7,7 +7,7 @@ import {Auction} from "../src/Auction.sol";
 import {RankedFeed} from "../src/RankedFeed.sol";
 import {Voting} from "../src/Voting.sol";
 import {BaseDeployer} from "pod-protocol-scripts/BaseDeployer.s.sol";
-import {PodRegistry} from "pod-protocol/PodRegistry.sol";
+import {Registry} from "pod-protocol/Registry.sol";
 import {PodAuctionConsumer} from "optimistic-auction/PodAuctionConsumer.sol";
 
 contract Deployer is BaseDeployer {
@@ -30,8 +30,9 @@ contract Deployer is BaseDeployer {
         if (testContracts) {
             address[] memory initialValidators = getValidatorAddresses();
 
-            PodRegistry podRegistry = new PodRegistry(initialValidators);
-            console.log("PodRegistry deployed at:", address(podRegistry));
+            uint8 f = uint8((initialValidators.length - 1) / 3);
+            Registry reg = new Registry(initialValidators, f);
+            console.log("Registry deployed at:", address(reg));
 
             uint256 bondAmount = 1 ether;
             PodAuctionConsumer auctionConsumer = new PodAuctionConsumer(address(podRegistry), bondAmount);
