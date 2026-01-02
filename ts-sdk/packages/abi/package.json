@@ -1,6 +1,6 @@
 {
   "name": "@podnetwork/abi",
-  "version": "0.1.0-dev.4",
+  "version": "0.1.0-dev.5",
   "description": "ABI utilities for encoding, decoding, and managing smart contract interfaces on Pod Network",
   "author": "pod network",
   "license": "MIT",

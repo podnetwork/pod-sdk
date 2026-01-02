@@ -73,7 +73,7 @@ function deriveAddress(publicKey: string): Address {
  * Zod schema for validating Committee RPC responses.
  *
  * Transforms the raw RPC response from the node into a normalized Committee object.
- * The node returns validators as [index, publicKey] tuples and uses n_minus_* naming.
+ * The node returns validators as an array of public key strings.
  *
  * @example
  * ```typescript
@@ -85,22 +85,21 @@ function deriveAddress(publicKey: string): Address {
  */
 export const CommitteeSchema: z.ZodType<Committee, z.ZodTypeDef, unknown> = z
   .object({
-    validators: z.array(z.tuple([z.number(), z.string()])),
-    n: z.number(),
-    n_minus_f: z.number(),
-    n_minus_2f: z.number(),
-    n_minus_3f: z.number(),
+    validators: z.array(z.string()),
+    quorum_size: z.number(),
+    low_quorum_size: z.number(),
+    solver_quorum_size: z.number(),
   })
   .transform(
     (v): Committee => ({
-      validators: v.validators.map(([index, publicKey]) => ({
+      validators: v.validators.map((publicKey, index) => ({
         publicKey,
         address: deriveAddress(publicKey),
         index,
       })),
-      validatorCount: v.n,
-      quorumSize: v.n_minus_f,
-      solverQuorumSize: v.n_minus_2f,
-      lowQuorumSize: v.n_minus_3f,
+      validatorCount: v.validators.length,
+      quorumSize: v.quorum_size,
+      lowQuorumSize: v.low_quorum_size,
+      solverQuorumSize: v.solver_quorum_size,
     })
   );

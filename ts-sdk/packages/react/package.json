@@ -1,6 +1,6 @@
 {
   "name": "@podnetwork/react",
-  "version": "0.1.0-dev.4",
+  "version": "0.1.0-dev.5",
   "description": "React hooks and headless components for pod SDK",
   "author": "pod network",
   "license": "MIT",

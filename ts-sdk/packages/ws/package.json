@@ -1,6 +1,6 @@
 {
   "name": "@podnetwork/ws",
-  "version": "0.1.0-dev.4",
+  "version": "0.1.0-dev.5",
   "description": "WebSocket provider for Pod Network SDK",
   "author": "pod network",
   "license": "MIT",

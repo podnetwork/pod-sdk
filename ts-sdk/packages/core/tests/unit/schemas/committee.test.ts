@@ -21,22 +21,14 @@ function expectedAddress(publicKey: string): string {
   return `0x${hash.slice(-40)}`;
 }
 
-/**
- * Helper to create validators in the new [index, publicKey] tuple format.
- */
-function createValidatorTuples(publicKeys: string[]): [number, string][] {
-  return publicKeys.map((pk, i) => [i, pk]);
-}
-
 describe("CommitteeSchema", () => {
   describe("valid committee responses", () => {
     it("should parse committee with multiple validators", () => {
       const rpcResponse = {
-        validators: createValidatorTuples(SAMPLE_PUBLIC_KEYS),
-        n: 3,
-        n_minus_f: 3,
-        n_minus_3f: 1,
-        n_minus_2f: 2,
+        validators: SAMPLE_PUBLIC_KEYS,
+        quorum_size: 3,
+        low_quorum_size: 1,
+        solver_quorum_size: 2,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
@@ -53,26 +45,25 @@ describe("CommitteeSchema", () => {
     it("should parse empty validators array", () => {
       const rpcResponse = {
         validators: [],
-        n: 0,
-        n_minus_f: 0,
-        n_minus_3f: 0,
-        n_minus_2f: 0,
+        quorum_size: 0,
+        low_quorum_size: 0,
+        solver_quorum_size: 0,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.validators).toHaveLength(0);
+        expect(result.data.validatorCount).toBe(0);
       }
     });
 
     it("should parse single validator", () => {
       const rpcResponse = {
-        validators: [[0, SAMPLE_PUBLIC_KEYS[0]]] as [number, string][],
-        n: 1,
-        n_minus_f: 1,
-        n_minus_3f: 1,
-        n_minus_2f: 1,
+        validators: [SAMPLE_PUBLIC_KEYS[0]],
+        quorum_size: 1,
+        low_quorum_size: 1,
+        solver_quorum_size: 1,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
@@ -85,37 +76,35 @@ describe("CommitteeSchema", () => {
     });
   });
 
-  describe("n_minus_* to camelCase transformation", () => {
-    it("should transform n_minus_* fields to camelCase", () => {
+  describe("snake_case to camelCase transformation", () => {
+    it("should transform snake_case fields to camelCase", () => {
       const rpcResponse = {
         validators: [],
-        n: 5,
-        n_minus_f: 5,
-        n_minus_3f: 2,
-        n_minus_2f: 3,
+        quorum_size: 5,
+        low_quorum_size: 2,
+        solver_quorum_size: 3,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.validatorCount).toBe(5);
+        expect(result.data.validatorCount).toBe(0);
         expect(result.data.quorumSize).toBe(5);
         expect(result.data.lowQuorumSize).toBe(2);
         expect(result.data.solverQuorumSize).toBe(3);
         // Verify snake_case fields don't exist on result
-        expect((result.data as unknown as Record<string, unknown>)["n_minus_f"]).toBeUndefined();
+        expect((result.data as unknown as Record<string, unknown>)["quorum_size"]).toBeUndefined();
       }
     });
   });
 
   describe("validator index assignment", () => {
-    it("should preserve indices from validators tuples", () => {
+    it("should assign indices based on array position", () => {
       const rpcResponse = {
-        validators: createValidatorTuples(SAMPLE_PUBLIC_KEYS),
-        n: 3,
-        n_minus_f: 3,
-        n_minus_3f: 1,
-        n_minus_2f: 2,
+        validators: SAMPLE_PUBLIC_KEYS,
+        quorum_size: 3,
+        low_quorum_size: 1,
+        solver_quorum_size: 2,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
@@ -131,11 +120,10 @@ describe("CommitteeSchema", () => {
   describe("address derivation", () => {
     it("should derive correct addresses from public keys", () => {
       const rpcResponse = {
-        validators: createValidatorTuples(SAMPLE_PUBLIC_KEYS),
-        n: 3,
-        n_minus_f: 3,
-        n_minus_3f: 1,
-        n_minus_2f: 2,
+        validators: SAMPLE_PUBLIC_KEYS,
+        quorum_size: 3,
+        low_quorum_size: 1,
+        solver_quorum_size: 2,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
@@ -153,11 +141,10 @@ describe("CommitteeSchema", () => {
       const pubKeyWithoutPrefix = SAMPLE_PUBLIC_KEYS[0];
 
       const rpcResponse = {
-        validators: [[0, pubKeyWithoutPrefix]] as [number, string][],
-        n: 1,
-        n_minus_f: 1,
-        n_minus_3f: 1,
-        n_minus_2f: 1,
+        validators: [pubKeyWithoutPrefix],
+        quorum_size: 1,
+        low_quorum_size: 1,
+        solver_quorum_size: 1,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
@@ -174,11 +161,10 @@ describe("CommitteeSchema", () => {
       const pubKeyWithPrefix = `04${SAMPLE_PUBLIC_KEYS[0] ?? ""}`;
 
       const rpcResponse = {
-        validators: [[0, pubKeyWithPrefix]] as [number, string][],
-        n: 1,
-        n_minus_f: 1,
-        n_minus_3f: 1,
-        n_minus_2f: 1,
+        validators: [pubKeyWithPrefix],
+        quorum_size: 1,
+        low_quorum_size: 1,
+        solver_quorum_size: 1,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
@@ -194,11 +180,10 @@ describe("CommitteeSchema", () => {
   describe("validator structure", () => {
     it("should include publicKey, address, and index in each validator", () => {
       const rpcResponse = {
-        validators: [[0, SAMPLE_PUBLIC_KEYS[0]]] as [number, string][],
-        n: 1,
-        n_minus_f: 1,
-        n_minus_3f: 1,
-        n_minus_2f: 1,
+        validators: [SAMPLE_PUBLIC_KEYS[0]],
+        quorum_size: 1,
+        low_quorum_size: 1,
+        solver_quorum_size: 1,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
@@ -218,48 +203,44 @@ describe("CommitteeSchema", () => {
   describe("invalid committee responses", () => {
     it("should reject missing validators field", () => {
       const rpcResponse = {
-        n: 3,
-        n_minus_f: 3,
-        n_minus_3f: 1,
-        n_minus_2f: 2,
+        quorum_size: 3,
+        low_quorum_size: 1,
+        solver_quorum_size: 2,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
       expect(result.success).toBe(false);
     });
 
-    it("should reject missing n field", () => {
+    it("should reject missing quorum_size field", () => {
       const rpcResponse = {
         validators: [],
-        n_minus_f: 1,
-        n_minus_3f: 1,
-        n_minus_2f: 1,
+        low_quorum_size: 1,
+        solver_quorum_size: 1,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
       expect(result.success).toBe(false);
     });
 
-    it("should reject validators not in tuple format", () => {
+    it("should reject non-string validators", () => {
       const rpcResponse = {
-        validators: SAMPLE_PUBLIC_KEYS, // Wrong format - should be tuples
-        n: 3,
-        n_minus_f: 3,
-        n_minus_3f: 1,
-        n_minus_2f: 2,
+        validators: [123, 456], // Wrong format - should be strings
+        quorum_size: 2,
+        low_quorum_size: 1,
+        solver_quorum_size: 1,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);
       expect(result.success).toBe(false);
     });
 
-    it("should reject non-number n field", () => {
+    it("should reject non-number quorum_size field", () => {
       const rpcResponse = {
         validators: [],
-        n: "3",
-        n_minus_f: 3,
-        n_minus_3f: 1,
-        n_minus_2f: 2,
+        quorum_size: "3",
+        low_quorum_size: 1,
+        solver_quorum_size: 2,
       };
 
       const result = CommitteeSchema.safeParse(rpcResponse);

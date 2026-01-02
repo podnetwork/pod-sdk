@@ -1,6 +1,6 @@
 {
   "name": "@podnetwork/wallet",
-  "version": "0.1.0-dev.4",
+  "version": "0.1.0-dev.5",
   "description": "Wallet functionality for Pod Network SDK",
   "author": "pod network",
   "license": "MIT",
