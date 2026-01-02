@@ -1,0 +1,17 @@
+{
+  "name": "basic-transfer-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Example demonstrating basic POD token transfers",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@podnetwork/core": "workspace:*",
+    "@podnetwork/wallet": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}

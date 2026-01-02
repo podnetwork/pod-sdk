@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Coverage
+coverage/
+
+# Lockfiles
+pnpm-lock.yaml
+
+# Generated files
+*.d.ts
+
+# Changelogs (may have custom formatting)
+CHANGELOG.md

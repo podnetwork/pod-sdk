@@ -1,0 +1,21 @@
+{
+  "name": "@podnetwork/example-contract-interaction",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Example demonstrating pod SDK contract interactions",
+  "type": "module",
+  "scripts": {
+    "generate-abi": "pnpm exec extract-abi ./contracts/*.sol -o ./src/abis/",
+    "build": "tsc",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@podnetwork/contracts": "workspace:*",
+    "@podnetwork/core": "workspace:*",
+    "@podnetwork/wallet": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "~5.7.2"
+  }
+}

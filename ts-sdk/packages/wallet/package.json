@@ -1,0 +1,65 @@
+{
+  "name": "@podnetwork/wallet",
+  "version": "0.1.0-dev.4",
+  "description": "Wallet functionality for Pod Network SDK",
+  "author": "pod network",
+  "license": "MIT",
+  "private": false,
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/podnetwork/pod-sdk",
+    "directory": "ts-sdk/packages/wallet"
+  },
+  "homepage": "https://pod.network",
+  "bugs": {
+    "url": "https://github.com/podnetwork/pod-sdk/issues"
+  },
+  "engines": {
+    "node": ">= 24",
+    "pnpm": ">= 9.15"
+  },
+  "keywords": [
+    "pod",
+    "ethereum",
+    "blockchain",
+    "sdk",
+    "web3",
+    "wallet"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rimraf dist",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@podnetwork/core": "workspace:*",
+    "@podnetwork/wallet-browser": "workspace:*"
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.5",
+    "typescript": "~5.7.2"
+  },
+  "peerDependencies": {
+    "ethers": "^6.0.0"
+  }
+}

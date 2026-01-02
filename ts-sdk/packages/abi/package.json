@@ -1,0 +1,118 @@
+{
+  "name": "@podnetwork/abi",
+  "version": "0.1.0-dev.4",
+  "description": "ABI utilities for encoding, decoding, and managing smart contract interfaces on Pod Network",
+  "author": "pod network",
+  "license": "MIT",
+  "private": false,
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/podnetwork/pod-sdk",
+    "directory": "ts-sdk/packages/abi"
+  },
+  "homepage": "https://pod.network",
+  "bugs": {
+    "url": "https://github.com/podnetwork/pod-sdk/issues"
+  },
+  "engines": {
+    "node": ">= 24",
+    "pnpm": ">= 9.15"
+  },
+  "keywords": [
+    "pod",
+    "ethereum",
+    "blockchain",
+    "sdk",
+    "web3",
+    "abi",
+    "solidity",
+    "encoding",
+    "decoding",
+    "smart-contracts"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas/index.d.ts",
+      "import": "./dist/schemas/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    },
+    "./decode": {
+      "types": "./dist/decode/index.d.ts",
+      "import": "./dist/decode/index.js"
+    },
+    "./encode": {
+      "types": "./dist/encode/index.d.ts",
+      "import": "./dist/encode/index.js"
+    },
+    "./parse": {
+      "types": "./dist/parse/index.d.ts",
+      "import": "./dist/parse/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "import": "./dist/utils/index.js"
+    },
+    "./registry": {
+      "types": "./dist/registry/index.d.ts",
+      "import": "./dist/registry/index.js"
+    },
+    "./lookup": {
+      "types": "./dist/lookup/index.d.ts",
+      "import": "./dist/lookup/index.js"
+    },
+    "./abis": {
+      "types": "./dist/abis/index.d.ts",
+      "import": "./dist/abis/index.js"
+    },
+    "./abis/builtins": {
+      "types": "./dist/abis/builtins/index.d.ts",
+      "import": "./dist/abis/builtins/index.js"
+    },
+    "./abis/common": {
+      "types": "./dist/abis/common/index.d.ts",
+      "import": "./dist/abis/common/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rimraf dist",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "abitype": "^1.0.8",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.5",
+    "typescript": "~5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "peerDependencies": {
+    "ethers": "^6.0.0"
+  },
+  "optionalDependencies": {
+    "@shazow/whatsabi": "^0.17.0"
+  }
+}

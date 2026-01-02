@@ -1,0 +1,22 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPointStrategy": "packages",
+  "entryPoints": ["packages/*"],
+  "out": "docs",
+  "name": "pod network TypeScript SDK",
+  "packageOptions": {
+    "entryPoints": ["src/index.ts"]
+  },
+  "exclude": ["**/tests/**", "**/e2e/**", "**/*.test.ts"],
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "includeVersion": true,
+  "readme": "README.md",
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "validation": {
+    "notDocumented": false
+  }
+}

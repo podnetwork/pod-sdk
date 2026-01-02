@@ -1,0 +1,17 @@
+{
+  "name": "websocket-subscriptions-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Example demonstrating real-time WebSocket subscriptions",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@podnetwork/core": "workspace:*",
+    "@podnetwork/ws": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}

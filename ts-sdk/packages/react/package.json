@@ -1,0 +1,105 @@
+{
+  "name": "@podnetwork/react",
+  "version": "0.1.0-dev.4",
+  "description": "React hooks and headless components for pod SDK",
+  "author": "pod network",
+  "license": "MIT",
+  "private": false,
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/podnetwork/pod-sdk",
+    "directory": "ts-sdk/packages/react"
+  },
+  "homepage": "https://pod.network",
+  "bugs": {
+    "url": "https://github.com/podnetwork/pod-sdk/issues"
+  },
+  "engines": {
+    "node": ">= 24",
+    "pnpm": ">= 9.15"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./hooks": {
+      "types": "./dist/hooks/index.d.ts",
+      "import": "./dist/hooks/index.js"
+    },
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "import": "./dist/components/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "import": "./dist/utils/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rimraf dist",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "dependencies": {
+    "@podnetwork/auction": "workspace:*",
+    "@podnetwork/contracts": "workspace:*",
+    "@podnetwork/core": "workspace:*",
+    "@podnetwork/faucet": "workspace:*",
+    "@podnetwork/orderbook": "workspace:*",
+    "@podnetwork/wallet": "workspace:*",
+    "@podnetwork/wallet-browser": "workspace:*",
+    "@podnetwork/ws": "workspace:*",
+    "@radix-ui/react-slot": "^1.2.4"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@storybook/addon-a11y": "^8.4.7",
+    "@storybook/addon-essentials": "^8.4.7",
+    "@storybook/addon-interactions": "^8.4.7",
+    "@storybook/react": "^8.4.7",
+    "@storybook/react-vite": "^8.4.7",
+    "@storybook/test": "^8.4.7",
+    "@testing-library/dom": "^10.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "rimraf": "^6.0.1",
+    "storybook": "^8.4.7",
+    "tsup": "^8.3.5",
+    "typescript": "~5.7.2",
+    "vite": "^5.4.0",
+    "jsdom": "^25.0.0",
+    "vitest": "^2.1.0"
+  },
+  "keywords": [
+    "pod",
+    "ethereum",
+    "blockchain",
+    "wallet",
+    "react",
+    "hooks",
+    "components",
+    "headless"
+  ]
+}

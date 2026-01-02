@@ -1,0 +1,13 @@
+packages:
+  - "packages/core"
+  - "packages/wallet"
+  - "packages/wallet-browser"
+  - "packages/react"
+  - "packages/ws"
+  - "packages/orderbook"
+  - "packages/auction"
+  - "packages/faucet"
+  - "packages/contracts"
+  - "packages/abi"
+  - "packages/pod-sdk"
+  - "examples/*"

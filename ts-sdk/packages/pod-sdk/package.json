@@ -1,0 +1,96 @@
+{
+  "name": "@podnetwork/pod-sdk",
+  "version": "0.1.0-dev.4",
+  "description": "The official Pod Network SDK for TypeScript",
+  "author": "pod network",
+  "license": "MIT",
+  "private": false,
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/podnetwork/pod-sdk",
+    "directory": "ts-sdk/packages/pod-sdk"
+  },
+  "homepage": "https://pod.network",
+  "bugs": {
+    "url": "https://github.com/podnetwork/pod-sdk/issues"
+  },
+  "engines": {
+    "node": ">= 24",
+    "pnpm": ">= 9.15"
+  },
+  "keywords": [
+    "pod",
+    "ethereum",
+    "blockchain",
+    "sdk",
+    "web3"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./wallet": {
+      "types": "./dist/wallet.d.ts",
+      "import": "./dist/wallet.js"
+    },
+    "./ws": {
+      "types": "./dist/ws.d.ts",
+      "import": "./dist/ws.js"
+    },
+    "./orderbook": {
+      "types": "./dist/orderbook.d.ts",
+      "import": "./dist/orderbook.js"
+    },
+    "./auction": {
+      "types": "./dist/auction.d.ts",
+      "import": "./dist/auction.js"
+    },
+    "./faucet": {
+      "types": "./dist/faucet.d.ts",
+      "import": "./dist/faucet.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rimraf dist",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@podnetwork/auction": "workspace:*",
+    "@podnetwork/contracts": "workspace:*",
+    "@podnetwork/core": "workspace:*",
+    "@podnetwork/faucet": "workspace:*",
+    "@podnetwork/orderbook": "workspace:*",
+    "@podnetwork/wallet": "workspace:*",
+    "@podnetwork/wallet-browser": "workspace:*",
+    "@podnetwork/ws": "workspace:*"
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.5",
+    "typescript": "~5.7.2"
+  },
+  "peerDependencies": {
+    "ethers": "^6.0.0"
+  }
+}
