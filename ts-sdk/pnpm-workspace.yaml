@@ -3,6 +3,7 @@ packages:
   - "packages/wallet"
   - "packages/wallet-browser"
   - "packages/react"
+  - "packages/wallet-ui"
   - "packages/ws"
   - "packages/orderbook"
   - "packages/auction"

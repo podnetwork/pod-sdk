@@ -112,8 +112,8 @@ describe("add-network utilities", () => {
 
     it("has correct native currency", () => {
       expect(POD_CHRONOS_DEV_NETWORK.nativeCurrency).toEqual({
-        name: "POD",
-        symbol: "POD",
+        name: "Wrapped Ether",
+        symbol: "WETH",
         decimals: 18,
       });
     });

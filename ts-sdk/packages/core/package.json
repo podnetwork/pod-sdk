@@ -1,6 +1,6 @@
 {
   "name": "@podnetwork/core",
-  "version": "0.1.0-dev.5",
+  "version": "0.1.0-dev.6",
   "description": "Core utilities and types for Pod Network SDK",
   "author": "pod network",
   "license": "MIT",

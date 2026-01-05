@@ -202,3 +202,71 @@ export type {
   AddNetworkButtonTriggerProps,
   AddNetworkButtonStatusProps,
 } from "./add-network-button/index.js";
+
+export {
+  Avatar,
+  AvatarRoot,
+  AvatarImage,
+  AvatarFallback,
+  useAvatarContext,
+  POD_AVATAR_COLORS,
+} from "./avatar/index.js";
+export type {
+  AvatarContextValue,
+  AvatarVariant,
+  AvatarRootProps,
+  AvatarImageProps,
+  AvatarFallbackProps,
+} from "./avatar/index.js";
+
+export {
+  QrCode,
+  QrCodeRoot,
+  QrCodeImage,
+  QrCodeLogo,
+  useQrCodeContext,
+} from "./qr-code/index.js";
+export type {
+  QrCodeContextValue,
+  ErrorCorrectionLevel,
+  QrCodeRootProps,
+  QrCodeImageProps,
+  QrCodeLogoProps,
+} from "./qr-code/index.js";
+
+export {
+  NetworkStatus,
+  NetworkStatusRoot,
+  NetworkStatusBadge,
+  NetworkStatusName,
+  NetworkStatusChainId,
+  NetworkStatusSwitchButton,
+  useNetworkStatusContext,
+} from "./network-status/index.js";
+export type {
+  NetworkStatusContextValue,
+  NetworkStatusRootProps,
+  NetworkStatusBadgeProps,
+  NetworkStatusNameProps,
+  NetworkStatusChainIdProps,
+  NetworkStatusSwitchButtonProps,
+} from "./network-status/index.js";
+
+export {
+  AccountSwitcher,
+  AccountSwitcherRoot,
+  AccountSwitcherList,
+  AccountSwitcherItem,
+  AccountSwitcherActiveIndicator,
+  AccountSwitcherManageButton,
+  useAccountSwitcherContext,
+  useAccountItemContext,
+} from "./account-switcher/index.js";
+export type {
+  AccountSwitcherContextValue,
+  AccountSwitcherRootProps,
+  AccountSwitcherListProps,
+  AccountSwitcherItemProps,
+  AccountSwitcherActiveIndicatorProps,
+  AccountSwitcherManageButtonProps,
+} from "./account-switcher/index.js";

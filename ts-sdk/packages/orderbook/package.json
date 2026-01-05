@@ -1,6 +1,6 @@
 {
   "name": "@podnetwork/orderbook",
-  "version": "0.1.0-dev.5",
+  "version": "0.1.0-dev.6",
   "description": "Orderbook client for Pod Network SDK",
   "author": "pod network",
   "license": "MIT",

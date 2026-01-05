@@ -34,3 +34,17 @@ export { useBids } from "./use-bids.js";
 export type { UseBidsOptions, UseBidsResult, BidConnectionState } from "./use-bids.js";
 export { useAuction } from "./use-auction.js";
 export type { UseAuctionOptions, UseAuctionResult } from "./use-auction.js";
+export { useNetworkValidation } from "./use-network-validation.js";
+export type {
+  UseNetworkValidationOptions,
+  UseNetworkValidationResult,
+} from "./use-network-validation.js";
+export {
+  useWalletAccounts,
+  WalletAccountsProvider,
+  WalletAccountsProviderError,
+} from "./use-wallet-accounts.jsx";
+export type {
+  WalletAccountsProviderProps,
+  UseWalletAccountsResult,
+} from "./use-wallet-accounts.jsx";

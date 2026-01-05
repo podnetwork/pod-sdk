@@ -120,8 +120,8 @@ export const POD_CHRONOS_DEV_NETWORK: PodNetworkConfig = {
   rpcUrl: CHRONOS_DEV_RPC_URL,
   wsUrl: CHRONOS_DEV_WS_URL,
   nativeCurrency: {
-    name: "POD",
-    symbol: "POD",
+    name: "Wrapped Ether",
+    symbol: "WETH",
     decimals: 18,
   },
   blockExplorerUrl: CHRONOS_DEV_EXPLORER_URL,

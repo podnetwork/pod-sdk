@@ -42,7 +42,7 @@
  * ```
  */
 
-export const VERSION = "0.1.0" as const;
+export const VERSION = "0.1.0-dev.6" as const;
 
 // Providers
 export {
@@ -80,6 +80,10 @@ export {
   useFaucet,
   useBids,
   useAuction,
+  useNetworkValidation,
+  useWalletAccounts,
+  WalletAccountsProvider,
+  WalletAccountsProviderError,
 } from "./hooks/index.js";
 export type {
   UseBalanceOptions,
@@ -109,6 +113,10 @@ export type {
   BidConnectionState,
   UseAuctionOptions,
   UseAuctionResult,
+  UseNetworkValidationOptions,
+  UseNetworkValidationResult,
+  WalletAccountsProviderProps,
+  UseWalletAccountsResult,
 } from "./hooks/index.js";
 
 // Components
@@ -193,6 +201,32 @@ export {
   AddNetworkButtonTrigger,
   AddNetworkButtonStatus,
   useAddNetworkButtonContext,
+  Avatar,
+  AvatarRoot,
+  AvatarImage,
+  AvatarFallback,
+  useAvatarContext,
+  POD_AVATAR_COLORS,
+  QrCode,
+  QrCodeRoot,
+  QrCodeImage,
+  QrCodeLogo,
+  useQrCodeContext,
+  NetworkStatus,
+  NetworkStatusRoot,
+  NetworkStatusBadge,
+  NetworkStatusName,
+  NetworkStatusChainId,
+  NetworkStatusSwitchButton,
+  useNetworkStatusContext,
+  AccountSwitcher,
+  AccountSwitcherRoot,
+  AccountSwitcherList,
+  AccountSwitcherItem,
+  AccountSwitcherActiveIndicator,
+  AccountSwitcherManageButton,
+  useAccountSwitcherContext,
+  useAccountItemContext,
 } from "./components/index.js";
 export type {
   HashContextValue,
@@ -266,6 +300,28 @@ export type {
   AddNetworkButtonRootProps,
   AddNetworkButtonTriggerProps,
   AddNetworkButtonStatusProps,
+  AvatarContextValue,
+  AvatarVariant,
+  AvatarRootProps,
+  AvatarImageProps,
+  AvatarFallbackProps,
+  QrCodeContextValue,
+  ErrorCorrectionLevel,
+  QrCodeRootProps,
+  QrCodeImageProps,
+  QrCodeLogoProps,
+  NetworkStatusContextValue,
+  NetworkStatusRootProps,
+  NetworkStatusBadgeProps,
+  NetworkStatusNameProps,
+  NetworkStatusChainIdProps,
+  NetworkStatusSwitchButtonProps,
+  AccountSwitcherContextValue,
+  AccountSwitcherRootProps,
+  AccountSwitcherListProps,
+  AccountSwitcherItemProps,
+  AccountSwitcherActiveIndicatorProps,
+  AccountSwitcherManageButtonProps,
 } from "./components/index.js";
 
 // Utilities

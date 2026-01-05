@@ -1,6 +1,6 @@
 {
   "name": "@podnetwork/react",
-  "version": "0.1.0-dev.5",
+  "version": "0.1.0-dev.6",
   "description": "React hooks and headless components for pod SDK",
   "author": "pod network",
   "license": "MIT",
@@ -68,7 +68,17 @@
   },
   "peerDependencies": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "boring-avatars": "^2.0.4",
+    "qrcode.react": "^4.2.0"
+  },
+  "peerDependenciesMeta": {
+    "boring-avatars": {
+      "optional": true
+    },
+    "qrcode.react": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@storybook/addon-a11y": "^8.4.7",
