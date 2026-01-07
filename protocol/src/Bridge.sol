@@ -98,7 +98,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         bytes32 id = bytes32(depositIndex++);
 
-        emit Deposit(id, token, amount, to);
+        emit Deposit(id, msg.sender, to, token, amount);
 
         return id;
     }
@@ -209,7 +209,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         processedRequests[txHash] = true;
 
         IERC20(token).safeTransfer(to, amount);
-        emit Claim(txHash, token, mirrorToken, amount, to);
+        emit Claim(txHash, to, token, amount);
     }
 
     /**
