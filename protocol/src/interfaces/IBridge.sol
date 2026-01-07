@@ -56,7 +56,7 @@ interface IBridge {
      * @param amount The amount of tokens to bridge.
      * @param to The address to send the tokens to.
      */
-    event Deposit(bytes32 indexed id, address token, uint256 amount, address indexed from, address indexed to);
+    event Deposit(bytes32 indexed id, address indexed from, address indexed to, address token, uint256 amount);
 
     /**
      * @dev Event emitted when a claim is made.
@@ -65,7 +65,7 @@ interface IBridge {
      * @param amount The amount of tokens to bridge.
      * @param to The address to send the tokens to.
      */
-    event Claim(bytes32 indexed id, address token, uint256 amount, address indexed to);
+    event Claim(bytes32 indexed id, address indexed to, address token, uint256 amount);
 
     /**
      * @dev Token usage.

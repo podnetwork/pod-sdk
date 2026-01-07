@@ -46,7 +46,7 @@ abstract contract BridgeBehaviorTest is PodTest {
     function test_Deposit_EmitsEvent() public {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Deposit(bytes32(uint256(0)), address(token()), DEPOSIT_AMOUNT, user, user);
+        emit IBridge.Deposit(bytes32(uint256(0)), user, user, address(token()), DEPOSIT_AMOUNT);
         bridge().deposit(address(token()), DEPOSIT_AMOUNT, user);
     }
 
