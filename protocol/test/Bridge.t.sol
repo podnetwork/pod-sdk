@@ -101,7 +101,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
 
         // Expect Claim event - first param is local token, second is mirror token
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
+        emit IBridge.Claim(txHash, address(_token), DEPOSIT_AMOUNT, user);
         // claim() takes local token as first param, contract looks up mirrorToken from tokenData
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
 
@@ -149,7 +149,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
 
         // First claim should emit Claim event with actual txHash
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
+        emit IBridge.Claim(txHash, address(_token), DEPOSIT_AMOUNT, user);
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
 
         // Second claim with same proof should fail

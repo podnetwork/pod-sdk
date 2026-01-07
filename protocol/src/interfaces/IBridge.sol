@@ -52,21 +52,20 @@ interface IBridge {
     /**
      * @dev Event emitted when a deposit is made.
      * @param id The request index.
-     * @param token The token to bridge (address(0) for native).
+     * @param token The token to bridge.
      * @param amount The amount of tokens to bridge.
      * @param to The address to send the tokens to.
      */
-    event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address indexed to);
+    event Deposit(bytes32 indexed id, address token, uint256 amount, address indexed from, address indexed to);
 
     /**
      * @dev Event emitted when a claim is made.
      * @param id The request index.
-     * @param mirrorToken The token on the source chain.
      * @param token The token on the destination chain.
      * @param amount The amount of tokens to bridge.
      * @param to The address to send the tokens to.
      */
-    event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
+    event Claim(bytes32 indexed id, address token, uint256 amount, address indexed to);
 
     /**
      * @dev Token usage.

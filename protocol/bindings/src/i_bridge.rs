@@ -12,8 +12,8 @@ interface IBridge {
     error MirrorTokenNotFound();
     error RequestAlreadyProcessed();
 
-    event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
-    event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address indexed to);
+    event Claim(bytes32 indexed id, address token, uint256 amount, address indexed to);
+    event Deposit(bytes32 indexed id, address token, uint256 amount, address indexed from, address indexed to);
 
     function claim(address token, uint256 amount, address to, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) external;
     function configureToken(address token, uint256 minAmount, uint256 depositLimit, uint256 claimLimit) external;
@@ -194,12 +194,6 @@ interface IBridge {
         "internalType": "bytes32"
       },
       {
-        "name": "mirrorToken",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
         "name": "token",
         "type": "address",
         "indexed": false,
@@ -233,7 +227,7 @@ interface IBridge {
       {
         "name": "token",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       },
       {
@@ -241,6 +235,12 @@ interface IBridge {
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      },
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
         "name": "to",
@@ -917,9 +917,9 @@ error RequestAlreadyProcessed();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `Claim(bytes32,address,address,uint256,address)` and selector `0xa0b99c0fdfc395724d7b81a88a6d74852461f7691371afe2839bb8688475788c`.
+    /**Event with signature `Claim(bytes32,address,uint256,address)` and selector `0xeb39f7e8463e013369dbf61026c50e69b2788ce7a699bda748adb5ae1761233c`.
 ```solidity
-event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
+event Claim(bytes32 indexed id, address token, uint256 amount, address indexed to);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -931,8 +931,6 @@ event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amou
     pub struct Claim {
         #[allow(missing_docs)]
         pub id: alloy::sol_types::private::FixedBytes<32>,
-        #[allow(missing_docs)]
-        pub mirrorToken: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub token: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
@@ -952,7 +950,6 @@ event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amou
         impl alloy_sol_types::SolEvent for Claim {
             type DataTuple<'a> = (
                 alloy::sol_types::sol_data::Address,
-                alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
             );
             type DataToken<'a> = <Self::DataTuple<
@@ -963,12 +960,11 @@ event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amou
                 alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "Claim(bytes32,address,address,uint256,address)";
+            const SIGNATURE: &'static str = "Claim(bytes32,address,uint256,address)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                160u8, 185u8, 156u8, 15u8, 223u8, 195u8, 149u8, 114u8, 77u8, 123u8,
-                129u8, 168u8, 138u8, 109u8, 116u8, 133u8, 36u8, 97u8, 247u8, 105u8, 19u8,
-                113u8, 175u8, 226u8, 131u8, 155u8, 184u8, 104u8, 132u8, 117u8, 120u8,
-                140u8,
+                235u8, 57u8, 247u8, 232u8, 70u8, 62u8, 1u8, 51u8, 105u8, 219u8, 246u8,
+                16u8, 38u8, 197u8, 14u8, 105u8, 178u8, 120u8, 140u8, 231u8, 166u8, 153u8,
+                189u8, 167u8, 72u8, 173u8, 181u8, 174u8, 23u8, 97u8, 35u8, 60u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -979,9 +975,8 @@ event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amou
             ) -> Self {
                 Self {
                     id: topics.1,
-                    mirrorToken: data.0,
-                    token: data.1,
-                    amount: data.2,
+                    token: data.0,
+                    amount: data.1,
                     to: topics.2,
                 }
             }
@@ -1003,9 +998,6 @@ event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amou
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.mirrorToken,
-                    ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.token,
                     ),
@@ -1057,9 +1049,9 @@ event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amou
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `Deposit(bytes32,address,uint256,address)` and selector `0xb25817d51bf1faf024f38337136f66fa778e7da5a20888ec58560d655ed82447`.
+    /**Event with signature `Deposit(bytes32,address,uint256,address,address)` and selector `0x8898428fdb989fad740f8c783aef7d3a80f6ffb409db5c492ecd41516d19bc31`.
 ```solidity
-event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address indexed to);
+event Deposit(bytes32 indexed id, address token, uint256 amount, address indexed from, address indexed to);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -1076,6 +1068,8 @@ event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address
         #[allow(missing_docs)]
         pub amount: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
+        pub from: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
         pub to: alloy::sol_types::private::Address,
     }
     #[allow(
@@ -1088,7 +1082,10 @@ event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for Deposit {
-            type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type DataTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+            );
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -1098,11 +1095,11 @@ event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "Deposit(bytes32,address,uint256,address)";
+            const SIGNATURE: &'static str = "Deposit(bytes32,address,uint256,address,address)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                178u8, 88u8, 23u8, 213u8, 27u8, 241u8, 250u8, 240u8, 36u8, 243u8, 131u8,
-                55u8, 19u8, 111u8, 102u8, 250u8, 119u8, 142u8, 125u8, 165u8, 162u8, 8u8,
-                136u8, 236u8, 88u8, 86u8, 13u8, 101u8, 94u8, 216u8, 36u8, 71u8,
+                136u8, 152u8, 66u8, 143u8, 219u8, 152u8, 159u8, 173u8, 116u8, 15u8,
+                140u8, 120u8, 58u8, 239u8, 125u8, 58u8, 128u8, 246u8, 255u8, 180u8, 9u8,
+                219u8, 92u8, 73u8, 46u8, 205u8, 65u8, 81u8, 109u8, 25u8, 188u8, 49u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -1113,8 +1110,9 @@ event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address
             ) -> Self {
                 Self {
                     id: topics.1,
-                    token: topics.2,
-                    amount: data.0,
+                    token: data.0,
+                    amount: data.1,
+                    from: topics.2,
                     to: topics.3,
                 }
             }
@@ -1136,6 +1134,9 @@ event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.token,
+                    ),
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.amount),
@@ -1146,7 +1147,7 @@ event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address
                 (
                     Self::SIGNATURE_HASH.into(),
                     self.id.clone(),
-                    self.token.clone(),
+                    self.from.clone(),
                     self.to.clone(),
                 )
             }
@@ -1165,7 +1166,7 @@ event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.id);
                 out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
-                    &self.token,
+                    &self.from,
                 );
                 out[3usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
                     &self.to,
@@ -3156,26 +3157,25 @@ function whiteListToken(address token, address mirrorToken, uint256 minAmount, u
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                160u8, 185u8, 156u8, 15u8, 223u8, 195u8, 149u8, 114u8, 77u8, 123u8,
-                129u8, 168u8, 138u8, 109u8, 116u8, 133u8, 36u8, 97u8, 247u8, 105u8, 19u8,
-                113u8, 175u8, 226u8, 131u8, 155u8, 184u8, 104u8, 132u8, 117u8, 120u8,
-                140u8,
+                136u8, 152u8, 66u8, 143u8, 219u8, 152u8, 159u8, 173u8, 116u8, 15u8,
+                140u8, 120u8, 58u8, 239u8, 125u8, 58u8, 128u8, 246u8, 255u8, 180u8, 9u8,
+                219u8, 92u8, 73u8, 46u8, 205u8, 65u8, 81u8, 109u8, 25u8, 188u8, 49u8,
             ],
             [
-                178u8, 88u8, 23u8, 213u8, 27u8, 241u8, 250u8, 240u8, 36u8, 243u8, 131u8,
-                55u8, 19u8, 111u8, 102u8, 250u8, 119u8, 142u8, 125u8, 165u8, 162u8, 8u8,
-                136u8, 236u8, 88u8, 86u8, 13u8, 101u8, 94u8, 216u8, 36u8, 71u8,
+                235u8, 57u8, 247u8, 232u8, 70u8, 62u8, 1u8, 51u8, 105u8, 219u8, 246u8,
+                16u8, 38u8, 197u8, 14u8, 105u8, 178u8, 120u8, 140u8, 231u8, 166u8, 153u8,
+                189u8, 167u8, 72u8, 173u8, 181u8, 174u8, 23u8, 97u8, 35u8, 60u8,
             ],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
-            ::core::stringify!(Claim),
             ::core::stringify!(Deposit),
+            ::core::stringify!(Claim),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
-            <Claim as alloy_sol_types::SolEvent>::SIGNATURE,
             <Deposit as alloy_sol_types::SolEvent>::SIGNATURE,
+            <Claim as alloy_sol_types::SolEvent>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
         #[inline]
