@@ -32,7 +32,6 @@ alloy-provider = { version = "1.2.1", features = ["pubsub", "ws", "reqwest"] }
 alloy-pubsub = "1.2.1"
 
 serde = { version = "1.0.226", features = ["derive"] }
-futures = "0.3.31"
 hex = "0.4.3"
 anyhow = "1.0.100"
 async-trait = "0.1.89"
