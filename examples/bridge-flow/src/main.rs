@@ -311,7 +311,7 @@ async fn main() -> Result<()> {
                 &pod_bridge_client,
                 to,
                 amount,
-                Duration::from_mins(20), // block finalization can take minutes
+                Duration::from_secs(20 * 60), // block finalization can take minutes
             )
             .await?;
             println!("New Pod native balance: {new_balance}");
@@ -338,7 +338,7 @@ async fn main() -> Result<()> {
                 &pod_bridge_client,
                 to,
                 amount,
-                Duration::from_mins(20), // block finalization can take minutes
+                Duration::from_secs(20 * 60), // block finalization can take minutes
             )
             .await?;
             println!("New Pod token balance: {new_balance}");

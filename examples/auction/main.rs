@@ -112,7 +112,7 @@ async fn vote(
     // Submit bid
     println!("Submitting bid for auction {auction_id}...");
     let pending_tx = auction
-        .submitBid(auction_id, deadline, value, data)
+        .submitBid(auction_id, deadline.into(), value, data)
         .send()
         .await?;
 
