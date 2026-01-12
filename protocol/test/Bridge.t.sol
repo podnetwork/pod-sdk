@@ -58,11 +58,11 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
     function test_DepositIndex_IncrementsSequentially() public {
         uint256 beforeIdx = _bridge.depositIndex();
         vm.prank(user);
-        bridge().deposit(address(token()), minAmount, user);
+        bridge().deposit(address(token()), minAmount, user, "");
         assertEq(_bridge.depositIndex(), beforeIdx + 1);
 
         vm.prank(user);
-        bridge().deposit(address(token()), minAmount, user);
+        bridge().deposit(address(token()), minAmount, user, "");
         assertEq(_bridge.depositIndex(), beforeIdx + 2);
     }
 
@@ -70,7 +70,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         uint256 ub = _token.balanceOf(user);
         uint256 bb = _token.balanceOf(address(_bridge));
         vm.prank(user);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
         assertEq(_token.balanceOf(user), ub - DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_bridge)), bb + DEPOSIT_AMOUNT);
     }
@@ -81,7 +81,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         _token.mint(u, DEPOSIT_AMOUNT);
         vm.prank(u);
         vm.expectRevert();
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, u);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, u, "");
     }
 
     // ========== Claim Tests ==========
@@ -89,7 +89,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
     function test_Claim() public {
         // First deposit tokens to the bridge so there's something to claim
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         uint256 initialBalance = _token.balanceOf(user);
         assertEq(_token.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
@@ -116,7 +116,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfNotEnoughSignatures() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         // Only 2 signatures (need 3 for 4 validators with threshold 1/1)
         (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
@@ -128,7 +128,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfInvalidProof() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.DOMAIN_SEPARATOR());
@@ -141,7 +141,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfAlreadyClaimed() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
 
         // Create proof once and reuse for both claims
         (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
@@ -180,7 +180,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfInvalidAmount() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         // Try to claim less than minimum
         (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
@@ -194,7 +194,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
 
     function test_Migrate_TransfersAllTokenBalances() public {
         vm.prank(user);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
         vm.prank(admin);
         _bridge.pause();
         uint256 beforeAmt = _token.balanceOf(address(_bridge));
@@ -222,7 +222,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         vm.prank(user);
         _token.approve(address(_bridge), type(uint256).max);
         vm.prank(user);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
         vm.prank(admin);
         _bridge.pause();
         vm.prank(admin);
@@ -256,7 +256,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         _bridge.whiteListToken(t2, address(t2Mock), minAmount, depositLimit, claimLimit);
 
         vm.prank(user);
-        bridge().deposit(address(token()), minAmount, user);
+        bridge().deposit(address(token()), minAmount, user, "");
         (,,, IBridge.TokenUsage memory dep1,,) = bridge().tokenData(address(token()));
         assertEq(dep1.consumed, minAmount);
 
@@ -270,6 +270,6 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         vm.deal(user, DEPOSIT_AMOUNT);
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
-        bridge().deposit(address(0), 0, user);
+        bridge().deposit(address(0), 0, user, "");
     }
 }

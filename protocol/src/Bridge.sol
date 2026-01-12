@@ -7,6 +7,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -19,13 +20,17 @@ contract Bridge is IBridge, AccessControl, Pausable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes4 internal constant DEPOSIT_SELECTOR = bytes4(keccak256("deposit(address,uint256,address)"));
+
+    uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
 
     // The mock address for native deposit. EIP-7528
     address constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     mapping(address => TokenData) public tokenData;
     mapping(bytes32 => bool) public processedRequests;
+    mapping(address => bool) public whitelistedCallContracts;
 
     address[] public whitelistedTokens;
     address public migratedContract;
@@ -64,6 +69,25 @@ contract Bridge is IBridge, AccessControl, Pausable {
         }
     }
 
+    function _applyPermit(address token, address owner, uint256 amount, bytes calldata permit) internal {
+        if (permit.length == 0) return;
+        if (permit.length != PERMIT_LENGTH) revert InvalidPermitLength();
+
+        uint256 deadline;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+
+        assembly {
+            deadline := calldataload(permit.offset)
+            v := byte(0, calldataload(add(permit.offset, 32)))
+            r := calldataload(add(permit.offset, 33))
+            s := calldataload(add(permit.offset, 65))
+        }
+
+        try IERC20Permit(token).permit(owner, address(this), amount, deadline, v, r, s) {} catch {}
+    }
+
     function checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
         internal
     {
@@ -89,18 +113,79 @@ contract Bridge is IBridge, AccessControl, Pausable {
         }
     }
 
-    function deposit(address token, uint256 amount, address to) external whenNotPaused returns (bytes32) {
+    function deposit(address token, uint256 amount, address to, bytes calldata permit)
+        external
+        whenNotPaused
+        returns (bytes32)
+    {
         if (to == address(0)) revert InvalidToAddress();
 
         TokenData storage t = tokenData[token];
         checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
 
+        _applyPermit(token, msg.sender, amount, permit);
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         bytes32 id = bytes32(depositIndex++);
 
         emit Deposit(id, token, amount, to);
 
         return id;
+    }
+
+    function depositAndCall(
+        address token,
+        uint256 amount,
+        address callContract,
+        uint256 reserveBalance,
+        bytes calldata permit
+    ) external whenNotPaused notMigrated returns (bytes32) {
+        if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
+        if (amount < reserveBalance) revert AmountBelowReserve();
+
+        TokenData storage t = tokenData[token];
+        checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
+
+        _applyPermit(token, msg.sender, amount, permit);
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        bytes32 id = bytes32(depositIndex++);
+
+        emit BatchDepositAndCall(id, token, amount, msg.sender, callContract, reserveBalance);
+
+        return id;
+    }
+
+    function batchDepositAndCall(
+        address token,
+        DepositParams[] calldata deposits,
+        address callContract,
+        uint256 reserveBalance
+    ) external whenNotPaused notMigrated onlyRole(RELAYER_ROLE) {
+        if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
+        if (deposits.length == 0) revert InvalidTokenAmount();
+
+        TokenData storage t = tokenData[token];
+        uint256 length = deposits.length;
+
+        for (uint256 i = 0; i < length; ++i) {
+            DepositParams calldata d = deposits[i];
+
+            if (d.amount < reserveBalance) revert AmountBelowReserve();
+            if (d.account == address(0)) revert InvalidToAddress();
+
+            checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, d.amount);
+
+            // Use permit to approve tokens (try/catch to handle frontrunning)
+            try IERC20Permit(token).permit(d.account, address(this), d.amount, d.deadline, d.v, d.r, d.s) {} catch {}
+
+            IERC20(token).safeTransferFrom(d.account, address(this), d.amount);
+            bytes32 id = bytes32(depositIndex++);
+
+            emit BatchDepositAndCall(id, token, d.amount, d.account, callContract, reserveBalance);
+        }
+    }
+
+    function setCallContractWhitelist(address callContract, bool whitelisted) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        whitelistedCallContracts[callContract] = whitelisted;
     }
 
     function _configureTokenData(address token, uint256 minAmount, uint256 depositLimit, uint256 claimLimit) internal {

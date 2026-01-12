@@ -35,11 +35,6 @@ interface IBridge {
     error DailyLimitExhausted();
 
     /**
-     * @dev Error thrown when attempting to process a claim for a token that has no mirror token mapping.
-     */
-    error MirrorTokenNotFound();
-
-    /**
      * @dev Error thrown when attempting to process a request that has already been processed.
      */
     error RequestAlreadyProcessed();
@@ -48,6 +43,21 @@ interface IBridge {
      * @dev Error thrown when the bridge contract is invalid.
      */
     error InvalidBridgeContract();
+
+    /**
+     * @dev Error thrown when amount is less than reserve balance.
+     */
+    error AmountBelowReserve();
+
+    /**
+     * @dev Error thrown when the call contract is not whitelisted.
+     */
+    error CallContractNotWhitelisted();
+
+    /**
+     * @dev Error thrown when the permit bytes length is invalid.
+     */
+    error InvalidPermitLength();
 
     /**
      * @dev Event emitted when a deposit is made.
@@ -67,6 +77,42 @@ interface IBridge {
      * @param to The address to send the tokens to.
      */
     event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
+
+    /**
+     * @dev Event emitted when a batch deposit and call is made.
+     * @param id The request index.
+     * @param token The token being deposited.
+     * @param amount The amount of tokens deposited.
+     * @param to The address to receive the tokens on the destination chain.
+     * @param callContract The contract to call on the destination chain.
+     * @param reserveBalance The minimum reserve balance required for this deposit.
+     */
+    event BatchDepositAndCall(
+        bytes32 indexed id,
+        address indexed token,
+        uint256 amount,
+        address indexed to,
+        address callContract,
+        uint256 reserveBalance
+    );
+
+    /**
+     * @dev Deposit parameters for batch operations with permit.
+     * @param account The address whose tokens will be deposited.
+     * @param amount The amount of tokens to deposit.
+     * @param deadline The deadline for the permit signature.
+     * @param v The v component of the signature.
+     * @param r The r component of the signature.
+     * @param s The s component of the signature.
+     */
+    struct DepositParams {
+        address account;
+        uint256 amount;
+        uint256 deadline;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
 
     /**
      * @dev Token usage.
@@ -119,9 +165,52 @@ interface IBridge {
      * @param token The token to bridge (address(0) for native).
      * @param amount The amount of tokens to bridge (ignored for native, uses msg.value).
      * @param to The address to receive the tokens on the destination chain.
+     * @param permit Tightly packed permit data (97 bytes: deadline + v + r + s) or empty for no permit.
      * @return id The request index.
      */
-    function deposit(address token, uint256 amount, address to) external returns (bytes32);
+    function deposit(address token, uint256 amount, address to, bytes calldata permit) external returns (bytes32);
+
+    /**
+     * @notice Deposit tokens with permit and emit a call event for the destination chain.
+     * @dev Can be called by any user. Uses ERC20 permit if provided.
+     * @param token The token to deposit.
+     * @param amount The amount of tokens to deposit.
+     * @param callContract The contract address to call on the destination chain.
+     * @param reserveBalance The minimum balance required for the deposit.
+     * @param permit Tightly packed permit data (97 bytes: deadline + v + r + s) or empty for no permit.
+     * @return id The request index.
+     */
+    function depositAndCall(
+        address token,
+        uint256 amount,
+        address callContract,
+        uint256 reserveBalance,
+        bytes calldata permit
+    ) external returns (bytes32);
+
+    /**
+     * @notice Batch deposit tokens with permits and emit call events.
+     * @dev Uses ERC20 permit to approve tokens from multiple accounts in a single transaction.
+     *      Each deposit must have an amount >= reserveBalance.
+     *      Restricted to RELAYER_ROLE.
+     * @param token The token to deposit.
+     * @param deposits Array of deposit parameters containing account, amount, and permit data.
+     * @param callContract The contract address to call on the destination chain.
+     * @param reserveBalance The minimum balance required for each deposit.
+     */
+    function batchDepositAndCall(
+        address token,
+        DepositParams[] calldata deposits,
+        address callContract,
+        uint256 reserveBalance
+    ) external;
+
+    /**
+     * @notice Whitelist or remove a call contract for batch deposit operations.
+     * @param callContract The contract address to whitelist or remove.
+     * @param whitelisted True to whitelist, false to remove.
+     */
+    function setCallContractWhitelist(address callContract, bool whitelisted) external;
 
     /**
      * @dev Pauses the contract.
