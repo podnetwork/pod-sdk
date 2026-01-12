@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {console} from "forge-std/console.sol";
 
-import {Auction} from "../src/Auction.sol";
 import {RankedFeed} from "../src/RankedFeed.sol";
 import {Voting} from "../src/Voting.sol";
 import {BaseDeployer} from "pod-protocol-scripts/BaseDeployer.s.sol";
@@ -13,10 +12,6 @@ contract Deployer is BaseDeployer {
     function run() public {
         bool testContracts = vm.envOr("TEST_CONTRACTS", false);
         vm.startBroadcast();
-
-        // Deploy Auction
-        Auction auction = new Auction();
-        console.log("Auction deployed at:", address(auction));
 
         // Deploy RankedFeed
         RankedFeed rankedFeed = new RankedFeed();
