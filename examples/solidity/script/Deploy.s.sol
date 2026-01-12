@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {console} from "forge-std/console.sol";
 
-import {Auction} from "../src/Auction.sol";
+import {Auction} from "../src/IAuction.sol";
 import {RankedFeed} from "../src/RankedFeed.sol";
 import {Voting} from "../src/Voting.sol";
 import {BaseDeployer} from "pod-protocol-scripts/BaseDeployer.s.sol";

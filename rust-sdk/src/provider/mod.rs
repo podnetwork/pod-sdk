@@ -225,7 +225,7 @@ impl PodProvider {
                         .await;
                     continue;
                 }
-                _ => return Ok(result?),
+                _ => return result,
             }
         }
     }
