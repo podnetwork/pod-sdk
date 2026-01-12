@@ -3806,6 +3806,7 @@ dependencies = [
  "pod-examples-solidity 0.4.0",
  "pod-types 0.4.0",
  "serde",
+ "tokio",
  "tokio-test",
  "tracing",
 ]

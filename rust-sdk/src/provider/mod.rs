@@ -200,10 +200,34 @@ impl PodProvider {
     }
 
     pub async fn wait_past_perfect_time(&self, timestamp: Timestamp) -> TransportResult<()> {
-        self.client()
-            .request::<_, ()>("pod_waitPastPerfectTime", (timestamp.as_micros() as u64,))
-            .await?;
-        Ok(())
+        const INVALID_PARAMS_CODE: i64 = -32602;
+        const PPT_TOO_FAR_MSG: &str = "Requested PPT is too far in the future";
+        const MAX_RETRIES: u32 = 100;
+
+        const SLEEP_DURATION_MILLIS: u64 = 100;
+
+        let mut retries = 0;
+        loop {
+            let result = self
+                .client()
+                .request::<_, ()>("pod_waitPastPerfectTime", (timestamp.as_micros() as u64,))
+                .await;
+
+            match &result {
+                Err(e)
+                    if retries < MAX_RETRIES
+                        && e.as_error_resp().is_some_and(|r| {
+                            r.code == INVALID_PARAMS_CODE && r.message == PPT_TOO_FAR_MSG
+                        }) =>
+                {
+                    retries += 1;
+                    tokio::time::sleep(std::time::Duration::from_millis(SLEEP_DURATION_MILLIS))
+                        .await;
+                    continue;
+                }
+                _ => return Ok(result?),
+            }
+        }
     }
 
     /// Subscribe to continuously receive TX receipts as they are created on the node.
