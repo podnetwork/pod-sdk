@@ -37,9 +37,6 @@ contract Registry is Ownable {
     error CallerAlreadyActive();
 
     error InvalidSnapshotIndex();
-    error SnapshotTooNew();
-    error SnapshotTooOld();
-    error NoHistoricalSnapshots();
 
     event ValidatorAdded(address indexed validator);
     event ValidatorRemoved(address indexed validator);
@@ -78,11 +75,12 @@ contract Registry is Ownable {
     uint8 public validatorCount;
 
     constructor(address[] memory _validators, uint8 _adverserialResilience) Ownable(msg.sender) {
-        if (validators.length > MAX_VALIDATOR_COUNT) {
+        if (_validators.length > MAX_VALIDATOR_COUNT) {
             revert MaxValidatorCountReached();
         }
 
-        for (uint8 i = 0; i < _validators.length; i++) {
+        uint256 validatorsLength = _validators.length;
+        for (uint8 i = 0; i < validatorsLength; ++i) {
             address validator = _validators[i];
             if (validator == address(0)) {
                 revert ValidatorIsZeroAddress();
@@ -109,7 +107,8 @@ contract Registry is Ownable {
             revert MaxValidatorCountReached();
         }
 
-        for (uint256 i = 0; i < newValidators.length; i++) {
+        uint256 newValidatorsLength = newValidators.length;
+        for (uint256 i = 0; i < newValidatorsLength; ++i) {
             address validator = newValidators[i];
             if (validator == address(0)) {
                 revert ValidatorIsZeroAddress();
@@ -126,7 +125,8 @@ contract Registry is Ownable {
             emit ValidatorAdded(validator);
         }
 
-        for (uint256 i = 0; i < removedValidators.length; i++) {
+        uint256 removedValidatorsLength = removedValidators.length;
+        for (uint256 i = 0; i < removedValidatorsLength; ++i) {
             address validator = removedValidators[i];
             uint8 index = validatorIndex[validator];
             if (index == 0 || !_isBitSet(activeValidatorBitmap, index - 1)) {
@@ -137,6 +137,9 @@ contract Registry is Ownable {
             emit ValidatorRemoved(validator);
         }
 
+        validatorCount = uint8(
+            uint256(validatorCount) + newValidatorsLength - removedValidatorsLength
+        );
         adverserialResilience = newResilience;
     }
 
@@ -235,7 +238,7 @@ contract Registry is Ownable {
         validatorBitmap &= ~bannedValidatorBitmap; // remove banned validators
 
         uint256 count = aggregateSignature.length / 65;
-        for (uint256 i = 0; i < count; i++) {
+        for (uint256 i = 0; i < count; ++i) {
             address signer = Attestation.recoverSignerAt(txHash, aggregateSignature, i);
             uint8 index = validatorIndex[signer];
             if (index == 0) {
@@ -253,7 +256,8 @@ contract Registry is Ownable {
         uint8 count = history[snapshotIndex].validatorCount;
         address[] memory subset = new address[](count);
         uint8 j = 0;
-        for (uint8 i = 0; i < validators.length; i++) {
+        uint256 validatorsLen = validators.length;
+        for (uint8 i = 0; i < validatorsLen; ++i) {
             if (_isBitSet(bitmap, i)) {
                 subset[j++] = validators[i];
             }

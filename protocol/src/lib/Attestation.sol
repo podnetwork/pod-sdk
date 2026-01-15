@@ -26,5 +26,6 @@ library Attestation {
         }
 
         signer = ecrecover(digest, v, r, s);
+        require(signer != address(0), "Invalid signature");
     }
 }

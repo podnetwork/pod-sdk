@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import {IBridge} from "./interfaces/IBridge.sol";
 import {Registry} from "./Registry.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
@@ -16,7 +15,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * @dev This contract implements the IBridgeDepositWithdraw interface and provides the functionality for
  * depositing and withdrawing tokens between chains.
  */
-contract Bridge is IBridge, AccessControl, Pausable {
+contract Bridge is IBridge, AccessControl {
     using SafeERC20 for IERC20;
 
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -25,15 +24,13 @@ contract Bridge is IBridge, AccessControl, Pausable {
 
     uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
 
-    // The mock address for native deposit. EIP-7528
-    address constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
-
     mapping(address => TokenData) public tokenData;
     mapping(bytes32 => bool) public processedRequests;
     mapping(address => bool) public whitelistedCallContracts;
 
     address[] public whitelistedTokens;
     address public migratedContract;
+    ContractState public contractState;
 
     uint256 public depositIndex;
 
@@ -58,15 +55,19 @@ contract Bridge is IBridge, AccessControl, Pausable {
         );
     }
 
-    modifier notMigrated() {
-        _notMigrated();
+    modifier whenPublic() {
+        if (contractState != ContractState.Public) revert ContractPaused();
         _;
     }
 
-    function _notMigrated() internal view {
-        if (migratedContract != address(0)) {
-            revert ContractMigrated();
-        }
+    modifier whenOperational() {
+        if (contractState >= ContractState.Paused) revert ContractPaused();
+        _;
+    }
+
+    modifier notMigrated() {
+        if (contractState == ContractState.Migrated) revert ContractMigrated();
+        _;
     }
 
     function _applyPermit(address token, address owner, uint256 amount, bytes calldata permit) internal {
@@ -115,7 +116,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
 
     function deposit(address token, uint256 amount, address to, bytes calldata permit)
         external
-        whenNotPaused
+        whenPublic
         returns (bytes32)
     {
         if (to == address(0)) revert InvalidToAddress();
@@ -138,7 +139,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         address callContract,
         uint256 reserveBalance,
         bytes calldata permit
-    ) external whenNotPaused notMigrated returns (bytes32) {
+    ) external whenOperational returns (bytes32) {
         if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
         if (amount < reserveBalance) revert AmountBelowReserve();
 
@@ -159,7 +160,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         DepositParams[] calldata deposits,
         address callContract,
         uint256 reserveBalance
-    ) external whenNotPaused notMigrated onlyRole(RELAYER_ROLE) {
+    ) external whenOperational onlyRole(RELAYER_ROLE) {
         if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
         if (deposits.length == 0) revert InvalidTokenAmount();
 
@@ -215,21 +216,39 @@ contract Bridge is IBridge, AccessControl, Pausable {
         _configureTokenData(token, minAmount, depositLimit, claimLimit);
     }
 
-    function pause() external onlyRole(PAUSER_ROLE) {
-        _pause();
+    function setState(ContractState newState) external {
+        ContractState currentState = contractState;
+
+        // Cannot change state once migrated
+        if (currentState == ContractState.Migrated) revert ContractMigrated();
+
+        // Cannot set to Migrated via setState (use migrate function)
+        if (newState == ContractState.Migrated) revert ContractMigrated();
+
+        // Only admin can change to any state, pauser can only change to Paused
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+            if (!hasRole(PAUSER_ROLE, msg.sender) || newState != ContractState.Paused) {
+                revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
+            }
+        } 
+        contractState = newState;
+        emit ContractStateChanged(currentState, newState);
     }
 
-    function unpause() external notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
+    function migrate(address _newContract) public notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (contractState != ContractState.Paused) revert ContractNotPaused();
 
-    function migrate(address _newContract) public whenPaused notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
-        handleMigrate(_newContract);
+        ContractState oldState = contractState;
+        contractState = ContractState.Migrated;
         migratedContract = _newContract;
+
+        handleMigrate(_newContract);
+        emit ContractStateChanged(oldState, ContractState.Migrated);
     }
 
     function handleMigrate(address _newContract) internal {
-        for (uint256 i = 0; i < whitelistedTokens.length; i++) {
+        uint256 length = whitelistedTokens.length;
+        for (uint256 i = 0; i < length; ++i) {
             address token = whitelistedTokens[i];
             uint256 tokenBalance = IERC20(token).balanceOf(address(this));
             if (tokenBalance > 0) {
@@ -278,7 +297,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         uint64 committeeEpoch,
         bytes calldata aggregatedSignatures,
         bytes calldata proof
-    ) public whenNotPaused {
+    ) public whenOperational {
         TokenData storage t = tokenData[token];
         checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, amount);
 
@@ -297,6 +316,33 @@ contract Bridge is IBridge, AccessControl, Pausable {
         emit Claim(txHash, token, mirrorToken, amount, to);
     }
 
+    function batchClaim(address token, ClaimParams[] calldata claims) external whenOperational {
+        if (claims.length == 0) revert InvalidTokenAmount();
+
+        TokenData storage t = tokenData[token];
+        address mirrorToken = t.mirrorToken;
+        uint256 length = claims.length;
+
+        for (uint256 i = 0; i < length; ++i) {
+            ClaimParams calldata c = claims[i];
+
+            checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, c.amount);
+
+            bytes32 txHash = depositTxHash(mirrorToken, c.amount, c.to, c.proof);
+
+            if (processedRequests[txHash]) revert RequestAlreadyProcessed();
+
+            (uint256 weight, uint256 n, uint256 f) =
+                REGISTRY.computeTxWeight(txHash, c.aggregatedSignatures, c.committeeEpoch);
+            require(weight >= n - f, "Not enough validator weight");
+
+            processedRequests[txHash] = true;
+
+            IERC20(token).safeTransfer(c.to, c.amount);
+            emit Claim(txHash, token, mirrorToken, c.amount, c.to);
+        }
+    }
+
     /**
      * @param token Token that will be deposited in the contract (local/destination token).
      * @param mirrorToken Token that will be deposited in the mirror contract (source token).
@@ -310,7 +356,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         uint256 minAmount,
         uint256 depositLimit,
         uint256 claimLimit
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
         if (token == address(0) || mirrorToken == address(0) || tokenData[token].minAmount != 0) {
             revert InvalidTokenConfig();
         }

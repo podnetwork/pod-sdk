@@ -5,7 +5,6 @@ import {PodTest} from "pod-sdk/test/podTest.sol";
 import {Bridge} from "../../src/Bridge.sol";
 import {IBridge} from "../../src/interfaces/IBridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 abstract contract BridgeBehaviorTest is PodTest {
     address public admin = makeAddr("admin");
@@ -52,8 +51,8 @@ abstract contract BridgeBehaviorTest is PodTest {
 
     function test_Deposit_RevertIfPaused() public {
         vm.prank(admin);
-        bridge().pause();
-        vm.expectRevert(Pausable.EnforcedPause.selector);
+        bridge().setState(IBridge.ContractState.Paused);
+        vm.expectRevert(IBridge.ContractPaused.selector);
         vm.prank(user);
         bridge().deposit(address(token()), DEPOSIT_AMOUNT, user, "");
     }
@@ -70,9 +69,9 @@ abstract contract BridgeBehaviorTest is PodTest {
 
     function test_Deposit_Pause() public {
         vm.prank(admin);
-        bridge().pause();
+        bridge().setState(IBridge.ContractState.Paused);
         vm.prank(user);
-        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vm.expectRevert(IBridge.ContractPaused.selector);
         bridge().deposit(address(token()), DEPOSIT_AMOUNT, user, "");
     }
 
@@ -97,22 +96,22 @@ abstract contract BridgeBehaviorTest is PodTest {
 
     function test_Pause_Unpause() public {
         vm.prank(admin);
-        bridge().pause();
-        assertTrue(bridge().paused());
+        bridge().setState(IBridge.ContractState.Paused);
+        assertEq(uint256(bridge().contractState()), uint256(IBridge.ContractState.Paused));
         vm.prank(admin);
-        bridge().unpause();
-        assertFalse(bridge().paused());
+        bridge().setState(IBridge.ContractState.Public);
+        assertEq(uint256(bridge().contractState()), uint256(IBridge.ContractState.Public));
     }
 
     function test_Pause_RevertIfNotPauseRole() public {
         vm.prank(user);
         vm.expectRevert();
-        bridge().pause();
+        bridge().setState(IBridge.ContractState.Paused);
     }
 
     function test_Migrate_SetsMigratedContract() public {
         vm.prank(admin);
-        bridge().pause();
+        bridge().setState(IBridge.ContractState.Paused);
         vm.prank(admin);
         bridge().migrate(newBridge);
         assertEq(bridge().migratedContract(), newBridge);
@@ -155,7 +154,7 @@ abstract contract BridgeBehaviorTest is PodTest {
 
     function test_Migrate_RevertIfAlreadyMigrated() public {
         vm.startPrank(admin);
-        bridge().pause();
+        bridge().setState(IBridge.ContractState.Paused);
         bridge().migrate(newBridge);
         vm.expectRevert(abi.encodeWithSelector(IBridge.ContractMigrated.selector));
         bridge().migrate(address(0x1234));
@@ -164,23 +163,23 @@ abstract contract BridgeBehaviorTest is PodTest {
 
     function test_Deposit_RevertAfterMigrated() public {
         vm.startPrank(admin);
-        bridge().pause();
+        bridge().setState(IBridge.ContractState.Paused);
         bridge().migrate(newBridge);
         vm.stopPrank();
         vm.prank(user);
-        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vm.expectRevert(IBridge.ContractPaused.selector);
         bridge().deposit(address(token()), 1, user, "");
     }
 
     function test_Pause_RoleRequired_Unpause_AdminRequired() public {
         vm.prank(user);
         vm.expectRevert();
-        bridge().pause();
+        bridge().setState(IBridge.ContractState.Paused);
         vm.prank(admin);
-        bridge().pause();
+        bridge().setState(IBridge.ContractState.Paused);
         vm.prank(user);
         vm.expectRevert();
-        bridge().unpause();
+        bridge().setState(IBridge.ContractState.Public);
     }
 
     function test_ConfigureToken_RevertIfUpdatingUnconfiguredToken() public {

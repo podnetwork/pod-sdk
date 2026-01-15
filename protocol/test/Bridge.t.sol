@@ -8,7 +8,7 @@ import {IBridge} from "../src/interfaces/IBridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Registry} from "../src/Registry.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {MockERC20Permit} from "./mocks/MockERC20Permit.sol";
 
 contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
     Bridge private _bridge;
@@ -169,12 +169,12 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfPaused() public {
         vm.prank(admin);
-        _bridge.pause();
+        _bridge.setState(IBridge.ContractState.Paused);
 
         (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3, _bridge.DOMAIN_SEPARATOR());
 
-        vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
+        vm.expectRevert(IBridge.ContractPaused.selector);
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
     }
 
@@ -196,7 +196,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
         vm.prank(admin);
-        _bridge.pause();
+        _bridge.setState(IBridge.ContractState.Paused);
         uint256 beforeAmt = _token.balanceOf(address(_bridge));
         vm.prank(admin);
         _bridge.migrate(newBridge);
@@ -208,7 +208,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         vm.prank(admin);
         Bridge fresh = new Bridge(address(podRegistry), otherBridgeContract, block.chainid);
         vm.prank(admin);
-        fresh.pause();
+        fresh.setState(IBridge.ContractState.Paused);
         vm.prank(admin);
         fresh.migrate(newBridge);
         assertEq(fresh.migratedContract(), newBridge);
@@ -224,7 +224,7 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
         vm.prank(admin);
-        _bridge.pause();
+        _bridge.setState(IBridge.ContractState.Paused);
         vm.prank(admin);
         _bridge.migrate(newBridge);
         assertEq(_token.balanceOf(newBridge), DEPOSIT_AMOUNT);
@@ -271,5 +271,346 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
         bridge().deposit(address(0), 0, user, "");
+    }
+
+    // ========== Permit Tests ==========
+
+    function test_Deposit_WithPermit() public {
+        // Create a permit-enabled token
+        MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
+        address mirrorPermitToken = makeAddr("mirrorPermitToken");
+
+        vm.prank(admin);
+        _bridge.whiteListToken(address(permitToken), mirrorPermitToken, minAmount, depositLimit, claimLimit);
+
+        // Create a user with a private key for signing
+        uint256 userPrivateKey = 0x1234;
+        address permitUser = vm.addr(userPrivateKey);
+        permitToken.mint(permitUser, INITIAL_BALANCE);
+
+        // Build permit signature
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 permitTypehash =
+            keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+        bytes32 domainSeparator = permitToken.DOMAIN_SEPARATOR();
+
+        bytes32 structHash =
+            keccak256(abi.encode(permitTypehash, permitUser, address(_bridge), DEPOSIT_AMOUNT, 0, deadline));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
+
+        // Pack permit data: deadline(32) + v(1) + r(32) + s(32) = 97 bytes
+        bytes memory permit = abi.encodePacked(deadline, v, r, s);
+
+        // Deposit with permit (no prior approval needed)
+        uint256 balanceBefore = permitToken.balanceOf(permitUser);
+        vm.prank(permitUser);
+        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, permit);
+
+        assertEq(permitToken.balanceOf(permitUser), balanceBefore - DEPOSIT_AMOUNT);
+        assertEq(permitToken.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
+    }
+
+    function test_Deposit_WithInvalidPermitLength_Reverts() public {
+        MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
+        address mirrorPermitToken = makeAddr("mirrorPermitToken");
+
+        vm.prank(admin);
+        _bridge.whiteListToken(address(permitToken), mirrorPermitToken, minAmount, depositLimit, claimLimit);
+
+        address permitUser = makeAddr("permitUser");
+        permitToken.mint(permitUser, INITIAL_BALANCE);
+
+        // Invalid permit length (not 97 bytes)
+        bytes memory invalidPermit = abi.encodePacked(uint256(1), uint8(27), bytes32(0));
+
+        vm.prank(permitUser);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidPermitLength.selector));
+        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, invalidPermit);
+    }
+
+    function test_Deposit_WithEmptyPermit_RequiresApproval() public {
+        MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
+        address mirrorPermitToken = makeAddr("mirrorPermitToken");
+
+        vm.prank(admin);
+        _bridge.whiteListToken(address(permitToken), mirrorPermitToken, minAmount, depositLimit, claimLimit);
+
+        address permitUser = makeAddr("permitUser");
+        permitToken.mint(permitUser, INITIAL_BALANCE);
+
+        // Without approval and empty permit, should fail
+        vm.prank(permitUser);
+        vm.expectRevert();
+        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, "");
+
+        // With approval and empty permit, should succeed
+        vm.prank(permitUser);
+        permitToken.approve(address(_bridge), DEPOSIT_AMOUNT);
+
+        vm.prank(permitUser);
+        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, "");
+
+        assertEq(permitToken.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
+    }
+
+    // ========== Batch Deposit And Call Tests ==========
+
+    function test_BatchDepositAndCall_WithPermit() public {
+        MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
+        address mirrorPermitToken = makeAddr("mirrorPermitToken");
+        address callContract = makeAddr("callContract");
+
+        vm.startPrank(admin);
+        _bridge.whiteListToken(address(permitToken), mirrorPermitToken, minAmount, depositLimit, claimLimit);
+        _bridge.setCallContractWhitelist(callContract, true);
+        _bridge.grantRole(_bridge.RELAYER_ROLE(), admin);
+        vm.stopPrank();
+
+        // Create users with private keys for signing
+        uint256 user1PrivateKey = 0x1234;
+        uint256 user2PrivateKey = 0x5678;
+        address user1 = vm.addr(user1PrivateKey);
+        address user2 = vm.addr(user2PrivateKey);
+
+        permitToken.mint(user1, INITIAL_BALANCE);
+        permitToken.mint(user2, INITIAL_BALANCE);
+
+        // Build permit signatures for both users
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 permitTypehash =
+            keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+        bytes32 domainSeparator = permitToken.DOMAIN_SEPARATOR();
+
+        // User1 permit
+        bytes32 structHash1 =
+            keccak256(abi.encode(permitTypehash, user1, address(_bridge), DEPOSIT_AMOUNT, 0, deadline));
+        bytes32 digest1 = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash1));
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(user1PrivateKey, digest1);
+
+        // User2 permit
+        bytes32 structHash2 =
+            keccak256(abi.encode(permitTypehash, user2, address(_bridge), DEPOSIT_AMOUNT, 0, deadline));
+        bytes32 digest2 = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash2));
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(user2PrivateKey, digest2);
+
+        // Create deposit params
+        IBridge.DepositParams[] memory deposits = new IBridge.DepositParams[](2);
+        deposits[0] = IBridge.DepositParams({
+            account: user1,
+            amount: DEPOSIT_AMOUNT,
+            deadline: deadline,
+            v: v1,
+            r: r1,
+            s: s1
+        });
+        deposits[1] = IBridge.DepositParams({
+            account: user2,
+            amount: DEPOSIT_AMOUNT,
+            deadline: deadline,
+            v: v2,
+            r: r2,
+            s: s2
+        });
+
+        uint256 reserveBalance = minAmount;
+
+        // Batch deposit
+        vm.prank(admin);
+        _bridge.batchDepositAndCall(address(permitToken), deposits, callContract, reserveBalance);
+
+        assertEq(permitToken.balanceOf(user1), INITIAL_BALANCE - DEPOSIT_AMOUNT);
+        assertEq(permitToken.balanceOf(user2), INITIAL_BALANCE - DEPOSIT_AMOUNT);
+        assertEq(permitToken.balanceOf(address(_bridge)), 2 * DEPOSIT_AMOUNT);
+    }
+
+    function test_BatchDepositAndCall_RevertIfNotRelayer() public {
+        MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
+        address mirrorPermitToken = makeAddr("mirrorPermitToken");
+        address callContract = makeAddr("callContract");
+
+        vm.startPrank(admin);
+        _bridge.whiteListToken(address(permitToken), mirrorPermitToken, minAmount, depositLimit, claimLimit);
+        _bridge.setCallContractWhitelist(callContract, true);
+        vm.stopPrank();
+
+        IBridge.DepositParams[] memory deposits = new IBridge.DepositParams[](1);
+        deposits[0] = IBridge.DepositParams({
+            account: user,
+            amount: DEPOSIT_AMOUNT,
+            deadline: block.timestamp + 1 hours,
+            v: 27,
+            r: bytes32(0),
+            s: bytes32(0)
+        });
+
+        // Should revert because caller doesn't have RELAYER_ROLE
+        vm.prank(user);
+        vm.expectRevert();
+        _bridge.batchDepositAndCall(address(permitToken), deposits, callContract, minAmount);
+    }
+
+    function test_BatchDepositAndCall_RevertIfCallContractNotWhitelisted() public {
+        MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
+        address mirrorPermitToken = makeAddr("mirrorPermitToken");
+        address callContract = makeAddr("callContract");
+
+        vm.startPrank(admin);
+        _bridge.whiteListToken(address(permitToken), mirrorPermitToken, minAmount, depositLimit, claimLimit);
+        _bridge.grantRole(_bridge.RELAYER_ROLE(), admin);
+        // Note: NOT whitelisting callContract
+        vm.stopPrank();
+
+        IBridge.DepositParams[] memory deposits = new IBridge.DepositParams[](1);
+        deposits[0] = IBridge.DepositParams({
+            account: user,
+            amount: DEPOSIT_AMOUNT,
+            deadline: block.timestamp + 1 hours,
+            v: 27,
+            r: bytes32(0),
+            s: bytes32(0)
+        });
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.CallContractNotWhitelisted.selector));
+        _bridge.batchDepositAndCall(address(permitToken), deposits, callContract, minAmount);
+    }
+
+    function test_BatchDepositAndCall_RevertIfAmountBelowReserve() public {
+        MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
+        address mirrorPermitToken = makeAddr("mirrorPermitToken");
+        address callContract = makeAddr("callContract");
+
+        vm.startPrank(admin);
+        _bridge.whiteListToken(address(permitToken), mirrorPermitToken, minAmount, depositLimit, claimLimit);
+        _bridge.setCallContractWhitelist(callContract, true);
+        _bridge.grantRole(_bridge.RELAYER_ROLE(), admin);
+        vm.stopPrank();
+
+        uint256 reserveBalance = DEPOSIT_AMOUNT + 1; // More than deposit amount
+
+        IBridge.DepositParams[] memory deposits = new IBridge.DepositParams[](1);
+        deposits[0] = IBridge.DepositParams({
+            account: user,
+            amount: DEPOSIT_AMOUNT,
+            deadline: block.timestamp + 1 hours,
+            v: 27,
+            r: bytes32(0),
+            s: bytes32(0)
+        });
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.AmountBelowReserve.selector));
+        _bridge.batchDepositAndCall(address(permitToken), deposits, callContract, reserveBalance);
+    }
+
+    function test_BatchDepositAndCall_RevertIfEmpty() public {
+        address callContract = makeAddr("callContract");
+
+        vm.startPrank(admin);
+        _bridge.setCallContractWhitelist(callContract, true);
+        _bridge.grantRole(_bridge.RELAYER_ROLE(), admin);
+        vm.stopPrank();
+
+        IBridge.DepositParams[] memory deposits = new IBridge.DepositParams[](0);
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
+        _bridge.batchDepositAndCall(address(_token), deposits, callContract, minAmount);
+    }
+
+    // ========== Batch Claim Tests ==========
+
+    function test_BatchClaim() public {
+        // Deposit enough tokens to claim multiple times
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 3 * DEPOSIT_AMOUNT, admin, "");
+
+        address user1 = makeAddr("user1");
+        address user2 = makeAddr("user2");
+
+        // Create proofs for two different claims
+        (bytes32 txHash1, uint64 epoch1, bytes memory sigs1, bytes memory proof1) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, 4, _bridge.DOMAIN_SEPARATOR());
+        (bytes32 txHash2, uint64 epoch2, bytes memory sigs2, bytes memory proof2) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.DOMAIN_SEPARATOR());
+
+        // Create claim params array
+        IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](2);
+        claims[0] = IBridge.ClaimParams({
+            amount: DEPOSIT_AMOUNT,
+            to: user1,
+            committeeEpoch: epoch1,
+            aggregatedSignatures: sigs1,
+            proof: proof1
+        });
+        claims[1] = IBridge.ClaimParams({
+            amount: DEPOSIT_AMOUNT,
+            to: user2,
+            committeeEpoch: epoch2,
+            aggregatedSignatures: sigs2,
+            proof: proof2
+        });
+
+        // Batch claim
+        vm.expectEmit(true, true, true, true);
+        emit IBridge.Claim(txHash1, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user1);
+        vm.expectEmit(true, true, true, true);
+        emit IBridge.Claim(txHash2, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user2);
+
+        _bridge.batchClaim(address(_token), claims);
+
+        assertEq(_token.balanceOf(user1), DEPOSIT_AMOUNT);
+        assertEq(_token.balanceOf(user2), DEPOSIT_AMOUNT);
+        assertEq(_token.balanceOf(address(_bridge)), DEPOSIT_AMOUNT); // 3 - 2 = 1 remaining
+    }
+
+    function test_BatchClaim_RevertIfEmpty() public {
+        IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](0);
+
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
+        _bridge.batchClaim(address(_token), claims);
+    }
+
+    function test_BatchClaim_RevertIfAlreadyClaimed() public {
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        (bytes32 txHash1, uint64 epoch1, bytes memory sigs1, bytes memory proof1) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.DOMAIN_SEPARATOR());
+
+        // First claim via single claim
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, epoch1, sigs1, proof1);
+
+        // Try to batch claim with the same proof
+        IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](1);
+        claims[0] = IBridge.ClaimParams({
+            amount: DEPOSIT_AMOUNT,
+            to: user,
+            committeeEpoch: epoch1,
+            aggregatedSignatures: sigs1,
+            proof: proof1
+        });
+
+        vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
+        _bridge.batchClaim(address(_token), claims);
+    }
+
+    function test_BatchClaim_RevertIfPaused() public {
+        vm.prank(admin);
+        _bridge.setState(IBridge.ContractState.Paused);
+
+        IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](1);
+        claims[0] = IBridge.ClaimParams({
+            amount: DEPOSIT_AMOUNT,
+            to: user,
+            committeeEpoch: 0,
+            aggregatedSignatures: "",
+            proof: ""
+        });
+
+        vm.expectRevert(IBridge.ContractPaused.selector);
+        _bridge.batchClaim(address(_token), claims);
     }
 }

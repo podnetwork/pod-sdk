@@ -60,6 +60,35 @@ interface IBridge {
     error InvalidPermitLength();
 
     /**
+     * @dev Error thrown when the contract is paused.
+     */
+    error ContractPaused();
+
+    /**
+     * @dev Error thrown when the contract is not paused (required for migration).
+     */
+    error ContractNotPaused();
+
+    /**
+     * @dev Contract state enum.
+     * @param Public - Normal operation, all functions available.
+     * @param Private - Only batch deposit and claim functions available.
+     * @param Paused - No operations allowed.
+     * @param Migrated - Contract has been migrated, no operations allowed.
+     */
+    enum ContractState {
+        Public,
+        Private,
+        Paused,
+        Migrated
+    }
+
+    /**
+     * @dev Event emitted when the contract state changes.
+     */
+    event ContractStateChanged(ContractState oldState, ContractState newState);
+
+    /**
      * @dev Event emitted when a deposit is made.
      * @param id The request index.
      * @param token The token to bridge (address(0) for native).
@@ -112,6 +141,22 @@ interface IBridge {
         uint8 v;
         bytes32 r;
         bytes32 s;
+    }
+
+    /**
+     * @dev Claim parameters for batch claim operations (same token).
+     * @param amount The amount of tokens to claim.
+     * @param to The address to receive the tokens.
+     * @param committeeEpoch The committee epoch for validator signature verification.
+     * @param aggregatedSignatures Concatenated validator signatures.
+     * @param proof The Merkle proof for verifying the deposit.
+     */
+    struct ClaimParams {
+        uint256 amount;
+        address to;
+        uint64 committeeEpoch;
+        bytes aggregatedSignatures;
+        bytes proof;
     }
 
     /**
@@ -213,16 +258,12 @@ interface IBridge {
     function setCallContractWhitelist(address callContract, bool whitelisted) external;
 
     /**
-     * @dev Pauses the contract.
-     * @notice Access control is restricted to the pause role.
+     * @dev Sets the contract state.
+     * @notice Access control is restricted to the admin for most transitions.
+     *         PAUSER_ROLE can transition to Paused state.
+     * @param newState The new contract state.
      */
-    function pause() external;
-
-    /**
-     * @dev Unpauses the contract.
-     * @notice Access control is restricted to the admin.
-     */
-    function unpause() external;
+    function setState(ContractState newState) external;
 
     /**
      * @dev Migrates the contract to a new address.
@@ -271,4 +312,12 @@ interface IBridge {
         bytes calldata aggregatedSignatures,
         bytes calldata proof
     ) external;
+
+    /**
+     * @notice Batch claim multiple bridged token transfers for the same token.
+     * @dev Processes multiple claims efficiently. Each claim is verified independently.
+     * @param token The local token to claim.
+     * @param claims Array of claim parameters to process.
+     */
+    function batchClaim(address token, ClaimParams[] calldata claims) external;
 }
