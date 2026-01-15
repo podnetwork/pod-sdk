@@ -108,7 +108,7 @@ impl AuctionClient {
 
         let pending_tx = self
             .auction
-            .submitBid(auction_id, deadline.into(), bid, data.into())
+            .submitBid(auction_id, deadline, bid, data.into())
             .max_priority_fee_per_gas(0)
             .send()
             .await
