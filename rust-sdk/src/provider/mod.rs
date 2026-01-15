@@ -210,7 +210,7 @@ impl PodProvider {
         loop {
             let result = self
                 .client()
-                .request::<_, ()>("pod_waitPastPerfectTime", (timestamp.as_micros() as u64,))
+                .request::<_, String>("pod_waitPastPerfectTime", (timestamp.as_micros() as u64,))
                 .await;
 
             match &result {
@@ -225,7 +225,7 @@ impl PodProvider {
                         .await;
                     continue;
                 }
-                _ => return result,
+                _ => return Ok(()),
             }
         }
     }
