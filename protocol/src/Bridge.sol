@@ -139,7 +139,7 @@ contract Bridge is IBridge, AccessControl {
         address callContract,
         uint256 reserveBalance,
         bytes calldata permit
-    ) external whenOperational returns (bytes32) {
+    ) external whenPublic returns (bytes32) {
         if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
         if (amount < reserveBalance) revert AmountBelowReserve();
 
