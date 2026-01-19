@@ -133,6 +133,7 @@ contract Bridge is IBridge, AccessControl {
         return id;
     }
 
+    /// @notice The callee contract on the destination chain must implement: deposit(address token, uint256 amount, address to)
     function depositAndCall(
         address token,
         uint256 amount,
@@ -150,14 +151,23 @@ contract Bridge is IBridge, AccessControl {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         bytes32 id = bytes32(depositIndex++);
 
-        emit BatchDepositAndCall(id, token, amount, msg.sender, callContract, reserveBalance);
+        emit DepositAndCall(id, token, amount, msg.sender, callContract, reserveBalance);
 
         return id;
     }
 
+    /**
+     * @notice Batch deposit tokens with permits and emit call events.
+     * @dev The callee contract on the destination chain must implement: deposit(address token, uint256 amount, address to)
+     *
+     *      The deposits and permits arrays are ordered such that deposits with permits come first.
+     *      For deposits[i] where i < permits.length, the corresponding permits[i] is applied.
+     *      For deposits[i] where i >= permits.length, no permit is applied (requires prior approval).
+     */
     function batchDepositAndCall(
         address token,
         DepositParams[] calldata deposits,
+        PermitParams[] calldata permits,
         address callContract,
         uint256 reserveBalance
     ) external whenOperational onlyRole(RELAYER_ROLE) {
@@ -165,9 +175,10 @@ contract Bridge is IBridge, AccessControl {
         if (deposits.length == 0) revert InvalidTokenAmount();
 
         TokenData storage t = tokenData[token];
-        uint256 length = deposits.length;
+        uint256 depositsLength = deposits.length;
+        uint256 permitsLength = permits.length;
 
-        for (uint256 i = 0; i < length; ++i) {
+        for (uint256 i = 0; i < depositsLength; ++i) {
             DepositParams calldata d = deposits[i];
 
             if (d.amount < reserveBalance) revert AmountBelowReserve();
@@ -175,13 +186,17 @@ contract Bridge is IBridge, AccessControl {
 
             checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, d.amount);
 
-            // Use permit to approve tokens (try/catch to handle frontrunning)
-            try IERC20Permit(token).permit(d.account, address(this), d.amount, d.deadline, d.v, d.r, d.s) {} catch {}
+            // Apply permit only for deposits that have corresponding permit data (i < permitsLength)
+            if (i < permitsLength) {
+                PermitParams calldata p = permits[i];
+                // Use permit to approve tokens (try/catch to handle frontrunning)
+                try IERC20Permit(token).permit(d.account, address(this), d.amount, p.deadline, p.v, p.r, p.s) {} catch {}
+            }
 
             IERC20(token).safeTransferFrom(d.account, address(this), d.amount);
             bytes32 id = bytes32(depositIndex++);
 
-            emit BatchDepositAndCall(id, token, d.amount, d.account, callContract, reserveBalance);
+            emit DepositAndCall(id, token, d.amount, d.account, callContract, reserveBalance);
         }
     }
 

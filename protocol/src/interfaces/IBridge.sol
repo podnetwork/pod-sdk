@@ -116,7 +116,7 @@ interface IBridge {
      * @param callContract The contract to call on the destination chain.
      * @param reserveBalance The minimum reserve balance required for this deposit.
      */
-    event BatchDepositAndCall(
+    event DepositAndCall(
         bytes32 indexed id,
         address indexed token,
         uint256 amount,
@@ -126,17 +126,23 @@ interface IBridge {
     );
 
     /**
-     * @dev Deposit parameters for batch operations with permit.
+     * @dev Deposit parameters for batch operations.
      * @param account The address whose tokens will be deposited.
      * @param amount The amount of tokens to deposit.
+     */
+    struct DepositParams {
+        address account;
+        uint256 amount;
+    }
+
+    /**
+     * @dev Permit parameters for ERC20 permit signatures.
      * @param deadline The deadline for the permit signature.
      * @param v The v component of the signature.
      * @param r The r component of the signature.
      * @param s The s component of the signature.
      */
-    struct DepositParams {
-        address account;
-        uint256 amount;
+    struct PermitParams {
         uint256 deadline;
         uint8 v;
         bytes32 r;
@@ -218,6 +224,7 @@ interface IBridge {
     /**
      * @notice Deposit tokens with permit and emit a call event for the destination chain.
      * @dev Can be called by any user. Uses ERC20 permit if provided.
+     *      The callee contract on the destination chain must implement: deposit(address token, uint256 amount, address to)
      * @param token The token to deposit.
      * @param amount The amount of tokens to deposit.
      * @param callContract The contract address to call on the destination chain.
@@ -238,14 +245,23 @@ interface IBridge {
      * @dev Uses ERC20 permit to approve tokens from multiple accounts in a single transaction.
      *      Each deposit must have an amount >= reserveBalance.
      *      Restricted to RELAYER_ROLE.
+     *
+     *      The callee contract on the destination chain must implement: deposit(address token, uint256 amount, address to)
+     *
+     *      The deposits and permits arrays are ordered such that deposits with permits come first.
+     *      For deposits[i] where i < permits.length, the corresponding permits[i] is applied.
+     *      For deposits[i] where i >= permits.length, no permit is applied (requires prior approval).
+     *
      * @param token The token to deposit.
-     * @param deposits Array of deposit parameters containing account, amount, and permit data.
+     * @param deposits Array of deposit parameters containing account and amount.
+     * @param permits Array of permit parameters. Must be <= deposits.length.
      * @param callContract The contract address to call on the destination chain.
      * @param reserveBalance The minimum balance required for each deposit.
      */
     function batchDepositAndCall(
         address token,
         DepositParams[] calldata deposits,
+        PermitParams[] calldata permits,
         address callContract,
         uint256 reserveBalance
     ) external;
