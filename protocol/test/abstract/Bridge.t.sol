@@ -171,6 +171,15 @@ abstract contract BridgeBehaviorTest is PodTest {
         bridge().deposit(address(token()), 1, user, "");
     }
 
+    function test_WhiteListToken_RevertAfterMigrated() public {
+        vm.startPrank(admin);
+        bridge().setState(IBridge.ContractState.Paused);
+        bridge().migrate(newBridge);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.ContractMigrated.selector));
+        bridge().whiteListToken(address(0x1234), address(0x5678), 1, 100, 100);
+        vm.stopPrank();
+    }
+
     function test_Pause_RoleRequired_Unpause_AdminRequired() public {
         vm.prank(user);
         vm.expectRevert();
