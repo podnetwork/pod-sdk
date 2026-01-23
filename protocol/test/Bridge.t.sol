@@ -186,7 +186,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         assertEq(_token.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
 
         (bytes32 txHash, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
         vm.expectEmit(true, true, true, true);
         emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
@@ -206,9 +206,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         (, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 2, _bridge.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 2, _bridge.domainSeparator());
 
-        vm.expectRevert("Not enough validator weight");
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InsufficientValidatorWeight.selector));
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
     }
 
@@ -217,7 +217,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         (, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
         bytes memory tamperedProof = bytes.concat(proof, abi.encode(keccak256("tamper")));
 
@@ -230,7 +230,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
 
         (bytes32 txHash, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
         vm.expectEmit(true, true, true, true);
         emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
@@ -243,7 +243,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Claim_RevertIfTokenNotWhitelisted() public {
         address unknownToken = makeAddr("unknownToken");
         (, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(unknownToken, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeperator());
+            createTokenClaimProof(unknownToken, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeparator());
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
         _bridge.claim(unknownToken, DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
@@ -254,7 +254,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.setState(IBridge.ContractState.Paused);
 
         (, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeparator());
 
         vm.expectRevert(IBridge.ContractPaused.selector);
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
@@ -265,7 +265,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         (, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, minAmount - 1, user, 3, _bridge.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, minAmount - 1, user, 3, _bridge.domainSeparator());
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
         _bridge.claim(address(_token), minAmount - 1, user, aggregatedSignatures, proof);
@@ -281,9 +281,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address user2 = makeAddr("user2");
 
         (bytes32 txHash1, bytes memory sigs1, bytes memory proof1) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, 4, _bridge.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, 4, _bridge.domainSeparator());
         (bytes32 txHash2, bytes memory sigs2, bytes memory proof2) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.domainSeparator());
 
         IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](2);
         claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, aggregatedSignatures: sigs1, proof: proof1});
@@ -312,7 +312,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
 
         (, bytes memory sigs1, bytes memory proof1) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, sigs1, proof1);
 
@@ -391,15 +391,6 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
         _bridge.whiteListToken(address(_token), address(anotherMirror), minAmount, depositLimit, claimLimit);
-    }
-
-    function test_WhitelistedTokens_ListGrowsAndOrder() public {
-        WrappedToken t2 = new WrappedToken("Token", "TKN", 18);
-        WrappedToken m2 = new WrappedToken("Mirror", "MRR", 18);
-        vm.prank(admin);
-        _bridge.whiteListToken(address(t2), address(m2), minAmount, depositLimit, claimLimit);
-        assertEq(_bridge.whitelistedTokens(0), address(_token));
-        assertEq(_bridge.whitelistedTokens(1), address(t2));
     }
 
     function test_WhiteListToken_RevertAfterMigrated() public {
@@ -857,7 +848,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         }
         assertEq(_bridge.validatorCount(), NUMBER_OF_VALIDATORS);
         assertEq(_bridge.adversarialResilience(), (NUMBER_OF_VALIDATORS - 1) / 3);
-        assertTrue(_bridge.domainSeperator() != bytes32(0));
+        assertTrue(_bridge.domainSeparator() != bytes32(0));
     }
 
     function test_UpdateValidatorConfig_AddValidator() public {
@@ -969,7 +960,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         // Get the correct txHash that will be computed during claim
-        bytes32 domainSep = _bridge.domainSeperator();
+        bytes32 domainSep = _bridge.domainSeparator();
         bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
         bytes32 dataHash = keccak256(abi.encodePacked(
             selector,
@@ -1020,7 +1011,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         bytes memory aggregatedSignatures = abi.encodePacked(r, s, v);
 
         (, , bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
         vm.expectRevert(abi.encodeWithSelector(ProofLib.SignerNotActiveValidator.selector));
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);

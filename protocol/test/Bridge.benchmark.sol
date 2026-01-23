@@ -48,7 +48,7 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
 
     function _benchmarkClaim(uint256 numValidators) internal {
         _setupWithValidators(numValidators);
-        bytes32 domainSeparator = bridge.domainSeperator();
+        bytes32 domainSeparator = bridge.domainSeparator();
         (, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(mirrorToken, DEPOSIT_AMOUNT, user, numValidators, domainSeparator);
 

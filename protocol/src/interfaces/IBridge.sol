@@ -90,6 +90,11 @@ interface IBridge {
     error InvalidAdverserialResilience();
 
     /**
+     * @dev Error thrown when there are not enough validator signatures.
+     */
+    error InsufficientValidatorWeight();
+
+    /**
      * @dev Contract state enum.
      * @param Public - Normal operation, all functions available.
      * @param Private - Only batch deposit and claim functions available.
@@ -117,6 +122,11 @@ interface IBridge {
      * @dev Event emitted when a validator is removed.
      */
     event ValidatorRemoved(address indexed validator);
+
+    /**
+     * @dev Event emitted when the validator config is updated.
+     */
+    event ValidatorConfigUpdated(uint256 oldVersion, uint256 newVersion);
 
     /**
      * @dev Event emitted when a deposit is made.
