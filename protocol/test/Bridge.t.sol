@@ -63,7 +63,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Deposit_EmitsEvent() public {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
-        emit Bridge.Deposit(bytes32(uint256(0)), address(_token), DEPOSIT_AMOUNT, user);
+        emit Bridge.Deposit(0, address(_token), DEPOSIT_AMOUNT, user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
     }
 
@@ -561,7 +561,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         tokens[0] = address(_token);
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(Bridge.ContractNotPaused.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.ContractNotMigrated.selector));
         _bridge.transferTokensToMigrated(tokens);
     }
 

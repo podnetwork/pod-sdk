@@ -15,6 +15,7 @@ contract Bridge is AccessControl {
     using SafeERC20 for IERC20;
 
     error ContractMigrated();
+    error ContractNotMigrated();
     error InvalidTokenAmount();
     error InvalidToAddress();
     error InvalidTokenConfig();
@@ -44,10 +45,10 @@ contract Bridge is AccessControl {
     event ValidatorAdded(address indexed validator);
     event ValidatorRemoved(address indexed validator);
     event ValidatorConfigUpdated(uint256 oldVersion, uint256 newVersion);
-    event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address indexed to);
-    event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
+    event Deposit(uint256 indexed id, address indexed token, uint256 amount, address indexed to);
+    event Claim(bytes32 indexed txHash, address mirrorToken, address token, uint256 amount, address indexed to);
     event DepositAndCall(
-        bytes32 indexed id,
+        uint256 indexed id,
         address indexed token,
         uint256 amount,
         address indexed to,
@@ -312,7 +313,7 @@ contract Bridge is AccessControl {
     function deposit(address token, uint256 amount, address to, bytes calldata permit)
         external
         whenPublic
-        returns (bytes32)
+        returns (uint256)
     {
         if (to == address(0)) revert InvalidToAddress();
 
@@ -321,7 +322,7 @@ contract Bridge is AccessControl {
 
         _applyPermit(token, msg.sender, amount, permit);
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-        bytes32 id = bytes32(depositIndex++);
+        uint256 id = depositIndex++;
 
         emit Deposit(id, token, amount, to);
 
@@ -339,7 +340,7 @@ contract Bridge is AccessControl {
         address callContract,
         uint256 reserveBalance,
         bytes calldata permit
-    ) external whenPublic returns (bytes32) {
+    ) external whenPublic returns (uint256) {
         if (to == address(0)) revert InvalidToAddress();
         if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
         if (amount < reserveBalance) revert AmountBelowReserve();
@@ -349,7 +350,7 @@ contract Bridge is AccessControl {
 
         _applyPermit(token, msg.sender, amount, permit);
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-        bytes32 id = bytes32(depositIndex++);
+        uint256 id = depositIndex++;
 
         emit DepositAndCall(id, token, amount, to, callContract, reserveBalance);
 
@@ -394,7 +395,7 @@ contract Bridge is AccessControl {
             }
 
             IERC20(token).safeTransferFrom(d.from, address(this), d.amount);
-            bytes32 id = bytes32(depositIndex++);
+            uint256 id = depositIndex++;
 
             emit DepositAndCall(id, token, d.amount, d.to, callContract, reserveBalance);
         }
@@ -468,7 +469,7 @@ contract Bridge is AccessControl {
      * @param tokens Array of token addresses to transfer.
      */
     function transferTokensToMigrated(address[] calldata tokens) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (contractState != ContractState.Migrated) revert ContractNotPaused();
+        if (contractState != ContractState.Migrated) revert ContractNotMigrated();
 
         address destination = migratedContract;
         uint256 length = tokens.length;
