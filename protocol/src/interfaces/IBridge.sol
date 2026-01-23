@@ -153,14 +153,12 @@ interface IBridge {
      * @dev Claim parameters for batch claim operations (same token).
      * @param amount The amount of tokens to claim.
      * @param to The address to receive the tokens.
-     * @param committeeEpoch The committee epoch for validator signature verification.
      * @param aggregatedSignatures Concatenated validator signatures.
      * @param proof The Merkle proof for verifying the deposit.
      */
     struct ClaimParams {
         uint256 amount;
         address to;
-        uint64 committeeEpoch;
         bytes aggregatedSignatures;
         bytes proof;
     }
@@ -323,7 +321,6 @@ interface IBridge {
      * @param token The token address on Pod that was deposited.
      * @param amount The amount of tokens that were deposited on Pod (and to claim).
      * @param to The address to receive the tokens (must match the 'to' specified in the deposit).
-     * @param committeeEpoch The committee epoch for validator signature verification.
      * @param aggregatedSignatures Concatenated 65-byte ECDSA signatures (r,s,v) from validators.
      * @param proof The Merkle multi-proof for verifying transaction fields (to, input).
      */
@@ -331,7 +328,6 @@ interface IBridge {
         address token,
         uint256 amount,
         address to,
-        uint64 committeeEpoch,
         bytes calldata aggregatedSignatures,
         bytes calldata proof
     ) external;

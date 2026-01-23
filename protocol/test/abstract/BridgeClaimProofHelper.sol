@@ -32,23 +32,54 @@ abstract contract BridgeClaimProofHelper is Test {
     )
         internal
         view
-        returns (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof)
+        returns (bytes32 txHash, bytes memory aggregatedSignatures, bytes memory proof)
     {
-        committeeEpoch = 0;
-
         bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
-        address txFrom = address(0xDEAD);
-        uint256 txValue = 0;
-        uint64 txNonce = 0;
 
-        bytes32 data = keccak256(abi.encodeWithSelector(selector, claimToken, amount, to));
+        // Match the exact encoding used by Bridge.depositTxHash():
+        // dataHash = keccak256(selector || token || amount || to) where each is 32-byte aligned
+        // selector at offset 0 (4 bytes), token at offset 4 (32 bytes), amount at offset 36, to at offset 68
+        // Total: 100 bytes
+        bytes32 dataHash = keccak256(abi.encodePacked(
+            selector,
+            uint256(uint160(claimToken)),
+            amount,
+            uint256(uint160(to))
+        ));
 
-        txHash = keccak256(abi.encode(domainSeparator, otherBridgeContract, data, txValue, txFrom, txNonce));
-        proof = abi.encode(txValue, txFrom, txNonce);
+        // proof is empty for simplified version
+        proof = "";
+
+        // txHash = keccak256(domainSeparator || bridgeContract || dataHash || proof)
+        // Each is 32-byte aligned, total 96 bytes when proof is empty
+        txHash = keccak256(abi.encodePacked(
+            domainSeparator,
+            bytes32(uint256(uint160(otherBridgeContract))),
+            dataHash
+        ));
+
+        // Sort validators by address for signature ordering requirement
+        uint256[] memory sortedKeys = new uint256[](numberOfRequiredSignatures);
+        address[] memory sortedAddrs = new address[](numberOfRequiredSignatures);
+
+        for (uint256 i = 0; i < numberOfRequiredSignatures; i++) {
+            sortedKeys[i] = validatorPrivateKeys[i];
+            sortedAddrs[i] = vm.addr(validatorPrivateKeys[i]);
+        }
+
+        // Simple bubble sort by address
+        for (uint256 i = 0; i < numberOfRequiredSignatures; i++) {
+            for (uint256 j = i + 1; j < numberOfRequiredSignatures; j++) {
+                if (sortedAddrs[i] > sortedAddrs[j]) {
+                    (sortedAddrs[i], sortedAddrs[j]) = (sortedAddrs[j], sortedAddrs[i]);
+                    (sortedKeys[i], sortedKeys[j]) = (sortedKeys[j], sortedKeys[i]);
+                }
+            }
+        }
 
         bytes[] memory signatures = new bytes[](numberOfRequiredSignatures);
         for (uint256 i = 0; i < numberOfRequiredSignatures; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorPrivateKeys[i], txHash);
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(sortedKeys[i], txHash);
             signatures[i] = serializeSignature(v, r, s);
         }
         aggregatedSignatures = aggregateSignatures(signatures);

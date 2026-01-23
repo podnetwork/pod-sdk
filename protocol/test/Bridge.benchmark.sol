@@ -34,7 +34,8 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
         }
 
-        uint8 f = uint8((initialValidators.length - 1) / 3);
+        uint64 f = uint64((numValidators - 1) / 3);
+        if (f == 0) f = 1; // minimum resilience is 1
         registry = new Registry(initialValidators, f);
         bridge = new Bridge(address(registry), otherBridgeContract, chainId);
 
@@ -50,12 +51,12 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
 
     function _benchmarkClaim(uint256 numValidators) internal {
         _setupWithValidators(numValidators);
-        bytes32 domainSeparator = bridge.DOMAIN_SEPARATOR();
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
+        bytes32 domainSeparator = registry.domainSeperator();
+        (, bytes memory aggregatedSignatures, bytes memory proof) =
             createTokenClaimProof(mirrorToken, DEPOSIT_AMOUNT, user, numValidators, domainSeparator);
 
         uint256 gasBefore = gasleft();
-        bridge.claim(address(token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
+        bridge.claim(address(token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
         uint256 gasUsed = gasBefore - gasleft();
 
         console.log("claim gas with %d validators: %d", numValidators, gasUsed);

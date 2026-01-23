@@ -96,14 +96,14 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
 
         // Create claim proof with all 4 validators signing
         // The proof is for a deposit of MIRROR_TOKEN on the source chain
-        (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.DOMAIN_SEPARATOR());
+        (bytes32 txHash, bytes memory aggregatedSignatures, bytes memory proof) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, podRegistry.domainSeperator());
 
         // Expect Claim event - first param is local token, second is mirror token
         vm.expectEmit(true, true, true, true);
         emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
         // claim() takes local token as first param, contract looks up mirrorToken from tokenData
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
 
         assertEq(_token.balanceOf(user), initialBalance + DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_bridge)), 0);
@@ -119,24 +119,24 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         // Only 2 signatures (need 3 for 4 validators with threshold 1/1)
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 2, _bridge.DOMAIN_SEPARATOR());
+        (, bytes memory aggregatedSignatures, bytes memory proof) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 2, podRegistry.domainSeperator());
 
         vm.expectRevert("Not enough validator weight");
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
     }
 
     function test_Claim_RevertIfInvalidProof() public {
         vm.prank(admin);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.DOMAIN_SEPARATOR());
+        (, bytes memory aggregatedSignatures, bytes memory proof) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, podRegistry.domainSeperator());
 
         bytes memory tamperedProof = bytes.concat(proof, abi.encode(keccak256("tamper")));
 
         vm.expectRevert(); // Will fail due to signature mismatch on different root
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, tamperedProof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, tamperedProof);
     }
 
     function test_Claim_RevertIfAlreadyClaimed() public {
@@ -144,38 +144,38 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
 
         // Create proof once and reuse for both claims
-        (bytes32 txHash, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.DOMAIN_SEPARATOR());
+        (bytes32 txHash, bytes memory aggregatedSignatures, bytes memory proof) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, podRegistry.domainSeperator());
 
         // First claim should emit Claim event with actual txHash
         vm.expectEmit(true, true, true, true);
         emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
 
         // Second claim with same proof should fail
         vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
     }
 
     function test_Claim_RevertIfTokenNotWhitelisted() public {
         address unknownToken = makeAddr("unknownToken");
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(unknownToken, DEPOSIT_AMOUNT, user, 3, _bridge.DOMAIN_SEPARATOR());
+        (, bytes memory aggregatedSignatures, bytes memory proof) =
+            createTokenClaimProof(unknownToken, DEPOSIT_AMOUNT, user, 3, podRegistry.domainSeperator());
 
         // Claiming with an unknown local token fails because tokenData[unknownToken].minAmount == 0
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
-        _bridge.claim(unknownToken, DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
+        _bridge.claim(unknownToken, DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
     }
 
     function test_Claim_RevertIfPaused() public {
         vm.prank(admin);
         _bridge.setState(IBridge.ContractState.Paused);
 
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3, _bridge.DOMAIN_SEPARATOR());
+        (, bytes memory aggregatedSignatures, bytes memory proof) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3, podRegistry.domainSeperator());
 
         vm.expectRevert(IBridge.ContractPaused.selector);
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
     }
 
     function test_Claim_RevertIfInvalidAmount() public {
@@ -183,11 +183,11 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         // Try to claim less than minimum
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, minAmount - 1, user, 3, _bridge.DOMAIN_SEPARATOR());
+        (, bytes memory aggregatedSignatures, bytes memory proof) =
+            createTokenClaimProof(MIRROR_TOKEN, minAmount - 1, user, 3, podRegistry.domainSeperator());
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
-        _bridge.claim(address(_token), minAmount - 1, user, committeeEpoch, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), minAmount - 1, user, aggregatedSignatures, proof);
     }
 
     // ========== Migration Tests ==========
@@ -649,24 +649,22 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         address user2 = makeAddr("user2");
 
         // Create proofs for two different claims
-        (bytes32 txHash1, uint64 epoch1, bytes memory sigs1, bytes memory proof1) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, 4, _bridge.DOMAIN_SEPARATOR());
-        (bytes32 txHash2, uint64 epoch2, bytes memory sigs2, bytes memory proof2) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.DOMAIN_SEPARATOR());
+        (bytes32 txHash1, bytes memory sigs1, bytes memory proof1) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, 4, podRegistry.domainSeperator());
+        (bytes32 txHash2, bytes memory sigs2, bytes memory proof2) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, podRegistry.domainSeperator());
 
         // Create claim params array
         IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](2);
         claims[0] = IBridge.ClaimParams({
             amount: DEPOSIT_AMOUNT,
             to: user1,
-            committeeEpoch: epoch1,
             aggregatedSignatures: sigs1,
             proof: proof1
         });
         claims[1] = IBridge.ClaimParams({
             amount: DEPOSIT_AMOUNT,
             to: user2,
-            committeeEpoch: epoch2,
             aggregatedSignatures: sigs2,
             proof: proof2
         });
@@ -695,18 +693,17 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
 
-        (bytes32 txHash1, uint64 epoch1, bytes memory sigs1, bytes memory proof1) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.DOMAIN_SEPARATOR());
+        (bytes32 txHash1, bytes memory sigs1, bytes memory proof1) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, podRegistry.domainSeperator());
 
         // First claim via single claim
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, epoch1, sigs1, proof1);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, sigs1, proof1);
 
         // Try to batch claim with the same proof
         IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](1);
         claims[0] = IBridge.ClaimParams({
             amount: DEPOSIT_AMOUNT,
             to: user,
-            committeeEpoch: epoch1,
             aggregatedSignatures: sigs1,
             proof: proof1
         });
@@ -723,7 +720,6 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         claims[0] = IBridge.ClaimParams({
             amount: DEPOSIT_AMOUNT,
             to: user,
-            committeeEpoch: 0,
             aggregatedSignatures: "",
             proof: ""
         });

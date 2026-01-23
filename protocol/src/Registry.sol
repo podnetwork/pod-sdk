@@ -2,294 +2,132 @@
 pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Attestation} from "./lib/Attestation.sol";
 
 /**
  * @title Registry
- * @notice Manages a dynamic set of validators with historical snapshots for quorum verification.
- * This is the source of truth for what the active pod validator set is at any given timestamp.
- * @dev This contract maintains a bitmap-based validator set with the ability to create
- * historical snapshots for quorum verification of certificates signed by previously active committees.
- * It supports up to 255 validators
- * and uses bitmap operations for validator status tracking.
- * Additionally, the 255
- *
- *
- * @custom:security This contract is Ownable and should only be deployed with trusted ownership
+ * @notice Manages a dynamic set of validators for quorum verification.
  */
 contract Registry is Ownable {
-    struct Snapshot {
-        uint256 expiryTimestamp; // timestamp at which the committee was updated
-        uint256 bitmap; // active validator bitmap
-        uint8 validatorCount; // n
-        uint8 adverserialResilience; // f
-    }
-
     error ValidatorIsZeroAddress();
-    error ValidatorAlreadyExists();
-    error MaxValidatorCountReached();
     error ValidatorDoesNotExist();
-    error ValidatorNotBanned();
-
-    error CallerNotValidator();
-    error CallerAlreadyInactive();
-    error CallerBanned();
-    error CallerAlreadyActive();
-
-    error InvalidSnapshotIndex();
+    error DuplicateValidator();
+    error InvalidAdverserialResilience();
+    error InvalidSignatureOrder();
+    error SignerNotActiveValidator();
 
     event ValidatorAdded(address indexed validator);
     event ValidatorRemoved(address indexed validator);
-    event ValidatorBanned(address indexed validator);
-    event ValidatorUnbanned(address indexed validator);
-    event ValidatorDeactivated(address indexed validator);
-    event ValidatorReactivated(address indexed validator);
 
-    event SnapshotCreated(uint256 indexed activeAsOfTimestamp, uint256 bitmap);
+    bytes32 public domainSeperator;
+    uint64 public adversarialResilience;
+    uint64 public validatorCount;
 
-    /**
-     * @notice Maximum number of validators allowed in the registry
-     * @dev IMPORTANT: This is a hard limit on the total number of validators that can ever be registered.
-     * When a validator is banned/deactivated, their index position becomes permanently unavailable.
-     * New validators cannot reuse the indices of removed validators, so the effective capacity
-     * decreases over time. To maintain full capacity, you must either:
-     * 1) Unban/reactivate the same validator, or
-     * 2) Implement a validator replacement mechanism that reuses indices
-     */
-    uint256 constant MAX_VALIDATOR_COUNT = 255;
+    mapping(address => bool) public activeValidators;
 
-    // /**
-    //  * @notice Number of snapshots to check when finding the closest snapshot to a given timestamp before
-    //  * falling back to binary search.
-    //  */
-    // uint256 constant CHECK_COUNT = 3;
+    constructor(address[] memory _validators, uint64 _adversarialResilience) Ownable(msg.sender) {
+        _addRemoveValidators(_validators, new address[](0));
+        _setAdversarialResilience(_adversarialResilience);
 
-    Snapshot[] public history;
-    // validator address to their 1-based index, 0 means not found
-    mapping(address => uint8) public validatorIndex;
-    address[] public validators;
-
-    uint256 public activeValidatorBitmap;
-    uint256 public bannedValidatorBitmap;
-    uint8 public adverserialResilience;
-    uint8 public validatorCount;
-
-    constructor(address[] memory _validators, uint8 _adverserialResilience) Ownable(msg.sender) {
-        if (_validators.length > MAX_VALIDATOR_COUNT) {
-            revert MaxValidatorCountReached();
-        }
-
-        uint256 validatorsLength = _validators.length;
-        for (uint8 i = 0; i < validatorsLength; ++i) {
-            address validator = _validators[i];
-            if (validator == address(0)) {
-                revert ValidatorIsZeroAddress();
-            }
-            if (validatorIndex[validator] != 0) {
-                revert ValidatorAlreadyExists();
-            }
-            validators.push(validator);
-            validatorIndex[validator] = i + 1;
-            activeValidatorBitmap = _setBit(activeValidatorBitmap, i);
-        }
-
-        validatorCount = uint8(_validators.length);
-        adverserialResilience = _adverserialResilience;
+        domainSeperator = keccak256(
+            abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), block.chainid)
+        );
     }
 
-    function updateConfig(address[] memory newValidators, address[] memory removedValidators, uint8 newResilience)
-        external
-        onlyOwner
-    {
-        _createSnapshot();
-
-        if (validators.length + newValidators.length > MAX_VALIDATOR_COUNT) {
-            revert MaxValidatorCountReached();
-        }
-
-        uint256 newValidatorsLength = newValidators.length;
-        for (uint256 i = 0; i < newValidatorsLength; ++i) {
-            address validator = newValidators[i];
-            if (validator == address(0)) {
-                revert ValidatorIsZeroAddress();
-            }
-
-            if (validatorIndex[validator] != 0) {
-                revert ValidatorAlreadyExists();
-            }
-
-            validators.push(validator);
-            uint8 index = uint8(validators.length);
-            validatorIndex[validator] = index;
-            activeValidatorBitmap = _setBit(activeValidatorBitmap, index - 1);
-            emit ValidatorAdded(validator);
-        }
-
-        uint256 removedValidatorsLength = removedValidators.length;
-        for (uint256 i = 0; i < removedValidatorsLength; ++i) {
-            address validator = removedValidators[i];
-            uint8 index = validatorIndex[validator];
-            if (index == 0 || !_isBitSet(activeValidatorBitmap, index - 1)) {
+    function _addRemoveValidators(address[] memory addValidators, address[] memory removeValidators) internal {
+        for (uint64 j = 0; j < removeValidators.length; ++j) {
+            address validator = removeValidators[j];
+            if (!activeValidators[validator]) {
                 revert ValidatorDoesNotExist();
             }
-
-            activeValidatorBitmap = _clearBit(activeValidatorBitmap, index - 1);
+            activeValidators[validator] = false;
             emit ValidatorRemoved(validator);
         }
 
-        validatorCount = uint8(
-            uint256(validatorCount) + newValidatorsLength - removedValidatorsLength
-        );
-        adverserialResilience = newResilience;
+        for (uint64 i = 0; i < addValidators.length; ++i) {
+            address validator = addValidators[i];
+            if (validator == address(0)) {
+                revert ValidatorIsZeroAddress();
+            }
+            if (activeValidators[validator]) {
+                revert DuplicateValidator();
+            }
+            activeValidators[validator] = true;
+            emit ValidatorAdded(validator);
+        }
+
+        validatorCount = uint64(uint256(validatorCount) + addValidators.length - removeValidators.length);
     }
 
-    function banValidator(address validator) external onlyOwner {
-        uint8 index = validatorIndex[validator];
-        if (index == 0) {
-            revert ValidatorDoesNotExist();
+    function _setAdversarialResilience(uint64 _adversarialResilience) internal {
+        if (_adversarialResilience == 0 || _adversarialResilience > validatorCount) {
+            revert InvalidAdverserialResilience();
         }
-        if (_isBitSet(bannedValidatorBitmap, index - 1)) {
-            revert CallerBanned();
-        }
-
-        bannedValidatorBitmap = _setBit(bannedValidatorBitmap, index - 1);
-        emit ValidatorBanned(validator);
+        adversarialResilience = _adversarialResilience;
     }
 
-    function unbanValidator(address validator) external onlyOwner {
-        uint8 index = validatorIndex[validator];
-        if (index == 0) {
-            revert ValidatorDoesNotExist();
-        }
-        if (!_isBitSet(bannedValidatorBitmap, index - 1)) {
-            revert ValidatorNotBanned();
+    function _recoverSignerAt(bytes32 digest, bytes calldata aggregateSignature, uint256 index)
+        internal
+        pure
+        returns (address signer)
+    {
+        uint256 offset;
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+
+        assembly {
+            offset := add(aggregateSignature.offset, mul(index, 65))
+            r := calldataload(offset)
+            s := calldataload(add(offset, 32))
+            v := byte(0, calldataload(add(offset, 64)))
         }
 
-        bannedValidatorBitmap = _clearBit(bannedValidatorBitmap, index - 1);
-        emit ValidatorUnbanned(validator);
+        signer = ecrecover(digest, v, r, s);
+        require(signer != address(0), "Invalid signature");
     }
 
-    function deactivate(address validator) external {
-        if (owner() != msg.sender && validator != msg.sender) {
-            revert CallerNotValidator();
-        }
-        uint8 index = validatorIndex[validator];
-        if (index == 0) {
-            revert ValidatorDoesNotExist();
-        }
-        if (!_isBitSet(activeValidatorBitmap, index - 1)) {
-            revert CallerAlreadyInactive();
-        }
-
-        _createSnapshot();
-        activeValidatorBitmap = _clearBit(activeValidatorBitmap, index - 1);
-
-        emit ValidatorDeactivated(validator);
+    /**
+     * @notice Update the validator set and adversarial resilience.
+     * @param newResilience The new adversarial resilience threshold.
+     * @param addValidators Validators to add.
+     * @param removeValidators Validators to remove.
+     */
+    function updateConfig(
+        uint64 newResilience,
+        address[] memory addValidators,
+        address[] memory removeValidators
+    ) external onlyOwner {
+        _addRemoveValidators(addValidators, removeValidators);
+        _setAdversarialResilience(newResilience);
     }
 
-    function reactivate(address validator) external {
-        if (owner() != msg.sender && validator != msg.sender) {
-            revert CallerNotValidator();
-        }
-        uint8 index = validatorIndex[validator];
-        if (index == 0) {
-            revert ValidatorDoesNotExist();
-        }
-
-        if (_isBitSet(activeValidatorBitmap, index - 1)) {
-            revert CallerAlreadyActive();
-        }
-
-        _createSnapshot();
-        activeValidatorBitmap = _setBit(activeValidatorBitmap, index - 1);
-        emit ValidatorReactivated(validator);
-    }
-
-    function _createSnapshot() internal {
-        history.push(
-            Snapshot({
-                expiryTimestamp: block.timestamp,
-                bitmap: activeValidatorBitmap,
-                validatorCount: validatorCount,
-                adverserialResilience: adverserialResilience
-            })
-        );
-        emit SnapshotCreated(block.timestamp, activeValidatorBitmap);
-    }
-
-    function computeTxWeight(bytes32 txHash, bytes calldata aggregateSignature, uint64 epoch)
+    /**
+     * @notice Compute the weight of signatures for a transaction hash.
+     * @param txHash The transaction hash to verify.
+     * @param aggregateSignature The aggregated signatures.
+     * @return weight The number of valid signatures.
+     * @return n The total number of validators.
+     * @return f The adversarial resilience threshold.
+     */
+    function computeTxWeight(bytes32 txHash, bytes calldata aggregateSignature)
         public
         view
         returns (uint256 weight, uint256 n, uint256 f)
     {
-        uint256 validatorBitmap;
-        if (epoch > history.length) {
-            revert InvalidSnapshotIndex();
-        } else if (epoch == history.length) {
-            validatorBitmap = activeValidatorBitmap;
-            n = validatorCount;
-            f = adverserialResilience;
-        } else {
-            Snapshot memory s = history[epoch];
-            validatorBitmap = s.bitmap;
-            n = s.validatorCount;
-            f = s.adverserialResilience;
-        }
-        validatorBitmap &= ~bannedValidatorBitmap; // remove banned validators
-
         uint256 count = aggregateSignature.length / 65;
+        address lastSigner = address(0);
+
         for (uint256 i = 0; i < count; ++i) {
-            address signer = Attestation.recoverSignerAt(txHash, aggregateSignature, i);
-            uint8 index = validatorIndex[signer];
-            if (index == 0) {
-                continue;
+            address signer = _recoverSignerAt(txHash, aggregateSignature, i);
+            if (signer <= lastSigner) {
+                revert InvalidSignatureOrder();
             }
-
-            uint256 mask = (1 << (index - 1));
-            if ((validatorBitmap & mask) != 0) weight++; // found an active validator
-            validatorBitmap &= ~mask; // clear bit to avoid double counting
-        }
-    }
-
-    function getValidators(uint256 snapshotIndex) public view returns (address[] memory) {
-        uint256 bitmap = history[snapshotIndex].bitmap;
-        uint8 count = history[snapshotIndex].validatorCount;
-        address[] memory subset = new address[](count);
-        uint8 j = 0;
-        uint256 validatorsLen = validators.length;
-        for (uint8 i = 0; i < validatorsLen; ++i) {
-            if (_isBitSet(bitmap, i)) {
-                subset[j++] = validators[i];
+            if (!activeValidators[signer]) {
+                revert SignerNotActiveValidator();
             }
+            lastSigner = signer;
         }
-        return subset;
-    }
 
-    function isValidatorBanned(address validator) external view returns (bool isBanned) {
-        uint8 index = validatorIndex[validator];
-        if (index == 0) {
-            return false;
-        }
-        return _isBitSet(bannedValidatorBitmap, index - 1);
-    }
-
-    function getSnapshotAtIndex(uint256 snapshotIndex) external view returns (Snapshot memory) {
-        return history[snapshotIndex];
-    }
-
-    function getHistoryLength() external view returns (uint256) {
-        return history.length;
-    }
-
-    function _isBitSet(uint256 bitmap, uint8 i) internal pure returns (bool) {
-        return (bitmap & (1 << i)) != 0;
-    }
-
-    function _setBit(uint256 bitmap, uint8 i) internal pure returns (uint256) {
-        return bitmap | (1 << i);
-    }
-
-    function _clearBit(uint256 bitmap, uint8 i) internal pure returns (uint256) {
-        return bitmap & ~(1 << i);
+        return (count, validatorCount, adversarialResilience);
     }
 }

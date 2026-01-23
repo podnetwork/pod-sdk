@@ -36,7 +36,6 @@ contract Bridge is IBridge, AccessControl {
 
     Registry public immutable REGISTRY;
     address public immutable BRIDGE_CONTRACT;
-    bytes32 public immutable DOMAIN_SEPARATOR;
 
     /**
      * @dev Constructor.
@@ -50,9 +49,6 @@ contract Bridge is IBridge, AccessControl {
 
         REGISTRY = Registry(_registry);
         BRIDGE_CONTRACT = _bridgeContract;
-        DOMAIN_SEPARATOR = keccak256(
-            abi.encode(keccak256("pod network"), keccak256("attest_tx"), keccak256("1"), _bridgeNetworkChainId)
-        );
     }
 
     modifier whenPublic() {
@@ -279,14 +275,13 @@ contract Bridge is IBridge, AccessControl {
         }
     }
 
-    function depositTxHash(address token, uint256 amount, address to, bytes calldata proof)
+    function depositTxHash(address token, uint256 amount, address to, bytes32 domainSeperator, bytes calldata proof)
         internal
         view
         returns (bytes32 result)
     {
         bytes4 selector = DEPOSIT_SELECTOR;
         address bridgeContract = BRIDGE_CONTRACT;
-        bytes32 domainSeperator = DOMAIN_SEPARATOR;
 
         uint256 lenTx = 32 + 32 + 32 + proof.length; // DOMAIN_SEPARATOR + bridgeContract + dataHash + proof
         uint256 lenData = 4 + 32 + 32 + 32; // DOMAIN_SEPARATOR + selector + token + amount + to
@@ -316,7 +311,6 @@ contract Bridge is IBridge, AccessControl {
         address token,
         uint256 amount,
         address to,
-        uint64 committeeEpoch,
         bytes calldata aggregatedSignatures,
         bytes calldata proof
     ) public whenOperational {
@@ -324,12 +318,13 @@ contract Bridge is IBridge, AccessControl {
         checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, amount);
 
         address mirrorToken = t.mirrorToken;
-        bytes32 txHash = depositTxHash(mirrorToken, amount, to, proof);
+        bytes32 domainSeperator = REGISTRY.domainSeperator(); 
+        bytes32 txHash = depositTxHash(mirrorToken, amount, to, domainSeperator, proof);
 
         // Check if already processed
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-        (uint256 weight, uint256 n, uint256 f) = REGISTRY.computeTxWeight(txHash, aggregatedSignatures, committeeEpoch);
+        (uint256 weight, uint256 n, uint256 f) = REGISTRY.computeTxWeight(txHash, aggregatedSignatures);
         require(weight >= n - f, "Not enough validator weight");
 
         processedRequests[txHash] = true;
@@ -344,18 +339,19 @@ contract Bridge is IBridge, AccessControl {
         TokenData storage t = tokenData[token];
         address mirrorToken = t.mirrorToken;
         uint256 length = claims.length;
+        bytes32 domainSeperator = REGISTRY.domainSeperator();
 
         for (uint256 i = 0; i < length; ++i) {
             ClaimParams calldata c = claims[i];
 
             checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, c.amount);
 
-            bytes32 txHash = depositTxHash(mirrorToken, c.amount, c.to, c.proof);
+            bytes32 txHash = depositTxHash(mirrorToken, c.amount, c.to, domainSeperator, c.proof);
 
             if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
             (uint256 weight, uint256 n, uint256 f) =
-                REGISTRY.computeTxWeight(txHash, c.aggregatedSignatures, c.committeeEpoch);
+                REGISTRY.computeTxWeight(txHash, c.aggregatedSignatures);
             require(weight >= n - f, "Not enough validator weight");
 
             processedRequests[txHash] = true;
