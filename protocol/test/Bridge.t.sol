@@ -1146,8 +1146,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         assertEq(_bridge.merkleRoot(), merkleRoot);
 
         // Build proof bytes: type (1 byte) + abi.encoded proof array
-        bytes memory proof =
-            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
 
         uint256 initialBalance = _token.balanceOf(user);
 
@@ -1178,8 +1177,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Build proof bytes with wrong proof
-        bytes memory proof =
-            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
 
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidMerkleProof.selector));
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
@@ -1230,8 +1228,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.updateValidatorConfig(1, 2, newMerkleRoot, empty, empty);
 
-        bytes memory merkleProof =
-            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        bytes memory merkleProof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
 
         uint256 initialBalance = _token.balanceOf(user);
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, merkleProof, "");
@@ -1271,8 +1268,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
-        bytes memory proof =
-            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
 
         Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](1);
         claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: proof, auxTxSuffix: ""});

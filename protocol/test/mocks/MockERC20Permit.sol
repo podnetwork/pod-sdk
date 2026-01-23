@@ -11,10 +11,7 @@ import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20P
 contract MockERC20Permit is ERC20, ERC20Permit {
     uint8 private immutable DECIMALS;
 
-    constructor(string memory name_, string memory symbol_, uint8 decimals_)
-        ERC20(name_, symbol_)
-        ERC20Permit(name_)
-    {
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) ERC20Permit(name_) {
         DECIMALS = decimals_;
     }
 

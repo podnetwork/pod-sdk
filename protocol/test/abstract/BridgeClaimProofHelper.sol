@@ -37,18 +37,15 @@ abstract contract BridgeClaimProofHelper is Test {
         // dataHash = keccak256(selector || token || amount || to) where each is 32-byte aligned
         // selector at offset 0 (4 bytes), token at offset 4 (32 bytes), amount at offset 36, to at offset 68
         // Total: 100 bytes
-        bytes32 dataHash = keccak256(
-            abi.encodePacked(selector, uint256(uint160(claimToken)), amount, uint256(uint160(to)))
-        );
+        bytes32 dataHash =
+            keccak256(abi.encodePacked(selector, uint256(uint160(claimToken)), amount, uint256(uint160(to))));
 
         // auxTxSuffix is empty for simplified version
         auxTxSuffix = "";
 
         // txHash = keccak256(domainSeparator || bridgeContract || dataHash || auxTxSuffix)
         // Each is 32-byte aligned, total 96 bytes when auxTxSuffix is empty
-        txHash = keccak256(
-            abi.encodePacked(domainSeparator, bytes32(uint256(uint160(otherBridgeContract))), dataHash)
-        );
+        txHash = keccak256(abi.encodePacked(domainSeparator, bytes32(uint256(uint160(otherBridgeContract))), dataHash));
 
         // Sort validators by address for signature ordering requirement
         uint256[] memory sortedKeys = new uint256[](numberOfRequiredSignatures);

@@ -76,7 +76,7 @@ contract Bridge is AccessControl {
         // proof data is either aggregated signatures or merkle proof
         bytes proof;
         // auxiliary transaction suffix for forward compatibility
-        bytes auxTxSuffix; 
+        bytes auxTxSuffix;
     }
 
     struct TokenUsage {
@@ -149,9 +149,8 @@ contract Bridge is AccessControl {
 
     function _updateVersion(uint256 newVersion) internal {
         version = newVersion;
-        domainSeparator = keccak256(
-            abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), CHAIN_ID, version)
-        );
+        domainSeparator =
+            keccak256(abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), CHAIN_ID, version));
     }
 
     function _addRemoveValidators(address[] memory addValidators, address[] memory removeValidators) internal {
@@ -329,8 +328,8 @@ contract Bridge is AccessControl {
         return id;
     }
 
-    /** 
-     * @dev The callee contract on the destination chain must 
+    /**
+     * @dev The callee contract on the destination chain must
      *         implement deposit(address token, uint256 amount, address to)
      */
     function depositAndCall(
