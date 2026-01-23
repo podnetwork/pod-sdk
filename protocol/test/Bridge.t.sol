@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {Bridge} from "../src/Bridge.sol";
-import {IBridge} from "../src/interfaces/IBridge.sol";
 import {ProofLib} from "../src/lib/ProofLib.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 import {MockERC20Permit} from "./mocks/MockERC20Permit.sol";
@@ -64,25 +63,25 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Deposit_EmitsEvent() public {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Deposit(bytes32(uint256(0)), address(_token), DEPOSIT_AMOUNT, user);
+        emit Bridge.Deposit(bytes32(uint256(0)), address(_token), DEPOSIT_AMOUNT, user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
     }
 
     function test_Deposit_RevertIfPaused() public {
         vm.prank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
-        vm.expectRevert(IBridge.ContractPaused.selector);
+        _bridge.setState(Bridge.ContractState.Paused);
+        vm.expectRevert(Bridge.ContractPaused.selector);
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
     }
 
     function test_Deposit_MinAndDailyLimit() public {
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenAmount.selector));
         _bridge.deposit(address(_token), minAmount - 1, user, "");
 
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.DailyLimitExhausted.selector));
         _bridge.deposit(address(_token), depositLimit + 1, user, "");
     }
 
@@ -98,7 +97,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), 100e18, user, "");
         vm.prank(user);
         _bridge.deposit(address(_token), 200e18, user, "");
-        (,,, IBridge.TokenUsage memory dep,,) = _bridge.tokenData(address(_token));
+        (,,, Bridge.TokenUsage memory dep,,) = _bridge.tokenData(address(_token));
         assertEq(dep.consumed, 300e18);
     }
 
@@ -107,7 +106,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), depositLimit, user, "");
         vm.warp(block.timestamp + 1 days - 1);
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.DailyLimitExhausted.selector));
         _bridge.deposit(address(_token), minAmount, user, "");
         vm.warp(block.timestamp + 2);
         vm.prank(user);
@@ -117,7 +116,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Deposit_RevertIfTokenNotWhitelisted() public {
         address notWhitelisted = address(0xBEEF);
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenConfig.selector));
         _bridge.deposit(notWhitelisted, 1, user, "");
     }
 
@@ -153,17 +152,17 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_DepositNative_NotSupported() public {
         vm.deal(user, DEPOSIT_AMOUNT);
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenConfig.selector));
         _bridge.deposit(address(0), 0, user, "");
     }
 
     function test_Deposit_RevertAfterMigrated() public {
         vm.startPrank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
         _bridge.migrate(newBridge);
         vm.stopPrank();
         vm.prank(user);
-        vm.expectRevert(IBridge.ContractPaused.selector);
+        vm.expectRevert(Bridge.ContractPaused.selector);
         _bridge.deposit(address(_token), 1, user, "");
     }
 
@@ -189,13 +188,13 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
+        emit Bridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
 
         assertEq(_token.balanceOf(user), initialBalance + DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_bridge)), 0);
 
-        (,,, IBridge.TokenUsage memory depositUsage, IBridge.TokenUsage memory claimUsage,) =
+        (,,, Bridge.TokenUsage memory depositUsage, Bridge.TokenUsage memory claimUsage,) =
             _bridge.tokenData(address(_token));
         assertEq(depositUsage.consumed, DEPOSIT_AMOUNT);
         assertEq(claimUsage.consumed, DEPOSIT_AMOUNT);
@@ -208,7 +207,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 2, _bridge.domainSeparator());
 
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InsufficientValidatorWeight.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InsufficientValidatorWeight.selector));
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
     }
 
@@ -233,10 +232,10 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
+        emit Bridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
 
-        vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.RequestAlreadyProcessed.selector));
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
     }
 
@@ -245,18 +244,18 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(unknownToken, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeparator());
 
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenConfig.selector));
         _bridge.claim(unknownToken, DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
     }
 
     function test_Claim_RevertIfPaused() public {
         vm.prank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
 
         (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeparator());
 
-        vm.expectRevert(IBridge.ContractPaused.selector);
+        vm.expectRevert(Bridge.ContractPaused.selector);
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
     }
 
@@ -267,7 +266,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, minAmount - 1, user, 3, _bridge.domainSeparator());
 
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenAmount.selector));
         _bridge.claim(address(_token), minAmount - 1, user, proof, auxTxSuffix);
     }
 
@@ -285,14 +284,14 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         (bytes32 txHash2, bytes memory proof2, bytes memory auxTxSuffix2) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.domainSeparator());
 
-        IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](2);
-        claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: proof1, auxTxSuffix: auxTxSuffix1});
-        claims[1] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user2, proof: proof2, auxTxSuffix: auxTxSuffix2});
+        Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](2);
+        claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: proof1, auxTxSuffix: auxTxSuffix1});
+        claims[1] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user2, proof: proof2, auxTxSuffix: auxTxSuffix2});
 
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Claim(txHash1, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user1);
+        emit Bridge.Claim(txHash1, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user1);
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Claim(txHash2, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user2);
+        emit Bridge.Claim(txHash2, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user2);
 
         _bridge.batchClaim(address(_token), claims);
 
@@ -302,8 +301,8 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     }
 
     function test_BatchClaim_RevertIfEmpty() public {
-        IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](0);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
+        Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](0);
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenAmount.selector));
         _bridge.batchClaim(address(_token), claims);
     }
 
@@ -316,21 +315,21 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof1, auxTxSuffix1);
 
-        IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](1);
-        claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user, proof: proof1, auxTxSuffix: auxTxSuffix1});
+        Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](1);
+        claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user, proof: proof1, auxTxSuffix: auxTxSuffix1});
 
-        vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.RequestAlreadyProcessed.selector));
         _bridge.batchClaim(address(_token), claims);
     }
 
     function test_BatchClaim_RevertIfPaused() public {
         vm.prank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
 
-        IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](1);
-        claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user, proof: "", auxTxSuffix: ""});
+        Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](1);
+        claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user, proof: "", auxTxSuffix: ""});
 
-        vm.expectRevert(IBridge.ContractPaused.selector);
+        vm.expectRevert(Bridge.ContractPaused.selector);
         _bridge.batchClaim(address(_token), claims);
     }
 
@@ -357,18 +356,18 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_ConfigureToken_RevertIfUpdatingUnconfiguredToken() public {
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenConfig.selector));
         _bridge.configureToken(address(0xCAFE), 1, 1, 1);
     }
 
     function test_ConfigureToken_ResetsDailyLimits() public {
         vm.prank(user);
         _bridge.deposit(address(_token), minAmount, user, "");
-        (,,, IBridge.TokenUsage memory dep,,) = _bridge.tokenData(address(_token));
+        (,,, Bridge.TokenUsage memory dep,,) = _bridge.tokenData(address(_token));
         assertEq(dep.consumed, minAmount);
         vm.prank(admin);
         _bridge.configureToken(address(_token), minAmount, depositLimit, claimLimit);
-        (,,, IBridge.TokenUsage memory dep2,,) = _bridge.tokenData(address(_token));
+        (,,, Bridge.TokenUsage memory dep2,,) = _bridge.tokenData(address(_token));
         assertEq(dep2.consumed, 0);
         vm.prank(user);
         _bridge.deposit(address(_token), minAmount, user, "");
@@ -380,7 +379,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.configureToken(address(_token), 1e18, 0, 0);
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.DailyLimitExhausted.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.DailyLimitExhausted.selector));
         _bridge.deposit(address(_token), minAmount, user, "");
     }
 
@@ -389,15 +388,15 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Whitelist_RevertIfSameTokenTwiceDifferentMirror() public {
         WrappedToken anotherMirror = new WrappedToken("Token", "TKN", 18);
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenConfig.selector));
         _bridge.whiteListToken(address(_token), address(anotherMirror), minAmount, depositLimit, claimLimit);
     }
 
     function test_WhiteListToken_RevertAfterMigrated() public {
         vm.startPrank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
         _bridge.migrate(newBridge);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.ContractMigrated.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.ContractMigrated.selector));
         _bridge.whiteListToken(address(0x1234), address(0x5678), 1, 100, 100);
         vm.stopPrank();
     }
@@ -410,10 +409,10 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(user);
         _bridge.deposit(address(_token), minAmount, user, "");
-        (,,, IBridge.TokenUsage memory dep1,,) = _bridge.tokenData(address(_token));
+        (,,, Bridge.TokenUsage memory dep1,,) = _bridge.tokenData(address(_token));
         assertEq(dep1.consumed, minAmount);
 
-        (,,, IBridge.TokenUsage memory dep2,,) = _bridge.tokenData(t2);
+        (,,, Bridge.TokenUsage memory dep2,,) = _bridge.tokenData(t2);
         assertEq(dep2.consumed, 0);
     }
 
@@ -421,28 +420,28 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Pause_Unpause() public {
         vm.prank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
-        assertEq(uint256(_bridge.contractState()), uint256(IBridge.ContractState.Paused));
+        _bridge.setState(Bridge.ContractState.Paused);
+        assertEq(uint256(_bridge.contractState()), uint256(Bridge.ContractState.Paused));
         vm.prank(admin);
-        _bridge.setState(IBridge.ContractState.Public);
-        assertEq(uint256(_bridge.contractState()), uint256(IBridge.ContractState.Public));
+        _bridge.setState(Bridge.ContractState.Public);
+        assertEq(uint256(_bridge.contractState()), uint256(Bridge.ContractState.Public));
     }
 
     function test_Pause_RevertIfNotPauseRole() public {
         vm.prank(user);
         vm.expectRevert();
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
     }
 
     function test_Pause_RoleRequired_Unpause_AdminRequired() public {
         vm.prank(user);
         vm.expectRevert();
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
         vm.prank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
         vm.prank(user);
         vm.expectRevert();
-        _bridge.setState(IBridge.ContractState.Public);
+        _bridge.setState(Bridge.ContractState.Public);
     }
 
     function test_RoleGrants_FromConstructor() public view {
@@ -454,7 +453,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Migrate_SetsMigratedContract() public {
         vm.prank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
         vm.prank(admin);
         _bridge.migrate(newBridge);
         assertEq(_bridge.migratedContract(), newBridge);
@@ -462,9 +461,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Migrate_RevertIfAlreadyMigrated() public {
         vm.startPrank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
         _bridge.migrate(newBridge);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.ContractMigrated.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.ContractMigrated.selector));
         _bridge.migrate(address(0x1234));
         vm.stopPrank();
     }
@@ -473,7 +472,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
         vm.startPrank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
         uint256 beforeAmt = _token.balanceOf(address(_bridge));
         _bridge.migrate(newBridge);
 
@@ -497,7 +496,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         }
         Bridge fresh = new Bridge(otherBridgeContract, validators, 1, SRC_CHAIN_ID, 1, bytes32(0));
         vm.prank(admin);
-        fresh.setState(IBridge.ContractState.Paused);
+        fresh.setState(Bridge.ContractState.Paused);
         vm.prank(admin);
         fresh.migrate(newBridge);
         assertEq(fresh.migratedContract(), newBridge);
@@ -513,7 +512,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
         vm.startPrank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
         _bridge.migrate(newBridge);
 
         address[] memory tokens = new address[](2);
@@ -538,7 +537,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         t2.mint(address(_bridge), DEPOSIT_AMOUNT);
 
         vm.startPrank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
         _bridge.migrate(newBridge);
 
         address[] memory tokens1 = new address[](1);
@@ -562,13 +561,13 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         tokens[0] = address(_token);
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.ContractNotPaused.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.ContractNotPaused.selector));
         _bridge.transferTokensToMigrated(tokens);
     }
 
     function test_TransferTokensToMigrated_RevertIfNotAdmin() public {
         vm.startPrank(admin);
-        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.setState(Bridge.ContractState.Paused);
         _bridge.migrate(newBridge);
         vm.stopPrank();
 
@@ -627,7 +626,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         bytes memory invalidPermit = abi.encodePacked(uint256(1), uint8(27), bytes32(0));
 
         vm.prank(permitUser);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidPermitLength.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidPermitLength.selector));
         _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, invalidPermit);
     }
 
@@ -690,13 +689,13 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         bytes32 digest2 = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash2));
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(user2PrivateKey, digest2);
 
-        IBridge.DepositParams[] memory deposits = new IBridge.DepositParams[](2);
-        deposits[0] = IBridge.DepositParams({account: user1, amount: DEPOSIT_AMOUNT});
-        deposits[1] = IBridge.DepositParams({account: user2, amount: DEPOSIT_AMOUNT});
+        Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](2);
+        deposits[0] = Bridge.DepositParams({account: user1, amount: DEPOSIT_AMOUNT});
+        deposits[1] = Bridge.DepositParams({account: user2, amount: DEPOSIT_AMOUNT});
 
-        IBridge.PermitParams[] memory permits = new IBridge.PermitParams[](2);
-        permits[0] = IBridge.PermitParams({deadline: deadline, v: v1, r: r1, s: s1});
-        permits[1] = IBridge.PermitParams({deadline: deadline, v: v2, r: r2, s: s2});
+        Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](2);
+        permits[0] = Bridge.PermitParams({deadline: deadline, v: v1, r: r1, s: s1});
+        permits[1] = Bridge.PermitParams({deadline: deadline, v: v2, r: r2, s: s2});
 
         vm.prank(admin);
         _bridge.batchDepositAndCall(address(permitToken), deposits, permits, callContract, minAmount);
@@ -745,14 +744,14 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         bytes32 digest2 = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash2));
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(user2PrivateKey, digest2);
 
-        IBridge.DepositParams[] memory deposits = new IBridge.DepositParams[](3);
-        deposits[0] = IBridge.DepositParams({account: user1, amount: DEPOSIT_AMOUNT});
-        deposits[1] = IBridge.DepositParams({account: user2, amount: DEPOSIT_AMOUNT});
-        deposits[2] = IBridge.DepositParams({account: user3, amount: DEPOSIT_AMOUNT});
+        Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](3);
+        deposits[0] = Bridge.DepositParams({account: user1, amount: DEPOSIT_AMOUNT});
+        deposits[1] = Bridge.DepositParams({account: user2, amount: DEPOSIT_AMOUNT});
+        deposits[2] = Bridge.DepositParams({account: user3, amount: DEPOSIT_AMOUNT});
 
-        IBridge.PermitParams[] memory permits = new IBridge.PermitParams[](2);
-        permits[0] = IBridge.PermitParams({deadline: deadline, v: v1, r: r1, s: s1});
-        permits[1] = IBridge.PermitParams({deadline: deadline, v: v2, r: r2, s: s2});
+        Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](2);
+        permits[0] = Bridge.PermitParams({deadline: deadline, v: v1, r: r1, s: s1});
+        permits[1] = Bridge.PermitParams({deadline: deadline, v: v2, r: r2, s: s2});
 
         vm.prank(admin);
         _bridge.batchDepositAndCall(address(permitToken), deposits, permits, callContract, minAmount);
@@ -773,10 +772,10 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.setCallContractWhitelist(callContract, true);
         vm.stopPrank();
 
-        IBridge.DepositParams[] memory deposits = new IBridge.DepositParams[](1);
-        deposits[0] = IBridge.DepositParams({account: user, amount: DEPOSIT_AMOUNT});
+        Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](1);
+        deposits[0] = Bridge.DepositParams({account: user, amount: DEPOSIT_AMOUNT});
 
-        IBridge.PermitParams[] memory permits = new IBridge.PermitParams[](0);
+        Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](0);
 
         vm.prank(user);
         vm.expectRevert();
@@ -793,13 +792,13 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.grantRole(_bridge.RELAYER_ROLE(), admin);
         vm.stopPrank();
 
-        IBridge.DepositParams[] memory deposits = new IBridge.DepositParams[](1);
-        deposits[0] = IBridge.DepositParams({account: user, amount: DEPOSIT_AMOUNT});
+        Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](1);
+        deposits[0] = Bridge.DepositParams({account: user, amount: DEPOSIT_AMOUNT});
 
-        IBridge.PermitParams[] memory permits = new IBridge.PermitParams[](0);
+        Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](0);
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.CallContractNotWhitelisted.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.CallContractNotWhitelisted.selector));
         _bridge.batchDepositAndCall(address(permitToken), deposits, permits, callContract, minAmount);
     }
 
@@ -814,13 +813,13 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.grantRole(_bridge.RELAYER_ROLE(), admin);
         vm.stopPrank();
 
-        IBridge.DepositParams[] memory deposits = new IBridge.DepositParams[](1);
-        deposits[0] = IBridge.DepositParams({account: user, amount: DEPOSIT_AMOUNT});
+        Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](1);
+        deposits[0] = Bridge.DepositParams({account: user, amount: DEPOSIT_AMOUNT});
 
-        IBridge.PermitParams[] memory permits = new IBridge.PermitParams[](0);
+        Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](0);
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.AmountBelowReserve.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.AmountBelowReserve.selector));
         _bridge.batchDepositAndCall(address(permitToken), deposits, permits, callContract, DEPOSIT_AMOUNT + 1);
     }
 
@@ -832,11 +831,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.grantRole(_bridge.RELAYER_ROLE(), admin);
         vm.stopPrank();
 
-        IBridge.DepositParams[] memory deposits = new IBridge.DepositParams[](0);
-        IBridge.PermitParams[] memory permits = new IBridge.PermitParams[](0);
+        Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](0);
+        Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](0);
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenAmount.selector));
         _bridge.batchDepositAndCall(address(_token), deposits, permits, callContract, minAmount);
     }
 
@@ -859,7 +858,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(admin);
         vm.expectEmit(true, false, false, true);
-        emit IBridge.ValidatorAdded(newValidator);
+        emit Bridge.ValidatorAdded(newValidator);
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
 
         assertTrue(_bridge.activeValidators(newValidator));
@@ -874,7 +873,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(admin);
         vm.expectEmit(true, false, false, true);
-        emit IBridge.ValidatorRemoved(validatorToRemove);
+        emit Bridge.ValidatorRemoved(validatorToRemove);
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
 
         assertFalse(_bridge.activeValidators(validatorToRemove));
@@ -915,7 +914,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory removeValidators = new address[](0);
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.ValidatorIsZeroAddress.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.ValidatorIsZeroAddress.selector));
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
 
@@ -926,7 +925,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory removeValidators = new address[](0);
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.DuplicateValidator.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.DuplicateValidator.selector));
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
 
@@ -937,7 +936,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         removeValidators[0] = nonExistentValidator;
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.ValidatorDoesNotExist.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.ValidatorDoesNotExist.selector));
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
 
@@ -946,11 +945,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory removeValidators = new address[](0);
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAdverserialResilience.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidAdverserialResilience.selector));
         _bridge.updateValidatorConfig(0, 1, bytes32(0), addValidators, removeValidators);
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAdverserialResilience.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidAdverserialResilience.selector));
         // forge-lint: disable-next-line(unsafe-typecast)
         _bridge.updateValidatorConfig(uint64(NUMBER_OF_VALIDATORS + 1), 1, bytes32(0), addValidators, removeValidators);
     }
@@ -1153,7 +1152,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         uint256 initialBalance = _token.balanceOf(user);
 
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
+        emit Bridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
 
         assertEq(_token.balanceOf(user), initialBalance + DEPOSIT_AMOUNT);
@@ -1182,7 +1181,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         bytes memory proof =
             abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
 
-        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidMerkleProof.selector));
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidMerkleProof.selector));
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
     }
 
@@ -1275,11 +1274,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         bytes memory proof =
             abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
 
-        IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](1);
-        claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: proof, auxTxSuffix: ""});
+        Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](1);
+        claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: proof, auxTxSuffix: ""});
 
         vm.expectEmit(true, true, true, true);
-        emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user1);
+        emit Bridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user1);
 
         _bridge.batchClaim(address(_token), claims);
 

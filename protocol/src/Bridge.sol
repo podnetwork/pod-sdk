@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IBridge} from "./interfaces/IBridge.sol";
 import {ProofLib} from "./lib/ProofLib.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
@@ -11,12 +10,84 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 
 /**
  * @title Bridge
- * @notice Implementation of the deposit-withdraw bridge.
- * @dev This contract implements the IBridge interface and provides the functionality for
- * depositing and withdrawing tokens between chains.
+ * @notice Cross-chain token bridging contract.
  */
-contract Bridge is IBridge, AccessControl {
+contract Bridge is AccessControl {
     using SafeERC20 for IERC20;
+
+    error ContractMigrated();
+    error InvalidTokenAmount();
+    error InvalidToAddress();
+    error InvalidTokenConfig();
+    error DailyLimitExhausted();
+    error RequestAlreadyProcessed();
+    error InvalidBridgeContract();
+    error AmountBelowReserve();
+    error CallContractNotWhitelisted();
+    error InvalidPermitLength();
+    error ContractPaused();
+    error ContractNotPaused();
+    error ValidatorIsZeroAddress();
+    error ValidatorDoesNotExist();
+    error DuplicateValidator();
+    error InvalidAdverserialResilience();
+    error InsufficientValidatorWeight();
+    error InvalidMerkleProof();
+
+    enum ContractState {
+        Public,
+        Private,
+        Paused,
+        Migrated
+    }
+
+    event ContractStateChanged(ContractState oldState, ContractState newState);
+    event ValidatorAdded(address indexed validator);
+    event ValidatorRemoved(address indexed validator);
+    event ValidatorConfigUpdated(uint256 oldVersion, uint256 newVersion);
+    event Deposit(bytes32 indexed id, address indexed token, uint256 amount, address indexed to);
+    event Claim(bytes32 indexed id, address mirrorToken, address token, uint256 amount, address indexed to);
+    event DepositAndCall(
+        bytes32 indexed id,
+        address indexed token,
+        uint256 amount,
+        address indexed to,
+        address callContract,
+        uint256 reserveBalance
+    );
+
+    struct DepositParams {
+        address account;
+        uint256 amount;
+    }
+
+    struct PermitParams {
+        uint256 deadline;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
+    struct ClaimParams {
+        uint256 amount;
+        address to;
+        bytes proof;
+        bytes auxTxSuffix;
+    }
+
+    struct TokenUsage {
+        uint256 consumed;
+        uint256 lastUpdated;
+    }
+
+    struct TokenData {
+        uint256 minAmount;
+        uint256 depositLimit;
+        uint256 claimLimit;
+        TokenUsage depositUsage;
+        TokenUsage claimUsage;
+        address mirrorToken;
+    }
 
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
@@ -234,6 +305,7 @@ contract Bridge is IBridge, AccessControl {
         }
     }
 
+    /// @param permit Tightly packed permit data (97 bytes) or empty for no permit.
     function deposit(address token, uint256 amount, address to, bytes calldata permit)
         external
         whenPublic
@@ -341,6 +413,8 @@ contract Bridge is IBridge, AccessControl {
         tokenData[token] = data;
     }
 
+    /// @notice Token can be disabled by setting limits to zero.
+    /// @dev Limits should be set to half the desired value due to boundary conditions.
     function configureToken(address token, uint256 minAmount, uint256 depositLimit, uint256 claimLimit)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
