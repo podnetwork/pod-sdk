@@ -257,17 +257,24 @@ contract Bridge is IBridge, AccessControl {
         contractState = ContractState.Migrated;
         migratedContract = _newContract;
 
-        handleMigrate(_newContract);
         emit ContractStateChanged(oldState, ContractState.Migrated);
     }
 
-    function handleMigrate(address _newContract) internal {
-        uint256 length = whitelistedTokens.length;
+    /**
+     * @notice Transfer tokens to the migrated contract.
+     * @dev Can only be called after migration. Can be called multiple times.
+     * @param tokens Array of token addresses to transfer.
+     */
+    function transferTokensToMigrated(address[] calldata tokens) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (contractState != ContractState.Migrated) revert ContractNotPaused();
+
+        address destination = migratedContract;
+        uint256 length = tokens.length;
         for (uint256 i = 0; i < length; ++i) {
-            address token = whitelistedTokens[i];
+            address token = tokens[i];
             uint256 tokenBalance = IERC20(token).balanceOf(address(this));
             if (tokenBalance > 0) {
-                IERC20(token).safeTransfer(_newContract, tokenBalance);
+                IERC20(token).safeTransfer(destination, tokenBalance);
             }
         }
     }

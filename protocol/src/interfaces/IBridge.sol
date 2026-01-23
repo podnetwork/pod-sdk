@@ -290,6 +290,13 @@ interface IBridge {
     function migrate(address _newContract) external;
 
     /**
+     * @notice Transfer tokens to the migrated contract.
+     * @dev Can only be called after migration by the admin. Can be called multiple times.
+     * @param tokens Array of token addresses to transfer.
+     */
+    function transferTokensToMigrated(address[] calldata tokens) external;
+
+    /**
      * @notice Whitelist a token for bridging.
      * @dev Use MOCK_ADDRESS_FOR_NATIVE_DEPOSIT for token to indicate native currency.
      *      - token=MOCK_ADDRESS_FOR_NATIVE_DEPOSIT: source mirrorToken maps to local native currency.

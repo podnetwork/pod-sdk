@@ -195,11 +195,21 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
     function test_Migrate_TransfersAllTokenBalances() public {
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
-        vm.prank(admin);
+        vm.startPrank(admin);
         _bridge.setState(IBridge.ContractState.Paused);
         uint256 beforeAmt = _token.balanceOf(address(_bridge));
-        vm.prank(admin);
         _bridge.migrate(newBridge);
+
+        // Tokens not transferred yet
+        assertEq(_token.balanceOf(newBridge), 0);
+        assertEq(_token.balanceOf(address(_bridge)), beforeAmt);
+
+        // Transfer tokens to migrated contract
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(_token);
+        _bridge.transferTokensToMigrated(tokens);
+        vm.stopPrank();
+
         assertEq(_token.balanceOf(newBridge), beforeAmt);
         assertEq(_token.balanceOf(address(_bridge)), 0);
     }
@@ -223,12 +233,76 @@ contract BridgeTest is BridgeBehaviorTest, BridgeClaimProofHelper {
         _token.approve(address(_bridge), type(uint256).max);
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
-        vm.prank(admin);
+        vm.startPrank(admin);
         _bridge.setState(IBridge.ContractState.Paused);
-        vm.prank(admin);
         _bridge.migrate(newBridge);
+
+        // Transfer both tokens (one with balance, one without)
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(_token);
+        tokens[1] = address(t2);
+        _bridge.transferTokensToMigrated(tokens);
+        vm.stopPrank();
+
         assertEq(_token.balanceOf(newBridge), DEPOSIT_AMOUNT);
         assertEq(t2.balanceOf(newBridge), 0);
+    }
+
+    function test_TransferTokensToMigrated_CanBeCalledMultipleTimes() public {
+        // Setup: two tokens with balances
+        WrappedToken t2 = new WrappedToken("Token2", "TK2", 18);
+        WrappedToken m2 = new WrappedToken("Mirror2", "MR2", 18);
+        vm.prank(admin);
+        _bridge.whiteListToken(address(t2), address(m2), minAmount, depositLimit, claimLimit);
+
+        vm.prank(user);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+
+        t2.mint(address(_bridge), DEPOSIT_AMOUNT);
+
+        vm.startPrank(admin);
+        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.migrate(newBridge);
+
+        // First transfer: only _token
+        address[] memory tokens1 = new address[](1);
+        tokens1[0] = address(_token);
+        _bridge.transferTokensToMigrated(tokens1);
+
+        assertEq(_token.balanceOf(newBridge), DEPOSIT_AMOUNT);
+        assertEq(t2.balanceOf(newBridge), 0);
+
+        // Second transfer: only t2
+        address[] memory tokens2 = new address[](1);
+        tokens2[0] = address(t2);
+        _bridge.transferTokensToMigrated(tokens2);
+
+        assertEq(_token.balanceOf(newBridge), DEPOSIT_AMOUNT);
+        assertEq(t2.balanceOf(newBridge), DEPOSIT_AMOUNT);
+        vm.stopPrank();
+    }
+
+    function test_TransferTokensToMigrated_RevertIfNotMigrated() public {
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(_token);
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.ContractNotPaused.selector));
+        _bridge.transferTokensToMigrated(tokens);
+    }
+
+    function test_TransferTokensToMigrated_RevertIfNotAdmin() public {
+        vm.startPrank(admin);
+        _bridge.setState(IBridge.ContractState.Paused);
+        _bridge.migrate(newBridge);
+        vm.stopPrank();
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(_token);
+
+        vm.prank(user);
+        vm.expectRevert();
+        _bridge.transferTokensToMigrated(tokens);
     }
 
     // ========== Whitelist Tests ==========
