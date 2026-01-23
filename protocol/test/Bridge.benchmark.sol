@@ -4,12 +4,10 @@ pragma solidity ^0.8.20;
 import {console} from "forge-std/Test.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {Bridge} from "../src/Bridge.sol";
-import {Registry} from "../src/Registry.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 
 contract BridgeBenchmark is BridgeClaimProofHelper {
     Bridge private bridge;
-    Registry private registry;
     WrappedToken private token;
 
     address private admin = makeAddr("admin");
@@ -17,10 +15,10 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
     address private mirrorToken = makeAddr("mirrorToken");
 
     uint256 private constant DEPOSIT_AMOUNT = 100e18;
+    uint256 private constant SRC_CHAIN_ID = 0x50d;
     uint256 minAmount = 1e18;
     uint256 depositLimit = 500e18;
     uint256 claimLimit = 400e18;
-    uint256 chainId = 0x50d;
 
     function _setupWithValidators(uint256 numValidators) internal {
         vm.startPrank(admin);
@@ -34,9 +32,9 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
         }
 
-        uint8 f = uint8((initialValidators.length - 1) / 3);
-        registry = new Registry(initialValidators, f);
-        bridge = new Bridge(address(registry), otherBridgeContract, chainId);
+        uint64 f = uint64((numValidators - 1) / 3);
+        if (f == 0) f = 1; // minimum resilience is 1
+        bridge = new Bridge(otherBridgeContract, initialValidators, f, SRC_CHAIN_ID, 1, bytes32(0));
 
         // Setup token for claim() benchmarks
         token = new WrappedToken("TestToken", "TKN", 18);
@@ -50,12 +48,12 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
 
     function _benchmarkClaim(uint256 numValidators) internal {
         _setupWithValidators(numValidators);
-        bytes32 domainSeparator = bridge.DOMAIN_SEPARATOR();
-        (, uint64 committeeEpoch, bytes memory aggregatedSignatures, bytes memory proof) =
+        bytes32 domainSeparator = bridge.domainSeparator();
+        (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(mirrorToken, DEPOSIT_AMOUNT, user, numValidators, domainSeparator);
 
         uint256 gasBefore = gasleft();
-        bridge.claim(address(token), DEPOSIT_AMOUNT, user, committeeEpoch, aggregatedSignatures, proof);
+        bridge.claim(address(token), DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
         uint256 gasUsed = gasBefore - gasleft();
 
         console.log("claim gas with %d validators: %d", numValidators, gasUsed);

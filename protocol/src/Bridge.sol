@@ -1,70 +1,288 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IBridge} from "./interfaces/IBridge.sol";
-import {Registry} from "./Registry.sol";
+import {ProofLib} from "./lib/ProofLib.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title BridgeDepositWithdraw
- * @notice Implementation of the deposit-withdraw bridge.
- * @dev This contract implements the IBridgeDepositWithdraw interface and provides the functionality for
- * depositing and withdrawing tokens between chains.
+ * @title Bridge for Pod Network
  */
-contract Bridge is IBridge, AccessControl, Pausable {
+contract Bridge is AccessControl {
     using SafeERC20 for IERC20;
 
+    error ContractMigrated();
+    error ContractNotMigrated();
+    error InvalidTokenAmount();
+    error InvalidToAddress();
+    error InvalidTokenConfig();
+    error DailyLimitExhausted();
+    error RequestAlreadyProcessed();
+    error InvalidBridgeContract();
+    error AmountBelowReserve();
+    error CallContractNotWhitelisted();
+    error InvalidPermitLength();
+    error ContractPaused();
+    error ContractNotPaused();
+    error ValidatorIsZeroAddress();
+    error ValidatorDoesNotExist();
+    error DuplicateValidator();
+    error InvalidAdverserialResilience();
+    error InsufficientValidatorWeight();
+    error InvalidMerkleProof();
+
+    enum ContractState {
+        Public,
+        Private,
+        Paused,
+        Migrated
+    }
+
+    event ContractStateChanged(ContractState oldState, ContractState newState);
+    event ValidatorAdded(address indexed validator);
+    event ValidatorRemoved(address indexed validator);
+    event ValidatorConfigUpdated(uint256 oldVersion, uint256 newVersion);
+    event Deposit(uint256 indexed id, address indexed from, address indexed to, address token, uint256 amount);
+    event Claim(bytes32 indexed txHash, address token, address mirrorToken, uint256 amount, address indexed to);
+    event DepositAndCall(
+        uint256 indexed id,
+        address indexed token,
+        uint256 amount,
+        address indexed to,
+        address callContract,
+        uint256 reserveBalance
+    );
+
+    struct DepositParams {
+        address from;
+        address to;
+        uint256 amount;
+    }
+
+    struct PermitParams {
+        uint256 deadline;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
+    struct ClaimParams {
+        uint256 amount;
+        address to;
+        // first byte is proof type and the rest is proof data
+        // proof data is either aggregated signatures or merkle proof
+        bytes proof;
+        // auxiliary transaction suffix for forward compatibility
+        bytes auxTxSuffix;
+    }
+
+    struct TokenUsage {
+        uint256 consumed;
+        uint256 lastUpdated;
+    }
+
+    struct TokenData {
+        uint256 minAmount;
+        uint256 depositLimit;
+        uint256 claimLimit;
+        TokenUsage depositUsage;
+        TokenUsage claimUsage;
+        address mirrorToken;
+    }
+
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes4 internal constant DEPOSIT_SELECTOR = bytes4(keccak256("deposit(address,uint256,address)"));
+    uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
 
-    // The mock address for native deposit. EIP-7528
-    address constant MOCK_ADDRESS_FOR_NATIVE_DEPOSIT = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    address public immutable BRIDGE_CONTRACT;
+    uint256 public immutable CHAIN_ID;
 
-    mapping(address => TokenData) public tokenData;
-    mapping(bytes32 => bool) public processedRequests;
-
-    address[] public whitelistedTokens;
+    ContractState public contractState;
     address public migratedContract;
 
     uint256 public depositIndex;
+    uint256 public version;
+    bytes32 public domainSeparator;
+    bytes32 public merkleRoot;
 
-    Registry public immutable REGISTRY;
-    address public immutable BRIDGE_CONTRACT;
-    bytes32 public immutable DOMAIN_SEPARATOR;
+    uint64 public adversarialResilience;
+    uint64 public validatorCount;
+
+    mapping(address => TokenData) public tokenData;
+    mapping(bytes32 => bool) public processedRequests;
+    mapping(address => bool) public whitelistedCallContracts;
+    mapping(address => bool) public activeValidators;
 
     /**
      * @dev Constructor.
-     * @param _registry The address of the Registry to use.
      * @param _bridgeContract The address of the bridge contract on the other chain.
+     * @param _validators Initial set of validators.
+     * @param _adversarialResilience The adversarial resilience threshold.
+     * @param _chainId Source chain ID for domain separator.
+     * @param _version Initial version for domain separator.
+     * @param _merkleRoot Initial merkle root for merkle proofs (can be bytes32(0) if not used).
      */
-    constructor(address _registry, address _bridgeContract, uint256 _bridgeNetworkChainId) {
+    constructor(
+        address _bridgeContract,
+        address[] memory _validators,
+        uint64 _adversarialResilience,
+        uint256 _chainId,
+        uint256 _version,
+        bytes32 _merkleRoot
+    ) {
         if (_bridgeContract == address(0)) revert InvalidBridgeContract();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
 
-        REGISTRY = Registry(_registry);
         BRIDGE_CONTRACT = _bridgeContract;
-        DOMAIN_SEPARATOR = keccak256(
-            abi.encode(keccak256("pod network"), keccak256("attest_tx"), keccak256("1"), _bridgeNetworkChainId)
-        );
+        CHAIN_ID = _chainId;
+
+        _addRemoveValidators(_validators, new address[](0));
+        _setAdversarialResilience(_adversarialResilience);
+        _updateVersion(_version);
+        merkleRoot = _merkleRoot;
     }
 
-    modifier notMigrated() {
-        _notMigrated();
-        _;
+    function _updateVersion(uint256 newVersion) internal {
+        version = newVersion;
+        domainSeparator =
+            keccak256(abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), CHAIN_ID, version));
     }
 
-    function _notMigrated() internal view {
-        if (migratedContract != address(0)) {
-            revert ContractMigrated();
+    function _addRemoveValidators(address[] memory addValidators, address[] memory removeValidators) internal {
+        for (uint64 j = 0; j < removeValidators.length; ++j) {
+            address validator = removeValidators[j];
+            if (!activeValidators[validator]) {
+                revert ValidatorDoesNotExist();
+            }
+            activeValidators[validator] = false;
+            emit ValidatorRemoved(validator);
+        }
+
+        for (uint64 i = 0; i < addValidators.length; ++i) {
+            address validator = addValidators[i];
+            if (validator == address(0)) {
+                revert ValidatorIsZeroAddress();
+            }
+            if (activeValidators[validator]) {
+                revert DuplicateValidator();
+            }
+            activeValidators[validator] = true;
+            emit ValidatorAdded(validator);
+        }
+
+        validatorCount = uint64(uint256(validatorCount) + addValidators.length - removeValidators.length);
+    }
+
+    function _setAdversarialResilience(uint64 _adversarialResilience) internal {
+        if (_adversarialResilience == 0 || _adversarialResilience > validatorCount) {
+            revert InvalidAdverserialResilience();
+        }
+        adversarialResilience = _adversarialResilience;
+    }
+
+    function _depositTxHash(
+        address token,
+        uint256 amount,
+        address to,
+        bytes32 _domainSeparator,
+        bytes calldata auxTxSuffix
+    ) internal view returns (bytes32 result) {
+        bytes4 selector = DEPOSIT_SELECTOR;
+        address bridgeContract = BRIDGE_CONTRACT;
+
+        uint256 lenTx = 32 + 32 + 32 + auxTxSuffix.length; // DOMAIN_SEPARATOR + bridgeContract + dataHash + auxTxSuffix
+        uint256 lenData = 4 + 32 + 32 + 32; // selector + token + amount + to
+        bytes memory scratch = new bytes(lenTx > lenData ? lenTx : lenData); // reuse memory
+        bytes32 dataHash;
+        assembly {
+            // Compute dataHash
+            let ptr := add(scratch, 0x20)
+            mstore(ptr, selector)
+            mstore(add(ptr, 0x04), token)
+            mstore(add(ptr, 0x24), amount)
+            mstore(add(ptr, 0x44), to)
+
+            dataHash := keccak256(ptr, 0x64)
+
+            // Compute final hash
+            mstore(ptr, _domainSeparator)
+            mstore(add(ptr, 0x20), bridgeContract)
+            mstore(add(ptr, 0x40), dataHash)
+            calldatacopy(add(ptr, 0x60), auxTxSuffix.offset, auxTxSuffix.length)
+
+            result := keccak256(ptr, lenTx)
         }
     }
 
-    function checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
+    /**
+     * @notice Update the validator set, adversarial resilience, version, and merkle root.
+     * @dev Admin may keep the same version if the config update doesn't invalidate past certificates.
+     *      When the version is updated, past certificates become invalid and only merkle proofs work
+     *      for claims from before the version change.
+     * @param newResilience The new adversarial resilience threshold.
+     * @param newVersion The new version (updates domain separator).
+     * @param newMerkleRoot The new merkle root for merkle proofs.
+     * @param addValidators Validators to add.
+     * @param removeValidators Validators to remove.
+     */
+    function updateValidatorConfig(
+        uint64 newResilience,
+        uint256 newVersion,
+        bytes32 newMerkleRoot,
+        address[] memory addValidators,
+        address[] memory removeValidators
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 oldVersion = version;
+        _addRemoveValidators(addValidators, removeValidators);
+        _setAdversarialResilience(newResilience);
+        _updateVersion(newVersion);
+        merkleRoot = newMerkleRoot;
+        emit ValidatorConfigUpdated(oldVersion, newVersion);
+    }
+
+    // forge-lint: disable-next-line(unwrapped-modifier-logic)
+    modifier whenPublic() {
+        if (contractState != ContractState.Public) revert ContractPaused();
+        _;
+    }
+
+    // forge-lint: disable-next-line(unwrapped-modifier-logic)
+    modifier whenOperational() {
+        if (contractState >= ContractState.Paused) revert ContractPaused();
+        _;
+    }
+
+    // forge-lint: disable-next-line(unwrapped-modifier-logic)
+    modifier notMigrated() {
+        if (contractState == ContractState.Migrated) revert ContractMigrated();
+        _;
+    }
+
+    function _applyPermit(address token, address owner, uint256 amount, bytes calldata permit) internal {
+        if (permit.length == 0) return;
+        if (permit.length != PERMIT_LENGTH) revert InvalidPermitLength();
+
+        uint256 deadline;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+
+        assembly {
+            deadline := calldataload(permit.offset)
+            v := byte(0, calldataload(add(permit.offset, 32)))
+            r := calldataload(add(permit.offset, 33))
+            s := calldataload(add(permit.offset, 65))
+        }
+
+        try IERC20Permit(token).permit(owner, address(this), amount, deadline, v, r, s) {} catch {}
+    }
+
+    function _checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
         internal
     {
         if (minAmount == 0) {
@@ -76,6 +294,7 @@ contract Bridge is IBridge, AccessControl, Pausable {
         }
 
         // Check limits and if exceeded, check if we can reset daily usage
+        // (assumes maxTotalAmount is set to half the desired limit to handle boundary conditions)
         uint256 newConsumed = usage.consumed + amount;
         if (newConsumed > maxTotalAmount) {
             if (block.timestamp < usage.lastUpdated + 1 days || amount > maxTotalAmount) {
@@ -89,18 +308,100 @@ contract Bridge is IBridge, AccessControl, Pausable {
         }
     }
 
-    function deposit(address token, uint256 amount, address to) external whenNotPaused returns (bytes32) {
+    /// @param permit Tightly packed permit data (97 bytes) or empty for no permit.
+    function deposit(address token, uint256 amount, address to, bytes calldata permit)
+        external
+        whenPublic
+        returns (uint256)
+    {
         if (to == address(0)) revert InvalidToAddress();
 
         TokenData storage t = tokenData[token];
-        checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
+        _checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
 
+        _applyPermit(token, msg.sender, amount, permit);
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-        bytes32 id = bytes32(depositIndex++);
+        uint256 id = depositIndex++;
 
         emit Deposit(id, msg.sender, to, token, amount);
 
         return id;
+    }
+
+    /**
+     * @dev The callee contract on the destination chain must
+     *         implement deposit(address token, uint256 amount, address to)
+     */
+    function depositAndCall(
+        address token,
+        uint256 amount,
+        address to,
+        address callContract,
+        uint256 reserveBalance,
+        bytes calldata permit
+    ) external whenPublic returns (uint256) {
+        if (to == address(0)) revert InvalidToAddress();
+        if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
+        if (amount < reserveBalance) revert AmountBelowReserve();
+
+        TokenData storage t = tokenData[token];
+        _checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
+
+        _applyPermit(token, msg.sender, amount, permit);
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        uint256 id = depositIndex++;
+
+        emit DepositAndCall(id, token, amount, to, callContract, reserveBalance);
+
+        return id;
+    }
+
+    /**
+     * @dev The callee contract on the destination chain must implement
+     *      deposit(address token, uint256 amount, address to)
+     *
+     *      The deposits and permits arrays are ordered such that deposits with permits come first.
+     *      For deposits[i] where i < permits.length, the corresponding permits[i] is applied.
+     *      For deposits[i] where i >= permits.length, no permit is applied (requires prior approval).
+     */
+    function batchDepositAndCall(
+        address token,
+        DepositParams[] calldata deposits,
+        PermitParams[] calldata permits,
+        address callContract,
+        uint256 reserveBalance
+    ) external whenOperational onlyRole(RELAYER_ROLE) {
+        if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
+        if (deposits.length == 0) revert InvalidTokenAmount();
+
+        TokenData storage t = tokenData[token];
+        uint256 depositsLength = deposits.length;
+        uint256 permitsLength = permits.length;
+
+        for (uint256 i = 0; i < depositsLength; ++i) {
+            DepositParams calldata d = deposits[i];
+
+            if (d.amount < reserveBalance) revert AmountBelowReserve();
+            if (d.to == address(0)) revert InvalidToAddress();
+
+            _checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, d.amount);
+
+            // Apply permit only for deposits that have corresponding permit data (i < permitsLength)
+            if (i < permitsLength) {
+                PermitParams calldata p = permits[i];
+                // Use permit to approve tokens (try/catch to handle frontrunning)
+                try IERC20Permit(token).permit(d.from, address(this), d.amount, p.deadline, p.v, p.r, p.s) {} catch {}
+            }
+
+            IERC20(token).safeTransferFrom(d.from, address(this), d.amount);
+            uint256 id = depositIndex++;
+
+            emit DepositAndCall(id, token, d.amount, d.to, callContract, reserveBalance);
+        }
+    }
+
+    function setCallContractWhitelist(address callContract, bool whitelisted) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        whitelistedCallContracts[callContract] = whitelisted;
     }
 
     function _configureTokenData(address token, uint256 minAmount, uint256 depositLimit, uint256 claimLimit) internal {
@@ -120,6 +421,8 @@ contract Bridge is IBridge, AccessControl, Pausable {
         tokenData[token] = data;
     }
 
+    /// @notice Token can be disabled by setting limits to zero.
+    /// @dev Limits should be set to half the desired value due to boundary conditions.
     function configureToken(address token, uint256 minAmount, uint256 depositLimit, uint256 claimLimit)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
@@ -130,86 +433,125 @@ contract Bridge is IBridge, AccessControl, Pausable {
         _configureTokenData(token, minAmount, depositLimit, claimLimit);
     }
 
-    function pause() external onlyRole(PAUSER_ROLE) {
-        _pause();
+    function setState(ContractState newState) external {
+        ContractState currentState = contractState;
+
+        // Cannot change state once migrated
+        if (currentState == ContractState.Migrated) revert ContractMigrated();
+
+        // Cannot set to Migrated via setState (use migrate function)
+        if (newState == ContractState.Migrated) revert ContractMigrated();
+
+        // Only admin can change to any state, pauser can only change to Paused
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+            if (!hasRole(PAUSER_ROLE, msg.sender) || newState != ContractState.Paused) {
+                revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
+            }
+        }
+        contractState = newState;
+        emit ContractStateChanged(currentState, newState);
     }
 
-    function unpause() external notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
+    function migrate(address _newContract) public notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (contractState != ContractState.Paused) revert ContractNotPaused();
 
-    function migrate(address _newContract) public whenPaused notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
-        handleMigrate(_newContract);
+        ContractState oldState = contractState;
+        contractState = ContractState.Migrated;
         migratedContract = _newContract;
+
+        emit ContractStateChanged(oldState, ContractState.Migrated);
     }
 
-    function handleMigrate(address _newContract) internal {
-        for (uint256 i = 0; i < whitelistedTokens.length; i++) {
-            address token = whitelistedTokens[i];
+    /**
+     * @notice Transfer tokens to the migrated contract.
+     * @dev Can only be called after migration. Can be called multiple times.
+     * @param tokens Array of token addresses to transfer.
+     */
+    function transferTokensToMigrated(address[] calldata tokens) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (contractState != ContractState.Migrated) revert ContractNotMigrated();
+
+        address destination = migratedContract;
+        uint256 length = tokens.length;
+        for (uint256 i = 0; i < length; ++i) {
+            address token = tokens[i];
             uint256 tokenBalance = IERC20(token).balanceOf(address(this));
             if (tokenBalance > 0) {
-                IERC20(token).safeTransfer(_newContract, tokenBalance);
+                IERC20(token).safeTransfer(destination, tokenBalance);
             }
         }
     }
 
-    function depositTxHash(address token, uint256 amount, address to, bytes calldata proof)
-        internal
-        view
-        returns (bytes32 result)
+    /**
+     * @notice Claim bridged tokens using a proof from Pod.
+     * @dev The proof parameter's first byte indicates the proof type:
+     *      - 0 (Certificate): Remaining bytes are aggregated validator signatures.
+     *      - 1 (Merkle): Remaining bytes are a merkle inclusion proof.
+     *      When the version is updated, past certificates become invalid and only merkle proofs
+     *      work for claims from before the version change.
+     * @param token The token address on this chain to receive.
+     * @param amount The amount of tokens to claim.
+     * @param to The address to receive the tokens.
+     * @param proof The proof bytes (first byte is proof type, rest is proof data).
+     * @param auxTxSuffix Auxiliary bytes appended to the transaction hash for forward compatibility.
+     */
+    function claim(address token, uint256 amount, address to, bytes calldata proof, bytes calldata auxTxSuffix)
+        external
+        whenOperational
     {
-        bytes4 selector = DEPOSIT_SELECTOR;
-        address bridgeContract = BRIDGE_CONTRACT;
-        bytes32 domainSeperator = DOMAIN_SEPARATOR;
-
-        uint256 lenTx = 32 + 32 + 32 + proof.length; // DOMAIN_SEPARATOR + bridgeContract + dataHash + proof
-        uint256 lenData = 4 + 32 + 32 + 32; // DOMAIN_SEPARATOR + selector + token + amount + to
-        bytes memory scratch = new bytes(lenTx > lenData ? lenTx : lenData); // reuse memory
-        bytes32 dataHash;
-        assembly {
-            // Compute dataHash
-            let ptr := add(scratch, 0x20)
-            mstore(ptr, selector)
-            mstore(add(ptr, 0x04), token)
-            mstore(add(ptr, 0x24), amount)
-            mstore(add(ptr, 0x44), to)
-
-            dataHash := keccak256(ptr, 0x64)
-
-            // Compute final hash
-            mstore(ptr, domainSeperator)
-            mstore(add(ptr, 0x20), bridgeContract)
-            mstore(add(ptr, 0x40), dataHash)
-            calldatacopy(add(ptr, 0x60), proof.offset, proof.length)
-
-            result := keccak256(ptr, lenTx)
-        }
-    }
-
-    function claim(
-        address token,
-        uint256 amount,
-        address to,
-        uint64 committeeEpoch,
-        bytes calldata aggregatedSignatures,
-        bytes calldata proof
-    ) public whenNotPaused {
         TokenData storage t = tokenData[token];
-        checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, amount);
+        _checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, amount);
 
         address mirrorToken = t.mirrorToken;
-        bytes32 txHash = depositTxHash(mirrorToken, amount, to, proof);
+        bytes32 txHash = _depositTxHash(mirrorToken, amount, to, domainSeparator, auxTxSuffix);
 
-        // Check if already processed
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-        (uint256 weight, uint256 n, uint256 f) = REGISTRY.computeTxWeight(txHash, aggregatedSignatures, committeeEpoch);
-        require(weight >= n - f, "Not enough validator weight");
+        _verifyProof(txHash, proof);
 
         processedRequests[txHash] = true;
 
         IERC20(token).safeTransfer(to, amount);
-        emit Claim(txHash, to, token, amount);
+        emit Claim(txHash, token, mirrorToken, amount, to);
+    }
+
+    function _verifyProof(bytes32 txHash, bytes calldata proof) internal view {
+        ProofLib.ProofType proofType = ProofLib.ProofType(uint8(proof[0]));
+        bytes calldata proofData = proof[1:];
+
+        if (proofType == ProofLib.ProofType.Certificate) {
+            uint256 weight = ProofLib.computeTxWeight(txHash, proofData, activeValidators);
+            if (weight < validatorCount - adversarialResilience) revert InsufficientValidatorWeight();
+        } else if (proofType == ProofLib.ProofType.Merkle) {
+            if (!ProofLib.verifyMerkleProof(txHash, proofData, merkleRoot)) revert InvalidMerkleProof();
+        } else {
+            revert ProofLib.InvalidProofType();
+        }
+    }
+
+    function batchClaim(address token, ClaimParams[] calldata claims) external whenOperational {
+        if (claims.length == 0) revert InvalidTokenAmount();
+
+        TokenData storage t = tokenData[token];
+        address mirrorToken = t.mirrorToken;
+        uint256 length = claims.length;
+        bytes32 _domainSeparator = domainSeparator;
+
+        for (uint256 i = 0; i < length; ++i) {
+            ClaimParams calldata c = claims[i];
+
+            _checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, c.amount);
+
+            bytes32 txHash = _depositTxHash(mirrorToken, c.amount, c.to, _domainSeparator, c.auxTxSuffix);
+
+            if (processedRequests[txHash]) revert RequestAlreadyProcessed();
+
+            _verifyProof(txHash, c.proof);
+
+            processedRequests[txHash] = true;
+
+            IERC20(token).safeTransfer(c.to, c.amount);
+            emit Claim(txHash, token, mirrorToken, c.amount, c.to);
+        }
     }
 
     /**
@@ -225,12 +567,11 @@ contract Bridge is IBridge, AccessControl, Pausable {
         uint256 minAmount,
         uint256 depositLimit,
         uint256 claimLimit
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
         if (token == address(0) || mirrorToken == address(0) || tokenData[token].minAmount != 0) {
             revert InvalidTokenConfig();
         }
         tokenData[token].mirrorToken = mirrorToken;
         _configureTokenData(token, minAmount, depositLimit, claimLimit);
-        whitelistedTokens.push(token);
     }
 }

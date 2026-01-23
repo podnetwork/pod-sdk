@@ -4,18 +4,18 @@ pragma solidity ^0.8.20;
 import {BaseDeployer} from "./BaseDeployer.s.sol";
 import {console} from "forge-std/console.sol";
 import {Bridge} from "pod-protocol/Bridge.sol";
-import {Registry} from "pod-protocol/Registry.sol";
 
 contract Deploy is BaseDeployer {
-    function run(address podBridgeAddr) external returns (address podRegistry, address depositWithdraw) {
+    function run(address podBridgeAddr, uint256 srcChainId, uint256 version, bytes32 merkleRoot)
+        external
+        returns (address bridge)
+    {
         address[] memory initialValidators = getValidatorAddresses();
         vm.startBroadcast();
         uint8 f = uint8((initialValidators.length - 1) / 3);
-        Registry reg = new Registry(initialValidators, f);
-        Bridge bdw = new Bridge(address(reg), podBridgeAddr, 0x50d);
+        Bridge bdw = new Bridge(podBridgeAddr, initialValidators, f, srcChainId, version, merkleRoot);
         vm.stopBroadcast();
-        console.log("PodRegistry deployed at:", address(reg));
-        console.log("BridgeDepositWithdraw deployed at:", address(bdw));
-        return (address(reg), address(bdw));
+        console.log("Bridge deployed at:", address(bdw));
+        return address(bdw);
     }
 }
