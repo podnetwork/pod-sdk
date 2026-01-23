@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {IBridge} from "./interfaces/IBridge.sol";
-import {Registry} from "./Registry.sol";
+import {ProofLib} from "./lib/ProofLib.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -10,9 +10,9 @@ import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC2
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title BridgeDepositWithdraw
+ * @title Bridge
  * @notice Implementation of the deposit-withdraw bridge.
- * @dev This contract implements the IBridgeDepositWithdraw interface and provides the functionality for
+ * @dev This contract implements the IBridge interface and provides the functionality for
  * depositing and withdrawing tokens between chains.
  */
 contract Bridge is IBridge, AccessControl {
@@ -21,46 +21,156 @@ contract Bridge is IBridge, AccessControl {
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes4 internal constant DEPOSIT_SELECTOR = bytes4(keccak256("deposit(address,uint256,address)"));
-
     uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
+    address public immutable BRIDGE_CONTRACT;
+    uint256 public immutable CHAIN_ID;
+
+    ContractState public contractState;
+    address[] public whitelistedTokens;
+    address public migratedContract;
+
+    uint256 public depositIndex;
+    uint256 public version;
+    bytes32 public domainSeperator;
+
+    uint64 public adversarialResilience;
+    uint64 public validatorCount;
 
     mapping(address => TokenData) public tokenData;
     mapping(bytes32 => bool) public processedRequests;
     mapping(address => bool) public whitelistedCallContracts;
-
-    address[] public whitelistedTokens;
-    address public migratedContract;
-    ContractState public contractState;
-
-    uint256 public depositIndex;
-
-    Registry public immutable REGISTRY;
-    address public immutable BRIDGE_CONTRACT;
+    mapping(address => bool) public activeValidators;
 
     /**
      * @dev Constructor.
-     * @param _registry The address of the Registry to use.
      * @param _bridgeContract The address of the bridge contract on the other chain.
+     * @param _validators Initial set of validators.
+     * @param _adversarialResilience The adversarial resilience threshold.
+     * @param _chainId The chain ID for domain separator.
+     * @param _version The initial version for domain separator.
      */
-    constructor(address _registry, address _bridgeContract, uint256 _bridgeNetworkChainId) {
+    constructor(
+        address _bridgeContract,
+        address[] memory _validators,
+        uint64 _adversarialResilience,
+        uint256 _chainId,
+        uint256 _version
+    ) {
         if (_bridgeContract == address(0)) revert InvalidBridgeContract();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
 
-        REGISTRY = Registry(_registry);
         BRIDGE_CONTRACT = _bridgeContract;
+        CHAIN_ID = _chainId;
+
+        // Initialize validators
+        _addRemoveValidators(_validators, new address[](0));
+        _setAdversarialResilience(_adversarialResilience);
+        _updateVersion(_version);
     }
 
+    function _updateVersion(uint256 newVersion) internal {
+        version = newVersion;
+        domainSeperator = keccak256(
+            abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), CHAIN_ID, version)
+        );
+    }
+
+    function _addRemoveValidators(address[] memory addValidators, address[] memory removeValidators) internal {
+        for (uint64 j = 0; j < removeValidators.length; ++j) {
+            address validator = removeValidators[j];
+            if (!activeValidators[validator]) {
+                revert ValidatorDoesNotExist();
+            }
+            activeValidators[validator] = false;
+            emit ValidatorRemoved(validator);
+        }
+
+        for (uint64 i = 0; i < addValidators.length; ++i) {
+            address validator = addValidators[i];
+            if (validator == address(0)) {
+                revert ValidatorIsZeroAddress();
+            }
+            if (activeValidators[validator]) {
+                revert DuplicateValidator();
+            }
+            activeValidators[validator] = true;
+            emit ValidatorAdded(validator);
+        }
+
+        validatorCount = uint64(uint256(validatorCount) + addValidators.length - removeValidators.length);
+    }
+
+    function _setAdversarialResilience(uint64 _adversarialResilience) internal {
+        if (_adversarialResilience == 0 || _adversarialResilience > validatorCount) {
+            revert InvalidAdverserialResilience();
+        }
+        adversarialResilience = _adversarialResilience;
+    }
+
+    function _depositTxHash(address token, uint256 amount, address to, bytes32 _domainSeperator, bytes calldata proof)
+        internal
+        view
+        returns (bytes32 result)
+    {
+        bytes4 selector = DEPOSIT_SELECTOR;
+        address bridgeContract = BRIDGE_CONTRACT;
+
+        uint256 lenTx = 32 + 32 + 32 + proof.length; // DOMAIN_SEPARATOR + bridgeContract + dataHash + proof
+        uint256 lenData = 4 + 32 + 32 + 32; // DOMAIN_SEPARATOR + selector + token + amount + to
+        bytes memory scratch = new bytes(lenTx > lenData ? lenTx : lenData); // reuse memory
+        bytes32 dataHash;
+        assembly {
+            // Compute dataHash
+            let ptr := add(scratch, 0x20)
+            mstore(ptr, selector)
+            mstore(add(ptr, 0x04), token)
+            mstore(add(ptr, 0x24), amount)
+            mstore(add(ptr, 0x44), to)
+
+            dataHash := keccak256(ptr, 0x64)
+
+            // Compute final hash
+            mstore(ptr, _domainSeperator)
+            mstore(add(ptr, 0x20), bridgeContract)
+            mstore(add(ptr, 0x40), dataHash)
+            calldatacopy(add(ptr, 0x60), proof.offset, proof.length)
+
+            result := keccak256(ptr, lenTx)
+        }
+    }
+
+    /**
+     * @notice Update the validator set, adversarial resilience, and version.
+     * @param newResilience The new adversarial resilience threshold.
+     * @param newVersion The new version (updates domain separator).
+     * @param addValidators Validators to add.
+     * @param removeValidators Validators to remove.
+     */
+    function updateValidatorConfig(
+        uint64 newResilience,
+        uint256 newVersion,
+        address[] memory addValidators,
+        address[] memory removeValidators
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _addRemoveValidators(addValidators, removeValidators);
+        _setAdversarialResilience(newResilience);
+        _updateVersion(newVersion);
+    }
+
+    // forge-lint: disable-next-line(unwrapped-modifier-logic)
     modifier whenPublic() {
         if (contractState != ContractState.Public) revert ContractPaused();
         _;
     }
 
+    // forge-lint: disable-next-line(unwrapped-modifier-logic)
     modifier whenOperational() {
         if (contractState >= ContractState.Paused) revert ContractPaused();
         _;
     }
 
+    // forge-lint: disable-next-line(unwrapped-modifier-logic)
     modifier notMigrated() {
         if (contractState == ContractState.Migrated) revert ContractMigrated();
         _;
@@ -85,7 +195,7 @@ contract Bridge is IBridge, AccessControl {
         try IERC20Permit(token).permit(owner, address(this), amount, deadline, v, r, s) {} catch {}
     }
 
-    function checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
+    function _checkInLimits(TokenUsage storage usage, uint256 minAmount, uint256 maxTotalAmount, uint256 amount)
         internal
     {
         if (minAmount == 0) {
@@ -118,7 +228,7 @@ contract Bridge is IBridge, AccessControl {
         if (to == address(0)) revert InvalidToAddress();
 
         TokenData storage t = tokenData[token];
-        checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
+        _checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
 
         _applyPermit(token, msg.sender, amount, permit);
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
@@ -141,7 +251,7 @@ contract Bridge is IBridge, AccessControl {
         if (amount < reserveBalance) revert AmountBelowReserve();
 
         TokenData storage t = tokenData[token];
-        checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
+        _checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
 
         _applyPermit(token, msg.sender, amount, permit);
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
@@ -180,7 +290,7 @@ contract Bridge is IBridge, AccessControl {
             if (d.amount < reserveBalance) revert AmountBelowReserve();
             if (d.account == address(0)) revert InvalidToAddress();
 
-            checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, d.amount);
+            _checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, d.amount);
 
             // Apply permit only for deposits that have corresponding permit data (i < permitsLength)
             if (i < permitsLength) {
@@ -241,7 +351,7 @@ contract Bridge is IBridge, AccessControl {
             if (!hasRole(PAUSER_ROLE, msg.sender) || newState != ContractState.Paused) {
                 revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
             }
-        } 
+        }
         contractState = newState;
         emit ContractStateChanged(currentState, newState);
     }
@@ -275,37 +385,7 @@ contract Bridge is IBridge, AccessControl {
         }
     }
 
-    function depositTxHash(address token, uint256 amount, address to, bytes32 domainSeperator, bytes calldata proof)
-        internal
-        view
-        returns (bytes32 result)
-    {
-        bytes4 selector = DEPOSIT_SELECTOR;
-        address bridgeContract = BRIDGE_CONTRACT;
-
-        uint256 lenTx = 32 + 32 + 32 + proof.length; // DOMAIN_SEPARATOR + bridgeContract + dataHash + proof
-        uint256 lenData = 4 + 32 + 32 + 32; // DOMAIN_SEPARATOR + selector + token + amount + to
-        bytes memory scratch = new bytes(lenTx > lenData ? lenTx : lenData); // reuse memory
-        bytes32 dataHash;
-        assembly {
-            // Compute dataHash
-            let ptr := add(scratch, 0x20)
-            mstore(ptr, selector)
-            mstore(add(ptr, 0x04), token)
-            mstore(add(ptr, 0x24), amount)
-            mstore(add(ptr, 0x44), to)
-
-            dataHash := keccak256(ptr, 0x64)
-
-            // Compute final hash
-            mstore(ptr, domainSeperator)
-            mstore(add(ptr, 0x20), bridgeContract)
-            mstore(add(ptr, 0x40), dataHash)
-            calldatacopy(add(ptr, 0x60), proof.offset, proof.length)
-
-            result := keccak256(ptr, lenTx)
-        }
-    }
+    
 
     function claim(
         address token,
@@ -315,17 +395,16 @@ contract Bridge is IBridge, AccessControl {
         bytes calldata proof
     ) public whenOperational {
         TokenData storage t = tokenData[token];
-        checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, amount);
+        _checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, amount);
 
         address mirrorToken = t.mirrorToken;
-        bytes32 domainSeperator = REGISTRY.domainSeperator(); 
-        bytes32 txHash = depositTxHash(mirrorToken, amount, to, domainSeperator, proof);
+        bytes32 txHash = _depositTxHash(mirrorToken, amount, to, domainSeperator, proof);
 
         // Check if already processed
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-        (uint256 weight, uint256 n, uint256 f) = REGISTRY.computeTxWeight(txHash, aggregatedSignatures);
-        require(weight >= n - f, "Not enough validator weight");
+        uint256 weight = ProofLib.computeTxWeight(txHash, aggregatedSignatures, activeValidators);
+        require(weight >= validatorCount - adversarialResilience, "Not enough validator weight");
 
         processedRequests[txHash] = true;
 
@@ -339,20 +418,18 @@ contract Bridge is IBridge, AccessControl {
         TokenData storage t = tokenData[token];
         address mirrorToken = t.mirrorToken;
         uint256 length = claims.length;
-        bytes32 domainSeperator = REGISTRY.domainSeperator();
 
         for (uint256 i = 0; i < length; ++i) {
             ClaimParams calldata c = claims[i];
 
-            checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, c.amount);
+            _checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, c.amount);
 
-            bytes32 txHash = depositTxHash(mirrorToken, c.amount, c.to, domainSeperator, c.proof);
+            bytes32 txHash = _depositTxHash(mirrorToken, c.amount, c.to, domainSeperator, c.proof);
 
             if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-            (uint256 weight, uint256 n, uint256 f) =
-                REGISTRY.computeTxWeight(txHash, c.aggregatedSignatures);
-            require(weight >= n - f, "Not enough validator weight");
+            uint256 weight = ProofLib.computeTxWeight(txHash, c.aggregatedSignatures, activeValidators);
+            require(weight >= validatorCount - adversarialResilience, "Not enough validator weight");
 
             processedRequests[txHash] = true;
 

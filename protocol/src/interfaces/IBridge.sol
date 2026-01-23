@@ -70,6 +70,26 @@ interface IBridge {
     error ContractNotPaused();
 
     /**
+     * @dev Error thrown when trying to add a zero address as validator.
+     */
+    error ValidatorIsZeroAddress();
+
+    /**
+     * @dev Error thrown when trying to remove a validator that doesn't exist.
+     */
+    error ValidatorDoesNotExist();
+
+    /**
+     * @dev Error thrown when trying to add a validator that already exists.
+     */
+    error DuplicateValidator();
+
+    /**
+     * @dev Error thrown when the adversarial resilience is invalid.
+     */
+    error InvalidAdverserialResilience();
+
+    /**
      * @dev Contract state enum.
      * @param Public - Normal operation, all functions available.
      * @param Private - Only batch deposit and claim functions available.
@@ -87,6 +107,16 @@ interface IBridge {
      * @dev Event emitted when the contract state changes.
      */
     event ContractStateChanged(ContractState oldState, ContractState newState);
+
+    /**
+     * @dev Event emitted when a validator is added.
+     */
+    event ValidatorAdded(address indexed validator);
+
+    /**
+     * @dev Event emitted when a validator is removed.
+     */
+    event ValidatorRemoved(address indexed validator);
 
     /**
      * @dev Event emitted when a deposit is made.
@@ -339,4 +369,19 @@ interface IBridge {
      * @param claims Array of claim parameters to process.
      */
     function batchClaim(address token, ClaimParams[] calldata claims) external;
+
+    /**
+     * @notice Update the validator set, adversarial resilience, and version.
+     * @dev Access control is restricted to the admin.
+     * @param newResilience The new adversarial resilience threshold.
+     * @param newVersion The new version (updates domain separator).
+     * @param addValidators Validators to add.
+     * @param removeValidators Validators to remove.
+     */
+    function updateValidatorConfig(
+        uint64 newResilience,
+        uint256 newVersion,
+        address[] memory addValidators,
+        address[] memory removeValidators
+    ) external;
 }

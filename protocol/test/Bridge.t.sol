@@ -5,15 +5,13 @@ import {Test} from "forge-std/Test.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {Bridge} from "../src/Bridge.sol";
 import {IBridge} from "../src/interfaces/IBridge.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Registry} from "../src/Registry.sol";
+import {ProofLib} from "../src/lib/ProofLib.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 import {MockERC20Permit} from "./mocks/MockERC20Permit.sol";
 
 contract BridgeTest is Test, BridgeClaimProofHelper {
     Bridge internal _bridge;
     WrappedToken internal _token;
-    Registry internal podRegistry;
 
     address public admin = makeAddr("admin");
     address public user = makeAddr("user");
@@ -22,6 +20,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     uint256 public constant INITIAL_BALANCE = 1000e18;
     uint256 public constant DEPOSIT_AMOUNT = 100e18;
     uint256 constant NUMBER_OF_VALIDATORS = 4;
+    uint256 constant SRC_CHAIN_ID = 0x50d;
 
     uint256 public minAmount;
     uint256 public depositLimit;
@@ -46,8 +45,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
         }
 
-        podRegistry = new Registry(initialValidators, f);
-        _bridge = new Bridge(address(podRegistry), otherBridgeContract, block.chainid);
+        _bridge = new Bridge(otherBridgeContract, initialValidators, f, SRC_CHAIN_ID, 1);
 
         _token = new WrappedToken("InitialToken", "ITKN", 18);
         _token.mint(user, INITIAL_BALANCE);
@@ -188,7 +186,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         assertEq(_token.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
 
         (bytes32 txHash, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, podRegistry.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeperator());
 
         vm.expectEmit(true, true, true, true);
         emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
@@ -208,7 +206,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         (, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 2, podRegistry.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 2, _bridge.domainSeperator());
 
         vm.expectRevert("Not enough validator weight");
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
@@ -219,7 +217,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         (, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, podRegistry.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeperator());
 
         bytes memory tamperedProof = bytes.concat(proof, abi.encode(keccak256("tamper")));
 
@@ -232,7 +230,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
 
         (bytes32 txHash, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, podRegistry.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeperator());
 
         vm.expectEmit(true, true, true, true);
         emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
@@ -245,7 +243,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Claim_RevertIfTokenNotWhitelisted() public {
         address unknownToken = makeAddr("unknownToken");
         (, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(unknownToken, DEPOSIT_AMOUNT, user, 3, podRegistry.domainSeperator());
+            createTokenClaimProof(unknownToken, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeperator());
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
         _bridge.claim(unknownToken, DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
@@ -256,7 +254,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.setState(IBridge.ContractState.Paused);
 
         (, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3, podRegistry.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeperator());
 
         vm.expectRevert(IBridge.ContractPaused.selector);
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
@@ -267,7 +265,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
         (, bytes memory aggregatedSignatures, bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, minAmount - 1, user, 3, podRegistry.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, minAmount - 1, user, 3, _bridge.domainSeperator());
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
         _bridge.claim(address(_token), minAmount - 1, user, aggregatedSignatures, proof);
@@ -283,9 +281,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address user2 = makeAddr("user2");
 
         (bytes32 txHash1, bytes memory sigs1, bytes memory proof1) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, 4, podRegistry.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, 4, _bridge.domainSeperator());
         (bytes32 txHash2, bytes memory sigs2, bytes memory proof2) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, podRegistry.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.domainSeperator());
 
         IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](2);
         claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, aggregatedSignatures: sigs1, proof: proof1});
@@ -314,7 +312,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
 
         (, bytes memory sigs1, bytes memory proof1) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, podRegistry.domainSeperator());
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeperator());
 
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, sigs1, proof1);
 
@@ -502,7 +500,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Migrate_NoWhitelistedTokens() public {
         vm.prank(admin);
-        Bridge fresh = new Bridge(address(podRegistry), otherBridgeContract, block.chainid);
+        address[] memory validators = new address[](NUMBER_OF_VALIDATORS);
+        for (uint256 i = 0; i < NUMBER_OF_VALIDATORS; i++) {
+            validators[i] = vm.addr(uint256(i + 1));
+        }
+        Bridge fresh = new Bridge(otherBridgeContract, validators, 1, SRC_CHAIN_ID, 1);
         vm.prank(admin);
         fresh.setState(IBridge.ContractState.Paused);
         vm.prank(admin);
@@ -845,5 +847,182 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
         _bridge.batchDepositAndCall(address(_token), deposits, permits, callContract, minAmount);
+    }
+
+    // ========== Validator Management Tests ==========
+
+    function test_ValidatorInitialization() public view {
+        for (uint256 i = 0; i < NUMBER_OF_VALIDATORS; i++) {
+            assertTrue(_bridge.activeValidators(vm.addr(validatorPrivateKeys[i])));
+        }
+        assertEq(_bridge.validatorCount(), NUMBER_OF_VALIDATORS);
+        assertEq(_bridge.adversarialResilience(), (NUMBER_OF_VALIDATORS - 1) / 3);
+        assertTrue(_bridge.domainSeperator() != bytes32(0));
+    }
+
+    function test_UpdateValidatorConfig_AddValidator() public {
+        address newValidator = makeAddr("newValidator");
+        address[] memory addValidators = new address[](1);
+        addValidators[0] = newValidator;
+        address[] memory removeValidators = new address[](0);
+
+        vm.prank(admin);
+        vm.expectEmit(true, false, false, true);
+        emit IBridge.ValidatorAdded(newValidator);
+        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+
+        assertTrue(_bridge.activeValidators(newValidator));
+        assertEq(_bridge.validatorCount(), NUMBER_OF_VALIDATORS + 1);
+    }
+
+    function test_UpdateValidatorConfig_RemoveValidator() public {
+        address validatorToRemove = vm.addr(validatorPrivateKeys[0]);
+        address[] memory addValidators = new address[](0);
+        address[] memory removeValidators = new address[](1);
+        removeValidators[0] = validatorToRemove;
+
+        vm.prank(admin);
+        vm.expectEmit(true, false, false, true);
+        emit IBridge.ValidatorRemoved(validatorToRemove);
+        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+
+        assertFalse(_bridge.activeValidators(validatorToRemove));
+        assertEq(_bridge.validatorCount(), NUMBER_OF_VALIDATORS - 1);
+    }
+
+    function test_UpdateValidatorConfig_AddAndRemove() public {
+        address newValidator = makeAddr("newValidator");
+        address validatorToRemove = vm.addr(validatorPrivateKeys[0]);
+
+        address[] memory addValidators = new address[](1);
+        addValidators[0] = newValidator;
+        address[] memory removeValidators = new address[](1);
+        removeValidators[0] = validatorToRemove;
+
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+
+        assertFalse(_bridge.activeValidators(validatorToRemove));
+        assertTrue(_bridge.activeValidators(newValidator));
+        assertEq(_bridge.validatorCount(), NUMBER_OF_VALIDATORS);
+    }
+
+    function test_UpdateValidatorConfig_RevertIfNotAdmin() public {
+        address newValidator = makeAddr("newValidator");
+        address[] memory addValidators = new address[](1);
+        addValidators[0] = newValidator;
+        address[] memory removeValidators = new address[](0);
+
+        vm.prank(user);
+        vm.expectRevert();
+        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+    }
+
+    function test_UpdateValidatorConfig_RevertIfZeroAddress() public {
+        address[] memory addValidators = new address[](1);
+        addValidators[0] = address(0);
+        address[] memory removeValidators = new address[](0);
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.ValidatorIsZeroAddress.selector));
+        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+    }
+
+    function test_UpdateValidatorConfig_RevertIfDuplicate() public {
+        address existingValidator = vm.addr(validatorPrivateKeys[0]);
+        address[] memory addValidators = new address[](1);
+        addValidators[0] = existingValidator;
+        address[] memory removeValidators = new address[](0);
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.DuplicateValidator.selector));
+        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+    }
+
+    function test_UpdateValidatorConfig_RevertIfValidatorDoesNotExist() public {
+        address nonExistentValidator = makeAddr("nonExistent");
+        address[] memory addValidators = new address[](0);
+        address[] memory removeValidators = new address[](1);
+        removeValidators[0] = nonExistentValidator;
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.ValidatorDoesNotExist.selector));
+        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+    }
+
+    function test_UpdateValidatorConfig_RevertIfInvalidResilience() public {
+        address[] memory addValidators = new address[](0);
+        address[] memory removeValidators = new address[](0);
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAdverserialResilience.selector));
+        _bridge.updateValidatorConfig(0, 1, addValidators, removeValidators);
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAdverserialResilience.selector));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        _bridge.updateValidatorConfig(uint64(NUMBER_OF_VALIDATORS + 1), 1, addValidators, removeValidators);
+    }
+
+    function test_ComputeTxWeight_RevertIfSignatureOrderInvalid() public {
+        vm.prank(admin);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+
+        // Get the correct txHash that will be computed during claim
+        bytes32 domainSep = _bridge.domainSeperator();
+        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
+        bytes32 dataHash = keccak256(abi.encodePacked(
+            selector,
+            uint256(uint160(MIRROR_TOKEN)),
+            DEPOSIT_AMOUNT,
+            uint256(uint160(user))
+        ));
+        bytes32 txHash = keccak256(abi.encodePacked(
+            domainSep,
+            bytes32(uint256(uint160(otherBridgeContract))),
+            dataHash
+        ));
+
+        // Create signatures in wrong order (descending by address)
+        address[] memory signers = new address[](2);
+        uint256[] memory keys = new uint256[](2);
+        signers[0] = vm.addr(validatorPrivateKeys[0]);
+        signers[1] = vm.addr(validatorPrivateKeys[1]);
+        keys[0] = validatorPrivateKeys[0];
+        keys[1] = validatorPrivateKeys[1];
+
+        // Sort descending (wrong order)
+        if (signers[0] < signers[1]) {
+            (signers[0], signers[1]) = (signers[1], signers[0]);
+            (keys[0], keys[1]) = (keys[1], keys[0]);
+        }
+
+        bytes memory aggregatedSignatures;
+        for (uint256 i = 0; i < 2; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(keys[i], txHash);
+            aggregatedSignatures = abi.encodePacked(aggregatedSignatures, r, s, v);
+        }
+
+        vm.expectRevert(abi.encodeWithSelector(ProofLib.InvalidSignatureOrder.selector));
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, "");
+    }
+
+    function test_ComputeTxWeight_RevertIfSignerNotActive() public {
+        vm.prank(admin);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+
+        // Use a non-validator private key
+        uint256 nonValidatorKey = 0xDEAD;
+
+        // Create claim proof with signatures from non-validators
+        bytes32 txHash = keccak256("test");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(nonValidatorKey, txHash);
+        bytes memory aggregatedSignatures = abi.encodePacked(r, s, v);
+
+        (, , bytes memory proof) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeperator());
+
+        vm.expectRevert(abi.encodeWithSelector(ProofLib.SignerNotActiveValidator.selector));
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
     }
 }
