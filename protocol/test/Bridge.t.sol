@@ -63,7 +63,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Deposit_EmitsEvent() public {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
-        emit Bridge.Deposit(0, address(_token), DEPOSIT_AMOUNT, user);
+        emit Bridge.Deposit(0, user, user, address(_token), DEPOSIT_AMOUNT);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
     }
 

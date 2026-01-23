@@ -4,11 +4,11 @@ use crate::{network::PodNetwork, provider::PodProvider, Address, U256};
 use alloy_eips::BlockNumberOrTag;
 use anyhow::Context;
 
-use pod_contracts::auction::Auction::AuctionInstance;
+use pod_contracts::i_auction::IAuction::IAuctionInstance;
 use pod_types::{rpc::receipt::PodReceiptResponse, Timestamp};
 
 pub struct AuctionClient {
-    pub auction: AuctionInstance<PodProvider, PodNetwork>,
+    pub auction: IAuctionInstance<PodProvider, PodNetwork>,
 }
 
 pub struct Bid {
@@ -38,7 +38,7 @@ impl AuctionClient {
 
     pub fn new(provider: PodProvider, contract: Address) -> Self {
         AuctionClient {
-            auction: AuctionInstance::new(contract, provider),
+            auction: IAuctionInstance::new(contract, provider),
         }
     }
 
@@ -108,7 +108,7 @@ impl AuctionClient {
 
         let pending_tx = self
             .auction
-            .submitBid(auction_id, deadline, bid, data.into())
+            .submitBid(auction_id, deadline.into(), bid, data.into())
             .max_priority_fee_per_gas(0)
             .send()
             .await

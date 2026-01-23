@@ -10,7 +10,7 @@ use pod_sdk::{
 use pod_types::{rpc::filter::LogFilterBuilder, Timestamp};
 use tokio::sync::mpsc;
 
-use pod_examples_solidity::auction::Auction;
+use pod_examples_solidity::i_auction::IAuction;
 
 const AUCTION_CONTRACT_ADDRESS: &str = "0x6145AC8fb73eB26588245c2afc454fC9629Ad5b3";
 const POD_EXPLORER_URL: &str = "https://explorer.dev.pod.network";
@@ -107,12 +107,12 @@ async fn vote(
 
     // Get auction contract instance
     let auction_address = Address::from_str(AUCTION_CONTRACT_ADDRESS)?;
-    let auction = Auction::new(auction_address, pod_provider.clone());
+    let auction = IAuction::new(auction_address, pod_provider.clone());
 
     // Submit bid
     println!("Submitting bid for auction {auction_id}...");
     let pending_tx = auction
-        .submitBid(auction_id, deadline, value, data)
+        .submitBid(auction_id, deadline.into(), value, data)
         .send()
         .await?;
 
@@ -161,7 +161,7 @@ async fn watch(auction_id: U256, deadline: u64, rpc_url: String) -> Result<()> {
     // Create filter for BidSubmitted events
     let filter = LogFilterBuilder::new()
         .address(auction_address)
-        .event_signature(Auction::BidSubmitted::SIGNATURE_HASH)
+        .event_signature(IAuction::BidSubmitted::SIGNATURE_HASH)
         .topic1(U256::from(auction_id))
         .build();
 
@@ -193,7 +193,7 @@ async fn watch(auction_id: U256, deadline: u64, rpc_url: String) -> Result<()> {
                 data: log.inner.data().clone(),
             };
 
-            if let Ok(event) = Auction::BidSubmitted::decode_log(&primitive_log) {
+            if let Ok(event) = IAuction::BidSubmitted::decode_log(&primitive_log) {
                 // Send event to main task
                 if tx.send((event, log.inner.transaction_hash)).await.is_err() {
                     // Channel closed, exit task

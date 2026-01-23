@@ -16,7 +16,6 @@ use alloy_pubsub::Subscription;
 use async_trait::async_trait;
 
 use alloy_transport::{TransportError, TransportResult};
-use futures::StreamExt;
 use pod_types::{
     consensus::Committee,
     ledger::log::VerifiableLog,
@@ -25,9 +24,7 @@ use pod_types::{
     rpc::filter::LogFilter,
 };
 
-use crate::precompiles;
 use alloy_primitives::{Address, U256};
-use alloy_sol_types::SolValue;
 use pod_types::Timestamp;
 
 pub struct PodProviderBuilder<L, F>(ProviderBuilder<L, F, PodNetwork>);
@@ -203,23 +200,34 @@ impl PodProvider {
     }
 
     pub async fn wait_past_perfect_time(&self, timestamp: Timestamp) -> TransportResult<()> {
-        let tx = PodTransactionRequest::default()
-            .with_to(precompiles::REGISTER_TIMER_CONTRACT_ADDRESS)
-            .with_input((timestamp.as_micros() as u64).abi_encode());
+        const INVALID_PARAMS_CODE: i64 = -32602;
+        const PPT_TOO_FAR_MSG: &str = "Requested PPT is too far in the future";
+        const MAX_RETRIES: u32 = 100;
 
-        let _ = self.send_transaction(tx).await;
+        const SLEEP_DURATION_MILLIS: u64 = 100;
 
+        let mut retries = 0;
         loop {
-            let subscription: Subscription<String> = self
-                .websocket_subscribe("pod_pastPerfectTime", timestamp.as_micros())
-                .await?;
-            // returns None if connection closes before a notification was sent
-            let first_notification = subscription.into_stream().next().await;
-            if first_notification.is_some() {
-                break;
+            let result = self
+                .client()
+                .request::<_, ()>("pod_waitPastPerfectTime", (timestamp.as_micros() as u64,))
+                .await;
+
+            match &result {
+                Err(e)
+                    if retries < MAX_RETRIES
+                        && e.as_error_resp().is_some_and(|r| {
+                            r.code == INVALID_PARAMS_CODE && r.message == PPT_TOO_FAR_MSG
+                        }) =>
+                {
+                    retries += 1;
+                    tokio::time::sleep(std::time::Duration::from_millis(SLEEP_DURATION_MILLIS))
+                        .await;
+                    continue;
+                }
+                _ => return result,
             }
         }
-        Ok(())
     }
 
     /// Subscribe to continuously receive TX receipts as they are created on the node.

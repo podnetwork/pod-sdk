@@ -45,8 +45,8 @@ contract Bridge is AccessControl {
     event ValidatorAdded(address indexed validator);
     event ValidatorRemoved(address indexed validator);
     event ValidatorConfigUpdated(uint256 oldVersion, uint256 newVersion);
-    event Deposit(uint256 indexed id, address indexed token, uint256 amount, address indexed to);
-    event Claim(bytes32 indexed txHash, address mirrorToken, address token, uint256 amount, address indexed to);
+    event Deposit(uint256 indexed id, address indexed from, address indexed to, address token, uint256 amount);
+    event Claim(bytes32 indexed txHash, address token, address mirrorToken, uint256 amount, address indexed to);
     event DepositAndCall(
         uint256 indexed id,
         address indexed token,
@@ -324,7 +324,7 @@ contract Bridge is AccessControl {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         uint256 id = depositIndex++;
 
-        emit Deposit(id, token, amount, to);
+        emit Deposit(id, msg.sender, to, token, amount);
 
         return id;
     }
