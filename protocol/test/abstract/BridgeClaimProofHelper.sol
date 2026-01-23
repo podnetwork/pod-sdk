@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
+import {ProofLib} from "../../src/lib/ProofLib.sol";
 
 abstract contract BridgeClaimProofHelper is Test {
     uint256[] internal validatorPrivateKeys;
@@ -29,34 +30,25 @@ abstract contract BridgeClaimProofHelper is Test {
         address to,
         uint256 numberOfRequiredSignatures,
         bytes32 domainSeparator
-    )
-        internal
-        view
-        returns (bytes32 txHash, bytes memory aggregatedSignatures, bytes memory proof)
-    {
+    ) internal view returns (bytes32 txHash, bytes memory proof, bytes memory auxTxSuffix) {
         bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
 
         // Match the exact encoding used by Bridge.depositTxHash():
         // dataHash = keccak256(selector || token || amount || to) where each is 32-byte aligned
         // selector at offset 0 (4 bytes), token at offset 4 (32 bytes), amount at offset 36, to at offset 68
         // Total: 100 bytes
-        bytes32 dataHash = keccak256(abi.encodePacked(
-            selector,
-            uint256(uint160(claimToken)),
-            amount,
-            uint256(uint160(to))
-        ));
+        bytes32 dataHash = keccak256(
+            abi.encodePacked(selector, uint256(uint160(claimToken)), amount, uint256(uint160(to)))
+        );
 
-        // proof is empty for simplified version
-        proof = "";
+        // auxTxSuffix is empty for simplified version
+        auxTxSuffix = "";
 
-        // txHash = keccak256(domainSeparator || bridgeContract || dataHash || proof)
-        // Each is 32-byte aligned, total 96 bytes when proof is empty
-        txHash = keccak256(abi.encodePacked(
-            domainSeparator,
-            bytes32(uint256(uint160(otherBridgeContract))),
-            dataHash
-        ));
+        // txHash = keccak256(domainSeparator || bridgeContract || dataHash || auxTxSuffix)
+        // Each is 32-byte aligned, total 96 bytes when auxTxSuffix is empty
+        txHash = keccak256(
+            abi.encodePacked(domainSeparator, bytes32(uint256(uint160(otherBridgeContract))), dataHash)
+        );
 
         // Sort validators by address for signature ordering requirement
         uint256[] memory sortedKeys = new uint256[](numberOfRequiredSignatures);
@@ -82,6 +74,8 @@ abstract contract BridgeClaimProofHelper is Test {
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(sortedKeys[i], txHash);
             signatures[i] = serializeSignature(v, r, s);
         }
-        aggregatedSignatures = aggregateSignatures(signatures);
+
+        // Prepend proof type byte (0 = Certificate) to aggregated signatures
+        proof = abi.encodePacked(uint8(ProofLib.ProofType.Certificate), aggregateSignatures(signatures));
     }
 }

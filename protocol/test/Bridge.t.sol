@@ -45,7 +45,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
         }
 
-        _bridge = new Bridge(otherBridgeContract, initialValidators, f, SRC_CHAIN_ID, 1);
+        _bridge = new Bridge(otherBridgeContract, initialValidators, f, SRC_CHAIN_ID, 1, bytes32(0));
 
         _token = new WrappedToken("InitialToken", "ITKN", 18);
         _token.mint(user, INITIAL_BALANCE);
@@ -185,12 +185,12 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         uint256 initialBalance = _token.balanceOf(user);
         assertEq(_token.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
 
-        (bytes32 txHash, bytes memory aggregatedSignatures, bytes memory proof) =
+        (bytes32 txHash, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
         vm.expectEmit(true, true, true, true);
         emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
 
         assertEq(_token.balanceOf(user), initialBalance + DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_bridge)), 0);
@@ -205,70 +205,70 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
-        (, bytes memory aggregatedSignatures, bytes memory proof) =
+        (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 2, _bridge.domainSeparator());
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.InsufficientValidatorWeight.selector));
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
     }
 
     function test_Claim_RevertIfInvalidProof() public {
         vm.prank(admin);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
-        (, bytes memory aggregatedSignatures, bytes memory proof) =
+        (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
-        bytes memory tamperedProof = bytes.concat(proof, abi.encode(keccak256("tamper")));
+        bytes memory tamperedAuxTxSuffix = bytes.concat(auxTxSuffix, abi.encode(keccak256("tamper")));
 
         vm.expectRevert();
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, tamperedProof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, tamperedAuxTxSuffix);
     }
 
     function test_Claim_RevertIfAlreadyClaimed() public {
         vm.prank(admin);
         _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
 
-        (bytes32 txHash, bytes memory aggregatedSignatures, bytes memory proof) =
+        (bytes32 txHash, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
         vm.expectEmit(true, true, true, true);
         emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
     }
 
     function test_Claim_RevertIfTokenNotWhitelisted() public {
         address unknownToken = makeAddr("unknownToken");
-        (, bytes memory aggregatedSignatures, bytes memory proof) =
+        (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(unknownToken, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeparator());
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenConfig.selector));
-        _bridge.claim(unknownToken, DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
+        _bridge.claim(unknownToken, DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
     }
 
     function test_Claim_RevertIfPaused() public {
         vm.prank(admin);
         _bridge.setState(IBridge.ContractState.Paused);
 
-        (, bytes memory aggregatedSignatures, bytes memory proof) =
+        (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeparator());
 
         vm.expectRevert(IBridge.ContractPaused.selector);
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, auxTxSuffix);
     }
 
     function test_Claim_RevertIfInvalidAmount() public {
         vm.prank(admin);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
-        (, bytes memory aggregatedSignatures, bytes memory proof) =
+        (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, minAmount - 1, user, 3, _bridge.domainSeparator());
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidTokenAmount.selector));
-        _bridge.claim(address(_token), minAmount - 1, user, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), minAmount - 1, user, proof, auxTxSuffix);
     }
 
     // ========== Batch Claim Tests ==========
@@ -280,14 +280,14 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address user1 = makeAddr("user1");
         address user2 = makeAddr("user2");
 
-        (bytes32 txHash1, bytes memory sigs1, bytes memory proof1) =
+        (bytes32 txHash1, bytes memory proof1, bytes memory auxTxSuffix1) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, 4, _bridge.domainSeparator());
-        (bytes32 txHash2, bytes memory sigs2, bytes memory proof2) =
+        (bytes32 txHash2, bytes memory proof2, bytes memory auxTxSuffix2) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.domainSeparator());
 
         IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](2);
-        claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, aggregatedSignatures: sigs1, proof: proof1});
-        claims[1] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user2, aggregatedSignatures: sigs2, proof: proof2});
+        claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: proof1, auxTxSuffix: auxTxSuffix1});
+        claims[1] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user2, proof: proof2, auxTxSuffix: auxTxSuffix2});
 
         vm.expectEmit(true, true, true, true);
         emit IBridge.Claim(txHash1, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user1);
@@ -311,13 +311,13 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
 
-        (, bytes memory sigs1, bytes memory proof1) =
+        (, bytes memory proof1, bytes memory auxTxSuffix1) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, sigs1, proof1);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof1, auxTxSuffix1);
 
         IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](1);
-        claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user, aggregatedSignatures: sigs1, proof: proof1});
+        claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user, proof: proof1, auxTxSuffix: auxTxSuffix1});
 
         vm.expectRevert(abi.encodeWithSelector(IBridge.RequestAlreadyProcessed.selector));
         _bridge.batchClaim(address(_token), claims);
@@ -328,7 +328,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.setState(IBridge.ContractState.Paused);
 
         IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](1);
-        claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user, aggregatedSignatures: "", proof: ""});
+        claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user, proof: "", auxTxSuffix: ""});
 
         vm.expectRevert(IBridge.ContractPaused.selector);
         _bridge.batchClaim(address(_token), claims);
@@ -495,7 +495,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         for (uint256 i = 0; i < NUMBER_OF_VALIDATORS; i++) {
             validators[i] = vm.addr(uint256(i + 1));
         }
-        Bridge fresh = new Bridge(otherBridgeContract, validators, 1, SRC_CHAIN_ID, 1);
+        Bridge fresh = new Bridge(otherBridgeContract, validators, 1, SRC_CHAIN_ID, 1, bytes32(0));
         vm.prank(admin);
         fresh.setState(IBridge.ContractState.Paused);
         vm.prank(admin);
@@ -860,7 +860,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         vm.expectEmit(true, false, false, true);
         emit IBridge.ValidatorAdded(newValidator);
-        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+        _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
 
         assertTrue(_bridge.activeValidators(newValidator));
         assertEq(_bridge.validatorCount(), NUMBER_OF_VALIDATORS + 1);
@@ -875,7 +875,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         vm.expectEmit(true, false, false, true);
         emit IBridge.ValidatorRemoved(validatorToRemove);
-        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+        _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
 
         assertFalse(_bridge.activeValidators(validatorToRemove));
         assertEq(_bridge.validatorCount(), NUMBER_OF_VALIDATORS - 1);
@@ -891,7 +891,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         removeValidators[0] = validatorToRemove;
 
         vm.prank(admin);
-        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+        _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
 
         assertFalse(_bridge.activeValidators(validatorToRemove));
         assertTrue(_bridge.activeValidators(newValidator));
@@ -906,7 +906,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(user);
         vm.expectRevert();
-        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+        _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
 
     function test_UpdateValidatorConfig_RevertIfZeroAddress() public {
@@ -916,7 +916,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(IBridge.ValidatorIsZeroAddress.selector));
-        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+        _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
 
     function test_UpdateValidatorConfig_RevertIfDuplicate() public {
@@ -927,7 +927,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(IBridge.DuplicateValidator.selector));
-        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+        _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
 
     function test_UpdateValidatorConfig_RevertIfValidatorDoesNotExist() public {
@@ -938,7 +938,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(IBridge.ValidatorDoesNotExist.selector));
-        _bridge.updateValidatorConfig(1, 1, addValidators, removeValidators);
+        _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
 
     function test_UpdateValidatorConfig_RevertIfInvalidResilience() public {
@@ -947,12 +947,12 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAdverserialResilience.selector));
-        _bridge.updateValidatorConfig(0, 1, addValidators, removeValidators);
+        _bridge.updateValidatorConfig(0, 1, bytes32(0), addValidators, removeValidators);
 
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidAdverserialResilience.selector));
         // forge-lint: disable-next-line(unsafe-typecast)
-        _bridge.updateValidatorConfig(uint64(NUMBER_OF_VALIDATORS + 1), 1, addValidators, removeValidators);
+        _bridge.updateValidatorConfig(uint64(NUMBER_OF_VALIDATORS + 1), 1, bytes32(0), addValidators, removeValidators);
     }
 
     function test_ComputeTxWeight_RevertIfSignatureOrderInvalid() public {
@@ -962,17 +962,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         // Get the correct txHash that will be computed during claim
         bytes32 domainSep = _bridge.domainSeparator();
         bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
-        bytes32 dataHash = keccak256(abi.encodePacked(
-            selector,
-            uint256(uint160(MIRROR_TOKEN)),
-            DEPOSIT_AMOUNT,
-            uint256(uint160(user))
-        ));
-        bytes32 txHash = keccak256(abi.encodePacked(
-            domainSep,
-            bytes32(uint256(uint160(otherBridgeContract))),
-            dataHash
-        ));
+        bytes32 dataHash = keccak256(
+            abi.encodePacked(selector, uint256(uint160(MIRROR_TOKEN)), DEPOSIT_AMOUNT, uint256(uint160(user)))
+        );
+        bytes32 txHash =
+            keccak256(abi.encodePacked(domainSep, bytes32(uint256(uint160(otherBridgeContract))), dataHash));
 
         // Create signatures in wrong order (descending by address)
         address[] memory signers = new address[](2);
@@ -994,8 +988,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
             aggregatedSignatures = abi.encodePacked(aggregatedSignatures, r, s, v);
         }
 
+        // Prepend proof type byte (0 = Certificate)
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Certificate), aggregatedSignatures);
+
         vm.expectRevert(abi.encodeWithSelector(ProofLib.InvalidSignatureOrder.selector));
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, "");
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
     }
 
     function test_ComputeTxWeight_RevertIfSignerNotActive() public {
@@ -1005,15 +1002,299 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         // Use a non-validator private key
         uint256 nonValidatorKey = 0xDEAD;
 
+        // Get the correct txHash that will be computed during claim
+        bytes32 domainSep = _bridge.domainSeparator();
+        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
+        bytes32 dataHash = keccak256(
+            abi.encodePacked(selector, uint256(uint160(MIRROR_TOKEN)), DEPOSIT_AMOUNT, uint256(uint160(user)))
+        );
+        bytes32 txHash =
+            keccak256(abi.encodePacked(domainSep, bytes32(uint256(uint160(otherBridgeContract))), dataHash));
+
         // Create claim proof with signatures from non-validators
-        bytes32 txHash = keccak256("test");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(nonValidatorKey, txHash);
         bytes memory aggregatedSignatures = abi.encodePacked(r, s, v);
 
-        (, , bytes memory proof) =
-            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
+        // Prepend proof type byte (0 = Certificate)
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Certificate), aggregatedSignatures);
 
         vm.expectRevert(abi.encodeWithSelector(ProofLib.SignerNotActiveValidator.selector));
-        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, aggregatedSignatures, proof);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
+    }
+
+    // ========== Merkle Proof Tests ==========
+
+    function _computeTxHash(address mirrorToken, uint256 amount, address to, bytes32 domainSep)
+        internal
+        view
+        returns (bytes32)
+    {
+        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
+        bytes32 dataHash =
+            keccak256(abi.encodePacked(selector, uint256(uint160(mirrorToken)), amount, uint256(uint160(to))));
+        return keccak256(abi.encodePacked(domainSep, bytes32(uint256(uint160(otherBridgeContract))), dataHash));
+    }
+
+    function _buildMerkleTree(bytes32[] memory leaves) internal pure returns (bytes32 root) {
+        require(leaves.length > 0, "empty leaves");
+
+        // Make a copy to avoid modifying original
+        bytes32[] memory layer = new bytes32[](leaves.length);
+        for (uint256 i = 0; i < leaves.length; i++) {
+            layer[i] = leaves[i];
+        }
+
+        uint256 n = layer.length;
+
+        // Build tree bottom-up
+        while (n > 1) {
+            uint256 j = 0;
+            for (uint256 i = 0; i < n; i += 2) {
+                if (i + 1 < n) {
+                    // Hash pair in sorted order (OpenZeppelin convention)
+                    layer[j] = _hashPair(layer[i], layer[i + 1]);
+                } else {
+                    // Odd node, promote to next level
+                    layer[j] = layer[i];
+                }
+                j++;
+            }
+            n = j;
+        }
+        return layer[0];
+    }
+
+    function _hashPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
+        return a < b ? keccak256(abi.encodePacked(a, b)) : keccak256(abi.encodePacked(b, a));
+    }
+
+    function _getMerkleProof(bytes32[] memory leaves, uint256 index) internal pure returns (bytes32[] memory proof) {
+        require(leaves.length > 0, "empty leaves");
+        require(index < leaves.length, "index out of bounds");
+
+        // Calculate proof length
+        uint256 proofLen = 0;
+        uint256 n = leaves.length;
+        while (n > 1) {
+            proofLen++;
+            n = (n + 1) / 2;
+        }
+
+        proof = new bytes32[](proofLen);
+        uint256 proofIndex = 0;
+
+        // Make a copy to avoid modifying original
+        bytes32[] memory layer = new bytes32[](leaves.length);
+        for (uint256 i = 0; i < leaves.length; i++) {
+            layer[i] = leaves[i];
+        }
+
+        n = leaves.length;
+        uint256 idx = index;
+
+        while (n > 1) {
+            uint256 siblingIdx = (idx % 2 == 0) ? idx + 1 : idx - 1;
+            if (siblingIdx < n) {
+                proof[proofIndex] = layer[siblingIdx];
+            } else {
+                // No sibling, proof element is same as current (won't be used)
+                proof[proofIndex] = layer[idx];
+            }
+            proofIndex++;
+
+            // Build next layer
+            uint256 j = 0;
+            for (uint256 i = 0; i < n; i += 2) {
+                if (i + 1 < n) {
+                    layer[j] = _hashPair(layer[i], layer[i + 1]);
+                } else {
+                    layer[j] = layer[i];
+                }
+                j++;
+            }
+            n = j;
+            idx = idx / 2;
+        }
+
+        // Trim proof to actual length used
+        assembly {
+            mstore(proof, proofIndex)
+        }
+    }
+
+    function test_Claim_WithMerkleProof() public {
+        vm.prank(admin);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+
+        // Compute the txHash for the claim
+        bytes32 txHash = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
+
+        // Create a merkle tree with the txHash as a leaf
+        bytes32[] memory leaves = new bytes32[](4);
+        leaves[0] = txHash;
+        leaves[1] = keccak256("other tx 1");
+        leaves[2] = keccak256("other tx 2");
+        leaves[3] = keccak256("other tx 3");
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update bridge with merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
+
+        assertEq(_bridge.merkleRoot(), merkleRoot);
+
+        // Build proof bytes: type (1 byte) + abi.encoded proof array
+        bytes memory proof =
+            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+
+        uint256 initialBalance = _token.balanceOf(user);
+
+        vm.expectEmit(true, true, true, true);
+        emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
+
+        assertEq(_token.balanceOf(user), initialBalance + DEPOSIT_AMOUNT);
+    }
+
+    function test_Claim_RevertIfInvalidMerkleProof() public {
+        vm.prank(admin);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+
+        // Create a merkle tree WITHOUT the actual txHash
+        bytes32[] memory leaves = new bytes32[](4);
+        leaves[0] = keccak256("wrong tx");
+        leaves[1] = keccak256("other tx 1");
+        leaves[2] = keccak256("other tx 2");
+        leaves[3] = keccak256("other tx 3");
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update bridge with merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
+
+        // Build proof bytes with wrong proof
+        bytes memory proof =
+            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+
+        vm.expectRevert(abi.encodeWithSelector(IBridge.InvalidMerkleProof.selector));
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
+    }
+
+    function test_Claim_MerkleProofWorksAfterVersionUpdate() public {
+        vm.prank(admin);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+
+        // Get certificate proof with current version
+        (, bytes memory certProof, bytes memory auxTxSuffix) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
+
+        // Compute txHash with current domain separator (before version update)
+        bytes32 txHashOldVersion = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
+
+        // Create merkle tree with the old version txHash
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHashOldVersion;
+        leaves[1] = keccak256("other tx");
+
+        bytes32 newMerkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update version (invalidates old certificates) and set merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, newMerkleRoot, empty, empty);
+
+        // Certificate proof should now fail (version changed, domain separator changed)
+        vm.expectRevert();
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, certProof, auxTxSuffix);
+
+        // But merkle proof should work (uses the old txHash stored in tree)
+        // Note: We need to compute txHash with OLD domain separator, but the claim function
+        // uses the current domain separator. So this test actually shows that after version
+        // update, you need a merkle proof for txHash computed with the NEW domain separator.
+
+        // Let's compute with new domain separator
+        bytes32 txHashNewVersion = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
+
+        // Create merkle tree with new version txHash
+        leaves[0] = txHashNewVersion;
+        newMerkleRoot = _buildMerkleTree(leaves);
+        merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update merkle root again
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, newMerkleRoot, empty, empty);
+
+        bytes memory merkleProof =
+            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+
+        uint256 initialBalance = _token.balanceOf(user);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, merkleProof, "");
+        assertEq(_token.balanceOf(user), initialBalance + DEPOSIT_AMOUNT);
+    }
+
+    function test_Claim_RevertIfInvalidProofType() public {
+        vm.prank(admin);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+
+        // Create proof with invalid type (2)
+        bytes memory invalidProof = abi.encodePacked(uint8(2), bytes("some data"));
+
+        vm.expectRevert();
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, invalidProof, "");
+    }
+
+    function test_BatchClaim_WithMerkleProof() public {
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        address user1 = makeAddr("user1");
+
+        // Compute txHash for the claim
+        bytes32 txHash = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, _bridge.domainSeparator());
+
+        // Create merkle tree
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHash;
+        leaves[1] = keccak256("other tx");
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update bridge with merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
+
+        bytes memory proof =
+            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+
+        IBridge.ClaimParams[] memory claims = new IBridge.ClaimParams[](1);
+        claims[0] = IBridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: proof, auxTxSuffix: ""});
+
+        vm.expectEmit(true, true, true, true);
+        emit IBridge.Claim(txHash, address(_token), MIRROR_TOKEN, DEPOSIT_AMOUNT, user1);
+
+        _bridge.batchClaim(address(_token), claims);
+
+        assertEq(_token.balanceOf(user1), DEPOSIT_AMOUNT);
+    }
+
+    function test_UpdateValidatorConfig_UpdatesMerkleRoot() public {
+        bytes32 newRoot = keccak256("new merkle root");
+        address[] memory empty = new address[](0);
+
+        assertEq(_bridge.merkleRoot(), bytes32(0));
+
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, newRoot, empty, empty);
+
+        assertEq(_bridge.merkleRoot(), newRoot);
     }
 }

@@ -6,11 +6,14 @@ import {console} from "forge-std/console.sol";
 import {Bridge} from "pod-protocol/Bridge.sol";
 
 contract Deploy is BaseDeployer {
-    function run(address podBridgeAddr, uint256 srcChainId, uint256 version) external returns (address bridge) {
+    function run(address podBridgeAddr, uint256 srcChainId, uint256 version, bytes32 merkleRoot)
+        external
+        returns (address bridge)
+    {
         address[] memory initialValidators = getValidatorAddresses();
         vm.startBroadcast();
         uint8 f = uint8((initialValidators.length - 1) / 3);
-        Bridge bdw = new Bridge(podBridgeAddr, initialValidators, f, srcChainId, version);
+        Bridge bdw = new Bridge(podBridgeAddr, initialValidators, f, srcChainId, version, merkleRoot);
         vm.stopBroadcast();
         console.log("Bridge deployed at:", address(bdw));
         return address(bdw);

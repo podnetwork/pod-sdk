@@ -22,6 +22,7 @@ contract Bridge is IBridge, AccessControl {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes4 internal constant DEPOSIT_SELECTOR = bytes4(keccak256("deposit(address,uint256,address)"));
     uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
+
     address public immutable BRIDGE_CONTRACT;
     uint256 public immutable CHAIN_ID;
 
@@ -31,6 +32,7 @@ contract Bridge is IBridge, AccessControl {
     uint256 public depositIndex;
     uint256 public version;
     bytes32 public domainSeparator;
+    bytes32 public merkleRoot;
 
     uint64 public adversarialResilience;
     uint64 public validatorCount;
@@ -47,13 +49,15 @@ contract Bridge is IBridge, AccessControl {
      * @param _adversarialResilience The adversarial resilience threshold.
      * @param _chainId Source chain ID for domain separator.
      * @param _version Initial version for domain separator.
+     * @param _merkleRoot Initial merkle root for merkle proofs (can be bytes32(0) if not used).
      */
     constructor(
         address _bridgeContract,
         address[] memory _validators,
         uint64 _adversarialResilience,
         uint256 _chainId,
-        uint256 _version
+        uint256 _version,
+        bytes32 _merkleRoot
     ) {
         if (_bridgeContract == address(0)) revert InvalidBridgeContract();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -66,6 +70,7 @@ contract Bridge is IBridge, AccessControl {
         _addRemoveValidators(_validators, new address[](0));
         _setAdversarialResilience(_adversarialResilience);
         _updateVersion(_version);
+        merkleRoot = _merkleRoot;
     }
 
     function _updateVersion(uint256 newVersion) internal {
@@ -107,16 +112,18 @@ contract Bridge is IBridge, AccessControl {
         adversarialResilience = _adversarialResilience;
     }
 
-    function _depositTxHash(address token, uint256 amount, address to, bytes32 _domainSeparator, bytes calldata proof)
-        internal
-        view
-        returns (bytes32 result)
-    {
+    function _depositTxHash(
+        address token,
+        uint256 amount,
+        address to,
+        bytes32 _domainSeparator,
+        bytes calldata auxTxSuffix
+    ) internal view returns (bytes32 result) {
         bytes4 selector = DEPOSIT_SELECTOR;
         address bridgeContract = BRIDGE_CONTRACT;
 
-        uint256 lenTx = 32 + 32 + 32 + proof.length; // DOMAIN_SEPARATOR + bridgeContract + dataHash + proof
-        uint256 lenData = 4 + 32 + 32 + 32; // DOMAIN_SEPARATOR + selector + token + amount + to
+        uint256 lenTx = 32 + 32 + 32 + auxTxSuffix.length; // DOMAIN_SEPARATOR + bridgeContract + dataHash + auxTxSuffix
+        uint256 lenData = 4 + 32 + 32 + 32; // selector + token + amount + to
         bytes memory scratch = new bytes(lenTx > lenData ? lenTx : lenData); // reuse memory
         bytes32 dataHash;
         assembly {
@@ -133,23 +140,27 @@ contract Bridge is IBridge, AccessControl {
             mstore(ptr, _domainSeparator)
             mstore(add(ptr, 0x20), bridgeContract)
             mstore(add(ptr, 0x40), dataHash)
-            calldatacopy(add(ptr, 0x60), proof.offset, proof.length)
+            calldatacopy(add(ptr, 0x60), auxTxSuffix.offset, auxTxSuffix.length)
 
             result := keccak256(ptr, lenTx)
         }
     }
 
     /**
-     * @notice Update the validator set, adversarial resilience, and version.
+     * @notice Update the validator set, adversarial resilience, version, and merkle root.
      * @dev Admin may keep the same version if the config update doesn't invalidate past certificates.
+     *      When the version is updated, past certificates become invalid and only merkle proofs work
+     *      for claims from before the version change.
      * @param newResilience The new adversarial resilience threshold.
      * @param newVersion The new version (updates domain separator).
+     * @param newMerkleRoot The new merkle root for merkle proofs.
      * @param addValidators Validators to add.
      * @param removeValidators Validators to remove.
      */
     function updateValidatorConfig(
         uint64 newResilience,
         uint256 newVersion,
+        bytes32 newMerkleRoot,
         address[] memory addValidators,
         address[] memory removeValidators
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -157,6 +168,7 @@ contract Bridge is IBridge, AccessControl {
         _addRemoveValidators(addValidators, removeValidators);
         _setAdversarialResilience(newResilience);
         _updateVersion(newVersion);
+        merkleRoot = newMerkleRoot;
         emit ValidatorConfigUpdated(oldVersion, newVersion);
     }
 
@@ -387,29 +399,51 @@ contract Bridge is IBridge, AccessControl {
         }
     }
 
-    function claim(
-        address token,
-        uint256 amount,
-        address to,
-        bytes calldata aggregatedSignatures,
-        bytes calldata proof
-    ) external whenOperational {
+    /**
+     * @notice Claim bridged tokens using a proof from Pod.
+     * @dev The proof parameter's first byte indicates the proof type:
+     *      - 0 (Certificate): Remaining bytes are aggregated validator signatures.
+     *      - 1 (Merkle): Remaining bytes are a merkle inclusion proof.
+     *      When the version is updated, past certificates become invalid and only merkle proofs
+     *      work for claims from before the version change.
+     * @param token The token address on this chain to receive.
+     * @param amount The amount of tokens to claim.
+     * @param to The address to receive the tokens.
+     * @param proof The proof bytes (first byte is proof type, rest is proof data).
+     * @param auxTxSuffix Auxiliary bytes appended to the transaction hash for forward compatibility.
+     */
+    function claim(address token, uint256 amount, address to, bytes calldata proof, bytes calldata auxTxSuffix)
+        external
+        whenOperational
+    {
         TokenData storage t = tokenData[token];
         _checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, amount);
 
         address mirrorToken = t.mirrorToken;
-        bytes32 txHash = _depositTxHash(mirrorToken, amount, to, domainSeparator, proof);
+        bytes32 txHash = _depositTxHash(mirrorToken, amount, to, domainSeparator, auxTxSuffix);
 
-        // Check if already processed
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-        uint256 weight = ProofLib.computeTxWeight(txHash, aggregatedSignatures, activeValidators);
-        if (weight < validatorCount - adversarialResilience) revert InsufficientValidatorWeight();
+        _verifyProof(txHash, proof);
 
         processedRequests[txHash] = true;
 
         IERC20(token).safeTransfer(to, amount);
         emit Claim(txHash, token, mirrorToken, amount, to);
+    }
+
+    function _verifyProof(bytes32 txHash, bytes calldata proof) internal view {
+        ProofLib.ProofType proofType = ProofLib.ProofType(uint8(proof[0]));
+        bytes calldata proofData = proof[1:];
+
+        if (proofType == ProofLib.ProofType.Certificate) {
+            uint256 weight = ProofLib.computeTxWeight(txHash, proofData, activeValidators);
+            if (weight < validatorCount - adversarialResilience) revert InsufficientValidatorWeight();
+        } else if (proofType == ProofLib.ProofType.Merkle) {
+            if (!ProofLib.verifyMerkleProof(txHash, proofData, merkleRoot)) revert InvalidMerkleProof();
+        } else {
+            revert ProofLib.InvalidProofType();
+        }
     }
 
     function batchClaim(address token, ClaimParams[] calldata claims) external whenOperational {
@@ -425,12 +459,11 @@ contract Bridge is IBridge, AccessControl {
 
             _checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, c.amount);
 
-            bytes32 txHash = _depositTxHash(mirrorToken, c.amount, c.to, _domainSeparator, c.proof);
+            bytes32 txHash = _depositTxHash(mirrorToken, c.amount, c.to, _domainSeparator, c.auxTxSuffix);
 
             if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-            uint256 weight = ProofLib.computeTxWeight(txHash, c.aggregatedSignatures, activeValidators);
-            if (weight < validatorCount - adversarialResilience) revert InsufficientValidatorWeight();
+            _verifyProof(txHash, c.proof);
 
             processedRequests[txHash] = true;
 

@@ -95,6 +95,11 @@ interface IBridge {
     error InsufficientValidatorWeight();
 
     /**
+     * @dev Error thrown when a merkle proof is invalid.
+     */
+    error InvalidMerkleProof();
+
+    /**
      * @dev Contract state enum.
      * @param Public - Normal operation, all functions available.
      * @param Private - Only batch deposit and claim functions available.
@@ -193,14 +198,14 @@ interface IBridge {
      * @dev Claim parameters for batch claim operations (same token).
      * @param amount The amount of tokens to claim.
      * @param to The address to receive the tokens.
-     * @param aggregatedSignatures Concatenated validator signatures.
-     * @param proof The Merkle proof for verifying the deposit.
+     * @param proof The proof bytes (first byte is proof type, rest is proof data).
+     * @param auxTxSuffix Auxiliary bytes appended to the transaction hash for forward compatibility.
      */
     struct ClaimParams {
         uint256 amount;
         address to;
-        bytes aggregatedSignatures;
         bytes proof;
+        bytes auxTxSuffix;
     }
 
     /**
@@ -235,8 +240,6 @@ interface IBridge {
      * @dev Update a token's configuration information.
      * Token limits need to be set to half the desired value, due to users being able to deposit and claim at the boundry condition.
      * If the desired deposit limit is 1000 tokens, the limit should be set to 500 tokens.
-     * For example, the limits are over the course of 1 day, and the limit reset at 12:00 AM UTC and suppose there are no bridging transactions
-     * for that day until 11:58 PM UTC. Then a user can deposit the limit amount at 11:59 PM UTC, and then immediately
      * deposit the limit amount again at 12:00 AM UTC.
      * @notice Token can be disabled by setting deposit and claim limits to zero.
      * @notice Access is restricted to the admin.
@@ -353,24 +356,20 @@ interface IBridge {
     ) external;
 
     /**
-     * @notice Claim bridged tokens using an attested transaction proof from Pod.
-     * @dev Verifies the deposit transaction via merkle proof and aggregated validator signatures.
-     *      The transaction hash (AttestedTx.hash) is computed from the merkle proof.
-     *      Anyone can call this function to claim on behalf of the original depositor.
-     *      If mirrorToken is address(0), native tokens are transferred; otherwise ERC20 tokens.
-     * @param token The token address on Pod that was deposited.
-     * @param amount The amount of tokens that were deposited on Pod (and to claim).
-     * @param to The address to receive the tokens (must match the 'to' specified in the deposit).
-     * @param aggregatedSignatures Concatenated 65-byte ECDSA signatures (r,s,v) from validators.
-     * @param proof The Merkle multi-proof for verifying transaction fields (to, input).
+     * @notice Claim bridged tokens using a proof from Pod.
+     * @dev The proof parameter's first byte indicates the proof type:
+     *      - 0 (Certificate): Remaining bytes are aggregated validator signatures.
+     *      - 1 (Merkle): Remaining bytes are a merkle inclusion proof.
+     *      When the version is updated, past certificates become invalid and only merkle proofs
+     *      work for claims from before the version change.
+     * @param token The token address on this chain to receive.
+     * @param amount The amount of tokens to claim.
+     * @param to The address to receive the tokens.
+     * @param proof The proof bytes (first byte is proof type, rest is proof data).
+     * @param auxTxSuffix Auxiliary bytes appended to the transaction hash for forward compatibility.
      */
-    function claim(
-        address token,
-        uint256 amount,
-        address to,
-        bytes calldata aggregatedSignatures,
-        bytes calldata proof
-    ) external;
+    function claim(address token, uint256 amount, address to, bytes calldata proof, bytes calldata auxTxSuffix)
+        external;
 
     /**
      * @notice Batch claim multiple bridged token transfers for the same token.
@@ -381,16 +380,20 @@ interface IBridge {
     function batchClaim(address token, ClaimParams[] calldata claims) external;
 
     /**
-     * @notice Update the validator set, adversarial resilience, and version.
-     * @dev Access control is restricted to the admin.
+     * @notice Update the validator set, adversarial resilience, version, and merkle root.
+     * @dev Admin may keep the same version if the config update doesn't invalidate past certificates.
+     *      When the version is updated, past certificates become invalid and only merkle proofs work
+     *      for claims from before the version change.
      * @param newResilience The new adversarial resilience threshold.
      * @param newVersion The new version (updates domain separator).
+     * @param newMerkleRoot The new merkle root for merkle proofs.
      * @param addValidators Validators to add.
      * @param removeValidators Validators to remove.
      */
     function updateValidatorConfig(
         uint64 newResilience,
         uint256 newVersion,
+        bytes32 newMerkleRoot,
         address[] memory addValidators,
         address[] memory removeValidators
     ) external;
