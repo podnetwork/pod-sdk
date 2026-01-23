@@ -9,8 +9,7 @@ import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC2
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title Bridge
- * @notice Cross-chain token bridging contract.
+ * @title Bridge for Pod Network
  */
 contract Bridge is AccessControl {
     using SafeERC20 for IERC20;
@@ -57,7 +56,8 @@ contract Bridge is AccessControl {
     );
 
     struct DepositParams {
-        address account;
+        address from;
+        address to;
         uint256 amount;
     }
 
@@ -71,8 +71,11 @@ contract Bridge is AccessControl {
     struct ClaimParams {
         uint256 amount;
         address to;
+        // first byte is proof type and the rest is proof data
+        // proof data is either aggregated signatures or merkle proof
         bytes proof;
-        bytes auxTxSuffix;
+        // auxiliary transaction suffix for forward compatibility
+        bytes auxTxSuffix; 
     }
 
     struct TokenUsage {
@@ -137,7 +140,6 @@ contract Bridge is AccessControl {
         BRIDGE_CONTRACT = _bridgeContract;
         CHAIN_ID = _chainId;
 
-        // Initialize validators
         _addRemoveValidators(_validators, new address[](0));
         _setAdversarialResilience(_adversarialResilience);
         _updateVersion(_version);
@@ -292,6 +294,7 @@ contract Bridge is AccessControl {
         }
 
         // Check limits and if exceeded, check if we can reset daily usage
+        // (assumes maxTotalAmount is set to half the desired limit to handle boundary conditions)
         uint256 newConsumed = usage.consumed + amount;
         if (newConsumed > maxTotalAmount) {
             if (block.timestamp < usage.lastUpdated + 1 days || amount > maxTotalAmount) {
@@ -325,14 +328,19 @@ contract Bridge is AccessControl {
         return id;
     }
 
-    /// @notice The callee contract on the destination chain must implement: deposit(address token, uint256 amount, address to)
+    /** 
+     * @dev The callee contract on the destination chain must 
+     *         implement deposit(address token, uint256 amount, address to)
+     */
     function depositAndCall(
         address token,
         uint256 amount,
+        address to,
         address callContract,
         uint256 reserveBalance,
         bytes calldata permit
     ) external whenPublic returns (bytes32) {
+        if (to == address(0)) revert InvalidToAddress();
         if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
         if (amount < reserveBalance) revert AmountBelowReserve();
 
@@ -343,14 +351,14 @@ contract Bridge is AccessControl {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         bytes32 id = bytes32(depositIndex++);
 
-        emit DepositAndCall(id, token, amount, msg.sender, callContract, reserveBalance);
+        emit DepositAndCall(id, token, amount, to, callContract, reserveBalance);
 
         return id;
     }
 
     /**
-     * @notice Batch deposit tokens with permits and emit call events.
-     * @dev The callee contract on the destination chain must implement: deposit(address token, uint256 amount, address to)
+     * @dev The callee contract on the destination chain must implement
+     *      deposit(address token, uint256 amount, address to)
      *
      *      The deposits and permits arrays are ordered such that deposits with permits come first.
      *      For deposits[i] where i < permits.length, the corresponding permits[i] is applied.
@@ -374,7 +382,7 @@ contract Bridge is AccessControl {
             DepositParams calldata d = deposits[i];
 
             if (d.amount < reserveBalance) revert AmountBelowReserve();
-            if (d.account == address(0)) revert InvalidToAddress();
+            if (d.to == address(0)) revert InvalidToAddress();
 
             _checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, d.amount);
 
@@ -382,13 +390,13 @@ contract Bridge is AccessControl {
             if (i < permitsLength) {
                 PermitParams calldata p = permits[i];
                 // Use permit to approve tokens (try/catch to handle frontrunning)
-                try IERC20Permit(token).permit(d.account, address(this), d.amount, p.deadline, p.v, p.r, p.s) {} catch {}
+                try IERC20Permit(token).permit(d.from, address(this), d.amount, p.deadline, p.v, p.r, p.s) {} catch {}
             }
 
-            IERC20(token).safeTransferFrom(d.account, address(this), d.amount);
+            IERC20(token).safeTransferFrom(d.from, address(this), d.amount);
             bytes32 id = bytes32(depositIndex++);
 
-            emit DepositAndCall(id, token, d.amount, d.account, callContract, reserveBalance);
+            emit DepositAndCall(id, token, d.amount, d.to, callContract, reserveBalance);
         }
     }
 

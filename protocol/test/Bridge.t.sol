@@ -690,8 +690,8 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(user2PrivateKey, digest2);
 
         Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](2);
-        deposits[0] = Bridge.DepositParams({account: user1, amount: DEPOSIT_AMOUNT});
-        deposits[1] = Bridge.DepositParams({account: user2, amount: DEPOSIT_AMOUNT});
+        deposits[0] = Bridge.DepositParams({from: user1, to: user1, amount: DEPOSIT_AMOUNT});
+        deposits[1] = Bridge.DepositParams({from: user2, to: user2, amount: DEPOSIT_AMOUNT});
 
         Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](2);
         permits[0] = Bridge.PermitParams({deadline: deadline, v: v1, r: r1, s: s1});
@@ -745,9 +745,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(user2PrivateKey, digest2);
 
         Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](3);
-        deposits[0] = Bridge.DepositParams({account: user1, amount: DEPOSIT_AMOUNT});
-        deposits[1] = Bridge.DepositParams({account: user2, amount: DEPOSIT_AMOUNT});
-        deposits[2] = Bridge.DepositParams({account: user3, amount: DEPOSIT_AMOUNT});
+        deposits[0] = Bridge.DepositParams({from: user1, to: user1, amount: DEPOSIT_AMOUNT});
+        deposits[1] = Bridge.DepositParams({from: user2, to: user2, amount: DEPOSIT_AMOUNT});
+        deposits[2] = Bridge.DepositParams({from: user3, to: user3, amount: DEPOSIT_AMOUNT});
 
         Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](2);
         permits[0] = Bridge.PermitParams({deadline: deadline, v: v1, r: r1, s: s1});
@@ -773,7 +773,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.stopPrank();
 
         Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](1);
-        deposits[0] = Bridge.DepositParams({account: user, amount: DEPOSIT_AMOUNT});
+        deposits[0] = Bridge.DepositParams({from: user, to: user, amount: DEPOSIT_AMOUNT});
 
         Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](0);
 
@@ -793,7 +793,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.stopPrank();
 
         Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](1);
-        deposits[0] = Bridge.DepositParams({account: user, amount: DEPOSIT_AMOUNT});
+        deposits[0] = Bridge.DepositParams({from: user, to: user, amount: DEPOSIT_AMOUNT});
 
         Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](0);
 
@@ -814,7 +814,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.stopPrank();
 
         Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](1);
-        deposits[0] = Bridge.DepositParams({account: user, amount: DEPOSIT_AMOUNT});
+        deposits[0] = Bridge.DepositParams({from: user, to: user, amount: DEPOSIT_AMOUNT});
 
         Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](0);
 
