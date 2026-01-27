@@ -99,6 +99,8 @@ jobs:
           forge test -vvv
         id: test
         working-directory: protocol
+        env:
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
 
       - name: Check bindings
         run: |
