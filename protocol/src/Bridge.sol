@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {ProofLib} from "./lib/ProofLib.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
@@ -11,7 +12,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 /**
  * @title Bridge for Pod Network
  */
-contract Bridge is AccessControl {
+contract Bridge is Initializable, AccessControl {
     using SafeERC20 for IERC20;
 
     error ContractMigrated();
@@ -118,28 +119,34 @@ contract Bridge is AccessControl {
     mapping(address => bool) public activeValidators;
 
     /**
-     * @dev Constructor.
+     * @dev Constructor sets immutable values and disables initialization on the implementation.
      * @param _bridgeContract The address of the bridge contract on the other chain.
+     * @param _chainId Source chain ID for domain separator.
+     */
+    constructor(address _bridgeContract, uint256 _chainId) {
+        if (_bridgeContract == address(0)) revert InvalidBridgeContract();
+        BRIDGE_CONTRACT = _bridgeContract;
+        CHAIN_ID = _chainId;
+        _disableInitializers();
+    }
+
+    /**
+     * @dev Initializes the contract (called via proxy).
+     * @param _admin The admin address that will receive DEFAULT_ADMIN_ROLE and PAUSER_ROLE.
      * @param _validators Initial set of validators.
      * @param _adversarialResilience The adversarial resilience threshold.
-     * @param _chainId Source chain ID for domain separator.
      * @param _version Initial version for domain separator.
      * @param _merkleRoot Initial merkle root for merkle proofs (can be bytes32(0) if not used).
      */
-    constructor(
-        address _bridgeContract,
+    function initialize(
+        address _admin,
         address[] memory _validators,
         uint64 _adversarialResilience,
-        uint256 _chainId,
         uint256 _version,
         bytes32 _merkleRoot
-    ) {
-        if (_bridgeContract == address(0)) revert InvalidBridgeContract();
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(PAUSER_ROLE, msg.sender);
-
-        BRIDGE_CONTRACT = _bridgeContract;
-        CHAIN_ID = _chainId;
+    ) external initializer {
+        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
+        _grantRole(PAUSER_ROLE, _admin);
 
         _addRemoveValidators(_validators, new address[](0));
         _setAdversarialResilience(_adversarialResilience);

@@ -7,6 +7,7 @@ import {Bridge} from "../src/Bridge.sol";
 import {ProofLib} from "../src/lib/ProofLib.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
 import {MockERC20Permit} from "./mocks/MockERC20Permit.sol";
+import {BridgeDeployer} from "../script/DeployBridge.s.sol";
 
 contract BridgeTest is Test, BridgeClaimProofHelper {
     Bridge internal _bridge;
@@ -44,7 +45,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
         }
 
-        _bridge = new Bridge(otherBridgeContract, initialValidators, f, SRC_CHAIN_ID, 1, bytes32(0));
+        (_bridge,) = BridgeDeployer.deploy(otherBridgeContract, SRC_CHAIN_ID, admin, initialValidators, f, 1, bytes32(0));
 
         _token = new WrappedToken("InitialToken", "ITKN", 18);
         _token.mint(user, INITIAL_BALANCE);
@@ -489,12 +490,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     }
 
     function test_Migrate_NoWhitelistedTokens() public {
-        vm.prank(admin);
         address[] memory validators = new address[](NUMBER_OF_VALIDATORS);
         for (uint256 i = 0; i < NUMBER_OF_VALIDATORS; i++) {
             validators[i] = vm.addr(uint256(i + 1));
         }
-        Bridge fresh = new Bridge(otherBridgeContract, validators, 1, SRC_CHAIN_ID, 1, bytes32(0));
+        (Bridge fresh,) = BridgeDeployer.deploy(otherBridgeContract, SRC_CHAIN_ID, admin, validators, 1, 1, bytes32(0));
         vm.prank(admin);
         fresh.setState(Bridge.ContractState.Paused);
         vm.prank(admin);

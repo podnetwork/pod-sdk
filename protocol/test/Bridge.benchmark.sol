@@ -5,6 +5,7 @@ import {console} from "forge-std/Test.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {Bridge} from "../src/Bridge.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
+import {BridgeDeployer} from "../script/DeployBridge.s.sol";
 
 contract BridgeBenchmark is BridgeClaimProofHelper {
     Bridge private bridge;
@@ -34,7 +35,7 @@ contract BridgeBenchmark is BridgeClaimProofHelper {
 
         uint64 f = uint64((numValidators - 1) / 3);
         if (f == 0) f = 1; // minimum resilience is 1
-        bridge = new Bridge(otherBridgeContract, initialValidators, f, SRC_CHAIN_ID, 1, bytes32(0));
+        (bridge,) = BridgeDeployer.deploy(otherBridgeContract, SRC_CHAIN_ID, admin, initialValidators, f, 1, bytes32(0));
 
         // Setup token for claim() benchmarks
         token = new WrappedToken("TestToken", "TKN", 18);
