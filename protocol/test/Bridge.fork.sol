@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {Bridge} from "../src/Bridge.sol";
+import {BridgeDeployer} from "../script/DeployBridge.s.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
@@ -39,8 +40,8 @@ contract BridgeForkTest is BridgeClaimProofHelper {
 
         // Deploy bridge
         vm.startPrank(admin);
-        uint8 f = uint8((NUM_VALIDATORS - 1) / 3);
-        bridge = new Bridge(otherBridgeContract, validators, f, CHAIN_ID, 1, bytes32(0));
+        uint64 f = uint64((NUM_VALIDATORS - 1) / 3);
+        (bridge,) = BridgeDeployer.deploy(otherBridgeContract, CHAIN_ID, admin, validators, f, 1, bytes32(0));
         bridge.whiteListToken(USDC, mirrorUsdc, MIN_AMOUNT, DEPOSIT_LIMIT, CLAIM_LIMIT);
         vm.stopPrank();
 
