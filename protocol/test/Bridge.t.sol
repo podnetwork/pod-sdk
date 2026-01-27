@@ -115,6 +115,70 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.deposit(address(_token), depositLimit, user, "");
     }
 
+    function test_Deposit_SplittingDoesNotReduceUsage() public {
+        // Test that splitting a deposit across a period reset doesn't result in lower usage
+        // Scenario: limit=500, consumed=400, deposit=200
+        // Old behavior: reset, consumed=200 (lost 100 remaining capacity)
+        // New behavior: fill 100 remaining, reset, consumed=100
+
+        // First consume most of the limit
+        vm.prank(user);
+        _bridge.deposit(address(_token), 400e18, user, "");
+
+        // Warp past the reset period
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Now deposit 200 which exceeds remaining capacity (100)
+        vm.prank(user);
+        _bridge.deposit(address(_token), 200e18, user, "");
+
+        // The excess should be 200 - 100 = 100 (not the full 200)
+        // Verify by checking we can still deposit up to (limit - 100 = 400)
+        vm.prank(user);
+        _bridge.deposit(address(_token), 400e18, user, "");
+
+        // But not more
+        vm.prank(user);
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        _bridge.deposit(address(_token), minAmount, user, "");
+    }
+
+    function test_Deposit_ExcessMustFitInNewPeriod() public {
+        // Test that if excess exceeds the limit, the deposit is rejected
+        // Scenario: limit=500, consumed=400, deposit=600
+        // Remaining=100, excess=500, which equals limit (should succeed)
+
+        vm.prank(user);
+        _bridge.deposit(address(_token), 400e18, user, "");
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Deposit that uses remaining (100) + full new period (500) = 600
+        vm.prank(user);
+        _bridge.deposit(address(_token), 600e18, user, "");
+
+        // Now the new period is fully consumed, can't deposit more
+        vm.prank(user);
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        _bridge.deposit(address(_token), minAmount, user, "");
+    }
+
+    function test_Deposit_RevertIfExcessExceedsLimit() public {
+        // Test that if excess exceeds the limit, the deposit is rejected
+        // Scenario: limit=500, consumed=400, deposit=601
+        // Remaining=100, excess=501 > 500, should revert
+
+        vm.prank(user);
+        _bridge.deposit(address(_token), 400e18, user, "");
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Deposit that would require excess > limit
+        vm.prank(user);
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        _bridge.deposit(address(_token), 601e18, user, "");
+    }
+
     function test_Deposit_RevertIfTokenNotWhitelisted() public {
         address notWhitelisted = address(0xBEEF);
         vm.prank(user);
@@ -1297,6 +1361,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
 /// @dev Test harness that exposes internal functions for testing
 contract BridgeHarness is Bridge {
+    // Storage for testing _checkInLimits
+    TokenUsage public testUsage;
+
     constructor(address _bridgeContract, uint256 _chainId) Bridge(_bridgeContract, _chainId) {}
 
     function exposed_updateValidatorSet(
@@ -1305,6 +1372,19 @@ contract BridgeHarness is Bridge {
         uint64 _adversarialResilience
     ) external {
         _updateValidatorSet(addValidators, removeValidators, _adversarialResilience);
+    }
+
+    function exposed_checkInLimits(uint256 minAmount, uint256 maxTotalAmount, uint256 amount) external {
+        _checkInLimits(testUsage, minAmount, maxTotalAmount, amount);
+    }
+
+    function setTestUsage(uint256 consumed, uint256 lastUpdated) external {
+        testUsage.consumed = consumed;
+        testUsage.lastUpdated = lastUpdated;
+    }
+
+    function getTestUsage() external view returns (uint256 consumed, uint256 lastUpdated) {
+        return (testUsage.consumed, testUsage.lastUpdated);
     }
 }
 
@@ -1663,5 +1743,267 @@ contract BridgeUpdateValidatorSetTest is Test {
 
         vm.expectRevert(Bridge.DuplicateValidator.selector);
         harness.exposed_updateValidatorSet(addDuplicate, new address[](0), 1);
+    }
+}
+
+contract BridgeCheckInLimitsTest is Test {
+    BridgeHarness internal harness;
+
+    uint256 constant MIN_AMOUNT = 1e18;
+    uint256 constant MAX_TOTAL = 100e18;
+
+    function setUp() public {
+        address otherBridge = makeAddr("otherBridge");
+        harness = new BridgeHarness(otherBridge, 1);
+    }
+
+    // ========== Unit Tests ==========
+
+    function test_CheckInLimits_BasicDeposit() public {
+        harness.setTestUsage(0, block.timestamp);
+
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, 50e18);
+
+        (uint256 consumed,) = harness.getTestUsage();
+        assertEq(consumed, 50e18);
+    }
+
+    function test_CheckInLimits_RevertIfBelowMin() public {
+        harness.setTestUsage(0, block.timestamp);
+
+        vm.expectRevert(Bridge.InvalidTokenAmount.selector);
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, MIN_AMOUNT - 1);
+    }
+
+    function test_CheckInLimits_RevertIfExceedsLimitSameDay() public {
+        harness.setTestUsage(80e18, block.timestamp);
+
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, 30e18);
+    }
+
+    function test_CheckInLimits_FillsRemainingThenAppliesExcess() public {
+        // Setup: consumed=80, limit=100, remaining=20
+        harness.setTestUsage(80e18, block.timestamp);
+
+        // Warp past reset period
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Deposit 50: fills 20 remaining, excess=30 goes to new period
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, 50e18);
+
+        (uint256 consumed,) = harness.getTestUsage();
+        assertEq(consumed, 30e18); // excess = 50 - 20 = 30
+    }
+
+    function test_CheckInLimits_ExcessEqualsLimit() public {
+        // Setup: consumed=80, limit=100, remaining=20
+        harness.setTestUsage(80e18, block.timestamp);
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Deposit 120: fills 20 remaining, excess=100 (exactly at limit)
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, 120e18);
+
+        (uint256 consumed,) = harness.getTestUsage();
+        assertEq(consumed, 100e18);
+    }
+
+    function test_CheckInLimits_RevertIfExcessExceedsLimit() public {
+        harness.setTestUsage(80e18, block.timestamp);
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Deposit 121: excess=101 > 100
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, 121e18);
+    }
+
+    // ========== Property Tests (Fuzz) ==========
+    //
+    // Property 1: Multiple deposits totaling <= limit within 1 day always succeed
+    // Property 2: Cannot spend > 2x limit over 2 days
+    // Property 3: Splitting deposits doesn't change the outcome
+    // Property 4: Reverts if amount < minAmount
+
+    /// @notice Property 1: Multiple deposits within limit always succeed
+    /// Split a total amount into 3 deposits, all within same day, total <= limit
+    function testFuzz_Property1_MultipleDepositsWithinLimitSucceed(uint256 amount1, uint256 amount2, uint256 amount3)
+        public
+    {
+        uint256 limit = MAX_TOTAL;
+
+        // Bound each amount to be valid and total <= limit
+        amount1 = bound(amount1, MIN_AMOUNT, limit / 3);
+        amount2 = bound(amount2, MIN_AMOUNT, limit / 3);
+        amount3 = bound(amount3, MIN_AMOUNT, limit / 3);
+
+        uint256 total = amount1 + amount2 + amount3;
+
+        uint256 startTime = 1000;
+        vm.warp(startTime);
+        harness.setTestUsage(0, startTime);
+
+        // All three deposits should succeed
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, amount1);
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, amount2);
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, amount3);
+
+        (uint256 consumed,) = harness.getTestUsage();
+        assertEq(consumed, total);
+        assertLe(consumed, limit);
+    }
+
+    /// @notice Property 2: Cannot spend > 2x limit over 2 days
+    /// Total of day1 + day2 > 2*limit must fail
+    function testFuzz_Property2_CannotExceed2xLimitOver2Days(uint256 day1Amount, uint256 excessOverLimit) public {
+        uint256 limit = MAX_TOTAL;
+
+        // Day 1: spend some amount
+        day1Amount = bound(day1Amount, MIN_AMOUNT, limit);
+
+        // Day 2: we want total > 2*limit, so day2 > 2*limit - day1
+        // excess = day1 + day2 - limit, and we need excess > limit
+        // So: day2 > 2*limit - day1
+        // Let excessOverLimit be how much over limit the excess is (must be > 0)
+        excessOverLimit = bound(excessOverLimit, 1, limit);
+
+        // day2 = (2*limit - day1) + excessOverLimit + 1
+        // This ensures: day1 + day2 = 2*limit + excessOverLimit + 1 > 2*limit
+        uint256 day2Amount = 2 * limit - day1Amount + excessOverLimit;
+        vm.assume(day2Amount >= MIN_AMOUNT);
+
+        uint256 startTime = 1000;
+        vm.warp(startTime);
+        harness.setTestUsage(0, startTime);
+
+        // Day 1 deposit succeeds
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, day1Amount);
+
+        // Move to day 2
+        vm.warp(startTime + 1 days + 1);
+
+        // Day 2 deposit should fail because excess > limit
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, day2Amount);
+    }
+
+    /// @notice Property 3a: Single deposit crossing boundary has correct excess
+    /// Compute expected excess and verify single deposit matches
+    function testFuzz_Property3a_SingleDepositExcess(uint256 initialConsumed, uint256 excessAmount) public {
+        uint256 limit = MAX_TOTAL;
+
+        // Start with some consumed amount
+        initialConsumed = bound(initialConsumed, limit / 4, limit * 3 / 4);
+        uint256 remaining = limit - initialConsumed;
+
+        // Excess is how much goes into the new period (must be <= limit)
+        excessAmount = bound(excessAmount, 1, limit);
+
+        // Total deposit = remaining + excess (crosses boundary)
+        uint256 depositAmount = remaining + excessAmount;
+        vm.assume(depositAmount >= MIN_AMOUNT);
+
+        uint256 startTime = 1000;
+        vm.warp(startTime);
+        harness.setTestUsage(initialConsumed, startTime);
+
+        // Move past reset window
+        vm.warp(startTime + 1 days + 1);
+
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, depositAmount);
+
+        (uint256 consumed,) = harness.getTestUsage();
+        // After crossing boundary: consumed should equal the excess
+        assertEq(consumed, excessAmount);
+    }
+
+    /// @notice Property 3b: Two deposits crossing boundary have same result as single
+    /// First deposit fills remaining, second deposit equals excess -> same final state
+    function testFuzz_Property3b_SplitDepositsSameAsingle(uint256 initialConsumed, uint256 excessAmount) public {
+        uint256 limit = MAX_TOTAL;
+
+        // Start with some consumed amount
+        initialConsumed = bound(initialConsumed, limit / 4, limit * 3 / 4);
+        uint256 remaining = limit - initialConsumed;
+        vm.assume(remaining >= MIN_AMOUNT);
+
+        // Excess is how much goes into the new period
+        excessAmount = bound(excessAmount, MIN_AMOUNT, limit);
+
+        uint256 startTime = 1000;
+        vm.warp(startTime);
+        harness.setTestUsage(initialConsumed, startTime);
+
+        // Move past reset window
+        vm.warp(startTime + 1 days + 1);
+
+        // Split: first deposit fills exactly to limit
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, remaining);
+
+        (uint256 consumedAfterFirst,) = harness.getTestUsage();
+        assertEq(consumedAfterFirst, limit); // Exactly at limit
+
+        // Second deposit is the excess amount (triggers reset)
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, excessAmount);
+
+        (uint256 finalConsumed,) = harness.getTestUsage();
+        // Final state should be same as single deposit: excess
+        assertEq(finalConsumed, excessAmount);
+    }
+
+    /// @notice Property 3c: Three-way split has same result
+    /// Split total into: partial fill + remaining fill + excess
+    function testFuzz_Property3c_ThreeWaySplitSameResult(
+        uint256 initialConsumed,
+        uint256 partialFill,
+        uint256 excessAmount
+    ) public {
+        uint256 limit = MAX_TOTAL;
+
+        // Start with some consumed
+        initialConsumed = bound(initialConsumed, 0, limit / 2);
+        uint256 remaining = limit - initialConsumed;
+
+        // Partial fill is part of the remaining capacity
+        partialFill = bound(partialFill, MIN_AMOUNT, remaining / 2);
+        uint256 restOfRemaining = remaining - partialFill;
+        vm.assume(restOfRemaining >= MIN_AMOUNT);
+
+        // Excess goes to new period
+        excessAmount = bound(excessAmount, MIN_AMOUNT, limit);
+
+        uint256 startTime = 1000;
+        vm.warp(startTime);
+        harness.setTestUsage(initialConsumed, startTime);
+
+        // Move past reset window
+        vm.warp(startTime + 1 days + 1);
+
+        // Deposit 1: partial fill (stays within limit)
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, partialFill);
+
+        // Deposit 2: rest of remaining (hits exactly limit)
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, restOfRemaining);
+
+        (uint256 consumedAtLimit,) = harness.getTestUsage();
+        assertEq(consumedAtLimit, limit);
+
+        // Deposit 3: excess (triggers reset)
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, excessAmount);
+
+        (uint256 finalConsumed,) = harness.getTestUsage();
+        assertEq(finalConsumed, excessAmount);
+    }
+
+    /// @notice Property 4: Reverts if amount < minAmount
+    function testFuzz_Property4_RevertsIfBelowMinAmount(uint256 minAmount, uint256 amount) public {
+        minAmount = bound(minAmount, 2, 100e18);
+        amount = bound(amount, 0, minAmount - 1);
+
+        harness.setTestUsage(0, block.timestamp);
+
+        vm.expectRevert(Bridge.InvalidTokenAmount.selector);
+        harness.exposed_checkInLimits(minAmount, MAX_TOTAL, amount);
     }
 }

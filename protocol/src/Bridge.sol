@@ -305,12 +305,16 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         // (assumes maxTotalAmount is set to half the desired limit to handle boundary conditions)
         uint256 newConsumed = usage.consumed + amount;
         if (newConsumed > maxTotalAmount) {
-            if (block.timestamp < usage.lastUpdated + 1 days || amount > maxTotalAmount) {
+            if (block.timestamp < usage.lastUpdated + 1 days) {
                 revert DailyLimitExhausted();
-            } else {
-                usage.lastUpdated = block.timestamp;
-                usage.consumed = amount;
             }
+            // Fill remaining capacity from old period, apply only excess to new period
+            uint256 excess = newConsumed - maxTotalAmount;
+            if (excess > maxTotalAmount) {
+                revert DailyLimitExhausted();
+            }
+            usage.lastUpdated = block.timestamp;
+            usage.consumed = excess;
         } else {
             usage.consumed = newConsumed;
         }
