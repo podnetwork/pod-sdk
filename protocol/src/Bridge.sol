@@ -149,8 +149,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(PAUSER_ROLE, _admin);
 
-        _addRemoveValidators(_validators, new address[](0));
-        _setAdversarialResilience(_adversarialResilience);
+        _updateValidatorSet(_validators, new address[](0), _adversarialResilience);
         _updateVersion(_version);
         merkleRoot = _merkleRoot;
     }
@@ -161,7 +160,11 @@ contract Bridge is Initializable, AccessControlUpgradeable {
             keccak256(abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), CHAIN_ID, version));
     }
 
-    function _addRemoveValidators(address[] memory addValidators, address[] memory removeValidators) internal {
+    function _updateValidatorSet(
+        address[] memory addValidators,
+        address[] memory removeValidators,
+        uint64 _adversarialResilience
+    ) internal {
         for (uint64 j = 0; j < removeValidators.length; ++j) {
             address validator = removeValidators[j];
             if (!activeValidators[validator]) {
@@ -184,9 +187,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         }
 
         validatorCount = uint64(uint256(validatorCount) + addValidators.length - removeValidators.length);
-    }
 
-    function _setAdversarialResilience(uint64 _adversarialResilience) internal {
         if (_adversarialResilience == 0 || _adversarialResilience > validatorCount) {
             revert InvalidAdverserialResilience();
         }
@@ -246,8 +247,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         address[] memory removeValidators
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uint256 oldVersion = version;
-        _addRemoveValidators(addValidators, removeValidators);
-        _setAdversarialResilience(newResilience);
+        _updateValidatorSet(addValidators, removeValidators, newResilience);
         _updateVersion(newVersion);
         merkleRoot = newMerkleRoot;
         emit ValidatorConfigUpdated(oldVersion, newVersion);
