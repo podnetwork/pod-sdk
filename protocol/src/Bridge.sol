@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import {ProofLib} from "./lib/ProofLib.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
@@ -12,7 +12,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 /**
  * @title Bridge for Pod Network
  */
-contract Bridge is Initializable, AccessControl {
+contract Bridge is Initializable, AccessControlUpgradeable {
     using SafeERC20 for IERC20;
 
     error ContractMigrated();
@@ -145,6 +145,7 @@ contract Bridge is Initializable, AccessControl {
         uint256 _version,
         bytes32 _merkleRoot
     ) external initializer {
+        __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(PAUSER_ROLE, _admin);
 

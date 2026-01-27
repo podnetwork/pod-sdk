@@ -7,7 +7,8 @@ evm_version = "prague"
 bytecode_hash = "none"
 cbor_metadata = false
 remappings = [
-    "@openzeppelin/=lib/openzeppelin-contracts/",
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
     "pod-sdk/=../solidity-sdk/src/",
     "pod-protocol/=./src/",
 ]
