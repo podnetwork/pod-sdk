@@ -6,11 +6,9 @@ import {console} from "forge-std/console.sol";
 import {RankedFeed} from "../src/RankedFeed.sol";
 import {Voting} from "../src/Voting.sol";
 import {BaseDeployer} from "pod-protocol-scripts/BaseDeployer.s.sol";
-import {Registry} from "pod-protocol/Registry.sol";
 
 contract Deployer is BaseDeployer {
     function run() public {
-        bool testContracts = vm.envOr("TEST_CONTRACTS", false);
         vm.startBroadcast();
 
         // Deploy RankedFeed
@@ -20,14 +18,6 @@ contract Deployer is BaseDeployer {
         // Deploy Voting
         Voting voting = new Voting();
         console.log("Voting deployed at:", address(voting));
-
-        if (testContracts) {
-            address[] memory initialValidators = getValidatorAddresses();
-
-            uint8 f = uint8((initialValidators.length - 1) / 3);
-            Registry reg = new Registry(initialValidators, f);
-            console.log("Registry deployed at:", address(reg));
-        }
 
         vm.stopBroadcast();
     }
