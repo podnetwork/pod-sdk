@@ -208,9 +208,8 @@ contract BridgeForkTest is BridgeClaimProofHelper {
         bytes32 PERMIT_TYPEHASH = 0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
         bytes32 domainSeparator = IERC20Permit(USDC).DOMAIN_SEPARATOR();
 
-        bytes32 structHash = keccak256(
-            abi.encode(PERMIT_TYPEHASH, userWithKey, address(bridge), DEPOSIT_AMOUNT, nonce, deadline)
-        );
+        bytes32 structHash =
+            keccak256(abi.encode(PERMIT_TYPEHASH, userWithKey, address(bridge), DEPOSIT_AMOUNT, nonce, deadline));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
