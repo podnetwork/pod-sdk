@@ -216,7 +216,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
             mstore(add(ptr, 0x24), amount)
             mstore(add(ptr, 0x44), to)
 
-            dataHash := keccak256(ptr, 0x64)
+            dataHash := keccak256(ptr, lenData)
 
             // Compute final hash
             mstore(ptr, _domainSeparator)
