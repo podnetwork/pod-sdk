@@ -75,4 +75,36 @@ abstract contract BridgeClaimProofHelper is Test {
         // Prepend proof type byte (0 = Certificate) to aggregated signatures
         proof = abi.encodePacked(uint8(ProofLib.ProofType.Certificate), aggregateSignatures(signatures));
     }
+
+    function createVersionedMerkleProof(
+        address claimToken,
+        uint256 amount,
+        address to,
+        uint32 proofVersion,
+        bytes32 versionedDomainSeparator,
+        bytes32[] memory otherLeaves,
+        function(bytes32[] memory) internal pure returns (bytes32) buildMerkleTree,
+        function(bytes32[] memory, uint256) internal pure returns (bytes32[] memory) getMerkleProof
+    ) internal view returns (bytes32 txHash, bytes memory proof, bytes32 merkleRoot) {
+        // Compute txHash with versioned domain separator
+        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
+        bytes32 dataHash =
+            keccak256(abi.encodePacked(selector, uint256(uint160(claimToken)), amount, uint256(uint160(to))));
+        txHash = keccak256(
+            abi.encodePacked(versionedDomainSeparator, bytes32(uint256(uint160(otherBridgeContract))), dataHash)
+        );
+
+        // Build merkle tree
+        bytes32[] memory leaves = new bytes32[](1 + otherLeaves.length);
+        leaves[0] = txHash;
+        for (uint256 i = 0; i < otherLeaves.length; i++) {
+            leaves[i + 1] = otherLeaves[i];
+        }
+
+        merkleRoot = buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = getMerkleProof(leaves, 0);
+
+        // Encode: type (1 byte) + version (4 bytes) + merkle proof
+        proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), proofVersion, abi.encode(merkleProofArray));
+    }
 }

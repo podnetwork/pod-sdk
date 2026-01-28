@@ -154,10 +154,13 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         merkleRoot = _merkleRoot;
     }
 
+    function _computeDomainSeparator(uint256 _version) internal view returns (bytes32) {
+        return keccak256(abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), CHAIN_ID, _version));
+    }
+
     function _updateVersion(uint256 newVersion) internal {
         version = newVersion;
-        domainSeparator =
-            keccak256(abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), CHAIN_ID, version));
+        domainSeparator = _computeDomainSeparator(newVersion);
     }
 
     function _updateValidatorSet(
@@ -514,11 +517,14 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         _checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, amount);
 
         address mirrorToken = t.mirrorToken;
-        bytes32 txHash = _depositTxHash(mirrorToken, amount, to, domainSeparator, auxTxSuffix);
+
+        (ProofLib.ProofType proofType, bytes32 _domainSeparator, bytes calldata proofData) = _parseProof(proof);
+
+        bytes32 txHash = _depositTxHash(mirrorToken, amount, to, _domainSeparator, auxTxSuffix);
 
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-        _verifyProof(txHash, proof);
+        _verifyProof(proofType, txHash, proofData);
 
         processedRequests[txHash] = true;
 
@@ -526,10 +532,24 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         emit Claim(txHash, token, mirrorToken, amount, to);
     }
 
-    function _verifyProof(bytes32 txHash, bytes calldata proof) internal view {
-        ProofLib.ProofType proofType = ProofLib.ProofType(uint8(proof[0]));
-        bytes calldata proofData = proof[1:];
+    function _parseProof(bytes calldata proof)
+        internal
+        view
+        returns (ProofLib.ProofType proofType, bytes32 _domainSeparator, bytes calldata proofData)
+    {
+        proofType = ProofLib.ProofType(uint8(proof[0]));
 
+        if (proofType == ProofLib.ProofType.Merkle) {
+            uint256 proofVersion = uint32(bytes4(proof[1:5]));
+            _domainSeparator = _computeDomainSeparator(proofVersion);
+            proofData = proof[5:];
+        } else {
+            _domainSeparator = domainSeparator;
+            proofData = proof[1:];
+        }
+    }
+
+    function _verifyProof(ProofLib.ProofType proofType, bytes32 txHash, bytes calldata proofData) internal view {
         if (proofType == ProofLib.ProofType.Certificate) {
             uint256 weight = ProofLib.computeTxWeight(txHash, proofData, activeValidators);
             if (weight < validatorCount - adversarialResilience) revert InsufficientValidatorWeight();
@@ -546,18 +566,18 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         TokenData storage t = tokenData[token];
         address mirrorToken = t.mirrorToken;
         uint256 length = claims.length;
-        bytes32 _domainSeparator = domainSeparator;
 
         for (uint256 i = 0; i < length; ++i) {
             ClaimParams calldata c = claims[i];
-
             _checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, c.amount);
+
+            (ProofLib.ProofType proofType, bytes32 _domainSeparator, bytes calldata proofData) = _parseProof(c.proof);
 
             bytes32 txHash = _depositTxHash(mirrorToken, c.amount, c.to, _domainSeparator, c.auxTxSuffix);
 
             if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-            _verifyProof(txHash, c.proof);
+            _verifyProof(proofType, txHash, proofData);
 
             processedRequests[txHash] = true;
 

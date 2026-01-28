@@ -1210,8 +1210,8 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         assertEq(_bridge.merkleRoot(), merkleRoot);
 
-        // Build proof bytes: type (1 byte) + abi.encoded proof array
-        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        // Build proof bytes: type (1 byte) + version (4 bytes) + abi.encoded proof array
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
 
         uint256 initialBalance = _token.balanceOf(user);
 
@@ -1241,33 +1241,34 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
-        // Build proof bytes with wrong proof
-        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        // Build proof bytes with wrong proof (version 1)
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
 
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidMerkleProof.selector));
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
     }
 
-    function test_Claim_MerkleProofWorksAfterVersionUpdate() public {
+    function test_Claim_VersionedMerkleProof_OldVersion() public {
+        // Test that merkle proofs with old version work after version update
         vm.prank(admin);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
-        // Get certificate proof with current version
+        // Get certificate proof with current version (version 1)
         (, bytes memory certProof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
-        // Compute txHash with current domain separator (before version update)
-        bytes32 txHashOldVersion = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
+        // Compute txHash with current domain separator (version 1)
+        bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
 
-        // Create merkle tree with the old version txHash
+        // Create merkle tree with the version 1 txHash
         bytes32[] memory leaves = new bytes32[](2);
-        leaves[0] = txHashOldVersion;
+        leaves[0] = txHashV1;
         leaves[1] = keccak256("other tx");
 
         bytes32 newMerkleRoot = _buildMerkleTree(leaves);
         bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
 
-        // Update version (invalidates old certificates) and set merkle root
+        // Update version to 2 and set merkle root
         address[] memory empty = new address[](0);
         vm.prank(admin);
         _bridge.updateValidatorConfig(1, 2, newMerkleRoot, empty, empty);
@@ -1276,24 +1277,10 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.expectRevert();
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, certProof, auxTxSuffix);
 
-        // But merkle proof should work (uses the old txHash stored in tree)
-        // Note: We need to compute txHash with OLD domain separator, but the claim function
-        // uses the current domain separator. So this test actually shows that after version
-        // update, you need a merkle proof for txHash computed with the NEW domain separator.
-
-        // Let's compute with new domain separator
-        bytes32 txHashNewVersion = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
-
-        // Create merkle tree with new version txHash
-        leaves[0] = txHashNewVersion;
-        newMerkleRoot = _buildMerkleTree(leaves);
-        merkleProofArray = _getMerkleProof(leaves, 0);
-
-        // Update merkle root again
-        vm.prank(admin);
-        _bridge.updateValidatorConfig(1, 2, newMerkleRoot, empty, empty);
-
-        bytes memory merkleProof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        // Merkle proof with version 1 should work (versioned merkle proofs)
+        // Proof format: type (1 byte) + version (4 bytes) + merkle proof
+        bytes memory merkleProof =
+            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
 
         uint256 initialBalance = _token.balanceOf(user);
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, merkleProof, "");
@@ -1333,7 +1320,8 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
-        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        // Proof format: type (1 byte) + version (4 bytes) + merkle proof
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
 
         Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](1);
         claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: proof, auxTxSuffix: ""});
@@ -1346,6 +1334,243 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         assertEq(_token.balanceOf(user1), DEPOSIT_AMOUNT);
     }
 
+    function test_Claim_VersionedMerkle_MultipleVersionsInTree() public {
+        // Test that a single merkle tree can contain txHashes from different versions
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        address user1 = makeAddr("user1");
+        address user2 = makeAddr("user2");
+
+        // Compute domain separators for versions 1 and 2
+        bytes32 domainSepV1 = _bridge.domainSeparator(); // Current is version 1
+        bytes32 domainSepV2 =
+            keccak256(abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), SRC_CHAIN_ID, uint256(2)));
+
+        // Compute txHashes for each version
+        bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, domainSepV1);
+        bytes32 txHashV2 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, domainSepV2);
+
+        // Create merkle tree with both txHashes
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHashV1;
+        leaves[1] = txHashV2;
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofV1 = _getMerkleProof(leaves, 0);
+        bytes32[] memory merkleProofV2 = _getMerkleProof(leaves, 1);
+
+        // Update to version 2 and set merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
+
+        // Claim with version 1 proof
+        bytes memory proofV1 = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofV1));
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user1, proofV1, "");
+        assertEq(_token.balanceOf(user1), DEPOSIT_AMOUNT);
+
+        // Claim with version 2 proof
+        bytes memory proofV2 = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(2), abi.encode(merkleProofV2));
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user2, proofV2, "");
+        assertEq(_token.balanceOf(user2), DEPOSIT_AMOUNT);
+    }
+
+    function test_BatchClaim_MixedVersionMerkleProofs() public {
+        // Test batch claim with merkle proofs from different versions
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        address user1 = makeAddr("user1");
+        address user2 = makeAddr("user2");
+
+        // Compute domain separators for versions 1 and 2
+        bytes32 domainSepV1 = _bridge.domainSeparator();
+        bytes32 domainSepV2 =
+            keccak256(abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), SRC_CHAIN_ID, uint256(2)));
+
+        // Compute txHashes
+        bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, domainSepV1);
+        bytes32 txHashV2 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, domainSepV2);
+
+        // Create merkle tree
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHashV1;
+        leaves[1] = txHashV2;
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofV1 = _getMerkleProof(leaves, 0);
+        bytes32[] memory merkleProofV2 = _getMerkleProof(leaves, 1);
+
+        // Update to version 2
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
+
+        // Create proofs
+        bytes memory proofV1 = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofV1));
+        bytes memory proofV2 = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(2), abi.encode(merkleProofV2));
+
+        Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](2);
+        claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: proofV1, auxTxSuffix: ""});
+        claims[1] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user2, proof: proofV2, auxTxSuffix: ""});
+
+        _bridge.batchClaim(address(_token), claims);
+
+        assertEq(_token.balanceOf(user1), DEPOSIT_AMOUNT);
+        assertEq(_token.balanceOf(user2), DEPOSIT_AMOUNT);
+    }
+
+    function test_BatchClaim_MixedCertificateAndVersionedMerkle() public {
+        // Test batch claim mixing certificate and versioned merkle proofs
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        address user1 = makeAddr("user1");
+        address user2 = makeAddr("user2");
+
+        // Compute txHash for merkle proof with current version
+        bytes32 txHashMerkle = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, _bridge.domainSeparator());
+
+        // Create merkle tree
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHashMerkle;
+        leaves[1] = keccak256("other tx");
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
+
+        // Create certificate proof for user2
+        (, bytes memory certProof,) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.domainSeparator());
+
+        // Create merkle proof for user1
+        bytes memory merkleProof =
+            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
+
+        Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](2);
+        claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: merkleProof, auxTxSuffix: ""});
+        claims[1] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user2, proof: certProof, auxTxSuffix: ""});
+
+        _bridge.batchClaim(address(_token), claims);
+
+        assertEq(_token.balanceOf(user1), DEPOSIT_AMOUNT);
+        assertEq(_token.balanceOf(user2), DEPOSIT_AMOUNT);
+    }
+
+    function test_Claim_VersionedMerkle_PreventDoubleClaim() public {
+        // Test that the same deposit cannot be claimed twice with merkle proof
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        // Compute txHash
+        bytes32 txHash = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
+
+        // Create merkle tree
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHash;
+        leaves[1] = keccak256("other tx");
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
+
+        // Create proof
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
+
+        // First claim succeeds
+        uint256 balanceBefore = _token.balanceOf(user);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
+        assertEq(_token.balanceOf(user), balanceBefore + DEPOSIT_AMOUNT);
+
+        // Second claim fails
+        vm.expectRevert(abi.encodeWithSelector(Bridge.RequestAlreadyProcessed.selector));
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
+    }
+
+    function test_Claim_VersionedMerkle_PreventDoubleClaimAcrossVersions() public {
+        // Test that a deposit claimed with merkle proof cannot be claimed again after version update
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        // Compute txHash with version 1
+        bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
+
+        // Create merkle tree with version 1 txHash
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHashV1;
+        leaves[1] = keccak256("other tx");
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update merkle root (still version 1)
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
+
+        // Create proof with version 1
+        bytes memory proofV1 =
+            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
+
+        // First claim succeeds
+        uint256 balanceBefore = _token.balanceOf(user);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proofV1, "");
+        assertEq(_token.balanceOf(user), balanceBefore + DEPOSIT_AMOUNT);
+
+        // Update to version 2, keep same merkle root
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
+
+        // Try to claim again with same version 1 proof - should fail
+        vm.expectRevert(abi.encodeWithSelector(Bridge.RequestAlreadyProcessed.selector));
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proofV1, "");
+    }
+
+    function test_Certificate_StillUsesCurrentVersion() public {
+        // Verify certificates use current version only (don't have version field)
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        // Create certificate with current version (1)
+        (, bytes memory certProofV1,) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
+
+        // Certificate should work
+        uint256 balanceBefore = _token.balanceOf(user);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, certProofV1, "");
+        assertEq(_token.balanceOf(user), balanceBefore + DEPOSIT_AMOUNT);
+
+        // Create certificate for a different user with current version
+        address user2 = makeAddr("user2");
+        (, bytes memory certProofV1User2,) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.domainSeparator());
+
+        // Update to version 2
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, bytes32(0), empty, empty);
+
+        // Certificate created with version 1 should fail after version update
+        vm.expectRevert();
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user2, certProofV1User2, "");
+
+        // Certificate with version 2 should work
+        (, bytes memory certProofV2,) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.domainSeparator());
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user2, certProofV2, "");
+        assertEq(_token.balanceOf(user2), DEPOSIT_AMOUNT);
+    }
+
     function test_UpdateValidatorConfig_UpdatesMerkleRoot() public {
         bytes32 newRoot = keccak256("new merkle root");
         address[] memory empty = new address[](0);
@@ -1356,6 +1581,115 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.updateValidatorConfig(1, 1, newRoot, empty, empty);
 
         assertEq(_bridge.merkleRoot(), newRoot);
+    }
+
+    // ========== Fuzz Tests ==========
+
+    function testFuzz_BatchClaimOfOne_SameAsClaimDirect(uint256 amount, address recipient) public {
+        // Bound amount to valid range (must fit in deposit/claim limits)
+        amount = bound(amount, minAmount, claimLimit / 2);
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != address(_bridge));
+
+        // Fund bridge (deposit limit check)
+        vm.prank(admin);
+        _bridge.deposit(address(_token), amount, admin, "");
+
+        // Create certificate proof
+        (bytes32 txHash, bytes memory proof,) =
+            createTokenClaimProof(MIRROR_TOKEN, amount, recipient, 4, _bridge.domainSeparator());
+
+        // Snapshot state before claim
+        uint256 snapshot = vm.snapshot();
+
+        // Execute via claim()
+        _bridge.claim(address(_token), amount, recipient, proof, "");
+        uint256 balanceAfterClaim = _token.balanceOf(recipient);
+        uint256 bridgeBalanceAfterClaim = _token.balanceOf(address(_bridge));
+        assertTrue(_bridge.processedRequests(txHash));
+
+        // Revert to snapshot
+        vm.revertTo(snapshot);
+
+        // Execute via batchClaim() with single claim
+        Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](1);
+        claims[0] = Bridge.ClaimParams({amount: amount, to: recipient, proof: proof, auxTxSuffix: ""});
+        _bridge.batchClaim(address(_token), claims);
+
+        // Verify same results
+        assertEq(_token.balanceOf(recipient), balanceAfterClaim);
+        assertEq(_token.balanceOf(address(_bridge)), bridgeBalanceAfterClaim);
+        assertTrue(_bridge.processedRequests(txHash));
+    }
+
+    function testFuzz_ClaimTwice_SameAsClaimOnce(uint256 amount, address recipient) public {
+        // Bound amount to valid range
+        amount = bound(amount, minAmount, claimLimit / 2);
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != address(_bridge));
+
+        // Fund bridge
+        vm.prank(admin);
+        _bridge.deposit(address(_token), amount, admin, "");
+
+        // Create certificate proof
+        (, bytes memory proof,) = createTokenClaimProof(MIRROR_TOKEN, amount, recipient, 4, _bridge.domainSeparator());
+
+        // First claim succeeds
+        _bridge.claim(address(_token), amount, recipient, proof, "");
+        uint256 balanceAfterFirstClaim = _token.balanceOf(recipient);
+
+        // Second claim reverts
+        vm.expectRevert(Bridge.RequestAlreadyProcessed.selector);
+        _bridge.claim(address(_token), amount, recipient, proof, "");
+
+        // Balance unchanged after failed second claim
+        assertEq(_token.balanceOf(recipient), balanceAfterFirstClaim);
+    }
+
+    function testFuzz_ClaimTwice_SameAsClaimOnce_AcrossVersionUpgrade(uint256 amount, address recipient) public {
+        // Bound amount to valid range
+        amount = bound(amount, minAmount, claimLimit / 2);
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != address(_bridge));
+
+        // Fund bridge
+        vm.prank(admin);
+        _bridge.deposit(address(_token), amount, admin, "");
+
+        // Compute txHash with version 1
+        bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, amount, recipient, _bridge.domainSeparator());
+
+        // Create merkle tree and proof with version 1
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHashV1;
+        leaves[1] = keccak256("other tx");
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update bridge with merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
+
+        // Create versioned merkle proof
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
+
+        // First claim succeeds
+        _bridge.claim(address(_token), amount, recipient, proof, "");
+        uint256 balanceAfterFirstClaim = _token.balanceOf(recipient);
+
+        // Upgrade version to 2 (keep same merkle root so proof is still valid structurally)
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
+
+        // Second claim with same proof still reverts (txHash already processed)
+        vm.expectRevert(Bridge.RequestAlreadyProcessed.selector);
+        _bridge.claim(address(_token), amount, recipient, proof, "");
+
+        // Balance unchanged
+        assertEq(_token.balanceOf(recipient), balanceAfterFirstClaim);
     }
 }
 
