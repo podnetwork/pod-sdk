@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import {ProofLib} from "./lib/ProofLib.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
@@ -12,7 +12,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 /**
  * @title Bridge for Pod Network
  */
-contract Bridge is Initializable, AccessControl {
+contract Bridge is Initializable, AccessControlUpgradeable {
     using SafeERC20 for IERC20;
 
     error ContractMigrated();
@@ -145,22 +145,29 @@ contract Bridge is Initializable, AccessControl {
         uint256 _version,
         bytes32 _merkleRoot
     ) external initializer {
+        __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(PAUSER_ROLE, _admin);
 
-        _addRemoveValidators(_validators, new address[](0));
-        _setAdversarialResilience(_adversarialResilience);
+        _updateValidatorSet(_validators, new address[](0), _adversarialResilience);
         _updateVersion(_version);
         merkleRoot = _merkleRoot;
     }
 
-    function _updateVersion(uint256 newVersion) internal {
-        version = newVersion;
-        domainSeparator =
-            keccak256(abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), CHAIN_ID, version));
+    function _computeDomainSeparator(uint256 _version) internal view returns (bytes32) {
+        return keccak256(abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), CHAIN_ID, _version));
     }
 
-    function _addRemoveValidators(address[] memory addValidators, address[] memory removeValidators) internal {
+    function _updateVersion(uint256 newVersion) internal {
+        version = newVersion;
+        domainSeparator = _computeDomainSeparator(newVersion);
+    }
+
+    function _updateValidatorSet(
+        address[] memory addValidators,
+        address[] memory removeValidators,
+        uint64 _adversarialResilience
+    ) internal {
         for (uint64 j = 0; j < removeValidators.length; ++j) {
             address validator = removeValidators[j];
             if (!activeValidators[validator]) {
@@ -183,9 +190,7 @@ contract Bridge is Initializable, AccessControl {
         }
 
         validatorCount = uint64(uint256(validatorCount) + addValidators.length - removeValidators.length);
-    }
 
-    function _setAdversarialResilience(uint64 _adversarialResilience) internal {
         if (_adversarialResilience == 0 || _adversarialResilience > validatorCount) {
             revert InvalidAdverserialResilience();
         }
@@ -214,7 +219,7 @@ contract Bridge is Initializable, AccessControl {
             mstore(add(ptr, 0x24), amount)
             mstore(add(ptr, 0x44), to)
 
-            dataHash := keccak256(ptr, 0x64)
+            dataHash := keccak256(ptr, lenData)
 
             // Compute final hash
             mstore(ptr, _domainSeparator)
@@ -245,8 +250,7 @@ contract Bridge is Initializable, AccessControl {
         address[] memory removeValidators
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uint256 oldVersion = version;
-        _addRemoveValidators(addValidators, removeValidators);
-        _setAdversarialResilience(newResilience);
+        _updateValidatorSet(addValidators, removeValidators, newResilience);
         _updateVersion(newVersion);
         merkleRoot = newMerkleRoot;
         emit ValidatorConfigUpdated(oldVersion, newVersion);
@@ -304,12 +308,16 @@ contract Bridge is Initializable, AccessControl {
         // (assumes maxTotalAmount is set to half the desired limit to handle boundary conditions)
         uint256 newConsumed = usage.consumed + amount;
         if (newConsumed > maxTotalAmount) {
-            if (block.timestamp < usage.lastUpdated + 1 days || amount > maxTotalAmount) {
+            if (block.timestamp < usage.lastUpdated + 1 days) {
                 revert DailyLimitExhausted();
-            } else {
-                usage.lastUpdated = block.timestamp;
-                usage.consumed = amount;
             }
+            // Fill remaining capacity from old period, apply only excess to new period
+            uint256 excess = newConsumed - maxTotalAmount;
+            if (excess > maxTotalAmount) {
+                revert DailyLimitExhausted();
+            }
+            usage.lastUpdated = block.timestamp;
+            usage.consumed = excess;
         } else {
             usage.consumed = newConsumed;
         }
@@ -509,11 +517,14 @@ contract Bridge is Initializable, AccessControl {
         _checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, amount);
 
         address mirrorToken = t.mirrorToken;
-        bytes32 txHash = _depositTxHash(mirrorToken, amount, to, domainSeparator, auxTxSuffix);
+
+        (ProofLib.ProofType proofType, bytes32 _domainSeparator, bytes calldata proofData) = _parseProof(proof);
+
+        bytes32 txHash = _depositTxHash(mirrorToken, amount, to, _domainSeparator, auxTxSuffix);
 
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-        _verifyProof(txHash, proof);
+        _verifyProof(proofType, txHash, proofData);
 
         processedRequests[txHash] = true;
 
@@ -521,10 +532,24 @@ contract Bridge is Initializable, AccessControl {
         emit Claim(txHash, token, mirrorToken, amount, to);
     }
 
-    function _verifyProof(bytes32 txHash, bytes calldata proof) internal view {
-        ProofLib.ProofType proofType = ProofLib.ProofType(uint8(proof[0]));
-        bytes calldata proofData = proof[1:];
+    function _parseProof(bytes calldata proof)
+        internal
+        view
+        returns (ProofLib.ProofType proofType, bytes32 _domainSeparator, bytes calldata proofData)
+    {
+        proofType = ProofLib.ProofType(uint8(proof[0]));
 
+        if (proofType == ProofLib.ProofType.Merkle) {
+            uint256 proofVersion = uint32(bytes4(proof[1:5]));
+            _domainSeparator = _computeDomainSeparator(proofVersion);
+            proofData = proof[5:];
+        } else {
+            _domainSeparator = domainSeparator;
+            proofData = proof[1:];
+        }
+    }
+
+    function _verifyProof(ProofLib.ProofType proofType, bytes32 txHash, bytes calldata proofData) internal view {
         if (proofType == ProofLib.ProofType.Certificate) {
             uint256 weight = ProofLib.computeTxWeight(txHash, proofData, activeValidators);
             if (weight < validatorCount - adversarialResilience) revert InsufficientValidatorWeight();
@@ -541,18 +566,18 @@ contract Bridge is Initializable, AccessControl {
         TokenData storage t = tokenData[token];
         address mirrorToken = t.mirrorToken;
         uint256 length = claims.length;
-        bytes32 _domainSeparator = domainSeparator;
 
         for (uint256 i = 0; i < length; ++i) {
             ClaimParams calldata c = claims[i];
-
             _checkInLimits(t.claimUsage, t.minAmount, t.claimLimit, c.amount);
+
+            (ProofLib.ProofType proofType, bytes32 _domainSeparator, bytes calldata proofData) = _parseProof(c.proof);
 
             bytes32 txHash = _depositTxHash(mirrorToken, c.amount, c.to, _domainSeparator, c.auxTxSuffix);
 
             if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
-            _verifyProof(txHash, c.proof);
+            _verifyProof(proofType, txHash, proofData);
 
             processedRequests[txHash] = true;
 

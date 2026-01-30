@@ -45,7 +45,8 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
             initialValidators[i] = vm.addr(validatorPrivateKeys[i]);
         }
 
-        (_bridge,) = BridgeDeployer.deploy(otherBridgeContract, SRC_CHAIN_ID, admin, initialValidators, f, 1, bytes32(0));
+        (_bridge,) =
+            BridgeDeployer.deploy(otherBridgeContract, SRC_CHAIN_ID, admin, initialValidators, f, 1, bytes32(0));
 
         _token = new WrappedToken("InitialToken", "ITKN", 18);
         _token.mint(user, INITIAL_BALANCE);
@@ -112,6 +113,70 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.warp(block.timestamp + 2);
         vm.prank(user);
         _bridge.deposit(address(_token), depositLimit, user, "");
+    }
+
+    function test_Deposit_SplittingDoesNotReduceUsage() public {
+        // Test that splitting a deposit across a period reset doesn't result in lower usage
+        // Scenario: limit=500, consumed=400, deposit=200
+        // Old behavior: reset, consumed=200 (lost 100 remaining capacity)
+        // New behavior: fill 100 remaining, reset, consumed=100
+
+        // First consume most of the limit
+        vm.prank(user);
+        _bridge.deposit(address(_token), 400e18, user, "");
+
+        // Warp past the reset period
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Now deposit 200 which exceeds remaining capacity (100)
+        vm.prank(user);
+        _bridge.deposit(address(_token), 200e18, user, "");
+
+        // The excess should be 200 - 100 = 100 (not the full 200)
+        // Verify by checking we can still deposit up to (limit - 100 = 400)
+        vm.prank(user);
+        _bridge.deposit(address(_token), 400e18, user, "");
+
+        // But not more
+        vm.prank(user);
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        _bridge.deposit(address(_token), minAmount, user, "");
+    }
+
+    function test_Deposit_ExcessMustFitInNewPeriod() public {
+        // Test that if excess exceeds the limit, the deposit is rejected
+        // Scenario: limit=500, consumed=400, deposit=600
+        // Remaining=100, excess=500, which equals limit (should succeed)
+
+        vm.prank(user);
+        _bridge.deposit(address(_token), 400e18, user, "");
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Deposit that uses remaining (100) + full new period (500) = 600
+        vm.prank(user);
+        _bridge.deposit(address(_token), 600e18, user, "");
+
+        // Now the new period is fully consumed, can't deposit more
+        vm.prank(user);
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        _bridge.deposit(address(_token), minAmount, user, "");
+    }
+
+    function test_Deposit_RevertIfExcessExceedsLimit() public {
+        // Test that if excess exceeds the limit, the deposit is rejected
+        // Scenario: limit=500, consumed=400, deposit=601
+        // Remaining=100, excess=501 > 500, should revert
+
+        vm.prank(user);
+        _bridge.deposit(address(_token), 400e18, user, "");
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Deposit that would require excess > limit
+        vm.prank(user);
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        _bridge.deposit(address(_token), 601e18, user, "");
     }
 
     function test_Deposit_RevertIfTokenNotWhitelisted() public {
@@ -1145,8 +1210,8 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         assertEq(_bridge.merkleRoot(), merkleRoot);
 
-        // Build proof bytes: type (1 byte) + abi.encoded proof array
-        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        // Build proof bytes: type (1 byte) + version (4 bytes) + abi.encoded proof array
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
 
         uint256 initialBalance = _token.balanceOf(user);
 
@@ -1176,33 +1241,34 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
-        // Build proof bytes with wrong proof
-        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        // Build proof bytes with wrong proof (version 1)
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
 
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidMerkleProof.selector));
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
     }
 
-    function test_Claim_MerkleProofWorksAfterVersionUpdate() public {
+    function test_Claim_VersionedMerkleProof_OldVersion() public {
+        // Test that merkle proofs with old version work after version update
         vm.prank(admin);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
 
-        // Get certificate proof with current version
+        // Get certificate proof with current version (version 1)
         (, bytes memory certProof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
 
-        // Compute txHash with current domain separator (before version update)
-        bytes32 txHashOldVersion = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
+        // Compute txHash with current domain separator (version 1)
+        bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
 
-        // Create merkle tree with the old version txHash
+        // Create merkle tree with the version 1 txHash
         bytes32[] memory leaves = new bytes32[](2);
-        leaves[0] = txHashOldVersion;
+        leaves[0] = txHashV1;
         leaves[1] = keccak256("other tx");
 
         bytes32 newMerkleRoot = _buildMerkleTree(leaves);
         bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
 
-        // Update version (invalidates old certificates) and set merkle root
+        // Update version to 2 and set merkle root
         address[] memory empty = new address[](0);
         vm.prank(admin);
         _bridge.updateValidatorConfig(1, 2, newMerkleRoot, empty, empty);
@@ -1211,24 +1277,10 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.expectRevert();
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, certProof, auxTxSuffix);
 
-        // But merkle proof should work (uses the old txHash stored in tree)
-        // Note: We need to compute txHash with OLD domain separator, but the claim function
-        // uses the current domain separator. So this test actually shows that after version
-        // update, you need a merkle proof for txHash computed with the NEW domain separator.
-
-        // Let's compute with new domain separator
-        bytes32 txHashNewVersion = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
-
-        // Create merkle tree with new version txHash
-        leaves[0] = txHashNewVersion;
-        newMerkleRoot = _buildMerkleTree(leaves);
-        merkleProofArray = _getMerkleProof(leaves, 0);
-
-        // Update merkle root again
-        vm.prank(admin);
-        _bridge.updateValidatorConfig(1, 2, newMerkleRoot, empty, empty);
-
-        bytes memory merkleProof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        // Merkle proof with version 1 should work (versioned merkle proofs)
+        // Proof format: type (1 byte) + version (4 bytes) + merkle proof
+        bytes memory merkleProof =
+            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
 
         uint256 initialBalance = _token.balanceOf(user);
         _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, merkleProof, "");
@@ -1268,7 +1320,8 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(admin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
-        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), abi.encode(merkleProofArray));
+        // Proof format: type (1 byte) + version (4 bytes) + merkle proof
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
 
         Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](1);
         claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: proof, auxTxSuffix: ""});
@@ -1281,6 +1334,243 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         assertEq(_token.balanceOf(user1), DEPOSIT_AMOUNT);
     }
 
+    function test_Claim_VersionedMerkle_MultipleVersionsInTree() public {
+        // Test that a single merkle tree can contain txHashes from different versions
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        address user1 = makeAddr("user1");
+        address user2 = makeAddr("user2");
+
+        // Compute domain separators for versions 1 and 2
+        bytes32 domainSepV1 = _bridge.domainSeparator(); // Current is version 1
+        bytes32 domainSepV2 =
+            keccak256(abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), SRC_CHAIN_ID, uint256(2)));
+
+        // Compute txHashes for each version
+        bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, domainSepV1);
+        bytes32 txHashV2 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, domainSepV2);
+
+        // Create merkle tree with both txHashes
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHashV1;
+        leaves[1] = txHashV2;
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofV1 = _getMerkleProof(leaves, 0);
+        bytes32[] memory merkleProofV2 = _getMerkleProof(leaves, 1);
+
+        // Update to version 2 and set merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
+
+        // Claim with version 1 proof
+        bytes memory proofV1 = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofV1));
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user1, proofV1, "");
+        assertEq(_token.balanceOf(user1), DEPOSIT_AMOUNT);
+
+        // Claim with version 2 proof
+        bytes memory proofV2 = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(2), abi.encode(merkleProofV2));
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user2, proofV2, "");
+        assertEq(_token.balanceOf(user2), DEPOSIT_AMOUNT);
+    }
+
+    function test_BatchClaim_MixedVersionMerkleProofs() public {
+        // Test batch claim with merkle proofs from different versions
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        address user1 = makeAddr("user1");
+        address user2 = makeAddr("user2");
+
+        // Compute domain separators for versions 1 and 2
+        bytes32 domainSepV1 = _bridge.domainSeparator();
+        bytes32 domainSepV2 =
+            keccak256(abi.encode(keccak256("pod network"), keccak256("attest_tx_bridge"), SRC_CHAIN_ID, uint256(2)));
+
+        // Compute txHashes
+        bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, domainSepV1);
+        bytes32 txHashV2 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, domainSepV2);
+
+        // Create merkle tree
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHashV1;
+        leaves[1] = txHashV2;
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofV1 = _getMerkleProof(leaves, 0);
+        bytes32[] memory merkleProofV2 = _getMerkleProof(leaves, 1);
+
+        // Update to version 2
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
+
+        // Create proofs
+        bytes memory proofV1 = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofV1));
+        bytes memory proofV2 = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(2), abi.encode(merkleProofV2));
+
+        Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](2);
+        claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: proofV1, auxTxSuffix: ""});
+        claims[1] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user2, proof: proofV2, auxTxSuffix: ""});
+
+        _bridge.batchClaim(address(_token), claims);
+
+        assertEq(_token.balanceOf(user1), DEPOSIT_AMOUNT);
+        assertEq(_token.balanceOf(user2), DEPOSIT_AMOUNT);
+    }
+
+    function test_BatchClaim_MixedCertificateAndVersionedMerkle() public {
+        // Test batch claim mixing certificate and versioned merkle proofs
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        address user1 = makeAddr("user1");
+        address user2 = makeAddr("user2");
+
+        // Compute txHash for merkle proof with current version
+        bytes32 txHashMerkle = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user1, _bridge.domainSeparator());
+
+        // Create merkle tree
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHashMerkle;
+        leaves[1] = keccak256("other tx");
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
+
+        // Create certificate proof for user2
+        (, bytes memory certProof,) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.domainSeparator());
+
+        // Create merkle proof for user1
+        bytes memory merkleProof =
+            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
+
+        Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](2);
+        claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user1, proof: merkleProof, auxTxSuffix: ""});
+        claims[1] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user2, proof: certProof, auxTxSuffix: ""});
+
+        _bridge.batchClaim(address(_token), claims);
+
+        assertEq(_token.balanceOf(user1), DEPOSIT_AMOUNT);
+        assertEq(_token.balanceOf(user2), DEPOSIT_AMOUNT);
+    }
+
+    function test_Claim_VersionedMerkle_PreventDoubleClaim() public {
+        // Test that the same deposit cannot be claimed twice with merkle proof
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        // Compute txHash
+        bytes32 txHash = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
+
+        // Create merkle tree
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHash;
+        leaves[1] = keccak256("other tx");
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
+
+        // Create proof
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
+
+        // First claim succeeds
+        uint256 balanceBefore = _token.balanceOf(user);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
+        assertEq(_token.balanceOf(user), balanceBefore + DEPOSIT_AMOUNT);
+
+        // Second claim fails
+        vm.expectRevert(abi.encodeWithSelector(Bridge.RequestAlreadyProcessed.selector));
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proof, "");
+    }
+
+    function test_Claim_VersionedMerkle_PreventDoubleClaimAcrossVersions() public {
+        // Test that a deposit claimed with merkle proof cannot be claimed again after version update
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        // Compute txHash with version 1
+        bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
+
+        // Create merkle tree with version 1 txHash
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHashV1;
+        leaves[1] = keccak256("other tx");
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update merkle root (still version 1)
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
+
+        // Create proof with version 1
+        bytes memory proofV1 =
+            abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
+
+        // First claim succeeds
+        uint256 balanceBefore = _token.balanceOf(user);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proofV1, "");
+        assertEq(_token.balanceOf(user), balanceBefore + DEPOSIT_AMOUNT);
+
+        // Update to version 2, keep same merkle root
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
+
+        // Try to claim again with same version 1 proof - should fail
+        vm.expectRevert(abi.encodeWithSelector(Bridge.RequestAlreadyProcessed.selector));
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, proofV1, "");
+    }
+
+    function test_Certificate_StillUsesCurrentVersion() public {
+        // Verify certificates use current version only (don't have version field)
+        vm.prank(admin);
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+
+        // Create certificate with current version (1)
+        (, bytes memory certProofV1,) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
+
+        // Certificate should work
+        uint256 balanceBefore = _token.balanceOf(user);
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user, certProofV1, "");
+        assertEq(_token.balanceOf(user), balanceBefore + DEPOSIT_AMOUNT);
+
+        // Create certificate for a different user with current version
+        address user2 = makeAddr("user2");
+        (, bytes memory certProofV1User2,) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.domainSeparator());
+
+        // Update to version 2
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, bytes32(0), empty, empty);
+
+        // Certificate created with version 1 should fail after version update
+        vm.expectRevert();
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user2, certProofV1User2, "");
+
+        // Certificate with version 2 should work
+        (, bytes memory certProofV2,) =
+            createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user2, 4, _bridge.domainSeparator());
+        _bridge.claim(address(_token), DEPOSIT_AMOUNT, user2, certProofV2, "");
+        assertEq(_token.balanceOf(user2), DEPOSIT_AMOUNT);
+    }
+
     function test_UpdateValidatorConfig_UpdatesMerkleRoot() public {
         bytes32 newRoot = keccak256("new merkle root");
         address[] memory empty = new address[](0);
@@ -1291,5 +1581,763 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.updateValidatorConfig(1, 1, newRoot, empty, empty);
 
         assertEq(_bridge.merkleRoot(), newRoot);
+    }
+
+    // ========== Fuzz Tests ==========
+
+    function testFuzz_BatchClaimOfOne_SameAsClaimDirect(uint256 amount, address recipient) public {
+        // Bound amount to valid range (must fit in deposit/claim limits)
+        amount = bound(amount, minAmount, claimLimit / 2);
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != address(_bridge));
+
+        // Fund bridge (deposit limit check)
+        vm.prank(admin);
+        _bridge.deposit(address(_token), amount, admin, "");
+
+        // Create certificate proof
+        (bytes32 txHash, bytes memory proof,) =
+            createTokenClaimProof(MIRROR_TOKEN, amount, recipient, 4, _bridge.domainSeparator());
+
+        // Snapshot state before claim
+        uint256 snapshot = vm.snapshot();
+
+        // Execute via claim()
+        _bridge.claim(address(_token), amount, recipient, proof, "");
+        uint256 balanceAfterClaim = _token.balanceOf(recipient);
+        uint256 bridgeBalanceAfterClaim = _token.balanceOf(address(_bridge));
+        assertTrue(_bridge.processedRequests(txHash));
+
+        // Revert to snapshot
+        vm.revertTo(snapshot);
+
+        // Execute via batchClaim() with single claim
+        Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](1);
+        claims[0] = Bridge.ClaimParams({amount: amount, to: recipient, proof: proof, auxTxSuffix: ""});
+        _bridge.batchClaim(address(_token), claims);
+
+        // Verify same results
+        assertEq(_token.balanceOf(recipient), balanceAfterClaim);
+        assertEq(_token.balanceOf(address(_bridge)), bridgeBalanceAfterClaim);
+        assertTrue(_bridge.processedRequests(txHash));
+    }
+
+    function testFuzz_ClaimTwice_SameAsClaimOnce(uint256 amount, address recipient) public {
+        // Bound amount to valid range
+        amount = bound(amount, minAmount, claimLimit / 2);
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != address(_bridge));
+
+        // Fund bridge
+        vm.prank(admin);
+        _bridge.deposit(address(_token), amount, admin, "");
+
+        // Create certificate proof
+        (, bytes memory proof,) = createTokenClaimProof(MIRROR_TOKEN, amount, recipient, 4, _bridge.domainSeparator());
+
+        // First claim succeeds
+        _bridge.claim(address(_token), amount, recipient, proof, "");
+        uint256 balanceAfterFirstClaim = _token.balanceOf(recipient);
+
+        // Second claim reverts
+        vm.expectRevert(Bridge.RequestAlreadyProcessed.selector);
+        _bridge.claim(address(_token), amount, recipient, proof, "");
+
+        // Balance unchanged after failed second claim
+        assertEq(_token.balanceOf(recipient), balanceAfterFirstClaim);
+    }
+
+    function testFuzz_ClaimTwice_SameAsClaimOnce_AcrossVersionUpgrade(uint256 amount, address recipient) public {
+        // Bound amount to valid range
+        amount = bound(amount, minAmount, claimLimit / 2);
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != address(_bridge));
+
+        // Fund bridge
+        vm.prank(admin);
+        _bridge.deposit(address(_token), amount, admin, "");
+
+        // Compute txHash with version 1
+        bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, amount, recipient, _bridge.domainSeparator());
+
+        // Create merkle tree and proof with version 1
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = txHashV1;
+        leaves[1] = keccak256("other tx");
+
+        bytes32 merkleRoot = _buildMerkleTree(leaves);
+        bytes32[] memory merkleProofArray = _getMerkleProof(leaves, 0);
+
+        // Update bridge with merkle root
+        address[] memory empty = new address[](0);
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
+
+        // Create versioned merkle proof
+        bytes memory proof = abi.encodePacked(uint8(ProofLib.ProofType.Merkle), uint32(1), abi.encode(merkleProofArray));
+
+        // First claim succeeds
+        _bridge.claim(address(_token), amount, recipient, proof, "");
+        uint256 balanceAfterFirstClaim = _token.balanceOf(recipient);
+
+        // Upgrade version to 2 (keep same merkle root so proof is still valid structurally)
+        vm.prank(admin);
+        _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
+
+        // Second claim with same proof still reverts (txHash already processed)
+        vm.expectRevert(Bridge.RequestAlreadyProcessed.selector);
+        _bridge.claim(address(_token), amount, recipient, proof, "");
+
+        // Balance unchanged
+        assertEq(_token.balanceOf(recipient), balanceAfterFirstClaim);
+    }
+}
+
+/// @dev Test harness that exposes internal functions for testing
+contract BridgeHarness is Bridge {
+    // Storage for testing _checkInLimits
+    TokenUsage public testUsage;
+
+    constructor(address _bridgeContract, uint256 _chainId) Bridge(_bridgeContract, _chainId) {}
+
+    function exposed_updateValidatorSet(
+        address[] memory addValidators,
+        address[] memory removeValidators,
+        uint64 _adversarialResilience
+    ) external {
+        _updateValidatorSet(addValidators, removeValidators, _adversarialResilience);
+    }
+
+    function exposed_checkInLimits(uint256 minAmount, uint256 maxTotalAmount, uint256 amount) external {
+        _checkInLimits(testUsage, minAmount, maxTotalAmount, amount);
+    }
+
+    function setTestUsage(uint256 consumed, uint256 lastUpdated) external {
+        testUsage.consumed = consumed;
+        testUsage.lastUpdated = lastUpdated;
+    }
+
+    function getTestUsage() external view returns (uint256 consumed, uint256 lastUpdated) {
+        return (testUsage.consumed, testUsage.lastUpdated);
+    }
+}
+
+contract BridgeUpdateValidatorSetTest is Test {
+    BridgeHarness internal harness;
+
+    address public admin = makeAddr("admin");
+    address public validator1 = makeAddr("validator1");
+    address public validator2 = makeAddr("validator2");
+    address public validator3 = makeAddr("validator3");
+
+    function setUp() public {
+        address otherBridge = makeAddr("otherBridge");
+        harness = new BridgeHarness(otherBridge, 1);
+    }
+
+    function test_UpdateValidatorSet_AddsValidators() public {
+        address[] memory add = new address[](2);
+        add[0] = validator1;
+        add[1] = validator2;
+        address[] memory remove = new address[](0);
+
+        harness.exposed_updateValidatorSet(add, remove, 1);
+
+        assertTrue(harness.activeValidators(validator1));
+        assertTrue(harness.activeValidators(validator2));
+        assertEq(harness.validatorCount(), 2);
+        assertEq(harness.adversarialResilience(), 1);
+    }
+
+    function test_UpdateValidatorSet_RemovesValidators() public {
+        // First add validators
+        address[] memory add = new address[](2);
+        add[0] = validator1;
+        add[1] = validator2;
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+
+        // Then remove one
+        address[] memory remove = new address[](1);
+        remove[0] = validator1;
+        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+
+        assertFalse(harness.activeValidators(validator1));
+        assertTrue(harness.activeValidators(validator2));
+        assertEq(harness.validatorCount(), 1);
+    }
+
+    function test_UpdateValidatorSet_AddsAndRemovesAtomically() public {
+        // First add validators
+        address[] memory add = new address[](2);
+        add[0] = validator1;
+        add[1] = validator2;
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+
+        // Add validator3 and remove validator1 in one call
+        address[] memory addNew = new address[](1);
+        addNew[0] = validator3;
+        address[] memory remove = new address[](1);
+        remove[0] = validator1;
+        harness.exposed_updateValidatorSet(addNew, remove, 1);
+
+        assertFalse(harness.activeValidators(validator1));
+        assertTrue(harness.activeValidators(validator2));
+        assertTrue(harness.activeValidators(validator3));
+        assertEq(harness.validatorCount(), 2);
+    }
+
+    function test_UpdateValidatorSet_RevertIfZeroAddress() public {
+        address[] memory add = new address[](1);
+        add[0] = address(0);
+
+        vm.expectRevert(Bridge.ValidatorIsZeroAddress.selector);
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+    }
+
+    function test_UpdateValidatorSet_RevertIfDuplicateValidator() public {
+        // First add a validator
+        address[] memory add = new address[](1);
+        add[0] = validator1;
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+
+        // Try to add the same validator again
+        vm.expectRevert(Bridge.DuplicateValidator.selector);
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+    }
+
+    function test_UpdateValidatorSet_RevertIfValidatorDoesNotExist() public {
+        address[] memory remove = new address[](1);
+        remove[0] = validator1;
+
+        vm.expectRevert(Bridge.ValidatorDoesNotExist.selector);
+        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+    }
+
+    function test_UpdateValidatorSet_RevertIfResilienceZero() public {
+        address[] memory add = new address[](1);
+        add[0] = validator1;
+
+        vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
+    }
+
+    function test_UpdateValidatorSet_RevertIfResilienceExceedsValidatorCount() public {
+        address[] memory add = new address[](1);
+        add[0] = validator1;
+
+        vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
+        harness.exposed_updateValidatorSet(add, new address[](0), 2);
+    }
+
+    function test_UpdateValidatorSet_ResilienceCheckedAfterCountUpdate() public {
+        // Add 3 validators with resilience 3
+        address[] memory add = new address[](3);
+        add[0] = validator1;
+        add[1] = validator2;
+        add[2] = validator3;
+        harness.exposed_updateValidatorSet(add, new address[](0), 3);
+
+        assertEq(harness.validatorCount(), 3);
+        assertEq(harness.adversarialResilience(), 3);
+
+        // Remove one validator - resilience must be reduced too
+        address[] memory remove = new address[](1);
+        remove[0] = validator1;
+
+        // This should fail because new count would be 2 but resilience 3
+        vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
+        harness.exposed_updateValidatorSet(new address[](0), remove, 3);
+
+        // This should succeed with reduced resilience
+        harness.exposed_updateValidatorSet(new address[](0), remove, 2);
+        assertEq(harness.validatorCount(), 2);
+        assertEq(harness.adversarialResilience(), 2);
+    }
+
+    function test_UpdateValidatorSet_EmitsEvents() public {
+        address[] memory add = new address[](1);
+        add[0] = validator1;
+
+        vm.expectEmit(true, false, false, false);
+        emit Bridge.ValidatorAdded(validator1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+
+        address[] memory remove = new address[](1);
+        remove[0] = validator1;
+        address[] memory addNew = new address[](1);
+        addNew[0] = validator2;
+
+        vm.expectEmit(true, false, false, false);
+        emit Bridge.ValidatorRemoved(validator1);
+        vm.expectEmit(true, false, false, false);
+        emit Bridge.ValidatorAdded(validator2);
+        harness.exposed_updateValidatorSet(addNew, remove, 1);
+    }
+
+    // ========== Property Tests (Fuzz) ==========
+
+    function testFuzz_UpdateValidatorSet_ValidatorCountMatchesAddsMinusRemoves(uint8 numAdd, uint8 numRemove) public {
+        // Bound inputs to reasonable sizes
+        numAdd = uint8(bound(numAdd, 1, 20));
+        numRemove = uint8(bound(numRemove, 0, numAdd));
+
+        // Create unique validators to add
+        address[] memory add = new address[](numAdd);
+        for (uint256 i = 0; i < numAdd; i++) {
+            add[i] = address(uint160(i + 1));
+        }
+
+        // Add validators
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        assertEq(harness.validatorCount(), numAdd);
+
+        // Remove some validators
+        address[] memory remove = new address[](numRemove);
+        for (uint256 i = 0; i < numRemove; i++) {
+            remove[i] = add[i];
+        }
+
+        uint64 expectedCount = uint64(numAdd - numRemove);
+        uint64 newResilience = expectedCount > 0 ? 1 : 0;
+
+        if (expectedCount == 0) {
+            vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
+            harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+        } else {
+            harness.exposed_updateValidatorSet(new address[](0), remove, newResilience);
+            assertEq(harness.validatorCount(), expectedCount);
+        }
+    }
+
+    function testFuzz_UpdateValidatorSet_ResilienceInvariant(uint8 numValidators, uint64 resilience) public {
+        numValidators = uint8(bound(numValidators, 1, 50));
+
+        address[] memory add = new address[](numValidators);
+        for (uint256 i = 0; i < numValidators; i++) {
+            add[i] = address(uint160(i + 1));
+        }
+
+        // Test invalid resilience values
+        if (resilience == 0 || resilience > numValidators) {
+            vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
+            harness.exposed_updateValidatorSet(add, new address[](0), resilience);
+        } else {
+            harness.exposed_updateValidatorSet(add, new address[](0), resilience);
+            // Invariant: resilience > 0 && resilience <= validatorCount
+            assertGt(harness.adversarialResilience(), 0);
+            assertLe(harness.adversarialResilience(), harness.validatorCount());
+        }
+    }
+
+    function testFuzz_UpdateValidatorSet_AllAddedValidatorsAreActive(uint8 numValidators) public {
+        numValidators = uint8(bound(numValidators, 1, 50));
+
+        address[] memory add = new address[](numValidators);
+        for (uint256 i = 0; i < numValidators; i++) {
+            add[i] = address(uint160(i + 1));
+        }
+
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+
+        // All added validators should be active
+        for (uint256 i = 0; i < numValidators; i++) {
+            assertTrue(harness.activeValidators(add[i]));
+        }
+    }
+
+    function testFuzz_UpdateValidatorSet_AllRemovedValidatorsAreInactive(uint8 numAdd, uint8 numRemove) public {
+        numAdd = uint8(bound(numAdd, 2, 20));
+        numRemove = uint8(bound(numRemove, 1, numAdd - 1)); // Keep at least 1
+
+        address[] memory add = new address[](numAdd);
+        for (uint256 i = 0; i < numAdd; i++) {
+            add[i] = address(uint160(i + 1));
+        }
+
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+
+        address[] memory remove = new address[](numRemove);
+        for (uint256 i = 0; i < numRemove; i++) {
+            remove[i] = add[i];
+        }
+
+        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+
+        // All removed validators should be inactive
+        for (uint256 i = 0; i < numRemove; i++) {
+            assertFalse(harness.activeValidators(remove[i]));
+        }
+        // Remaining validators should still be active
+        for (uint256 i = numRemove; i < numAdd; i++) {
+            assertTrue(harness.activeValidators(add[i]));
+        }
+    }
+
+    function testFuzz_UpdateValidatorSet_AddThenRemoveSameValidator(address validator) public {
+        vm.assume(validator != address(0));
+
+        // Add validator
+        address[] memory add = new address[](1);
+        add[0] = validator;
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+
+        assertTrue(harness.activeValidators(validator));
+        assertEq(harness.validatorCount(), 1);
+
+        // Add another so we can remove the first
+        address other = address(uint160(uint256(keccak256(abi.encode(validator)))));
+        vm.assume(other != address(0) && other != validator);
+        add[0] = other;
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+
+        // Remove original validator
+        address[] memory remove = new address[](1);
+        remove[0] = validator;
+        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+
+        assertFalse(harness.activeValidators(validator));
+        assertTrue(harness.activeValidators(other));
+        assertEq(harness.validatorCount(), 1);
+    }
+
+    function testFuzz_UpdateValidatorSet_SimultaneousAddAndRemove(uint8 numInitial, uint8 numRemove, uint8 numAdd)
+        public
+    {
+        numInitial = uint8(bound(numInitial, 1, 10));
+        numRemove = uint8(bound(numRemove, 0, numInitial));
+        numAdd = uint8(bound(numAdd, 0, 10));
+
+        // Need at least one validator remaining or being added
+        vm.assume(numInitial - numRemove + numAdd > 0);
+
+        // Setup initial validators
+        address[] memory initial = new address[](numInitial);
+        for (uint256 i = 0; i < numInitial; i++) {
+            initial[i] = address(uint160(i + 1));
+        }
+        harness.exposed_updateValidatorSet(initial, new address[](0), 1);
+
+        // Prepare adds and removes
+        address[] memory toRemove = new address[](numRemove);
+        for (uint256 i = 0; i < numRemove; i++) {
+            toRemove[i] = initial[i];
+        }
+
+        address[] memory toAdd = new address[](numAdd);
+        for (uint256 i = 0; i < numAdd; i++) {
+            toAdd[i] = address(uint160(1000 + i)); // Different range to avoid duplicates
+        }
+
+        uint64 expectedCount = uint64(numInitial - numRemove + numAdd);
+        harness.exposed_updateValidatorSet(toAdd, toRemove, 1);
+
+        assertEq(harness.validatorCount(), expectedCount);
+
+        // Verify removed are inactive
+        for (uint256 i = 0; i < numRemove; i++) {
+            assertFalse(harness.activeValidators(toRemove[i]));
+        }
+        // Verify added are active
+        for (uint256 i = 0; i < numAdd; i++) {
+            assertTrue(harness.activeValidators(toAdd[i]));
+        }
+        // Verify remaining initial are still active
+        for (uint256 i = numRemove; i < numInitial; i++) {
+            assertTrue(harness.activeValidators(initial[i]));
+        }
+    }
+
+    function testFuzz_UpdateValidatorSet_CannotAddZeroAddress(uint8 position, uint8 numValidators) public {
+        numValidators = uint8(bound(numValidators, 1, 10));
+        position = uint8(bound(position, 0, numValidators - 1));
+
+        address[] memory add = new address[](numValidators);
+        for (uint256 i = 0; i < numValidators; i++) {
+            add[i] = address(uint160(i + 1));
+        }
+        // Insert zero address at random position
+        add[position] = address(0);
+
+        vm.expectRevert(Bridge.ValidatorIsZeroAddress.selector);
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+    }
+
+    function testFuzz_UpdateValidatorSet_CannotAddDuplicate(address validator) public {
+        vm.assume(validator != address(0));
+
+        address[] memory add = new address[](1);
+        add[0] = validator;
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+
+        // Try to add same validator in same array
+        address[] memory addDuplicate = new address[](2);
+        addDuplicate[0] = address(uint160(uint256(keccak256(abi.encode(validator)))));
+        vm.assume(addDuplicate[0] != address(0) && addDuplicate[0] != validator);
+        addDuplicate[1] = validator; // Already exists
+
+        vm.expectRevert(Bridge.DuplicateValidator.selector);
+        harness.exposed_updateValidatorSet(addDuplicate, new address[](0), 1);
+    }
+}
+
+contract BridgeCheckInLimitsTest is Test {
+    BridgeHarness internal harness;
+
+    uint256 constant MIN_AMOUNT = 1e18;
+    uint256 constant MAX_TOTAL = 100e18;
+
+    function setUp() public {
+        address otherBridge = makeAddr("otherBridge");
+        harness = new BridgeHarness(otherBridge, 1);
+    }
+
+    // ========== Unit Tests ==========
+
+    function test_CheckInLimits_BasicDeposit() public {
+        harness.setTestUsage(0, block.timestamp);
+
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, 50e18);
+
+        (uint256 consumed,) = harness.getTestUsage();
+        assertEq(consumed, 50e18);
+    }
+
+    function test_CheckInLimits_RevertIfBelowMin() public {
+        harness.setTestUsage(0, block.timestamp);
+
+        vm.expectRevert(Bridge.InvalidTokenAmount.selector);
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, MIN_AMOUNT - 1);
+    }
+
+    function test_CheckInLimits_RevertIfExceedsLimitSameDay() public {
+        harness.setTestUsage(80e18, block.timestamp);
+
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, 30e18);
+    }
+
+    function test_CheckInLimits_FillsRemainingThenAppliesExcess() public {
+        // Setup: consumed=80, limit=100, remaining=20
+        harness.setTestUsage(80e18, block.timestamp);
+
+        // Warp past reset period
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Deposit 50: fills 20 remaining, excess=30 goes to new period
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, 50e18);
+
+        (uint256 consumed,) = harness.getTestUsage();
+        assertEq(consumed, 30e18); // excess = 50 - 20 = 30
+    }
+
+    function test_CheckInLimits_ExcessEqualsLimit() public {
+        // Setup: consumed=80, limit=100, remaining=20
+        harness.setTestUsage(80e18, block.timestamp);
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Deposit 120: fills 20 remaining, excess=100 (exactly at limit)
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, 120e18);
+
+        (uint256 consumed,) = harness.getTestUsage();
+        assertEq(consumed, 100e18);
+    }
+
+    function test_CheckInLimits_RevertIfExcessExceedsLimit() public {
+        harness.setTestUsage(80e18, block.timestamp);
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Deposit 121: excess=101 > 100
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        harness.exposed_checkInLimits(MIN_AMOUNT, MAX_TOTAL, 121e18);
+    }
+
+    // ========== Property Tests (Fuzz) ==========
+    //
+    // Property 1: Multiple deposits totaling <= limit within 1 day always succeed
+    // Property 2: Cannot spend > 2x limit over 2 days
+    // Property 3: Splitting deposits doesn't change the outcome
+    // Property 4: Reverts if amount < minAmount
+
+    /// @notice Property 1: Multiple deposits within limit always succeed
+    /// Split a total amount into 3 deposits, all within same day, total <= limit
+    function testFuzz_Property1_MultipleDepositsWithinLimitSucceed(uint256 amount1, uint256 amount2, uint256 amount3)
+        public
+    {
+        uint256 limit = MAX_TOTAL;
+
+        // Bound each amount to be valid and total <= limit
+        amount1 = bound(amount1, MIN_AMOUNT, limit / 3);
+        amount2 = bound(amount2, MIN_AMOUNT, limit / 3);
+        amount3 = bound(amount3, MIN_AMOUNT, limit / 3);
+
+        uint256 total = amount1 + amount2 + amount3;
+
+        uint256 startTime = 1000;
+        vm.warp(startTime);
+        harness.setTestUsage(0, startTime);
+
+        // All three deposits should succeed
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, amount1);
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, amount2);
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, amount3);
+
+        (uint256 consumed,) = harness.getTestUsage();
+        assertEq(consumed, total);
+        assertLe(consumed, limit);
+    }
+
+    /// @notice Property 2: Cannot spend > 2x limit over 2 days
+    /// Total of day1 + day2 > 2*limit must fail
+    function testFuzz_Property2_CannotExceed2xLimitOver2Days(uint256 day1Amount, uint256 excessOverLimit) public {
+        uint256 limit = MAX_TOTAL;
+
+        // Day 1: spend some amount
+        day1Amount = bound(day1Amount, MIN_AMOUNT, limit);
+
+        // Day 2: we want total > 2*limit, so day2 > 2*limit - day1
+        // excess = day1 + day2 - limit, and we need excess > limit
+        // So: day2 > 2*limit - day1
+        // Let excessOverLimit be how much over limit the excess is (must be > 0)
+        excessOverLimit = bound(excessOverLimit, 1, limit);
+
+        // day2 = (2*limit - day1) + excessOverLimit + 1
+        // This ensures: day1 + day2 = 2*limit + excessOverLimit + 1 > 2*limit
+        uint256 day2Amount = 2 * limit - day1Amount + excessOverLimit;
+        vm.assume(day2Amount >= MIN_AMOUNT);
+
+        uint256 startTime = 1000;
+        vm.warp(startTime);
+        harness.setTestUsage(0, startTime);
+
+        // Day 1 deposit succeeds
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, day1Amount);
+
+        // Move to day 2
+        vm.warp(startTime + 1 days + 1);
+
+        // Day 2 deposit should fail because excess > limit
+        vm.expectRevert(Bridge.DailyLimitExhausted.selector);
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, day2Amount);
+    }
+
+    /// @notice Property 3a: Single deposit crossing boundary has correct excess
+    /// Compute expected excess and verify single deposit matches
+    function testFuzz_Property3a_SingleDepositExcess(uint256 initialConsumed, uint256 excessAmount) public {
+        uint256 limit = MAX_TOTAL;
+
+        // Start with some consumed amount
+        initialConsumed = bound(initialConsumed, limit / 4, limit * 3 / 4);
+        uint256 remaining = limit - initialConsumed;
+
+        // Excess is how much goes into the new period (must be <= limit)
+        excessAmount = bound(excessAmount, 1, limit);
+
+        // Total deposit = remaining + excess (crosses boundary)
+        uint256 depositAmount = remaining + excessAmount;
+        vm.assume(depositAmount >= MIN_AMOUNT);
+
+        uint256 startTime = 1000;
+        vm.warp(startTime);
+        harness.setTestUsage(initialConsumed, startTime);
+
+        // Move past reset window
+        vm.warp(startTime + 1 days + 1);
+
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, depositAmount);
+
+        (uint256 consumed,) = harness.getTestUsage();
+        // After crossing boundary: consumed should equal the excess
+        assertEq(consumed, excessAmount);
+    }
+
+    /// @notice Property 3b: Two deposits crossing boundary have same result as single
+    /// First deposit fills remaining, second deposit equals excess -> same final state
+    function testFuzz_Property3b_SplitDepositsSameAsingle(uint256 initialConsumed, uint256 excessAmount) public {
+        uint256 limit = MAX_TOTAL;
+
+        // Start with some consumed amount
+        initialConsumed = bound(initialConsumed, limit / 4, limit * 3 / 4);
+        uint256 remaining = limit - initialConsumed;
+        vm.assume(remaining >= MIN_AMOUNT);
+
+        // Excess is how much goes into the new period
+        excessAmount = bound(excessAmount, MIN_AMOUNT, limit);
+
+        uint256 startTime = 1000;
+        vm.warp(startTime);
+        harness.setTestUsage(initialConsumed, startTime);
+
+        // Move past reset window
+        vm.warp(startTime + 1 days + 1);
+
+        // Split: first deposit fills exactly to limit
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, remaining);
+
+        (uint256 consumedAfterFirst,) = harness.getTestUsage();
+        assertEq(consumedAfterFirst, limit); // Exactly at limit
+
+        // Second deposit is the excess amount (triggers reset)
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, excessAmount);
+
+        (uint256 finalConsumed,) = harness.getTestUsage();
+        // Final state should be same as single deposit: excess
+        assertEq(finalConsumed, excessAmount);
+    }
+
+    /// @notice Property 3c: Three-way split has same result
+    /// Split total into: partial fill + remaining fill + excess
+    function testFuzz_Property3c_ThreeWaySplitSameResult(
+        uint256 initialConsumed,
+        uint256 partialFill,
+        uint256 excessAmount
+    ) public {
+        uint256 limit = MAX_TOTAL;
+
+        // Start with some consumed
+        initialConsumed = bound(initialConsumed, 0, limit / 2);
+        uint256 remaining = limit - initialConsumed;
+
+        // Partial fill is part of the remaining capacity
+        partialFill = bound(partialFill, MIN_AMOUNT, remaining / 2);
+        uint256 restOfRemaining = remaining - partialFill;
+        vm.assume(restOfRemaining >= MIN_AMOUNT);
+
+        // Excess goes to new period
+        excessAmount = bound(excessAmount, MIN_AMOUNT, limit);
+
+        uint256 startTime = 1000;
+        vm.warp(startTime);
+        harness.setTestUsage(initialConsumed, startTime);
+
+        // Move past reset window
+        vm.warp(startTime + 1 days + 1);
+
+        // Deposit 1: partial fill (stays within limit)
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, partialFill);
+
+        // Deposit 2: rest of remaining (hits exactly limit)
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, restOfRemaining);
+
+        (uint256 consumedAtLimit,) = harness.getTestUsage();
+        assertEq(consumedAtLimit, limit);
+
+        // Deposit 3: excess (triggers reset)
+        harness.exposed_checkInLimits(MIN_AMOUNT, limit, excessAmount);
+
+        (uint256 finalConsumed,) = harness.getTestUsage();
+        assertEq(finalConsumed, excessAmount);
+    }
+
+    /// @notice Property 4: Reverts if amount < minAmount
+    function testFuzz_Property4_RevertsIfBelowMinAmount(uint256 minAmount, uint256 amount) public {
+        minAmount = bound(minAmount, 2, 100e18);
+        amount = bound(amount, 0, minAmount - 1);
+
+        harness.setTestUsage(0, block.timestamp);
+
+        vm.expectRevert(Bridge.InvalidTokenAmount.selector);
+        harness.exposed_checkInLimits(minAmount, MAX_TOTAL, amount);
     }
 }

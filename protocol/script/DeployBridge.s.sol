@@ -20,19 +20,11 @@ library BridgeDeployer {
         implementation = new Bridge(podBridgeAddr, srcChainId);
 
         // Encode initialize call
-        bytes memory initData = abi.encodeCall(
-            Bridge.initialize,
-            (admin, validators, adversarialResilience, version, merkleRoot)
-        );
+        bytes memory initData =
+            abi.encodeCall(Bridge.initialize, (admin, validators, adversarialResilience, version, merkleRoot));
 
         // Deploy proxy
-        proxy = Bridge(address(
-            new TransparentUpgradeableProxy(
-                address(implementation),
-                admin,
-                initData
-            )
-        ));
+        proxy = Bridge(address(new TransparentUpgradeableProxy(address(implementation), admin, initData)));
     }
 }
 
@@ -46,15 +38,8 @@ contract Deploy is BaseDeployer {
 
         uint8 f = uint8((initialValidators.length - 1) / 3);
 
-        (Bridge bridgeProxy, Bridge implementation) = BridgeDeployer.deploy(
-            podBridgeAddr,
-            srcChainId,
-            msg.sender,
-            initialValidators,
-            f,
-            version,
-            merkleRoot
-        );
+        (Bridge bridgeProxy, Bridge implementation) =
+            BridgeDeployer.deploy(podBridgeAddr, srcChainId, msg.sender, initialValidators, f, version, merkleRoot);
 
         vm.stopBroadcast();
 
