@@ -9,8 +9,5 @@ out/
 /broadcast/*/1293/
 /broadcast/*/11155111/
 
-# Docs
-docs/
-
 # Dotenv file
 .env
