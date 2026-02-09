@@ -36,7 +36,7 @@ contract Deploy is BaseDeployer {
         address[] memory initialValidators = getValidatorAddresses();
         vm.startBroadcast();
 
-        uint8 f = uint8((initialValidators.length - 1) / 3);
+        uint8 f = uint8((initialValidators.length - 1) / 5);
 
         (Bridge bridgeProxy, Bridge implementation) =
             BridgeDeployer.deploy(podBridgeAddr, srcChainId, msg.sender, initialValidators, f, version, merkleRoot);
