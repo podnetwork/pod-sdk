@@ -12,6 +12,7 @@ contract DepositWaitingList is AccessControl {
 
     error InvalidToAddress();
     error InvalidAmount();
+    error AmountExceedsDepositLimit();
     error DepositAlreadyApplied();
     error DepositDoesNotExist();
     error InvalidDepositData();
@@ -49,6 +50,9 @@ contract DepositWaitingList is AccessControl {
     {
         if (to == address(0)) revert InvalidToAddress();
         if (amount == 0) revert InvalidAmount();
+
+        (, uint256 depositLimit,,,,) = bridge.tokenData(token);
+        if (amount > depositLimit) revert AmountExceedsDepositLimit();
 
         _applyPermit(token, msg.sender, amount, permit);
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);

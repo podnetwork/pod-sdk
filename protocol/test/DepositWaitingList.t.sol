@@ -271,17 +271,30 @@ contract DepositWaitingListTest is Test {
         _applyDeposits(address(_token), ids, amounts, froms, tos);
     }
 
-    function test_Apply_RevertIfBridgeLimitHit() public {
-        // Deposit more than the bridge daily limit
+    function test_Deposit_RevertIfAmountExceedsDepositLimit() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), depositLimit + minAmount, user, "");
+        vm.expectRevert(DepositWaitingList.AmountExceedsDepositLimit.selector);
+        _waitingList.deposit(address(_token), depositLimit + 1, user, "");
+    }
 
+    function test_Apply_RevertIfBridgeLimitHit() public {
+        // Deposit exactly at the limit, then deposit again — bridge should reject the second apply
+        vm.startPrank(user);
+        _waitingList.deposit(address(_token), depositLimit, user, "");
+        _waitingList.deposit(address(_token), minAmount, user, "");
+        vm.stopPrank();
+
+        // Apply the first deposit (uses all capacity)
+        vm.prank(relayer);
+        _applySingle(0, address(_token), depositLimit, user, user);
+
+        // Apply the second deposit — bridge daily limit is now exhausted
         vm.prank(relayer);
         vm.expectRevert(Bridge.DailyLimitExhausted.selector);
-        _applySingle(0, address(_token), depositLimit + minAmount, user, user);
+        _applySingle(1, address(_token), minAmount, user, user);
 
-        // Deposit should NOT be marked as applied since the tx reverted
-        assertNotEq(_waitingList.depositHashes(0), bytes32(0));
+        // Second deposit should NOT be marked as applied since the tx reverted
+        assertNotEq(_waitingList.depositHashes(1), bytes32(0));
     }
 
     function test_Apply_OutOfOrder() public {
@@ -715,6 +728,11 @@ contract DepositWaitingListTest is Test {
         MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
         permitToken.mint(user, INITIAL_BALANCE);
 
+        vm.prank(admin);
+        _bridge.whiteListToken(
+            address(permitToken), makeAddr("mirrorPermitToken2"), minAmount, depositLimit, claimLimit
+        );
+
         // 65 bytes instead of 97 — invalid length
         bytes memory invalidPermit = abi.encodePacked(uint256(1), uint8(27), bytes32(0));
 
@@ -726,6 +744,11 @@ contract DepositWaitingListTest is Test {
     function test_Deposit_WithEmptyPermit_RequiresApproval() public {
         MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
         permitToken.mint(user, INITIAL_BALANCE);
+
+        vm.prank(admin);
+        _bridge.whiteListToken(
+            address(permitToken), makeAddr("mirrorPermitToken3"), minAmount, depositLimit, claimLimit
+        );
 
         // No approval and empty permit — should revert on transferFrom
         vm.prank(user);
