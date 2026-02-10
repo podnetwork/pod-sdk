@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Bridge} from "./Bridge.sol";
 
@@ -15,6 +16,7 @@ contract DepositWaitingList is AccessControl {
     error DepositDoesNotExist();
     error TokenMismatch();
     error NotAuthorized();
+    error InvalidPermitLength();
 
     event WaitingDepositCreated(
         uint256 indexed depositId, address indexed from, address to, address token, uint256 amount
@@ -31,6 +33,7 @@ contract DepositWaitingList is AccessControl {
     }
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
 
     Bridge public immutable bridge;
 
@@ -46,10 +49,15 @@ contract DepositWaitingList is AccessControl {
         _grantRole(RELAYER_ROLE, _admin);
     }
 
-    function deposit(address token, uint256 amount, address to) external returns (uint256 depositId) {
+    /// @param permit Tightly packed permit data (97 bytes) or empty for no permit.
+    function deposit(address token, uint256 amount, address to, bytes calldata permit)
+        external
+        returns (uint256 depositId)
+    {
         if (to == address(0)) revert InvalidToAddress();
         if (amount == 0) revert InvalidAmount();
 
+        _applyPermit(token, msg.sender, amount, permit);
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         depositId = nextDepositId++;
@@ -100,6 +108,25 @@ contract DepositWaitingList is AccessControl {
         IERC20(d.token).safeTransfer(d.from, d.amount);
 
         emit WaitingDepositWithdrawn(depositId);
+    }
+
+    function _applyPermit(address token, address owner, uint256 amount, bytes calldata permit) internal {
+        if (permit.length == 0) return;
+        if (permit.length != PERMIT_LENGTH) revert InvalidPermitLength();
+
+        uint256 deadline;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+
+        assembly {
+            deadline := calldataload(permit.offset)
+            v := byte(0, calldataload(add(permit.offset, 32)))
+            r := calldataload(add(permit.offset, 33))
+            s := calldataload(add(permit.offset, 65))
+        }
+
+        try IERC20Permit(token).permit(owner, address(this), amount, deadline, v, r, s) {} catch {}
     }
 
     function _ensureApproval(address token) internal {
