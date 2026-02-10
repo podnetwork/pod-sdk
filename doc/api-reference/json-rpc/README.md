@@ -1,12 +1,12 @@
-# JSON-RPC&#x20;
+# JSON-RPC
 
 Pod exposes a **JSON-RPC 2.0 API** that provides programmatic access to markets, orderbook data, transaction execution, and network-level information. The API is designed for **traders, market makers, and developers** who want to build trading systems, dashboards, bots, or infrastructure on top of the Pod protocol using familiar Ethereum tooling.
 
-The Pod JSON-RPC API is organized into three logical groups:<br>
+The Pod JSON-RPC API is organized into three logical groups:
 
-* [Orderbook API](/broken/pages/3e3af2b172c51ccbb628a01c42fd4ad01dc0ea5d): An API to access to markets and orderbook activity via a native protocol indexer, including live snapshots, historical OHLCV candles, and account-level order history.
-* [Ethereum API](/broken/pages/91410e63f27b9c1cbe08ea14d8d8f2cb55050d5b): a Ethereum-compatible execution layer for balances, nonces, transactions, contract calls, logs, and real-time subscriptions using standard Ethereum tooling.
-* [Consensus API](/broken/pages/09c5add1cc57fcb3be6cd79dea8618fe73f9aa52): Pod-specific endpoints for inspecting validator committees and consensus data for monitoring and verification of the network’s state.<br>
+* **[Orderbook Data (`ob_`)](orderbook-data.md)**: Access markets and orderbook activity via a native protocol indexer, including live snapshots, historical OHLCV candles, and account-level order history.
+* **[Ethereum Interface (`eth_`)](ethereum-interface.md)**: An Ethereum-compatible execution layer for balances, nonces, transactions, contract calls, logs, and real-time subscriptions using standard Ethereum tooling.
+* **[Network & Consensus (`pod_`)](network-consensus.md)**: Pod-specific endpoints for inspecting validator committees and consensus data for monitoring and verification of the network's state.
 
 If you are already comfortable with Ethereum and JSON-RPC, you can interact with Pod immediately without learning a new request or execution model.
 
