@@ -92,7 +92,7 @@ contract DepositWaitingList is AccessControl {
 
     function _ensureApproval(address token) internal {
         if (!_approvedTokens[token]) {
-            IERC20(token).forceApprove(address(bridge), type(uint256).max);
+            IERC20(token).approve(address(bridge), type(uint256).max);
             _approvedTokens[token] = true;
         }
     }
