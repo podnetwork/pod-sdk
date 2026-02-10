@@ -70,6 +70,30 @@ contract DepositWaitingListTest is Test {
         _token.approve(address(_waitingList), type(uint256).max);
     }
 
+    // ========== Helpers ==========
+
+    function _applyDeposits(
+        address token,
+        uint256[] memory ids,
+        uint256[] memory amounts,
+        address[] memory froms,
+        address[] memory tos
+    ) internal {
+        _waitingList.applyDeposits(token, ids, amounts, froms, tos);
+    }
+
+    function _applySingle(uint256 id, address token, uint256 amount, address from, address to) internal {
+        uint256[] memory ids = new uint256[](1);
+        uint256[] memory amounts = new uint256[](1);
+        address[] memory froms = new address[](1);
+        address[] memory tos = new address[](1);
+        ids[0] = id;
+        amounts[0] = amount;
+        froms[0] = from;
+        tos[0] = to;
+        _waitingList.applyDeposits(token, ids, amounts, froms, tos);
+    }
+
     // ========== Deposit Tests ==========
 
     function test_Deposit_Success() public {
@@ -77,12 +101,8 @@ contract DepositWaitingListTest is Test {
         uint256 id = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
         assertEq(id, 0);
 
-        (address token, uint256 amount, address from, address to, bool applied) = _waitingList.deposits(0);
-        assertEq(token, address(_token));
-        assertEq(amount, DEPOSIT_AMOUNT);
-        assertEq(from, user);
-        assertEq(to, user);
-        assertFalse(applied);
+        bytes32 expectedHash = keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT, user, user));
+        assertEq(_waitingList.depositHashes(0), expectedHash);
     }
 
     function test_Deposit_SequentialIds() public {
@@ -137,21 +157,18 @@ contract DepositWaitingListTest is Test {
         assertEq(id0, 0);
         assertEq(id1, 1);
 
-        (, uint256 amount0, address from0,,) = _waitingList.deposits(0);
-        (, uint256 amount1, address from1,,) = _waitingList.deposits(1);
-        assertEq(from0, user);
-        assertEq(amount0, DEPOSIT_AMOUNT);
-        assertEq(from1, user2);
-        assertEq(amount1, DEPOSIT_AMOUNT * 2);
+        bytes32 hash0 = _waitingList.depositHashes(0);
+        bytes32 hash1 = _waitingList.depositHashes(1);
+        assertEq(hash0, keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT, user, user)));
+        assertEq(hash1, keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT * 2, user2, user2)));
     }
 
     function test_Deposit_DifferentRecipient() public {
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2, "");
 
-        (,, address from, address to,) = _waitingList.deposits(0);
-        assertEq(from, user);
-        assertEq(to, user2);
+        bytes32 hash = _waitingList.depositHashes(0);
+        assertEq(hash, keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT, user, user2)));
     }
 
     // ========== Apply Tests ==========
@@ -160,14 +177,10 @@ contract DepositWaitingListTest is Test {
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
 
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 0;
-
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
 
-        (,,,, bool applied) = _waitingList.deposits(0);
-        assertTrue(applied);
+        assertEq(_waitingList.depositHashes(0), bytes32(0));
 
         // Tokens should have moved from waiting list to bridge
         assertEq(_token.balanceOf(address(_waitingList)), 0);
@@ -182,16 +195,30 @@ contract DepositWaitingListTest is Test {
         vm.stopPrank();
 
         uint256[] memory ids = new uint256[](3);
+        uint256[] memory amounts = new uint256[](3);
+        address[] memory froms = new address[](3);
+        address[] memory tos = new address[](3);
+
         ids[0] = 0;
+        amounts[0] = DEPOSIT_AMOUNT;
+        froms[0] = user;
+        tos[0] = user;
+
         ids[1] = 1;
+        amounts[1] = DEPOSIT_AMOUNT * 2;
+        froms[1] = user;
+        tos[1] = user;
+
         ids[2] = 2;
+        amounts[2] = DEPOSIT_AMOUNT;
+        froms[2] = user;
+        tos[2] = user2;
 
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applyDeposits(address(_token), ids, amounts, froms, tos);
 
         for (uint256 i = 0; i < 3; i++) {
-            (,,,, bool applied) = _waitingList.deposits(i);
-            assertTrue(applied);
+            assertEq(_waitingList.depositHashes(i), bytes32(0));
         }
 
         assertEq(_token.balanceOf(address(_waitingList)), 0);
@@ -202,49 +229,46 @@ contract DepositWaitingListTest is Test {
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
 
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 0;
-
         vm.prank(relayer);
         vm.expectEmit(true, true, true, true);
         emit DepositWaitingList.WaitingDepositApplied(0);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
     function test_Apply_RevertIfNotRelayer() public {
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
 
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 0;
-
         vm.prank(user);
         vm.expectRevert();
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
     function test_Apply_RevertIfAlreadyApplied() public {
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
 
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 0;
-
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
 
         vm.prank(relayer);
         vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
     function test_Apply_RevertIfNonexistent() public {
         uint256[] memory ids = new uint256[](1);
+        uint256[] memory amounts = new uint256[](1);
+        address[] memory froms = new address[](1);
+        address[] memory tos = new address[](1);
         ids[0] = 999;
+        amounts[0] = DEPOSIT_AMOUNT;
+        froms[0] = user;
+        tos[0] = user;
 
         vm.prank(relayer);
         vm.expectRevert(DepositWaitingList.DepositDoesNotExist.selector);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applyDeposits(address(_token), ids, amounts, froms, tos);
     }
 
     function test_Apply_RevertIfBridgeLimitHit() public {
@@ -252,16 +276,12 @@ contract DepositWaitingListTest is Test {
         vm.prank(user);
         _waitingList.deposit(address(_token), depositLimit + minAmount, user, "");
 
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 0;
-
         vm.prank(relayer);
         vm.expectRevert(Bridge.DailyLimitExhausted.selector);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(0, address(_token), depositLimit + minAmount, user, user);
 
         // Deposit should NOT be marked as applied since the tx reverted
-        (,,,, bool applied) = _waitingList.deposits(0);
-        assertFalse(applied);
+        assertNotEq(_waitingList.depositHashes(0), bytes32(0));
     }
 
     function test_Apply_OutOfOrder() public {
@@ -271,25 +291,74 @@ contract DepositWaitingListTest is Test {
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
         vm.stopPrank();
 
-        // Apply in reverse order
+        // Apply in reverse order (ids 2, 0)
         uint256[] memory ids = new uint256[](2);
+        uint256[] memory amounts = new uint256[](2);
+        address[] memory froms = new address[](2);
+        address[] memory tos = new address[](2);
+
         ids[0] = 2;
+        amounts[0] = DEPOSIT_AMOUNT;
+        froms[0] = user;
+        tos[0] = user;
+
         ids[1] = 0;
+        amounts[1] = DEPOSIT_AMOUNT;
+        froms[1] = user;
+        tos[1] = user;
 
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applyDeposits(address(_token), ids, amounts, froms, tos);
 
-        (,,,, bool applied0) = _waitingList.deposits(0);
-        (,,,, bool applied1) = _waitingList.deposits(1);
-        (,,,, bool applied2) = _waitingList.deposits(2);
-        assertTrue(applied0);
-        assertFalse(applied1);
-        assertTrue(applied2);
+        assertEq(_waitingList.depositHashes(0), bytes32(0));
+        assertNotEq(_waitingList.depositHashes(1), bytes32(0));
+        assertEq(_waitingList.depositHashes(2), bytes32(0));
+    }
+
+    // ========== Invalid Deposit Data Tests ==========
+
+    function test_Apply_RevertIfInvalidDepositData() public {
+        vm.prank(user);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+
+        // Wrong amount
+        vm.prank(relayer);
+        vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
+        _applySingle(0, address(_token), DEPOSIT_AMOUNT + 1, user, user);
+
+        // Wrong from
+        vm.prank(relayer);
+        vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
+        _applySingle(0, address(_token), DEPOSIT_AMOUNT, user2, user);
+
+        // Wrong to
+        vm.prank(relayer);
+        vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
+        _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user2);
+    }
+
+    function test_Apply_RevertIfArrayLengthMismatch() public {
+        vm.prank(user);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+
+        uint256[] memory ids = new uint256[](1);
+        uint256[] memory amounts = new uint256[](2);
+        address[] memory froms = new address[](1);
+        address[] memory tos = new address[](1);
+        ids[0] = 0;
+        amounts[0] = DEPOSIT_AMOUNT;
+        amounts[1] = DEPOSIT_AMOUNT;
+        froms[0] = user;
+        tos[0] = user;
+
+        vm.prank(relayer);
+        vm.expectRevert(DepositWaitingList.ArrayLengthMismatch.selector);
+        _applyDeposits(address(_token), ids, amounts, froms, tos);
     }
 
     // ========== Token Mismatch Tests ==========
 
-    function test_Apply_RevertIfTokenMismatch() public {
+    function test_Apply_RevertIfInvalidDepositData_TokenMismatch() public {
         // Create a second token
         vm.startPrank(admin);
         WrappedToken token2 = new WrappedToken("Token2", "TK2", 18);
@@ -303,13 +372,10 @@ contract DepositWaitingListTest is Test {
         _waitingList.deposit(address(token2), DEPOSIT_AMOUNT, user, "");
         vm.stopPrank();
 
-        uint256[] memory ids = new uint256[](2);
-        ids[0] = 0;
-        ids[1] = 1;
-
+        // Try to apply deposit 1 (token2) with token1 as the token param — hash won't match
         vm.prank(relayer);
-        vm.expectRevert(DepositWaitingList.TokenMismatch.selector);
-        _waitingList.applyDeposits(address(_token), ids);
+        vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
+        _applySingle(1, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
     // ========== Withdraw Tests ==========
@@ -321,13 +387,12 @@ contract DepositWaitingListTest is Test {
         uint256 userBefore = _token.balanceOf(user);
 
         vm.prank(user);
-        _waitingList.withdraw(0);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user2);
 
         assertEq(_token.balanceOf(user), userBefore + DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_waitingList)), 0);
 
-        (,,,, bool applied) = _waitingList.deposits(0);
-        assertTrue(applied);
+        assertEq(_waitingList.depositHashes(0), bytes32(0));
     }
 
     function test_Withdraw_ByRelayer() public {
@@ -337,7 +402,7 @@ contract DepositWaitingListTest is Test {
         uint256 userBefore = _token.balanceOf(user);
 
         vm.prank(relayer);
-        _waitingList.withdraw(0);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user2);
 
         // Tokens go back to the original sender, not the relayer
         assertEq(_token.balanceOf(user), userBefore + DEPOSIT_AMOUNT);
@@ -350,7 +415,7 @@ contract DepositWaitingListTest is Test {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
         emit DepositWaitingList.WaitingDepositWithdrawn(0);
-        _waitingList.withdraw(0);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
     function test_Withdraw_RevertIfNotAuthorized() public {
@@ -359,21 +424,19 @@ contract DepositWaitingListTest is Test {
 
         vm.prank(user2);
         vm.expectRevert(DepositWaitingList.NotAuthorized.selector);
-        _waitingList.withdraw(0);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
     function test_Withdraw_RevertIfAlreadyApplied() public {
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
 
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 0;
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
 
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
-        _waitingList.withdraw(0);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
     function test_Withdraw_RevertIfAlreadyWithdrawn() public {
@@ -381,20 +444,47 @@ contract DepositWaitingListTest is Test {
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
 
         vm.prank(user);
-        _waitingList.withdraw(0);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
 
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
-        _waitingList.withdraw(0);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
     function test_Withdraw_RevertIfNonexistent() public {
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.DepositDoesNotExist.selector);
-        _waitingList.withdraw(999);
+        _waitingList.withdraw(999, address(_token), DEPOSIT_AMOUNT, user, user);
+    }
+
+    function test_Withdraw_RevertIfInvalidDepositData() public {
+        vm.prank(user);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+
+        // Wrong amount
+        vm.prank(user);
+        vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT + 1, user, user);
+
+        // Wrong token
+        vm.prank(user);
+        vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
+        _waitingList.withdraw(0, address(0xdead), DEPOSIT_AMOUNT, user, user);
+
+        // Wrong to
+        vm.prank(user);
+        vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user2);
     }
 
     // ========== Fuzz Tests ==========
+
+    struct DepositData {
+        address token;
+        uint256 amount;
+        address from;
+        address to;
+    }
 
     function _createDepositsAndApplyWithdraw(
         uint256 numDeposits,
@@ -415,30 +505,41 @@ contract DepositWaitingListTest is Test {
         numApplied = bound(numApplied, 0, maxApplies < maxConsumed ? maxApplies : maxConsumed);
         numWithdrawn = bound(numWithdrawn, 0, maxConsumed - numApplied);
 
+        // Track deposit data for each deposit
+        address[] memory depositFroms = new address[](numDeposits);
+
         for (uint256 i = 0; i < numDeposits; i++) {
-            vm.prank(i % 2 == 0 ? user : user2);
+            address depositor = i % 2 == 0 ? user : user2;
+            depositFroms[i] = depositor;
+            vm.prank(depositor);
             _waitingList.deposit(address(_token), perAmount, user, "");
         }
 
         if (numApplied > 0) {
             uint256[] memory applyIds = new uint256[](numApplied);
+            uint256[] memory applyAmounts = new uint256[](numApplied);
+            address[] memory applyFroms = new address[](numApplied);
+            address[] memory applyTos = new address[](numApplied);
             uint256 idx;
             for (uint256 i = 0; i < numDeposits && idx < numApplied; i++) {
                 if (i == targetIndex) continue;
-                applyIds[idx++] = i;
+                applyIds[idx] = i;
+                applyAmounts[idx] = perAmount;
+                applyFroms[idx] = depositFroms[i];
+                applyTos[idx] = user;
+                idx++;
             }
             vm.prank(relayer);
-            _waitingList.applyDeposits(address(_token), applyIds);
+            _applyDeposits(address(_token), applyIds, applyAmounts, applyFroms, applyTos);
         }
 
         uint256 withdrawn;
         for (uint256 i = 0; i < numDeposits && withdrawn < numWithdrawn; i++) {
             if (i == targetIndex) continue;
-            (,,,, bool applied) = _waitingList.deposits(i);
-            if (applied) continue;
-            (,, address from,,) = _waitingList.deposits(i);
-            vm.prank(from);
-            _waitingList.withdraw(i);
+            bytes32 hash = _waitingList.depositHashes(i);
+            if (hash == bytes32(0)) continue;
+            vm.prank(depositFroms[i]);
+            _waitingList.withdraw(i, address(_token), perAmount, depositFroms[i], user);
             withdrawn++;
         }
     }
@@ -455,15 +556,14 @@ contract DepositWaitingListTest is Test {
         );
         targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
 
-        (,, address depositor,,) = _waitingList.deposits(targetIndex);
+        address depositor = targetIndex % 2 == 0 ? user : user2;
         uint256 senderBefore = _token.balanceOf(depositor);
 
         vm.prank(depositor);
-        _waitingList.withdraw(targetIndex);
+        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
 
         assertEq(_token.balanceOf(depositor), senderBefore + perAmount);
-        (,,,, bool applied) = _waitingList.deposits(targetIndex);
-        assertTrue(applied);
+        assertEq(_waitingList.depositHashes(targetIndex), bytes32(0));
     }
 
     function testFuzz_Withdraw_RevertIfAlreadyApplied(
@@ -473,19 +573,19 @@ contract DepositWaitingListTest is Test {
         uint256 numApplied,
         uint256 targetIndex
     ) public {
-        _createDepositsAndApplyWithdraw(numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex);
+        uint256 perAmount = _createDepositsAndApplyWithdraw(
+            numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex
+        );
         targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
 
-        (,, address depositor,,) = _waitingList.deposits(targetIndex);
+        address depositor = targetIndex % 2 == 0 ? user : user2;
 
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = targetIndex;
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(targetIndex, address(_token), perAmount, depositor, user);
 
         vm.prank(depositor);
         vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
-        _waitingList.withdraw(targetIndex);
+        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
     }
 
     function testFuzz_Withdraw_RevertIfAlreadyWithdrawn(
@@ -495,17 +595,19 @@ contract DepositWaitingListTest is Test {
         uint256 numApplied,
         uint256 targetIndex
     ) public {
-        _createDepositsAndApplyWithdraw(numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex);
+        uint256 perAmount = _createDepositsAndApplyWithdraw(
+            numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex
+        );
         targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
 
-        (,, address depositor,,) = _waitingList.deposits(targetIndex);
+        address depositor = targetIndex % 2 == 0 ? user : user2;
 
         vm.prank(depositor);
-        _waitingList.withdraw(targetIndex);
+        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
 
         vm.prank(depositor);
         vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
-        _waitingList.withdraw(targetIndex);
+        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
     }
 
     function testFuzz_Apply_PendingDeposit(
@@ -521,15 +623,12 @@ contract DepositWaitingListTest is Test {
         targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
 
         uint256 bridgeBefore = _token.balanceOf(address(_bridge));
-
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = targetIndex;
+        address depositor = targetIndex % 2 == 0 ? user : user2;
 
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(targetIndex, address(_token), perAmount, depositor, user);
 
-        (,,,, bool applied) = _waitingList.deposits(targetIndex);
-        assertTrue(applied);
+        assertEq(_waitingList.depositHashes(targetIndex), bytes32(0));
         assertEq(_token.balanceOf(address(_bridge)), bridgeBefore + perAmount);
     }
 
@@ -540,18 +639,19 @@ contract DepositWaitingListTest is Test {
         uint256 numApplied,
         uint256 targetIndex
     ) public {
-        _createDepositsAndApplyWithdraw(numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex);
+        uint256 perAmount = _createDepositsAndApplyWithdraw(
+            numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex
+        );
         targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
 
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = targetIndex;
+        address depositor = targetIndex % 2 == 0 ? user : user2;
 
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(targetIndex, address(_token), perAmount, depositor, user);
 
         vm.prank(relayer);
         vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(targetIndex, address(_token), perAmount, depositor, user);
     }
 
     function testFuzz_Apply_RevertIfWithdrawn(
@@ -561,20 +661,19 @@ contract DepositWaitingListTest is Test {
         uint256 numApplied,
         uint256 targetIndex
     ) public {
-        _createDepositsAndApplyWithdraw(numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex);
+        uint256 perAmount = _createDepositsAndApplyWithdraw(
+            numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex
+        );
         targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
 
-        (,, address depositor,,) = _waitingList.deposits(targetIndex);
+        address depositor = targetIndex % 2 == 0 ? user : user2;
 
         vm.prank(depositor);
-        _waitingList.withdraw(targetIndex);
-
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = targetIndex;
+        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
 
         vm.prank(relayer);
         vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(targetIndex, address(_token), perAmount, depositor, user);
     }
 
     // ========== Permit Tests ==========
@@ -671,11 +770,22 @@ contract DepositWaitingListTest is Test {
         vm.stopPrank();
 
         uint256[] memory ids = new uint256[](2);
+        uint256[] memory amounts = new uint256[](2);
+        address[] memory froms = new address[](2);
+        address[] memory tos = new address[](2);
+
         ids[0] = 0;
+        amounts[0] = DEPOSIT_AMOUNT;
+        froms[0] = user;
+        tos[0] = user;
+
         ids[1] = 1;
+        amounts[1] = DEPOSIT_AMOUNT;
+        froms[1] = user;
+        tos[1] = user;
 
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applyDeposits(address(_token), ids, amounts, froms, tos);
 
         assertEq(_bridge.depositIndex(), bridgeIndexBefore + 2);
     }
@@ -687,14 +797,10 @@ contract DepositWaitingListTest is Test {
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
 
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 0;
-
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
 
-        (,,,, bool applied) = _waitingList.deposits(0);
-        assertTrue(applied);
+        assertEq(_waitingList.depositHashes(0), bytes32(0));
     }
 
     function test_Apply_RevertIfBridgePaused() public {
@@ -704,11 +810,8 @@ contract DepositWaitingListTest is Test {
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
 
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 0;
-
         vm.prank(relayer);
         vm.expectRevert(Bridge.ContractPaused.selector);
-        _waitingList.applyDeposits(address(_token), ids);
+        _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 }

@@ -14,7 +14,8 @@ contract DepositWaitingList is AccessControl {
     error InvalidAmount();
     error DepositAlreadyApplied();
     error DepositDoesNotExist();
-    error TokenMismatch();
+    error InvalidDepositData();
+    error ArrayLengthMismatch();
     error NotAuthorized();
     error InvalidPermitLength();
 
@@ -24,20 +25,12 @@ contract DepositWaitingList is AccessControl {
     event WaitingDepositApplied(uint256 indexed depositId);
     event WaitingDepositWithdrawn(uint256 indexed depositId);
 
-    struct WaitingDeposit {
-        address token;
-        uint256 amount;
-        address from;
-        address to;
-        bool applied;
-    }
-
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
 
     Bridge public immutable bridge;
 
-    mapping(uint256 => WaitingDeposit) public deposits;
+    mapping(uint256 => bytes32) public depositHashes;
     uint256 public nextDepositId;
     address public callContract;
     mapping(address => bool) internal _approvedTokens;
@@ -61,27 +54,36 @@ contract DepositWaitingList is AccessControl {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         depositId = nextDepositId++;
-        deposits[depositId] = WaitingDeposit({token: token, amount: amount, from: msg.sender, to: to, applied: false});
+        depositHashes[depositId] = keccak256(abi.encode(token, amount, msg.sender, to));
 
         emit WaitingDepositCreated(depositId, msg.sender, to, token, amount);
     }
 
-    function applyDeposits(address token, uint256[] calldata depositIds) external onlyRole(RELAYER_ROLE) {
+    function applyDeposits(
+        address token,
+        uint256[] calldata depositIds,
+        uint256[] calldata amounts,
+        address[] calldata froms,
+        address[] calldata tos
+    ) external onlyRole(RELAYER_ROLE) {
         uint256 length = depositIds.length;
+        if (amounts.length != length || froms.length != length || tos.length != length) {
+            revert ArrayLengthMismatch();
+        }
 
         Bridge.DepositParams[] memory params = new Bridge.DepositParams[](length);
 
         for (uint256 i = 0; i < length; ++i) {
             uint256 id = depositIds[i];
-            WaitingDeposit storage d = deposits[id];
+            if (id >= nextDepositId) revert DepositDoesNotExist();
 
-            if (d.amount == 0) revert DepositDoesNotExist();
-            if (d.applied) revert DepositAlreadyApplied();
-            if (d.token != token) revert TokenMismatch();
+            bytes32 hash = depositHashes[id];
+            if (hash == bytes32(0)) revert DepositAlreadyApplied();
+            if (keccak256(abi.encode(token, amounts[i], froms[i], tos[i])) != hash) revert InvalidDepositData();
 
-            d.applied = true;
+            delete depositHashes[id];
 
-            params[i] = Bridge.DepositParams({from: address(this), to: d.to, amount: d.amount});
+            params[i] = Bridge.DepositParams({from: address(this), to: tos[i], amount: amounts[i]});
 
             emit WaitingDepositApplied(id);
         }
@@ -96,16 +98,17 @@ contract DepositWaitingList is AccessControl {
         callContract = _callContract;
     }
 
-    function withdraw(uint256 depositId) external {
-        WaitingDeposit storage d = deposits[depositId];
+    function withdraw(uint256 depositId, address token, uint256 amount, address from, address to) external {
+        if (depositId >= nextDepositId) revert DepositDoesNotExist();
 
-        if (d.amount == 0) revert DepositDoesNotExist();
-        if (d.applied) revert DepositAlreadyApplied();
-        if (msg.sender != d.from && !hasRole(RELAYER_ROLE, msg.sender)) revert NotAuthorized();
+        bytes32 hash = depositHashes[depositId];
+        if (hash == bytes32(0)) revert DepositAlreadyApplied();
+        if (keccak256(abi.encode(token, amount, from, to)) != hash) revert InvalidDepositData();
+        if (msg.sender != from && !hasRole(RELAYER_ROLE, msg.sender)) revert NotAuthorized();
 
-        d.applied = true;
+        delete depositHashes[depositId];
 
-        IERC20(d.token).safeTransfer(d.from, d.amount);
+        IERC20(token).safeTransfer(from, amount);
 
         emit WaitingDepositWithdrawn(depositId);
     }
