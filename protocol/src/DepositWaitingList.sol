@@ -14,11 +14,13 @@ contract DepositWaitingList is AccessControl {
     error DepositAlreadyApplied();
     error DepositDoesNotExist();
     error TokenMismatch();
+    error NotAuthorized();
 
     event WaitingDepositCreated(
         uint256 indexed depositId, address indexed from, address to, address token, uint256 amount
     );
     event WaitingDepositApplied(uint256 indexed depositId);
+    event WaitingDepositWithdrawn(uint256 indexed depositId);
 
     struct WaitingDeposit {
         address token;
@@ -86,8 +88,18 @@ contract DepositWaitingList is AccessControl {
         callContract = _callContract;
     }
 
-    function rescueTokens(address token, address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        IERC20(token).safeTransfer(to, amount);
+    function withdraw(uint256 depositId) external {
+        WaitingDeposit storage d = deposits[depositId];
+
+        if (d.amount == 0) revert DepositDoesNotExist();
+        if (d.applied) revert DepositAlreadyApplied();
+        if (msg.sender != d.from && !hasRole(RELAYER_ROLE, msg.sender)) revert NotAuthorized();
+
+        d.applied = true;
+
+        IERC20(d.token).safeTransfer(d.from, d.amount);
+
+        emit WaitingDepositWithdrawn(depositId);
     }
 
     function _ensureApproval(address token) internal {
