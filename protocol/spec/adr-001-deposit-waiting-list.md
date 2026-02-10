@@ -24,10 +24,11 @@ Introduce a **DepositWaitingList** contract that sits in front of the Bridge as 
 User → DepositWaitingList.deposit(token, amount, to, permit)
 ```
 
+- Rejects deposits that exceed the Bridge's total daily deposit limit for the token (`AmountExceedsDepositLimit`). A single deposit larger than the limit can never be applied, so rejecting early avoids locking user funds indefinitely. The limit is read from `bridge.tokenData(token).depositLimit`.
 - Transfers `amount` of `token` from the user to the WaitingList contract via `safeTransferFrom`.
 - If `permit` is non-empty (97 bytes: `deadline(32) + v(1) + r(32) + s(32)`), executes an EIP-2612 permit before the transfer, mirroring the Bridge's permit pattern. If empty, the user must have pre-approved the WaitingList.
 - Stores a hash of the deposit data (`keccak256(abi.encode(token, amount, msg.sender, to))`) in a mapping keyed by a sequential `depositId`. Only the hash is stored — the full deposit data is emitted in the `WaitingDepositCreated` event.
-- Never reverts due to rate limits (only reverts on actual transfer failure, zero address, or zero amount).
+- Never reverts due to current rate limit utilization (only reverts on transfer failure, zero address, zero amount, or amount exceeding the total deposit limit).
 - Emits `WaitingDepositCreated(depositId, from, to, token, amount)`.
 
 #### Apply Flow (Relayer-Facing)
