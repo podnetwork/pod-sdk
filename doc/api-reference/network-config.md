@@ -4,41 +4,14 @@ The pod devnet is a test network for developers to experiment with the pod netwo
 
 ## Devnet Configuration
 
-{% code title="Name" %}
-```
-pod
-```
-{% endcode %}
-
-{% code title="RPC" %}
-```
-https://rpc.v1.dev.pod.network
-```
-{% endcode %}
-
-{% code title="Chain ID" %}
-```
-1293
-```
-{% endcode %}
-
-{% code title="Explorer" %}
-```
-https://explorer.v1.pod.network
-```
-{% endcode %}
-
-{% code title="Currency Symbol" %}
-```
-pUSD
-```
-{% endcode %}
-
-{% code title="EVM Version" %}
-```
-Prague (Ethereum block 22,431,084, Released May 7th, 2025)
-```
-{% endcode %}
+| Property        | Value                                                        |
+| --------------- | ------------------------------------------------------------ |
+| Name            | `pod`                                                        |
+| RPC             | `https://rpc.v1.dev.pod.network`                             |
+| Chain ID        | `1293`                                                       |
+| Explorer        | `https://explorer.v1.pod.network`                            |
+| Currency Symbol | `pUSD`                                                       |
+| EVM Version     | `Prague` (Ethereum block 22,431,084, Released May 7th, 2025) |
 
 ## Get Test Tokens
 
