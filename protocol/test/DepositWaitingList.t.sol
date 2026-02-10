@@ -311,28 +311,267 @@ contract DepositWaitingListTest is Test {
         _waitingList.applyDeposits(address(_token), ids);
     }
 
-    // ========== Rescue Tests ==========
+    // ========== Withdraw Tests ==========
 
-    function test_RescueTokens_AdminCanRescue() public {
+    function test_Withdraw_BySender() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2);
 
-        uint256 adminBefore = _token.balanceOf(admin);
+        uint256 userBefore = _token.balanceOf(user);
 
-        vm.prank(admin);
-        _waitingList.rescueTokens(address(_token), admin, DEPOSIT_AMOUNT);
+        vm.prank(user);
+        _waitingList.withdraw(0);
 
-        assertEq(_token.balanceOf(admin), adminBefore + DEPOSIT_AMOUNT);
+        assertEq(_token.balanceOf(user), userBefore + DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_waitingList)), 0);
+
+        (,,,, bool applied) = _waitingList.deposits(0);
+        assertTrue(applied);
     }
 
-    function test_RescueTokens_RevertIfNotAdmin() public {
+    function test_Withdraw_ByRelayer() public {
+        vm.prank(user);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2);
+
+        uint256 userBefore = _token.balanceOf(user);
+
+        vm.prank(relayer);
+        _waitingList.withdraw(0);
+
+        // Tokens go back to the original sender, not the relayer
+        assertEq(_token.balanceOf(user), userBefore + DEPOSIT_AMOUNT);
+    }
+
+    function test_Withdraw_EmitsEvent() public {
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user);
 
         vm.prank(user);
-        vm.expectRevert();
-        _waitingList.rescueTokens(address(_token), user, DEPOSIT_AMOUNT);
+        vm.expectEmit(true, true, true, true);
+        emit DepositWaitingList.WaitingDepositWithdrawn(0);
+        _waitingList.withdraw(0);
+    }
+
+    function test_Withdraw_RevertIfNotAuthorized() public {
+        vm.prank(user);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user);
+
+        vm.prank(user2);
+        vm.expectRevert(DepositWaitingList.NotAuthorized.selector);
+        _waitingList.withdraw(0);
+    }
+
+    function test_Withdraw_RevertIfAlreadyApplied() public {
+        vm.prank(user);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user);
+
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = 0;
+        vm.prank(relayer);
+        _waitingList.applyDeposits(address(_token), ids);
+
+        vm.prank(user);
+        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        _waitingList.withdraw(0);
+    }
+
+    function test_Withdraw_RevertIfAlreadyWithdrawn() public {
+        vm.prank(user);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user);
+
+        vm.prank(user);
+        _waitingList.withdraw(0);
+
+        vm.prank(user);
+        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        _waitingList.withdraw(0);
+    }
+
+    function test_Withdraw_RevertIfNonexistent() public {
+        vm.prank(user);
+        vm.expectRevert(DepositWaitingList.DepositDoesNotExist.selector);
+        _waitingList.withdraw(999);
+    }
+
+    // ========== Fuzz Tests ==========
+
+    function _createDepositsAndApplyWithdraw(
+        uint256 numDeposits,
+        uint256 totalAmount,
+        uint256 numApplied,
+        uint256 numWithdrawn,
+        uint256 targetIndex
+    ) internal returns (uint256 perAmount) {
+        numDeposits = bound(numDeposits, 2, 10);
+        totalAmount = bound(totalAmount, numDeposits * minAmount, numDeposits * depositLimit);
+        perAmount = totalAmount / numDeposits;
+        targetIndex = bound(targetIndex, 0, numDeposits - 1);
+
+        // Bound numApplied so (numApplied + 1) * perAmount <= depositLimit (room for target apply)
+        uint256 maxApplies = depositLimit / perAmount;
+        if (maxApplies > 0) maxApplies--;
+        uint256 maxConsumed = numDeposits - 1;
+        numApplied = bound(numApplied, 0, maxApplies < maxConsumed ? maxApplies : maxConsumed);
+        numWithdrawn = bound(numWithdrawn, 0, maxConsumed - numApplied);
+
+        for (uint256 i = 0; i < numDeposits; i++) {
+            vm.prank(i % 2 == 0 ? user : user2);
+            _waitingList.deposit(address(_token), perAmount, user);
+        }
+
+        if (numApplied > 0) {
+            uint256[] memory applyIds = new uint256[](numApplied);
+            uint256 idx;
+            for (uint256 i = 0; i < numDeposits && idx < numApplied; i++) {
+                if (i == targetIndex) continue;
+                applyIds[idx++] = i;
+            }
+            vm.prank(relayer);
+            _waitingList.applyDeposits(address(_token), applyIds);
+        }
+
+        uint256 withdrawn;
+        for (uint256 i = 0; i < numDeposits && withdrawn < numWithdrawn; i++) {
+            if (i == targetIndex) continue;
+            (,,,, bool applied) = _waitingList.deposits(i);
+            if (applied) continue;
+            (,, address from,,) = _waitingList.deposits(i);
+            vm.prank(from);
+            _waitingList.withdraw(i);
+            withdrawn++;
+        }
+    }
+
+    function testFuzz_Withdraw_PendingDeposit(
+        uint256 numDeposits,
+        uint256 totalAmount,
+        uint256 numWithdrawn,
+        uint256 numApplied,
+        uint256 targetIndex
+    ) public {
+        uint256 perAmount =
+            _createDepositsAndApplyWithdraw(numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex);
+        targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
+
+        (,, address depositor,,) = _waitingList.deposits(targetIndex);
+        uint256 senderBefore = _token.balanceOf(depositor);
+
+        vm.prank(depositor);
+        _waitingList.withdraw(targetIndex);
+
+        assertEq(_token.balanceOf(depositor), senderBefore + perAmount);
+        (,,,, bool applied) = _waitingList.deposits(targetIndex);
+        assertTrue(applied);
+    }
+
+    function testFuzz_Withdraw_RevertIfAlreadyApplied(
+        uint256 numDeposits,
+        uint256 totalAmount,
+        uint256 numWithdrawn,
+        uint256 numApplied,
+        uint256 targetIndex
+    ) public {
+        _createDepositsAndApplyWithdraw(numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex);
+        targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
+
+        (,, address depositor,,) = _waitingList.deposits(targetIndex);
+
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = targetIndex;
+        vm.prank(relayer);
+        _waitingList.applyDeposits(address(_token), ids);
+
+        vm.prank(depositor);
+        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        _waitingList.withdraw(targetIndex);
+    }
+
+    function testFuzz_Withdraw_RevertIfAlreadyWithdrawn(
+        uint256 numDeposits,
+        uint256 totalAmount,
+        uint256 numWithdrawn,
+        uint256 numApplied,
+        uint256 targetIndex
+    ) public {
+        _createDepositsAndApplyWithdraw(numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex);
+        targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
+
+        (,, address depositor,,) = _waitingList.deposits(targetIndex);
+
+        vm.prank(depositor);
+        _waitingList.withdraw(targetIndex);
+
+        vm.prank(depositor);
+        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        _waitingList.withdraw(targetIndex);
+    }
+
+    function testFuzz_Apply_PendingDeposit(
+        uint256 numDeposits,
+        uint256 totalAmount,
+        uint256 numWithdrawn,
+        uint256 numApplied,
+        uint256 targetIndex
+    ) public {
+        uint256 perAmount =
+            _createDepositsAndApplyWithdraw(numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex);
+        targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
+
+        uint256 bridgeBefore = _token.balanceOf(address(_bridge));
+
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = targetIndex;
+
+        vm.prank(relayer);
+        _waitingList.applyDeposits(address(_token), ids);
+
+        (,,,, bool applied) = _waitingList.deposits(targetIndex);
+        assertTrue(applied);
+        assertEq(_token.balanceOf(address(_bridge)), bridgeBefore + perAmount);
+    }
+
+    function testFuzz_Apply_RevertIfApplied(
+        uint256 numDeposits,
+        uint256 totalAmount,
+        uint256 numWithdrawn,
+        uint256 numApplied,
+        uint256 targetIndex
+    ) public {
+        _createDepositsAndApplyWithdraw(numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex);
+        targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
+
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = targetIndex;
+
+        vm.prank(relayer);
+        _waitingList.applyDeposits(address(_token), ids);
+
+        vm.prank(relayer);
+        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        _waitingList.applyDeposits(address(_token), ids);
+    }
+
+    function testFuzz_Apply_RevertIfWithdrawn(
+        uint256 numDeposits,
+        uint256 totalAmount,
+        uint256 numWithdrawn,
+        uint256 numApplied,
+        uint256 targetIndex
+    ) public {
+        _createDepositsAndApplyWithdraw(numDeposits, totalAmount, numApplied, numWithdrawn, targetIndex);
+        targetIndex = bound(targetIndex, 0, bound(numDeposits, 2, 10) - 1);
+
+        (,, address depositor,,) = _waitingList.deposits(targetIndex);
+
+        vm.prank(depositor);
+        _waitingList.withdraw(targetIndex);
+
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = targetIndex;
+
+        vm.prank(relayer);
+        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        _waitingList.applyDeposits(address(_token), ids);
     }
 
     // ========== Config Tests ==========
