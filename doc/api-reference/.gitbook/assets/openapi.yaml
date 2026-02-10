@@ -1,0 +1,3180 @@
+openapi: 3.0.0
+info:
+  title: JSON-RPC API
+  version: 1.0.0
+servers:
+  - url: https://tapforce-rpc.pod.network/
+    description: Pod testnet
+    x-gitbook-description-html: <p>Pod testnet</p>
+tags:
+  - name: Orderbook Data (ob_)
+    description: >
+      Orderbook Data (`ob_`) is a read-focused API surface that provides access
+      to
+
+      markets and orderbook activity without requiring clients to run their own
+
+      indexer or interact with the orderbook contracts directly. It is powered
+
+      by a native indexer built into the Pod protocol, ensuring fast,
+      consistent,
+
+      and up-to-date views of on-chain state.
+
+
+      The API exposes live orderbook snapshots, historical OHLCV candles,
+
+      account-level order history and positions, making it ideal for trading
+
+      interfaces, analytics, and monitoring services.
+
+
+      📝 This is a JSON-RPC 2.0 API. The request path is not important; the
+
+      method to execute is defined by the method field in the request body. You
+
+      can send all requests to /, and any path after / is optional and used only
+
+      for documentation clarity.
+
+
+      &nbsp; &nbsp; &nbsp;
+    x-gitbook-description-document:
+      object: document
+      data:
+        schemaVersion: 9
+      nodes:
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: Orderbook Data (
+                  marks: []
+                - object: leaf
+                  text: ob_
+                  marks:
+                    - object: mark
+                      type: code
+                      data: {}
+                - object: leaf
+                  text: >-
+                    ) is a read-focused API surface that provides access to
+                    markets and orderbook activity without requiring clients to
+                    run their own indexer or interact with the orderbook
+                    contracts directly. It is powered by a native indexer built
+                    into the Pod protocol, ensuring fast, consistent, and
+                    up-to-date views of on-chain state.
+                  marks: []
+              key: KYLR1NV4Kw8x
+          key: MskvwxndZmoR
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: >-
+                    The API exposes live orderbook snapshots, historical OHLCV
+                    candles, account-level order history and positions, making
+                    it ideal for trading interfaces, analytics, and monitoring
+                    services.
+                  marks: []
+              key: oZEVSJzXGQUG
+          key: 2aQey4RXdPoU
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: >-
+                    📝 This is a JSON-RPC 2.0 API. The request path is not
+                    important; the method to execute is defined by the method
+                    field in the request body. You can send all requests to /,
+                    and any path after / is optional and used only for
+                    documentation clarity.
+                  marks: []
+              key: zriYjBXS6aoJ
+          key: XjrRPuZjyjVL
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: '     '
+                  marks: []
+              key: sqMIUqB5WGqy
+          key: WHFptLazZSdJ
+      key: Wcp0eGdk65GQ
+    x-gitbook-description-html: >-
+      <p>Orderbook Data (<code>ob_</code>) is a read-focused API surface that
+      provides access to markets and orderbook activity without requiring
+      clients to run their own indexer or interact with the orderbook contracts
+      directly. It is powered by a native indexer built into the Pod protocol,
+      ensuring fast, consistent, and up-to-date views of on-chain
+      state.</p><p>The API exposes live orderbook snapshots, historical OHLCV
+      candles, account-level order history and positions, making it ideal for
+      trading interfaces, analytics, and monitoring services.</p><p>📝 This is a
+      JSON-RPC 2.0 API. The request path is not important; the method to execute
+      is defined by the method field in the request body. You can send all
+      requests to /, and any path after / is optional and used only for
+      documentation clarity.</p><p>     </p>
+  - name: Ethereum Interface (eth_)
+    description: |
+      Ethereum Interface (`eth_`) provides an Ethereum-compatible JSON-RPC layer
+      that allows existing wallets, tools, and libraries to interact with Pod
+      using familiar methods and conventions. It is designed to be drop-in
+      compatible with standard Ethereum client workflows, allowing developers to
+      use common tooling such as `ethers.js`, `alloy.rs`, and `cast` without
+      modification.
+
+      The interface covers the transaction submission and receipt lifecycle,
+      including balance and nonce discovery, read-only contract calls, log
+      queries, and real-time subscriptions.
+
+      📝 This is a JSON-RPC 2.0 API. The request path is not important; the
+      method to execute is defined by the method field in the request body. You
+      can send all requests to /, and any path after / is optional and used only
+      for documentation clarity.
+
+      &nbsp; &nbsp; &nbsp;
+    x-gitbook-description-document:
+      object: document
+      data:
+        schemaVersion: 9
+      nodes:
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: Ethereum Interface (
+                  marks: []
+                - object: leaf
+                  text: eth_
+                  marks:
+                    - object: mark
+                      type: code
+                      data: {}
+                - object: leaf
+                  text: >-
+                    ) provides an Ethereum-compatible JSON-RPC layer that allows
+                    existing wallets, tools, and libraries to interact with Pod
+                    using familiar methods and conventions. It is designed to be
+                    drop-in compatible with standard Ethereum client workflows,
+                    allowing developers to use common tooling such as
+                  marks: []
+                - object: leaf
+                  text: ethers.js
+                  marks:
+                    - object: mark
+                      type: code
+                      data: {}
+                - object: leaf
+                  text: ', '
+                  marks: []
+                - object: leaf
+                  text: alloy.rs
+                  marks:
+                    - object: mark
+                      type: code
+                      data: {}
+                - object: leaf
+                  text: ', and '
+                  marks: []
+                - object: leaf
+                  text: cast
+                  marks:
+                    - object: mark
+                      type: code
+                      data: {}
+                - object: leaf
+                  text: ' without modification.'
+                  marks: []
+              key: DiQZ9KlekbCM
+          key: INerBC5OTaFS
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: >-
+                    The interface covers the transaction submission and receipt
+                    lifecycle, including balance and nonce discovery, read-only
+                    contract calls, log queries, and real-time subscriptions.
+                  marks: []
+              key: 0nsJGdQTJUlt
+          key: acfFrqUS7QB1
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: >-
+                    📝 This is a JSON-RPC 2.0 API. The request path is not
+                    important; the method to execute is defined by the method
+                    field in the request body. You can send all requests to /,
+                    and any path after / is optional and used only for
+                    documentation clarity.
+                  marks: []
+              key: hzu1BW4SrSGe
+          key: 34RBWOaPclY3
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: '     '
+                  marks: []
+              key: 3bhN3lUCYOQG
+          key: dbXPxPtiy6LU
+      key: 79qmzUODOBjB
+    x-gitbook-description-html: >-
+      <p>Ethereum Interface (<code>eth_</code>) provides an Ethereum-compatible
+      JSON-RPC layer that allows existing wallets, tools, and libraries to
+      interact with Pod using familiar methods and conventions. It is designed
+      to be drop-in compatible with standard Ethereum client workflows, allowing
+      developers to use common tooling such as <code>ethers.js</code>,
+      <code>alloy.rs</code>, and <code>cast</code> without
+      modification.</p><p>The interface covers the transaction submission and
+      receipt lifecycle, including balance and nonce discovery, read-only
+      contract calls, log queries, and real-time subscriptions.</p><p>📝 This is
+      a JSON-RPC 2.0 API. The request path is not important; the method to
+      execute is defined by the method field in the request body. You can send
+      all requests to /, and any path after / is optional and used only for
+      documentation clarity.</p><p>     </p>
+  - name: Network & Consensus (pod_)
+    description: |
+      Network & Consensus (`pod_`) exposes Pod-specific endpoints that provide
+      visibility into the network's validator set and consensus process. These
+      APIs surface data that is not available through standard Ethereum JSON-RPC
+      methods, such as validator committees and aggregated voting information.
+
+      This interface is intended for infrastructure providers, validators, and
+      light clients that need to inspect, monitor, or verify the state of the
+      Pod network.
+
+      📝 This is a JSON-RPC 2.0 API. The request path is not important; the
+      method to execute is defined by the method field in the request body. You
+      can send all requests to /, and any path after / is optional and used only
+      for documentation clarity.
+
+      &nbsp; &nbsp; &nbsp;
+    x-gitbook-description-document:
+      object: document
+      data:
+        schemaVersion: 9
+      nodes:
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: Network & Consensus (
+                  marks: []
+                - object: leaf
+                  text: pod_
+                  marks:
+                    - object: mark
+                      type: code
+                      data: {}
+                - object: leaf
+                  text: >-
+                    ) exposes Pod-specific endpoints that provide visibility
+                    into the network's validator set and consensus process.
+                    These APIs surface data that is not available through
+                    standard Ethereum JSON-RPC methods, such as validator
+                    committees and aggregated voting information.
+                  marks: []
+              key: i7KHeY7Pz9tR
+          key: sDqcLkLEnekw
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: >-
+                    This interface is intended for infrastructure providers,
+                    validators, and light clients that need to inspect, monitor,
+                    or verify the state of the Pod network.
+                  marks: []
+              key: OCqShYf84S2D
+          key: cXUmYbQl7a5I
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: >-
+                    📝 This is a JSON-RPC 2.0 API. The request path is not
+                    important; the method to execute is defined by the method
+                    field in the request body. You can send all requests to /,
+                    and any path after / is optional and used only for
+                    documentation clarity.
+                  marks: []
+              key: Xdlco6pjGczn
+          key: oug9ijfbzTCx
+        - object: block
+          type: paragraph
+          isVoid: false
+          data: {}
+          nodes:
+            - object: text
+              leaves:
+                - object: leaf
+                  text: '     '
+                  marks: []
+              key: fABZ1QeN6twG
+          key: Gr4YXyDvXwSr
+      key: 6bY7HU4SOtYI
+    x-gitbook-description-html: >-
+      <p>Network &#x26; Consensus (<code>pod_</code>) exposes Pod-specific
+      endpoints that provide visibility into the network's validator set and
+      consensus process. These APIs surface data that is not available through
+      standard Ethereum JSON-RPC methods, such as validator committees and
+      aggregated voting information.</p><p>This interface is intended for
+      infrastructure providers, validators, and light clients that need to
+      inspect, monitor, or verify the state of the Pod network.</p><p>📝 This is
+      a JSON-RPC 2.0 API. The request path is not important; the method to
+      execute is defined by the method field in the request body. You can send
+      all requests to /, and any path after / is optional and used only for
+      documentation clarity.</p><p>     </p>
+paths:
+  /ob_getMarkets:
+    post:
+      tags:
+        - Orderbook Data (ob_)
+      summary: Get All Markets
+      operationId: ob_getMarkets
+      description: |
+        Retrieves a list of all available markets/orderbooks with their metadata
+        and statistics. Each market includes token information, current pricing,
+        24-hour statistics, and fee structure.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: ob_getMarkets
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  default: []
+            example:
+              jsonrpc: '2.0'
+              method: ob_getMarkets
+              params: []
+              id: 1
+      responses:
+        '200':
+          description: Array of market objects with metadata and statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Market'
+                  id:
+                    type: integer
+              example:
+                jsonrpc: '2.0'
+                result:
+                  - id: >-
+                      0x0000000000000000000000000000000000000000000000000000000000000001
+                    name: spot_PETH/USDT
+                    base_token_address: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
+                    quote_token_address: '0x0000000000000000000000000000000000000001'
+                    base_token_symbol: PETH
+                    quote_token_symbol: USDT
+                    base_token_name: Wrapped ETH
+                    quote_token_name: Test USDT
+                    market_type: spot
+                    last_clearing_price: '0x6f05b59d3b200000'
+                    auction_interval: 500
+                    volume_24h: '0x2386f26fc10000'
+                    high_24h: '0x1158e460913d00000'
+                    low_24h: '0x6f05b59d3b200000'
+                    price_change_24h: '0x0'
+                    maker_fee: '0x0'
+                    taker_fee: '0x0'
+                id: 1
+          x-gitbook-description-html: <p>Array of market objects with metadata and statistics</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Retrieves a list of all available markets/orderbooks with
+                      their metadata and statistics. Each market includes token
+                      information, current pricing, 24-hour statistics, and fee
+                      structure.
+                    marks: []
+                key: y51ilMechcbB
+            key: ZyCcORS75Yf7
+        key: wPQFLI87uC7G
+      x-gitbook-description-html: >-
+        <p>Retrieves a list of all available markets/orderbooks with their
+        metadata and statistics. Each market includes token information, current
+        pricing, 24-hour statistics, and fee structure.</p>
+  /ob_getOrderbook:
+    post:
+      tags:
+        - Orderbook Data (ob_)
+      summary: Get Orderbook Snapshot
+      operationId: ob_getOrderbook
+      description: >
+        Retrieves the current orderbook snapshot for a specified market, showing
+        buy and sell orders aggregated by price level.
+
+
+        Orders are grouped by price and include total volume and minimum expiry
+        at each level.
+
+        Buy orders are sorted by price descending (best bid first), sell orders
+        by price ascending (best ask first).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: ob_getOrderbook
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: >
+                    Parameters:
+
+                    1. `orderbook_id` (bytes32): The 32-byte orderbook
+                    identifier
+
+                    2. `depth` (integer, optional): Maximum number of price
+                    levels to return for each side. If omitted, all available
+                    price levels are returned.
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/Bytes32'
+                      - type: integer
+                        description: Depth - maximum price levels per side
+                        x-gitbook-description-html: <p>Depth - maximum price levels per side</p>
+                  example:
+                    - >-
+                      0x0000000000000000000000000000000000000000000000000000000000000001
+                    - 20
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>orderbook_id</code> (bytes32): The 32-byte
+                    orderbook identifier</li>
+
+                    <li><code>depth</code> (integer, optional): Maximum number
+                    of price levels to return for each side. If omitted, all
+                    available price levels are returned.</li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Orderbook snapshot with aggregated buy and sell orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    $ref: '#/components/schemas/OrderbookSnapshot'
+                  id:
+                    type: integer
+              example:
+                jsonrpc: '2.0'
+                result:
+                  clob_id: >-
+                    0x0000000000000000000000000000000000000000000000000000000000000001
+                  buys:
+                    '5000000000000000000':
+                      volume: '1000000000000000000'
+                      minimum_expiry: 1704153600000000
+                    '4900000000000000000':
+                      volume: '2000000000000000000'
+                      minimum_expiry: 1704153600000000
+                  sells:
+                    '5100000000000000000':
+                      volume: '1500000000000000000'
+                      minimum_expiry: 1704153600000000
+                    '5200000000000000000':
+                      volume: '2500000000000000000'
+                      minimum_expiry: 1704153600000000
+                  grouping_precision: '1'
+                  timestamp: 1704153600000000
+                  new_orders_count: 5
+                  buys_count: 2
+                  sells_count: 2
+                id: 1
+          x-gitbook-description-html: <p>Orderbook snapshot with aggregated buy and sell orders</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Retrieves the current orderbook snapshot for a specified
+                      market, showing buy and sell orders aggregated by price
+                      level.
+                    marks: []
+                key: CQHqFiHWDdza
+            key: TnjhtFWNHmMN
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Orders are grouped by price and include total volume and
+                      minimum expiry at each level. Buy orders are sorted by
+                      price descending (best bid first), sell orders by price
+                      ascending (best ask first).
+                    marks: []
+                key: 1QIftrJSFfbS
+            key: oAgLgmRsrkET
+        key: vCPmQ4Uer8l1
+      x-gitbook-description-html: >-
+        <p>Retrieves the current orderbook snapshot for a specified market,
+        showing buy and sell orders aggregated by price level.</p><p>Orders are
+        grouped by price and include total volume and minimum expiry at each
+        level. Buy orders are sorted by price descending (best bid first), sell
+        orders by price ascending (best ask first).</p>
+  /ob_getCandles:
+    post:
+      tags:
+        - Orderbook Data (ob_)
+      summary: Get Historical Candles
+      operationId: ob_getCandles
+      description: >
+        Retrieves historical candle (OHLCV) data for a specified orderbook.
+
+
+        Candles represent aggregated price and volume data over specified time
+        intervals.
+
+        Results are returned sorted by timestamp in descending order (newest
+        first).
+
+
+        All prices are in quote/base units with 1e18 scale (hex-encoded).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: ob_getCandles
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: >
+                    Parameters:
+
+                    1. `clob_id` (bytes32): The 32-byte orderbook identifier
+
+                    2. `query` (object): Query parameters with resolution, time
+                    range, and limit
+                  example:
+                    - >-
+                      0x0000000000000000000000000000000000000000000000000000000000000001
+                    - resolution: 1h
+                      from_ts: 1704067200000000
+                      to_ts: 1704153600000000
+                      limit: 100
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>clob_id</code> (bytes32): The 32-byte orderbook
+                    identifier</li>
+
+                    <li><code>query</code> (object): Query parameters with
+                    resolution, time range, and limit</li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Array of candle objects sorted by timestamp (newest first)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Candle'
+                  id:
+                    type: integer
+              example:
+                jsonrpc: '2.0'
+                result:
+                  - timestamp: 1704153600000000
+                    open: '0x6f05b59d3b200000'
+                    close: '0x6f05b59d3b200000'
+                    high: '0x6f05b59d3b200000'
+                    low: '0x6f05b59d3b200000'
+                    volume: '0x2386f26fc10000'
+                  - timestamp: 1704150000000000
+                    open: '0x6f05b59d3b200000'
+                    close: '0x6f05b59d3b200000'
+                    high: '0x6f05b59d3b200000'
+                    low: '0x6f05b59d3b200000'
+                    volume: '0x2386f26fc10000'
+                id: 1
+          x-gitbook-description-html: <p>Array of candle objects sorted by timestamp (newest first)</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Retrieves historical candle (OHLCV) data for a specified
+                      orderbook.
+                    marks: []
+                key: Z1qvmqTaPhMW
+            key: OHv9KoovpQay
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Candles represent aggregated price and volume data over
+                      specified time intervals. Results are returned sorted by
+                      timestamp in descending order (newest first).
+                    marks: []
+                key: ufbZBV3475c3
+            key: ZgKlUu8StVgv
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      All prices are in quote/base units with 1e18 scale
+                      (hex-encoded).
+                    marks: []
+                key: OrifCHOeCUyh
+            key: qYiQZSDYgNsb
+        key: SWQwRfbEq8MP
+      x-gitbook-description-html: >-
+        <p>Retrieves historical candle (OHLCV) data for a specified
+        orderbook.</p><p>Candles represent aggregated price and volume data over
+        specified time intervals. Results are returned sorted by timestamp in
+        descending order (newest first).</p><p>All prices are in quote/base
+        units with 1e18 scale (hex-encoded).</p>
+  /ob_getOrders:
+    post:
+      tags:
+        - Orderbook Data (ob_)
+      summary: Get Account Orders
+      operationId: ob_getOrders
+      description: >
+        Retrieves orders for a specific address in a given orderbook, with
+        support for cursor-based pagination.
+
+
+        Orders are returned in descending order by timestamp/nonce.
+
+        Use the `next_cursor` from the response to fetch subsequent pages.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: ob_getOrders
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: >
+                    Parameters:
+
+                    1. `clob_id` (bytes32): The 32-byte orderbook identifier
+
+                    2. `query` (object): Query parameters including address,
+                    limit, cursor, and optional status filter
+                  example:
+                    - >-
+                      0x0000000000000000000000000000000000000000000000000000000000000001
+                    - address: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28'
+                      limit: 10
+                      status: active
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>clob_id</code> (bytes32): The 32-byte orderbook
+                    identifier</li>
+
+                    <li><code>query</code> (object): Query parameters including
+                    address, limit, cursor, and optional status filter</li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Object containing orders array and pagination cursor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    type: object
+                    properties:
+                      orders:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Order'
+                      next_cursor:
+                        type: string
+                        nullable: true
+                        description: >-
+                          Cursor for fetching the next page. Null if no more
+                          results.
+                        x-gitbook-description-html: >-
+                          <p>Cursor for fetching the next page. Null if no more
+                          results.</p>
+                  id:
+                    type: integer
+              example:
+                jsonrpc: '2.0'
+                result:
+                  orders:
+                    - tx_hash: >-
+                        0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+                      nonce: 42
+                      bidder: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28'
+                      initial_size: '1000000000000000000'
+                      filled_base_amount: '500000000000000000'
+                      filled_quote_amount: '2500000000000000000'
+                      price: '5000000000000000000'
+                      start: '1704153600000000'
+                      end: '1704240000000000'
+                      fee: '1000000000000000'
+                      status: active
+                  next_cursor: '1704153600000000:42'
+                id: 1
+          x-gitbook-description-html: <p>Object containing orders array and pagination cursor</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Retrieves orders for a specific address in a given
+                      orderbook, with support for cursor-based pagination.
+                    marks: []
+                key: HNwOKZGbeWOE
+            key: oeJ3MAAhSVhn
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Orders are returned in descending order by
+                      timestamp/nonce. Use the
+                    marks: []
+                  - object: leaf
+                    text: next_cursor
+                    marks:
+                      - object: mark
+                        type: code
+                        data: {}
+                  - object: leaf
+                    text: ' from the response to fetch subsequent pages.'
+                    marks: []
+                key: a9vR2kuAShNc
+            key: mBsrDR7VXXw2
+        key: baFPIdQwZheW
+      x-gitbook-description-html: >-
+        <p>Retrieves orders for a specific address in a given orderbook, with
+        support for cursor-based pagination.</p><p>Orders are returned in
+        descending order by timestamp/nonce. Use the <code>next_cursor</code>
+        from the response to fetch subsequent pages.</p>
+  /ob_getPositions:
+    post:
+      tags:
+        - Orderbook Data (ob_)
+      summary: Get Account Positions
+      operationId: ob_getPositions
+      description: >
+        Retrieves trading positions for a specific address across all
+        orderbooks.
+
+
+        Positions track the cost basis of acquired tokens (from buys and
+        deposits) and compute
+
+        unrealized PnL using the current clearing price. The response includes
+        per-token positions
+
+        (balance, position size, unrealized PnL) and aggregate metrics (total
+        realized PnL,
+
+        total invested, total unrealized PnL).
+
+
+        All amounts use 1e18 fixed-point scale.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: ob_getPositions
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `address` (address): The address to get positions for
+                  items:
+                    $ref: '#/components/schemas/Address'
+                  example:
+                    - '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28'
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>address</code> (address): The address to get
+                    positions for</li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Positions response with per-token positions and aggregate PnL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    $ref: '#/components/schemas/PositionsResponse'
+                  id:
+                    type: integer
+              example:
+                jsonrpc: '2.0'
+                result:
+                  positions:
+                    - symbol: PETH
+                      address: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
+                      balance: '0x21e19e0c9bab2400000'
+                      position: '0x21e19e0c9bab2400000'
+                      unrealized_pnl: '-99900099900099900100'
+                    - symbol: USDT
+                      address: '0x0000000000000000000000000000000000000001'
+                      balance: '0x20dd68aaf3289100000'
+                      position: '0x0'
+                      unrealized_pnl: '0'
+                  total_unrealized_pnl: '-99900099900099900100'
+                  total_realized_pnl: '99900099900099900100'
+                  total_invested: '0x56bc75e2d63100000'
+                id: 1
+          x-gitbook-description-html: <p>Positions response with per-token positions and aggregate PnL</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Retrieves trading positions for a specific address across
+                      all orderbooks.
+                    marks: []
+                key: 8d2twgWLH7nP
+            key: Mm3kqgR19DZw
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Positions track the cost basis of acquired tokens (from
+                      buys and deposits) and compute unrealized PnL using the
+                      current clearing price. The response includes per-token
+                      positions (balance, position size, unrealized PnL) and
+                      aggregate metrics (total realized PnL, total invested,
+                      total unrealized PnL).
+                    marks: []
+                key: GSgQcESou5eE
+            key: ku0uQj8wTnKy
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: All amounts use 1e18 fixed-point scale.
+                    marks: []
+                key: TZTJWItcEJOx
+            key: txQLeQKpKz9L
+        key: DkdgRuPVZGxy
+      x-gitbook-description-html: >-
+        <p>Retrieves trading positions for a specific address across all
+        orderbooks.</p><p>Positions track the cost basis of acquired tokens
+        (from buys and deposits) and compute unrealized PnL using the current
+        clearing price. The response includes per-token positions (balance,
+        position size, unrealized PnL) and aggregate metrics (total realized
+        PnL, total invested, total unrealized PnL).</p><p>All amounts use 1e18
+        fixed-point scale.</p>
+  /eth_getBalance:
+    post:
+      tags:
+        - Ethereum Interface (eth_)
+      summary: Get Native Token Balance
+      operationId: eth_getBalance
+      description: >
+        Returns the native token balance for the specified address in the
+        wallet.
+
+
+        **Note:** This returns the wallet balance, which is distinct from the
+        orderbook contract balance.
+
+        To query the balance deposited in the orderbook contract, call the
+        `getBalance` function on the orderbook contract.
+
+
+        The `block_number` parameter is accepted for Ethereum compatibility but
+        is ignored.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: eth_getBalance
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: >
+                    Parameters:
+
+                    1. `address` (address): The address to check balance for
+
+                    2. `block_number` (string): Block identifier (accepted but
+                    ignored)
+                  items:
+                    anyOf:
+                      - $ref: '#/components/schemas/Address'
+                      - type: string
+                        default: latest
+                  example:
+                    - '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28'
+                    - latest
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>address</code> (address): The address to check
+                    balance for</li>
+
+                    <li><code>block_number</code> (string): Block identifier
+                    (accepted but ignored)</li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Balance in wei (hex-encoded uint256)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    $ref: '#/components/schemas/HexUint256'
+                  id:
+                    type: integer
+              example:
+                jsonrpc: '2.0'
+                result: '0x6f05b59d3b200000'
+                id: 1
+          x-gitbook-description-html: <p>Balance in wei (hex-encoded uint256)</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Returns the native token balance for the specified address
+                      in the wallet.
+                    marks: []
+                key: vkZGGmFjyqUT
+            key: xupZTQ1MtETf
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: 'Note:'
+                    marks:
+                      - object: mark
+                        type: bold
+                        data: {}
+                  - object: leaf
+                    text: ' This returns the wallet balance, which is distinct from the orderbook contract balance. To query the balance deposited in the orderbook contract, call the '
+                    marks: []
+                  - object: leaf
+                    text: getBalance
+                    marks:
+                      - object: mark
+                        type: code
+                        data: {}
+                  - object: leaf
+                    text: ' function on the orderbook contract.'
+                    marks: []
+                key: H8MrE4kAVVSU
+            key: mbpYyBeAhk9s
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: 'The '
+                    marks: []
+                  - object: leaf
+                    text: block_number
+                    marks:
+                      - object: mark
+                        type: code
+                        data: {}
+                  - object: leaf
+                    text: ' parameter is accepted for Ethereum compatibility but is ignored.'
+                    marks: []
+                key: LxuJ4f9yjbN2
+            key: Sq9BjQqHCiPe
+        key: wr869RRR43Rj
+      x-gitbook-description-html: >-
+        <p>Returns the native token balance for the specified address in the
+        wallet.</p><p><strong>Note:</strong> This returns the wallet balance,
+        which is distinct from the orderbook contract balance. To query the
+        balance deposited in the orderbook contract, call the
+        <code>getBalance</code> function on the orderbook contract.</p><p>The
+        <code>block_number</code> parameter is accepted for Ethereum
+        compatibility but is ignored.</p>
+  /eth_chainId:
+    post:
+      tags:
+        - Ethereum Interface (eth_)
+      summary: Get Chain ID
+      operationId: eth_chainId
+      description: Returns the chain ID used for signing transactions (EIP-155).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: eth_chainId
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  default: []
+      responses:
+        '200':
+          description: Chain ID (hex-encoded)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    type: string
+                    example: '0x50d'
+                  id:
+                    type: integer
+          x-gitbook-description-html: <p>Chain ID (hex-encoded)</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Returns the chain ID used for signing transactions
+                      (EIP-155).
+                    marks: []
+                key: t9EyoU1rdf4h
+            key: JvmHHDyWz8Xr
+        key: BSL0ZiiQiZ4H
+      x-gitbook-description-html: <p>Returns the chain ID used for signing transactions (EIP-155).</p>
+  /eth_getTransactionCount:
+    post:
+      tags:
+        - Ethereum Interface (eth_)
+      summary: Get Transaction Count (Nonce)
+      operationId: eth_getTransactionCount
+      description: >
+        Returns the transaction count (nonce) for the specified address.
+
+        Required for transaction signing to prevent replay attacks.
+
+        The nonce is the current transaction count for the address.
+
+
+        **Pod-specific:** The `block_tag` parameter is accepted for Ethereum
+        compatibility but is ignored.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: eth_getTransactionCount
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `address` (address): The address to get nonce for
+                    2. `block_tag` (string): Block tag (accepted but ignored)
+                  example:
+                    - '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28'
+                    - latest
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>address</code> (address): The address to get nonce
+                    for</li>
+
+                    <li><code>block_tag</code> (string): Block tag (accepted but
+                    ignored)</li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Nonce (hex-encoded uint256)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    $ref: '#/components/schemas/HexUint256'
+                  id:
+                    type: integer
+          x-gitbook-description-html: <p>Nonce (hex-encoded uint256)</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Returns the transaction count (nonce) for the specified
+                      address. Required for transaction signing to prevent
+                      replay attacks. The nonce is the current transaction count
+                      for the address.
+                    marks: []
+                key: qo2ZWu0jGm02
+            key: NToeOe9ZS79T
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: 'Pod-specific:'
+                    marks:
+                      - object: mark
+                        type: bold
+                        data: {}
+                  - object: leaf
+                    text: ' The '
+                    marks: []
+                  - object: leaf
+                    text: block_tag
+                    marks:
+                      - object: mark
+                        type: code
+                        data: {}
+                  - object: leaf
+                    text: ' parameter is accepted for Ethereum compatibility but is ignored.'
+                    marks: []
+                key: PyDHzIOFUZjt
+            key: sVAMcS0KB8gS
+        key: 7REFyIQh15dD
+      x-gitbook-description-html: >-
+        <p>Returns the transaction count (nonce) for the specified address.
+        Required for transaction signing to prevent replay attacks. The nonce is
+        the current transaction count for the
+        address.</p><p><strong>Pod-specific:</strong> The <code>block_tag</code>
+        parameter is accepted for Ethereum compatibility but is ignored.</p>
+  /eth_sendRawTransaction:
+    post:
+      tags:
+        - Ethereum Interface (eth_)
+      summary: Send Raw Transaction
+      operationId: eth_sendRawTransaction
+      description: >
+        Submits a signed EIP-1559 transaction to the network.
+
+
+        The transaction must be RLP-encoded and signed. Use this method to
+        submit orderbook operations
+
+        (deposits, withdrawals, order submissions, cancellations) to the
+        orderbook contract.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: eth_sendRawTransaction
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `signed_tx` (string): Signed RLP-encoded transaction data
+                  items:
+                    type: string
+                    description: Signed RLP-encoded transaction
+                    x-gitbook-description-html: <p>Signed RLP-encoded transaction</p>
+                  example:
+                    - 0x02f8...
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>signed_tx</code> (string): Signed RLP-encoded
+                    transaction data</li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Transaction hash
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    $ref: '#/components/schemas/Bytes32'
+                  id:
+                    type: integer
+          x-gitbook-description-html: <p>Transaction hash</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: Submits a signed EIP-1559 transaction to the network.
+                    marks: []
+                key: Qyyu67sahaol
+            key: U8WTlYGypjtt
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      The transaction must be RLP-encoded and signed. Use this
+                      method to submit orderbook operations (deposits,
+                      withdrawals, order submissions, cancellations) to the
+                      orderbook contract.
+                    marks: []
+                key: nH4dZhtrV07e
+            key: 5Mbuv1m0So3L
+        key: KXP38UJucAIM
+      x-gitbook-description-html: >-
+        <p>Submits a signed EIP-1559 transaction to the network.</p><p>The
+        transaction must be RLP-encoded and signed. Use this method to submit
+        orderbook operations (deposits, withdrawals, order submissions,
+        cancellations) to the orderbook contract.</p>
+  /eth_call:
+    post:
+      tags:
+        - Ethereum Interface (eth_)
+      summary: Execute Read-Only Call
+      operationId: eth_call
+      description: >
+        Executes a new message call immediately without creating a transaction
+        on the blockchain.
+
+
+        Use this method for read-only operations on the orderbook contract, such
+        as:
+
+        - `getBalance(address token)` - Get deposited balance for a token
+
+        - `getOrders(bytes32 orderbookId, bytes32[] txHashes)` - Get order
+        details by transaction hashes
+
+
+        **Orderbook Contract Address:**
+        `0x000000000000000000000000000000000000C10B`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: eth_call
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: >
+                    Parameters:
+
+                    1. `transaction` (object): Call object with `to`, `data`,
+                    and optionally `from`
+
+                    2. `block_tag` (string): Block tag (e.g., "latest")
+                  example:
+                    - to: '0x000000000000000000000000000000000000C10B'
+                      data: 0x...
+                    - latest
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>transaction</code> (object): Call object with
+                    <code>to</code>, <code>data</code>, and optionally
+                    <code>from</code></li>
+
+                    <li><code>block_tag</code> (string): Block tag (e.g.,
+                    "latest")</li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Return data (hex-encoded)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    type: string
+                    example: 0x000...
+                  id:
+                    type: integer
+          x-gitbook-description-html: <p>Return data (hex-encoded)</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Executes a new message call immediately without creating a
+                      transaction on the blockchain.
+                    marks: []
+                key: vUxkuQyHA2Hr
+            key: FYOZADnuXEGU
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Use this method for read-only operations on the orderbook
+                      contract, such as:
+                    marks: []
+                key: 740sEnlCocCs
+            key: r7cjeC4ZxfyN
+          - object: block
+            type: list-unordered
+            isVoid: false
+            data: {}
+            nodes:
+              - object: block
+                type: list-item
+                isVoid: false
+                data: {}
+                nodes:
+                  - object: block
+                    type: paragraph
+                    isVoid: false
+                    data: {}
+                    nodes:
+                      - object: text
+                        leaves:
+                          - object: leaf
+                            text: getBalance(address token)
+                            marks:
+                              - object: mark
+                                type: code
+                                data: {}
+                          - object: leaf
+                            text: ' - Get deposited balance for a token'
+                            marks: []
+                        key: 6R2nFEGb4xGg
+                    key: XlJwFI7mJP9u
+                key: nbzs4eHBW7If
+              - object: block
+                type: list-item
+                isVoid: false
+                data: {}
+                nodes:
+                  - object: block
+                    type: paragraph
+                    isVoid: false
+                    data: {}
+                    nodes:
+                      - object: text
+                        leaves:
+                          - object: leaf
+                            text: getOrders(bytes32 orderbookId, bytes32[] txHashes)
+                            marks:
+                              - object: mark
+                                type: code
+                                data: {}
+                          - object: leaf
+                            text: ' - Get order details by transaction hashes'
+                            marks: []
+                        key: MXKTYZTqD6z1
+                    key: g0bZNpVaGpuM
+                key: 35iJh2oqJANL
+            key: yf4VkJn4QElq
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: 'Orderbook Contract Address:'
+                    marks:
+                      - object: mark
+                        type: bold
+                        data: {}
+                  - object: leaf
+                    text: ' '
+                    marks: []
+                  - object: leaf
+                    text: '0x000000000000000000000000000000000000C10B'
+                    marks:
+                      - object: mark
+                        type: code
+                        data: {}
+                key: vFfRKn6yKvUd
+            key: h6r2iqYrgbIm
+        key: r6L4ZC5esmnV
+      x-gitbook-description-html: >-
+        <p>Executes a new message call immediately without creating a
+        transaction on the blockchain.</p><p>Use this method for read-only
+        operations on the orderbook contract, such
+        as:</p><ul><li><code>getBalance(address token)</code> - Get deposited
+        balance for a token</li><li><code>getOrders(bytes32 orderbookId,
+        bytes32[] txHashes)</code> - Get order details by transaction
+        hashes</li></ul><p><strong>Orderbook Contract Address:</strong>
+        <code>0x000000000000000000000000000000000000C10B</code></p>
+  /eth_getTransactionReceipt:
+    post:
+      tags:
+        - Ethereum Interface (eth_)
+      summary: Get Transaction Receipt
+      operationId: eth_getTransactionReceipt
+      description: >
+        Retrieves the transaction receipt including execution status and event
+        logs.
+
+
+        **Pod-specific:** The receipt includes `pod_metadata` containing
+        validator attestations for transaction finality verification.
+
+
+        Returns `null` if the transaction is not found or not yet processed.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: eth_getTransactionReceipt
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: >
+                    Parameters:
+
+                    1. `transaction_hash` (bytes32): The transaction hash to
+                    look up
+                  items:
+                    $ref: '#/components/schemas/Bytes32'
+                  example:
+                    - >-
+                      0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>transaction_hash</code> (bytes32): The transaction
+                    hash to look up</li>
+
+                    </ol>
+      responses:
+        '200':
+          description: >-
+            Transaction receipt with Pod-specific attestation data, or null if
+            not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    oneOf:
+                      - $ref: '#/components/schemas/TransactionReceipt'
+                      - type: 'null'
+                  id:
+                    type: integer
+          x-gitbook-description-html: >-
+            <p>Transaction receipt with Pod-specific attestation data, or null
+            if not found</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Retrieves the transaction receipt including execution
+                      status and event logs.
+                    marks: []
+                key: nilVjn2OPk4w
+            key: QwYUfUBDzhgk
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: 'Pod-specific:'
+                    marks:
+                      - object: mark
+                        type: bold
+                        data: {}
+                  - object: leaf
+                    text: ' The receipt includes '
+                    marks: []
+                  - object: leaf
+                    text: pod_metadata
+                    marks:
+                      - object: mark
+                        type: code
+                        data: {}
+                  - object: leaf
+                    text: ' containing validator attestations for transaction finality verification.'
+                    marks: []
+                key: 75Gn4qsq7kpK
+            key: QkhP7j5HPxWY
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: 'Returns '
+                    marks: []
+                  - object: leaf
+                    text: 'null'
+                    marks:
+                      - object: mark
+                        type: code
+                        data: {}
+                  - object: leaf
+                    text: ' if the transaction is not found or not yet processed.'
+                    marks: []
+                key: dmpX8zT4bx4C
+            key: fKOXrFkUTPhC
+        key: o0CxHkBUsLHk
+      x-gitbook-description-html: >-
+        <p>Retrieves the transaction receipt including execution status and
+        event logs.</p><p><strong>Pod-specific:</strong> The receipt includes
+        <code>pod_metadata</code> containing validator attestations for
+        transaction finality verification.</p><p>Returns <code>null</code> if
+        the transaction is not found or not yet processed.</p>
+  /eth_estimateGas:
+    post:
+      tags:
+        - Ethereum Interface (eth_)
+      summary: Estimate Gas
+      operationId: eth_estimateGas
+      description: >
+        Estimates the gas required for a transaction.
+
+
+        **Pod-specific behavior:** If the transaction already specifies a gas
+        value, returns that value.
+
+        Otherwise, returns `21000` (standard transaction gas).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: eth_estimateGas
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: >
+                    Parameters:
+
+                    1. `transaction` (object): Transaction object with `to`,
+                    `data`, `value`, `from`, etc.
+                  example:
+                    - to: '0x000000000000000000000000000000000000C10B'
+                      value: '0x0'
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>transaction</code> (object): Transaction object
+                    with <code>to</code>, <code>data</code>, <code>value</code>,
+                    <code>from</code>, etc.</li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Estimated gas (hex-encoded)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    $ref: '#/components/schemas/HexUint256'
+                  id:
+                    type: integer
+          x-gitbook-description-html: <p>Estimated gas (hex-encoded)</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: Estimates the gas required for a transaction.
+                    marks: []
+                key: VpW4VGrMKBhV
+            key: TIpjjYcEs1SQ
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: 'Pod-specific behavior:'
+                    marks:
+                      - object: mark
+                        type: bold
+                        data: {}
+                  - object: leaf
+                    text: ' If the transaction already specifies a gas value, returns that value. Otherwise, returns '
+                    marks: []
+                  - object: leaf
+                    text: '21000'
+                    marks:
+                      - object: mark
+                        type: code
+                        data: {}
+                  - object: leaf
+                    text: ' (standard transaction gas).'
+                    marks: []
+                key: pIuQLkbHjfQk
+            key: etZLvBn5Yarj
+        key: aSJExhexzdZi
+      x-gitbook-description-html: >-
+        <p>Estimates the gas required for a
+        transaction.</p><p><strong>Pod-specific behavior:</strong> If the
+        transaction already specifies a gas value, returns that value.
+        Otherwise, returns <code>21000</code> (standard transaction gas).</p>
+  /eth_getLogs:
+    post:
+      tags:
+        - Ethereum Interface (eth_)
+      summary: Get Logs
+      operationId: eth_getLogs
+      description: Returns an array of log objects matching the given filter criteria.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: eth_getLogs
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: >
+                    Parameters:
+
+                    1. `filter` (object): Filter object with `address`,
+                    `topics`, `fromBlock`, `toBlock`
+                  example:
+                    - address: '0x000000000000000000000000000000000000C10B'
+                      topics: []
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>filter</code> (object): Filter object with
+                    <code>address</code>, <code>topics</code>,
+                    <code>fromBlock</code>, <code>toBlock</code></li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Array of log objects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Log'
+                  id:
+                    type: integer
+          x-gitbook-description-html: <p>Array of log objects</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Returns an array of log objects matching the given filter
+                      criteria.
+                    marks: []
+                key: vwjXaqSnjYwU
+            key: zMH1uCQYhr5P
+        key: Tbnt3Ws750bT
+      x-gitbook-description-html: >-
+        <p>Returns an array of log objects matching the given filter
+        criteria.</p>
+  /eth_subscribe:
+    post:
+      tags:
+        - Ethereum Interface (eth_)
+      summary: Subscribe to Events (WebSocket)
+      operationId: eth_subscribe
+      description: |
+        Creates a subscription to receive real-time updates over WebSocket.
+
+        **Pod-specific subscriptions:**
+        - `pod_orderbook` - Receive orderbook snapshots on each mutation
+        - `pod_orders` - Receive order updates for specified orderbooks
+
+        Subscriptions follow the standard Ethereum `eth_subscribe` pattern:
+        1. Subscribe with `eth_subscribe` → receive subscription ID
+        2. Receive updates via `eth_subscription` notifications
+        3. Cancel with `eth_unsubscribe`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: eth_subscribe
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: >
+                    Parameters:
+
+                    1. `subscription_type` (string): Type of subscription
+                    (`pod_orderbook` or `pod_orders`)
+
+                    2. `options` (object): Subscription options including
+                    `orderbook_ids` and `depth`
+                  example:
+                    - pod_orderbook
+                    - orderbook_ids:
+                        - >-
+                          0x0000000000000000000000000000000000000000000000000000000000000001
+                      depth: 50
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>subscription_type</code> (string): Type of
+                    subscription (<code>pod_orderbook</code> or
+                    <code>pod_orders</code>)</li>
+
+                    <li><code>options</code> (object): Subscription options
+                    including <code>orderbook_ids</code> and
+                    <code>depth</code></li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Subscription ID for tracking and unsubscribing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    type: string
+                    description: Subscription ID
+                    x-gitbook-description-html: <p>Subscription ID</p>
+                  id:
+                    type: integer
+          x-gitbook-description-html: <p>Subscription ID for tracking and unsubscribing</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Creates a subscription to receive real-time updates over
+                      WebSocket.
+                    marks: []
+                key: xqjsIQ7jAtW3
+            key: yCXY8uR3I6Uk
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: 'Pod-specific subscriptions:'
+                    marks:
+                      - object: mark
+                        type: bold
+                        data: {}
+                key: NTQTq0DnBIy8
+            key: a4BVtFAuGrkR
+          - object: block
+            type: list-unordered
+            isVoid: false
+            data: {}
+            nodes:
+              - object: block
+                type: list-item
+                isVoid: false
+                data: {}
+                nodes:
+                  - object: block
+                    type: paragraph
+                    isVoid: false
+                    data: {}
+                    nodes:
+                      - object: text
+                        leaves:
+                          - object: leaf
+                            text: pod_orderbook
+                            marks:
+                              - object: mark
+                                type: code
+                                data: {}
+                          - object: leaf
+                            text: ' - Receive orderbook snapshots on each mutation'
+                            marks: []
+                        key: L9fuqiSWrA2J
+                    key: oe2HMD0TlCPO
+                key: 7r88qk6vFTEc
+              - object: block
+                type: list-item
+                isVoid: false
+                data: {}
+                nodes:
+                  - object: block
+                    type: paragraph
+                    isVoid: false
+                    data: {}
+                    nodes:
+                      - object: text
+                        leaves:
+                          - object: leaf
+                            text: pod_orders
+                            marks:
+                              - object: mark
+                                type: code
+                                data: {}
+                          - object: leaf
+                            text: ' - Receive order updates for specified orderbooks'
+                            marks: []
+                        key: gFIRlChjCUkM
+                    key: A1zDbvftVxSH
+                key: m5C9rhchwFVL
+            key: 4mjmPJhx5FsR
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: 'Subscriptions follow the standard Ethereum '
+                    marks: []
+                  - object: leaf
+                    text: eth_subscribe
+                    marks:
+                      - object: mark
+                        type: code
+                        data: {}
+                  - object: leaf
+                    text: ' pattern:'
+                    marks: []
+                key: hDAqPTaA3MFK
+            key: xgdKswBZBX5k
+          - object: block
+            type: list-ordered
+            isVoid: false
+            data: {}
+            nodes:
+              - object: block
+                type: list-item
+                isVoid: false
+                data: {}
+                nodes:
+                  - object: block
+                    type: paragraph
+                    isVoid: false
+                    data: {}
+                    nodes:
+                      - object: text
+                        leaves:
+                          - object: leaf
+                            text: 'Subscribe with '
+                            marks: []
+                          - object: leaf
+                            text: eth_subscribe
+                            marks:
+                              - object: mark
+                                type: code
+                                data: {}
+                          - object: leaf
+                            text: ' → receive subscription ID'
+                            marks: []
+                        key: 3hwfdedY67YU
+                    key: 7cUFnmM4HAdG
+                key: RzlnmbuUPVqF
+              - object: block
+                type: list-item
+                isVoid: false
+                data: {}
+                nodes:
+                  - object: block
+                    type: paragraph
+                    isVoid: false
+                    data: {}
+                    nodes:
+                      - object: text
+                        leaves:
+                          - object: leaf
+                            text: 'Receive updates via '
+                            marks: []
+                          - object: leaf
+                            text: eth_subscription
+                            marks:
+                              - object: mark
+                                type: code
+                                data: {}
+                          - object: leaf
+                            text: ' notifications'
+                            marks: []
+                        key: DTwGLmiUq8kj
+                    key: YveU9rX7PrE2
+                key: JkHRbMBANb7g
+              - object: block
+                type: list-item
+                isVoid: false
+                data: {}
+                nodes:
+                  - object: block
+                    type: paragraph
+                    isVoid: false
+                    data: {}
+                    nodes:
+                      - object: text
+                        leaves:
+                          - object: leaf
+                            text: 'Cancel with '
+                            marks: []
+                          - object: leaf
+                            text: eth_unsubscribe
+                            marks:
+                              - object: mark
+                                type: code
+                                data: {}
+                        key: 98eKsZ4vihdk
+                    key: diLVFHEEh3C7
+                key: vau5xBABFcGS
+            key: AsLEWw2tungA
+        key: 4ZA9ZZXjIyLG
+      x-gitbook-description-html: >-
+        <p>Creates a subscription to receive real-time updates over
+        WebSocket.</p><p><strong>Pod-specific
+        subscriptions:</strong></p><ul><li><code>pod_orderbook</code> - Receive
+        orderbook snapshots on each mutation</li><li><code>pod_orders</code> -
+        Receive order updates for specified orderbooks</li></ul><p>Subscriptions
+        follow the standard Ethereum <code>eth_subscribe</code>
+        pattern:</p><ol><li>Subscribe with <code>eth_subscribe</code> → receive
+        subscription ID</li><li>Receive updates via
+        <code>eth_subscription</code> notifications</li><li>Cancel with
+        <code>eth_unsubscribe</code></li></ol>
+  /pod_getCommittee:
+    post:
+      tags:
+        - Network & Consensus (pod_)
+      summary: Get Validator Committee
+      operationId: pod_getCommittee
+      description: Returns information about the current validator committee.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: pod_getCommittee
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  default: []
+      responses:
+        '200':
+          description: Committee information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    type: object
+                  id:
+                    type: integer
+          x-gitbook-description-html: <p>Committee information</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: Returns information about the current validator committee.
+                    marks: []
+                key: 7VhMcOblu3mR
+            key: seIDDnDW5V1s
+        key: Gf1NqAbW951F
+      x-gitbook-description-html: <p>Returns information about the current validator committee.</p>
+  /pod_getVoteBatches:
+    post:
+      tags:
+        - Network & Consensus (pod_)
+      summary: Get Vote Batches
+      operationId: pod_getVoteBatches
+      description: Retrieves vote batches from validators within a specified range.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  default: '2.0'
+                method:
+                  type: string
+                  default: pod_getVoteBatches
+                id:
+                  type: integer
+                  default: 1
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `from_index` (integer, nullable): Starting index
+                    2. `to_index` (integer, nullable): Ending index
+                  items:
+                    type: integer
+                    nullable: true
+                  example:
+                    - 0
+                    - 1000
+                  x-gitbook-description-html: >-
+                    <p>Parameters:</p>
+
+                    <ol>
+
+                    <li><code>from_index</code> (integer, nullable): Starting
+                    index</li>
+
+                    <li><code>to_index</code> (integer, nullable): Ending
+                    index</li>
+
+                    </ol>
+      responses:
+        '200':
+          description: Array of vote batch objects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  result:
+                    type: array
+                    items:
+                      type: object
+                  id:
+                    type: integer
+          x-gitbook-description-html: <p>Array of vote batch objects</p>
+      x-gitbook-description-document:
+        object: document
+        data:
+          schemaVersion: 9
+        nodes:
+          - object: block
+            type: paragraph
+            isVoid: false
+            data: {}
+            nodes:
+              - object: text
+                leaves:
+                  - object: leaf
+                    text: >-
+                      Retrieves vote batches from validators within a specified
+                      range.
+                    marks: []
+                key: J9APSSsghlQj
+            key: 91HFwK57DPuZ
+        key: G8bjMe9HlXwX
+      x-gitbook-description-html: <p>Retrieves vote batches from validators within a specified range.</p>
+components:
+  schemas:
+    JsonRpcRequest:
+      type: object
+      description: Standard JSON-RPC 2.0 request object
+      required:
+        - jsonrpc
+        - method
+        - id
+      properties:
+        jsonrpc:
+          type: string
+          enum:
+            - '2.0'
+          description: JSON-RPC protocol version (always "2.0")
+          x-gitbook-description-html: <p>JSON-RPC protocol version (always "2.0")</p>
+        method:
+          type: string
+          description: Name of the RPC method to invoke
+          x-gitbook-description-html: <p>Name of the RPC method to invoke</p>
+        params:
+          type: array
+          items: {}
+          description: Method parameters as an array
+          x-gitbook-description-html: <p>Method parameters as an array</p>
+        id:
+          oneOf:
+            - type: integer
+            - type: string
+          description: Request identifier for correlating responses
+          x-gitbook-description-html: <p>Request identifier for correlating responses</p>
+      x-gitbook-description-html: <p>Standard JSON-RPC 2.0 request object</p>
+    JsonRpcResponse:
+      type: object
+      description: Standard JSON-RPC 2.0 response object
+      required:
+        - jsonrpc
+        - id
+      properties:
+        jsonrpc:
+          type: string
+          enum:
+            - '2.0'
+        result:
+          description: Result of the method call (mutually exclusive with error)
+          x-gitbook-description-html: <p>Result of the method call (mutually exclusive with error)</p>
+        error:
+          $ref: '#/components/schemas/JsonRpcError'
+          description: Error object if the call failed
+          x-gitbook-description-html: <p>Error object if the call failed</p>
+        id:
+          oneOf:
+            - type: integer
+            - type: string
+      x-gitbook-description-html: <p>Standard JSON-RPC 2.0 response object</p>
+    JsonRpcError:
+      type: object
+      description: JSON-RPC error object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          description: Numeric error code
+          x-gitbook-description-html: <p>Numeric error code</p>
+        message:
+          type: string
+          description: Human-readable error message
+          x-gitbook-description-html: <p>Human-readable error message</p>
+        data:
+          description: Additional error information
+          x-gitbook-description-html: <p>Additional error information</p>
+      x-gitbook-description-html: <p>JSON-RPC error object</p>
+    Address:
+      type: string
+      pattern: ^0x[a-fA-F0-9]{40}$
+      description: Ethereum address (20 bytes, hex-encoded with 0x prefix)
+      example: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28'
+      x-gitbook-description-html: <p>Ethereum address (20 bytes, hex-encoded with 0x prefix)</p>
+    Bytes32:
+      type: string
+      pattern: ^0x[a-fA-F0-9]{64}$
+      description: >-
+        32-byte value (hex-encoded with 0x prefix). Used for transaction hashes,
+        orderbook IDs, etc.
+      example: '0x0000000000000000000000000000000000000000000000000000000000000001'
+      x-gitbook-description-html: >-
+        <p>32-byte value (hex-encoded with 0x prefix). Used for transaction
+        hashes, orderbook IDs, etc.</p>
+    HexUint256:
+      type: string
+      pattern: ^0x[a-fA-F0-9]+$
+      description: Unsigned 256-bit integer (hex-encoded with 0x prefix)
+      example: '0x6f05b59d3b200000'
+      x-gitbook-description-html: <p>Unsigned 256-bit integer (hex-encoded with 0x prefix)</p>
+    DecimalUint256:
+      type: string
+      pattern: ^[0-9]+$
+      description: Unsigned 256-bit integer (decimal string representation)
+      example: '1000000000000000000'
+      x-gitbook-description-html: <p>Unsigned 256-bit integer (decimal string representation)</p>
+    Timestamp:
+      type: integer
+      format: int64
+      description: Unix timestamp in microseconds (not milliseconds or seconds)
+      example: 1704153600000000
+      x-gitbook-description-html: <p>Unix timestamp in microseconds (not milliseconds or seconds)</p>
+    TimestampString:
+      type: string
+      pattern: ^[0-9]+$
+      description: Unix timestamp in microseconds as a string
+      example: '1704153600000000'
+      x-gitbook-description-html: <p>Unix timestamp in microseconds as a string</p>
+    Side:
+      type: string
+      enum:
+        - Buy
+        - Sell
+      description: Order side - Buy (bid) or Sell (ask)
+      x-gitbook-description-html: <p>Order side - Buy (bid) or Sell (ask)</p>
+    OrderStatus:
+      type: string
+      enum:
+        - pending
+        - active
+        - filled
+        - expired
+        - canceled
+      description: |
+        Current status of an order:
+        - `pending`: Order submitted but not yet included in orderbook
+        - `active`: Order is live in the orderbook
+        - `filled`: Order completely filled
+        - `expired`: Order expired (TTL exceeded)
+        - `canceled`: Order was canceled by user
+      x-gitbook-description-html: >-
+        <p>Current status of an order:</p>
+
+        <ul>
+
+        <li><code>pending</code>: Order submitted but not yet included in
+        orderbook</li>
+
+        <li><code>active</code>: Order is live in the orderbook</li>
+
+        <li><code>filled</code>: Order completely filled</li>
+
+        <li><code>expired</code>: Order expired (TTL exceeded)</li>
+
+        <li><code>canceled</code>: Order was canceled by user</li>
+
+        </ul>
+    MarketType:
+      type: string
+      enum:
+        - spot
+        - perpetual
+      description: Type of market - spot trading or perpetual futures
+      x-gitbook-description-html: <p>Type of market - spot trading or perpetual futures</p>
+    CandleResolution:
+      type: string
+      enum:
+        - 1m
+        - 5m
+        - 15m
+        - 1h
+        - 4h
+        - 1d
+      description: Time interval for OHLCV candles
+      x-gitbook-description-html: <p>Time interval for OHLCV candles</p>
+    Order:
+      type: object
+      description: >
+        Represents an order in the orderbook.
+
+        The `initial_size` is signed: positive for Buy orders, negative for Sell
+        orders.
+      properties:
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+          description: Transaction hash that created this order
+          x-gitbook-description-html: <p>Transaction hash that created this order</p>
+        nonce:
+          type: integer
+          format: int64
+          description: Order nonce for the account
+          x-gitbook-description-html: <p>Order nonce for the account</p>
+        bidder:
+          $ref: '#/components/schemas/Address'
+          description: Address of the order creator
+          x-gitbook-description-html: <p>Address of the order creator</p>
+        initial_size:
+          type: string
+          description: Original signed order size (positive = Buy/Bid, negative = Sell/Ask)
+          x-gitbook-description-html: >-
+            <p>Original signed order size (positive = Buy/Bid, negative =
+            Sell/Ask)</p>
+        filled_base_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Amount of base tokens filled
+          x-gitbook-description-html: <p>Amount of base tokens filled</p>
+        filled_quote_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Amount of quote tokens filled (spent for buys, received for sells)
+          x-gitbook-description-html: >-
+            <p>Amount of quote tokens filled (spent for buys, received for
+            sells)</p>
+        price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Limit price in quote/base units with 1e18 scale
+          x-gitbook-description-html: <p>Limit price in quote/base units with 1e18 scale</p>
+        start:
+          $ref: '#/components/schemas/TimestampString'
+          description: Timestamp when order was included in the orderbook (microseconds)
+          x-gitbook-description-html: >-
+            <p>Timestamp when order was included in the orderbook
+            (microseconds)</p>
+        end:
+          $ref: '#/components/schemas/TimestampString'
+          description: Timestamp when order expires (microseconds)
+          x-gitbook-description-html: <p>Timestamp when order expires (microseconds)</p>
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        fee:
+          $ref: '#/components/schemas/HexUint256'
+          description: Accumulated trading fee
+          x-gitbook-description-html: <p>Accumulated trading fee</p>
+      x-gitbook-description-html: >-
+        <p>Represents an order in the orderbook.
+
+        The <code>initial_size</code> is signed: positive for Buy orders,
+        negative for Sell orders.</p>
+    Candle:
+      type: object
+      description: OHLCV candle representing price/volume data for a time period
+      properties:
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+          description: Candle timestamp in microseconds
+          x-gitbook-description-html: <p>Candle timestamp in microseconds</p>
+        o:
+          $ref: '#/components/schemas/HexUint256'
+          description: Opening price (quote/base with 1e18 scale)
+          x-gitbook-description-html: <p>Opening price (quote/base with 1e18 scale)</p>
+        c:
+          $ref: '#/components/schemas/HexUint256'
+          description: Closing price (quote/base with 1e18 scale)
+          x-gitbook-description-html: <p>Closing price (quote/base with 1e18 scale)</p>
+        h:
+          $ref: '#/components/schemas/HexUint256'
+          description: Highest price (quote/base with 1e18 scale)
+          x-gitbook-description-html: <p>Highest price (quote/base with 1e18 scale)</p>
+        l:
+          $ref: '#/components/schemas/HexUint256'
+          description: Lowest price (quote/base with 1e18 scale)
+          x-gitbook-description-html: <p>Lowest price (quote/base with 1e18 scale)</p>
+        volume:
+          $ref: '#/components/schemas/HexUint256'
+          description: Total volume traded during this candle period
+          x-gitbook-description-html: <p>Total volume traded during this candle period</p>
+      x-gitbook-description-html: <p>OHLCV candle representing price/volume data for a time period</p>
+    Market:
+      type: object
+      description: Market/orderbook metadata and 24-hour statistics
+      properties:
+        id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Unique 32-byte orderbook identifier
+          x-gitbook-description-html: <p>Unique 32-byte orderbook identifier</p>
+        name:
+          type: string
+          description: Market name in format `{market_type}_{base_token}/{quote_token}`
+          example: spot_PETH/USDT
+          x-gitbook-description-html: >-
+            <p>Market name in format
+            <code>{market_type}_{base_token}/{quote_token}</code></p>
+        base_token_address:
+          $ref: '#/components/schemas/Address'
+          description: Contract address of the base token
+          x-gitbook-description-html: <p>Contract address of the base token</p>
+        quote_token_address:
+          $ref: '#/components/schemas/Address'
+          description: Contract address of the quote token
+          x-gitbook-description-html: <p>Contract address of the quote token</p>
+        base_token_symbol:
+          type: string
+          description: Symbol of the base token (e.g., "PETH")
+          x-gitbook-description-html: <p>Symbol of the base token (e.g., "PETH")</p>
+        quote_token_symbol:
+          type: string
+          description: Symbol of the quote token (e.g., "USDT")
+          x-gitbook-description-html: <p>Symbol of the quote token (e.g., "USDT")</p>
+        base_token_name:
+          type: string
+          description: Full name of the base token
+          x-gitbook-description-html: <p>Full name of the base token</p>
+        quote_token_name:
+          type: string
+          description: Full name of the quote token
+          x-gitbook-description-html: <p>Full name of the quote token</p>
+        market_type:
+          $ref: '#/components/schemas/MarketType'
+        last_clearing_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Last auction clearing price (quote/base with 1e18 scale)
+          x-gitbook-description-html: <p>Last auction clearing price (quote/base with 1e18 scale)</p>
+        auction_interval:
+          type: integer
+          description: Auction interval in milliseconds
+          x-gitbook-description-html: <p>Auction interval in milliseconds</p>
+        volume_24h:
+          $ref: '#/components/schemas/HexUint256'
+          description: 24-hour trading volume
+          x-gitbook-description-html: <p>24-hour trading volume</p>
+        high_24h:
+          $ref: '#/components/schemas/HexUint256'
+          description: 24-hour highest price
+          x-gitbook-description-html: <p>24-hour highest price</p>
+        low_24h:
+          $ref: '#/components/schemas/HexUint256'
+          description: 24-hour lowest price
+          x-gitbook-description-html: <p>24-hour lowest price</p>
+        price_change_24h:
+          $ref: '#/components/schemas/HexUint256'
+          description: 24-hour price change
+          x-gitbook-description-html: <p>24-hour price change</p>
+        maker_fee:
+          $ref: '#/components/schemas/HexUint256'
+          description: Maker fee rate
+          x-gitbook-description-html: <p>Maker fee rate</p>
+        taker_fee:
+          $ref: '#/components/schemas/HexUint256'
+          description: Taker fee rate
+          x-gitbook-description-html: <p>Taker fee rate</p>
+      x-gitbook-description-html: <p>Market/orderbook metadata and 24-hour statistics</p>
+    TickSnapshot:
+      type: object
+      description: Aggregated order volume at a specific price level
+      properties:
+        volume:
+          $ref: '#/components/schemas/DecimalUint256'
+          description: Total volume available at this price level
+          x-gitbook-description-html: <p>Total volume available at this price level</p>
+        minimum_expiry:
+          type: integer
+          description: >-
+            Minimum expiry timestamp (microseconds) for orders at this price
+            level
+          x-gitbook-description-html: >-
+            <p>Minimum expiry timestamp (microseconds) for orders at this price
+            level</p>
+      x-gitbook-description-html: <p>Aggregated order volume at a specific price level</p>
+    OrderbookSnapshot:
+      type: object
+      description: Current state of an orderbook with aggregated buy/sell levels
+      properties:
+        clob_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Orderbook identifier
+          x-gitbook-description-html: <p>Orderbook identifier</p>
+        buys:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/TickSnapshot'
+          description: >-
+            Buy orders keyed by price (decimal string), sorted by price
+            descending
+          x-gitbook-description-html: >-
+            <p>Buy orders keyed by price (decimal string), sorted by price
+            descending</p>
+        sells:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/TickSnapshot'
+          description: >-
+            Sell orders keyed by price (decimal string), sorted by price
+            ascending
+          x-gitbook-description-html: >-
+            <p>Sell orders keyed by price (decimal string), sorted by price
+            ascending</p>
+        clearing_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Current/last clearing price
+          x-gitbook-description-html: <p>Current/last clearing price</p>
+        grouping_precision:
+          type: string
+          description: Price grouping precision used for aggregation
+          x-gitbook-description-html: <p>Price grouping precision used for aggregation</p>
+        timestamp:
+          type: integer
+          description: Snapshot timestamp in microseconds
+          x-gitbook-description-html: <p>Snapshot timestamp in microseconds</p>
+        new_orders_count:
+          type: integer
+          description: Number of new orders since the last snapshot
+          x-gitbook-description-html: <p>Number of new orders since the last snapshot</p>
+        buys_count:
+          type: integer
+          description: >-
+            Total number of buy orders in the orderbook (regardless of depth
+            parameter)
+          x-gitbook-description-html: >-
+            <p>Total number of buy orders in the orderbook (regardless of depth
+            parameter)</p>
+        sells_count:
+          type: integer
+          description: >-
+            Total number of sell orders in the orderbook (regardless of depth
+            parameter)
+          x-gitbook-description-html: >-
+            <p>Total number of sell orders in the orderbook (regardless of depth
+            parameter)</p>
+      x-gitbook-description-html: <p>Current state of an orderbook with aggregated buy/sell levels</p>
+    TransactionReceipt:
+      type: object
+      description: >-
+        Transaction receipt with execution status, logs, and Pod-specific
+        metadata
+      properties:
+        transactionHash:
+          $ref: '#/components/schemas/Bytes32'
+        transactionIndex:
+          type: integer
+        blockHash:
+          $ref: '#/components/schemas/Bytes32'
+        blockNumber:
+          type: integer
+        from:
+          $ref: '#/components/schemas/Address'
+        to:
+          $ref: '#/components/schemas/Address'
+        status:
+          type: string
+          enum:
+            - '0x0'
+            - '0x1'
+          description: Execution status - "0x1" for success, "0x0" for failure
+          x-gitbook-description-html: <p>Execution status - "0x1" for success, "0x0" for failure</p>
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Log'
+        attested_tx:
+          type: object
+          description: Pod-specific attestation data for the transaction
+          properties:
+            hash:
+              $ref: '#/components/schemas/Bytes32'
+              description: Hash of the attested transaction
+              x-gitbook-description-html: <p>Hash of the attested transaction</p>
+            committee_epoch:
+              type: integer
+              description: The committee epoch during which the transaction was attested
+              x-gitbook-description-html: >-
+                <p>The committee epoch during which the transaction was
+                attested</p>
+          x-gitbook-description-html: <p>Pod-specific attestation data for the transaction</p>
+        signatures:
+          type: object
+          description: Map of validator index to ECDSA signature (hex-encoded)
+          additionalProperties:
+            type: string
+            description: Hex-encoded secp256k1 ECDSA signature
+            x-gitbook-description-html: <p>Hex-encoded secp256k1 ECDSA signature</p>
+          x-gitbook-description-html: <p>Map of validator index to ECDSA signature (hex-encoded)</p>
+      x-gitbook-description-html: >-
+        <p>Transaction receipt with execution status, logs, and Pod-specific
+        metadata</p>
+    Log:
+      type: object
+      description: Event log emitted during transaction execution
+      properties:
+        address:
+          $ref: '#/components/schemas/Address'
+          description: Address of the contract that emitted the log
+          x-gitbook-description-html: <p>Address of the contract that emitted the log</p>
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bytes32'
+          description: Indexed event parameters
+          x-gitbook-description-html: <p>Indexed event parameters</p>
+        data:
+          type: string
+          description: Non-indexed event data (hex-encoded)
+          x-gitbook-description-html: <p>Non-indexed event data (hex-encoded)</p>
+      x-gitbook-description-html: <p>Event log emitted during transaction execution</p>
+    CandlesQuery:
+      type: object
+      description: Query parameters for fetching historical candles
+      required:
+        - resolution
+        - from_ts
+      properties:
+        resolution:
+          $ref: '#/components/schemas/CandleResolution'
+          description: Candle time interval
+          x-gitbook-description-html: <p>Candle time interval</p>
+        from_ts:
+          $ref: '#/components/schemas/Timestamp'
+          description: Start timestamp (inclusive) in microseconds
+          x-gitbook-description-html: <p>Start timestamp (inclusive) in microseconds</p>
+        to_ts:
+          $ref: '#/components/schemas/Timestamp'
+          description: >-
+            End timestamp (inclusive) in microseconds. Defaults to current time
+            if omitted.
+          x-gitbook-description-html: >-
+            <p>End timestamp (inclusive) in microseconds. Defaults to current
+            time if omitted.</p>
+        limit:
+          type: integer
+          description: Maximum number of candles to return. No limit if omitted.
+          x-gitbook-description-html: <p>Maximum number of candles to return. No limit if omitted.</p>
+      x-gitbook-description-html: <p>Query parameters for fetching historical candles</p>
+    OrdersQuery:
+      type: object
+      description: Query parameters for fetching account orders
+      required:
+        - address
+      properties:
+        address:
+          $ref: '#/components/schemas/Address'
+          description: Address to retrieve orders for
+          x-gitbook-description-html: <p>Address to retrieve orders for</p>
+        limit:
+          type: integer
+          description: Maximum number of orders to return
+          x-gitbook-description-html: <p>Maximum number of orders to return</p>
+        cursor:
+          type: string
+          description: Pagination cursor from previous response
+          x-gitbook-description-html: <p>Pagination cursor from previous response</p>
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+          description: Filter orders by status
+          x-gitbook-description-html: <p>Filter orders by status</p>
+      x-gitbook-description-html: <p>Query parameters for fetching account orders</p>
+    SubscriptionParams:
+      type: object
+      description: Parameters for WebSocket subscriptions
+      properties:
+        depth:
+          type: integer
+          description: Maximum price levels to include in orderbook snapshots
+          x-gitbook-description-html: <p>Maximum price levels to include in orderbook snapshots</p>
+        orderbook_ids:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bytes32'
+          description: List of orderbook IDs to subscribe to
+          x-gitbook-description-html: <p>List of orderbook IDs to subscribe to</p>
+      x-gitbook-description-html: <p>Parameters for WebSocket subscriptions</p>
+    TokenPositionResponse:
+      type: object
+      description: Per-token position for an account
+      properties:
+        symbol:
+          type: string
+          description: Token symbol (e.g., "PETH", "USDT")
+          x-gitbook-description-html: <p>Token symbol (e.g., "PETH", "USDT")</p>
+        address:
+          $ref: '#/components/schemas/Address'
+          description: Token contract address
+          x-gitbook-description-html: <p>Token contract address</p>
+        balance:
+          $ref: '#/components/schemas/HexUint256'
+          description: Balance of the token in the account (1e18); hex-encoded
+          x-gitbook-description-html: <p>Balance of the token in the account (1e18); hex-encoded</p>
+        position:
+          $ref: '#/components/schemas/HexUint256'
+          description: >-
+            Position size from trades (1e18); includes locked in orders;
+            hex-encoded
+          x-gitbook-description-html: >-
+            <p>Position size from trades (1e18); includes locked in orders;
+            hex-encoded</p>
+        unrealized_pnl:
+          type: string
+          description: >-
+            Unrealized PnL for this position in USD (1e18); decimal string
+            (signed int256)
+          x-gitbook-description-html: >-
+            <p>Unrealized PnL for this position in USD (1e18); decimal string
+            (signed int256)</p>
+      x-gitbook-description-html: <p>Per-token position for an account</p>
+    PositionsResponse:
+      type: object
+      description: Account positions across all orderbooks with aggregate PnL
+      properties:
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TokenPositionResponse'
+          description: Per-token positions
+          x-gitbook-description-html: <p>Per-token positions</p>
+        total_unrealized_pnl:
+          type: string
+          description: >-
+            Sum of unrealized PnL across all positions (1e18); decimal string
+            (signed int256)
+          x-gitbook-description-html: >-
+            <p>Sum of unrealized PnL across all positions (1e18); decimal string
+            (signed int256)</p>
+        total_realized_pnl:
+          type: string
+          description: >-
+            Lifetime realized PnL from closed trades (1e18); decimal string
+            (signed int256)
+          x-gitbook-description-html: >-
+            <p>Lifetime realized PnL from closed trades (1e18); decimal string
+            (signed int256)</p>
+        total_invested:
+          $ref: '#/components/schemas/HexUint256'
+          description: Lifetime USD invested from buys/deposits (1e18); hex-encoded
+          x-gitbook-description-html: <p>Lifetime USD invested from buys/deposits (1e18); hex-encoded</p>
+      x-gitbook-description-html: <p>Account positions across all orderbooks with aggregate PnL</p>
