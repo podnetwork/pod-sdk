@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PodAttestation {
     pub validator_address: Address,
-    pub sequence: u64,
-    pub index: u16,
+    pub sequence_number: u64,
+    pub batch_index: u16,
     pub timestamp: Timestamp,
     pub signature: secp256k1::ecdsa::Signature,
 }
