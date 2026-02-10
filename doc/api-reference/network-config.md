@@ -4,25 +4,41 @@ The pod devnet is a test network for developers to experiment with the pod netwo
 
 ## Devnet Configuration
 
-| Property    | Value                                                    |
-| ----------- | -------------------------------------------------------- |
-| Name        | pod                                                      |
-| RPC         | `https://rpc.v1.dev.pod.network`                         |
-| Chain ID    | `1293`                                                   |
-| Explorer    | [explorer.v1.pod.network](https://explorer.v1.pod.network) |
-| EVM Version | Prague (Ethereum block 22,431,084, Released May 7th, 2025) |
+{% code title="Name" %}
+```
+pod
+```
+{% endcode %}
 
-## Add Network to Wallet
+{% code title="RPC" %}
+```
+https://rpc.v1.dev.pod.network
+```
+{% endcode %}
 
-To add the pod devnet to MetaMask or any EVM-compatible wallet, use the following settings:
+{% code title="Chain ID" %}
+```
+1293
+```
+{% endcode %}
 
-| Setting          | Value                            |
-| ---------------- | -------------------------------- |
-| Network Name     | pod                              |
-| RPC URL          | `https://rpc.v1.dev.pod.network` |
-| Chain ID         | `1293`                           |
-| Currency Symbol  | ETH                              |
-| Block Explorer   | `https://explorer.v1.pod.network`|
+{% code title="Explorer" %}
+```
+https://explorer.v1.pod.network
+```
+{% endcode %}
+
+{% code title="Currency Symbol" %}
+```
+pUSD
+```
+{% endcode %}
+
+{% code title="EVM Version" %}
+```
+Prague (Ethereum block 22,431,084, Released May 7th, 2025)
+```
+{% endcode %}
 
 ## Get Test Tokens
 

@@ -1,6 +1,7 @@
 # Table of contents
 
 * [API Reference](README.md)
+* [Network Config](network-config.md)
 
 ## JSON-RPC
 
