@@ -62,6 +62,13 @@ make generate
 - **Migration**: Three-phase process (Pause → Migrate → TransferTokens) for moving to a new contract.
 - **Roles**: `DEFAULT_ADMIN_ROLE`, `PAUSER_ROLE`, `RELAYER_ROLE`.
 
+**DepositWaitingList.sol** — Non-upgradeable buffer contract (AccessControl) that sits in front of the Bridge. Always accepts deposits regardless of Bridge rate limits, letting a relayer drain them into the Bridge via `batchDepositAndCall()` when capacity allows. Key concepts:
+- **Deposits**: Permissionless `deposit(token, amount, to, permit)` with optional EIP-2612 permit support. Sequential `depositId` assigned to each deposit.
+- **Apply**: `RELAYER_ROLE`-restricted `applyDeposits(token, depositIds)` validates all deposits match the specified token, marks them applied, and calls `batchDepositAndCall()` on the Bridge.
+- **Withdraw**: Original depositor or `RELAYER_ROLE` can withdraw pending deposits via `withdraw(depositId)`, returning tokens to the original sender.
+- **Roles**: `DEFAULT_ADMIN_ROLE`, `RELAYER_ROLE`. The WaitingList must also hold `RELAYER_ROLE` on the Bridge.
+- **Approval caching**: Infinite approval to the Bridge, cached per token.
+
 **WrappedToken.sol** — ERC20 with mint/pause/burn capabilities and role-based access (MINTER_ROLE, PAUSER_ROLE).
 
 **ProofLib.sol** (`src/lib/`) — Library for signature recovery from aggregated validator signatures and merkle proof verification. Signatures must be ordered by strictly increasing recovered signer address.
@@ -80,6 +87,7 @@ Claims reconstruct the deposit tx hash: `keccak256(domainSeparator || bridgeCont
 - **Bridge.t.sol**: Main unit test suite (~2300 lines) extending `BridgeClaimProofHelper`
 - **Bridge.fork.sol**: Fork tests against mainnet USDC with real EIP-2612 permit flows
 - **Bridge.benchmark.sol**: Gas benchmarks scaling across validator set sizes (4–100)
+- **DepositWaitingList.t.sol**: Unit and fuzz tests for the DepositWaitingList contract
 - **test/abstract/BridgeClaimProofHelper.sol**: Shared test base providing signature aggregation, claim proof generation, and domain separator computation
 - **test/mocks/MockERC20Permit.sol**: Mock ERC20 with permit support
 
