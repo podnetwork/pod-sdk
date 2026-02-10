@@ -1,6 +1,6 @@
 # Table of contents
 
-* [Protocol](README.md)
+* [Protocol Overview](README.md)
 
 ## Network
 

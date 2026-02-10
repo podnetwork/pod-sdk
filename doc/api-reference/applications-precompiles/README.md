@@ -1,13 +1,13 @@
 # Applications (Precompiles)
 
-Pod ships with a set of enshrined applications optimized for efficient markets. These are implemented as precompiles — built into the protocol itself rather than deployed as user contracts — giving them performance characteristics that application-layer contracts cannot match. The network currently provides:
+Pod ships with a set of enshrined applications optimized for efficient markets. These are implemented as precompiles  - built into the protocol itself rather than deployed as user contracts  - giving them performance characteristics that application-layer contracts cannot match. The network currently provides:
 
-* [**Orderbook Spot**](orderbook-spot.md) — A central limit order book for spot markets. Supports order placement, cancellation, deposits, and withdrawals.
-* [**Optimistic Auctions**](wip-optimistic-auctions.md) — A batch auction primitive for intent settlement, where solvers compete to produce the best execution.
+* [**Orderbook Spot**](orderbook-spot.md)  - A central limit order book for spot markets. Supports order placement, cancellation, deposits, and withdrawals.
+* [**Optimistic Auctions**](wip-optimistic-auctions.md)  - A batch auction primitive for intent settlement, where solvers compete to produce the best execution.
 
 ## Interacting with Precompiles
 
-You interact with Pod's precompiles the same way you would interact with any smart contract on Ethereum — by encoding function calls against a Solidity ABI and sending them via `eth_call` (reads) or `eth_sendRawTransaction` (writes).
+You interact with Pod's precompiles the same way you would interact with any smart contract on Ethereum  - by encoding function calls against a Solidity ABI and sending them via `eth_call` (reads) or `eth_sendRawTransaction` (writes).
 
 ### Reading State
 
