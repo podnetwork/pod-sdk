@@ -1,16 +1,17 @@
 ---
 description: The network for high-performance, MEV-free, global markets
 layout:
+  width: wide
   title:
     visible: true
   description:
     visible: true
   tableOfContents:
-    visible: true
+    visible: false
   outline:
-    visible: true
+    visible: false
   pagination:
-    visible: true
+    visible: false
 ---
 
 # Welcome to Pod
