@@ -1,18 +1,29 @@
-use std::collections::HashMap;
-
+use crate::Timestamp;
 use alloy_network::ReceiptResponse;
 use alloy_primitives::{Address, B256, BlockHash, TxHash};
 use alloy_rpc_types::TransactionReceipt;
 use serde::{Deserialize, Serialize};
 
-use crate::AttestedTx;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PodAttestation {
+    pub validator_address: Address,
+    pub sequence: u64,
+    pub index: u16,
+    pub timestamp: Timestamp,
+    pub signature: secp256k1::ecdsa::Signature,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PodMetadata {
+    pub attestations: Vec<PodAttestation>,
+    pub committee_epoch: u64,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PodReceiptResponse {
     #[serde(flatten)]
     pub receipt: TransactionReceipt,
-    pub attested_tx: AttestedTx,
-    pub signatures: HashMap<usize, secp256k1::ecdsa::Signature>,
+    pub pod_metadata: PodMetadata,
 }
 
 impl std::ops::Deref for PodReceiptResponse {
