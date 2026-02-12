@@ -17,7 +17,7 @@ When bridging:
 
 ## Solidity Interfaces
 
-### Pod Bridge
+### Bridge Interface of precompile on Pod Network
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -57,7 +57,7 @@ interface IPodBridge {
 
 ***
 
-### Ethereum Bridge (Deposit + Claim)
+### Bridge Interface of contract on Ethereum 
 
 ```solidity
 // SPDX-License-Identifier: MIT
