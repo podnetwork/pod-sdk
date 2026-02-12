@@ -1,33 +1,30 @@
 # Network Architecture
 
-Pod's network consists of four types of entities: **clients**, **full nodes**, **validators**, and the **native bridge** on Ethereum.
+Pod Network consists of four types of entities: **clients**, **full nodes**, **validators**, and the **native bridge** on Ethereum.
 
 ```mermaid
-graph LR
-    C[Client] -->|JSON-RPC| F[Full Node]
-    F -->|broadcast tx| V1[Validator 1]
-    F -->|broadcast tx| V2[Validator 2]
-    F -->|broadcast tx| V3[Validator 3]
-    F -->|broadcast tx| V4[Validator 4]
-    F -->|broadcast tx| V5[Validator 5]
-    F -->|broadcast tx| V6[Validator 6 - Malicious]
-    V1 -->|attestation| F
-    V2 -->|attestation| F
-    V3 -->|attestation| F
-    V4 -->|attestation| F
-    V5 -->|attestation| F
-    V6 -.->|invalid attestation| F
-    F -->|stream attestations| C
+sequenceDiagram
+    actor C as Client
+    participant F as Full Node
+    participant V as Validators
+    participant B as Bridge Contract (Ethereum)
 
-    U[User] -->|deposit ETH/ERC-20| B[Bridge Contract\non Ethereum]
-    B -->|emit deposit event| V1
-    B -->|emit deposit event| V2
-    B -->|emit deposit event| V3
-    B -->|emit deposit event| V4
-    B -->|emit deposit event| V5
-    B -->|emit deposit event| V6
+    V->>B: subscribe to deposit events
+    F->>V: subscribe to votes
 
-    style V6 fill:#f66,stroke:#900,color:#fff
+    C->>B: deposit ERC-20
+    B->>V: deposit event
+    V->>V: credit balance
+
+    C->>+F: send transaction (JSON RPC)
+    F->>V: broadcast trasaction
+    V->>F: brodcast attestations
+    F->>-C: transaction confirmed
+
+    
+
+    C->>F: get claim proof
+    C->>B: claim tokens
 ```
 
 ## Clients
