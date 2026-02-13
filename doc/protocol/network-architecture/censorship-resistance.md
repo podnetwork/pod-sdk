@@ -2,9 +2,9 @@
 
 Censorship resistance is a critical ingredient of Pod's design. Many applications - auctions, liquidations, voting, dispute periods - require that transactions cannot be selectively excluded.
 
-## Leader-Based Systems
+## Existing Systems
 
-In leader-based blockchains, a single party (the block proposer, sequencer, or leader) decides which transactions to include in the next block. This creates a single point of censorship - the leader can delay or exclude transactions at will, and users have no recourse until the leader rotates. Depending on the protocol and network configuration, censorship can persist for seconds to minutes.
+Most existing systems have a single party (the block proposer, sequencer, or leader) that decides which transactions to include in the next block. This creates a single point of censorship - the leader can delay or exclude transactions at will, and users have no recourse until the leader rotates. Depending on the protocol and network configuration, censorship can persist for seconds to minutes.
 
 Layer-2s face a worse version of this problem. Most L2s today rely on centralized sequencers to propose all blocks. A compromised sequencer can censor transactions indefinitely. Some L2s allow force-inclusion through the L1, but with significant delays (e.g. Arbitrum: ~1 day).
 

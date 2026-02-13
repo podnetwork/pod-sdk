@@ -17,7 +17,7 @@ If you are already comfortable with Ethereum and JSON-RPC, you can interact with
 You can connect to Pod using the following JSON-RPC endpoint:
 
 ```
-https://tapforce-rpc.pod.network/
+https://rpc.v1.dev.pod.network/
 ```
 
 The API follows the standard JSON-RPC 2.0 request/response format. All requests are sent via HTTP `POST`, and the method being executed is defined by the `method` field in the request body.

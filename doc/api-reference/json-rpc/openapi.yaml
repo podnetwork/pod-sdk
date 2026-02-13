@@ -4,7 +4,7 @@ info:
   version: 1.0.0
 
 servers:
-  - url: https://tapforce-rpc.pod.network/
+  - url: https://rpc.v1.dev.pod.network/
     description: Pod testnet
 
 tags:

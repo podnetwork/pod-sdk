@@ -9,6 +9,15 @@ const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
 const balance = await provider.getBalance("0xYourAddress");
 ```
 
+{% columns %}
+{% column %}
+{% embed url="https://faucet.dev.pod.network" %}
+{% endcolumn %}
+{% column %}
+{% embed url="https://explorer.v1.pod.network" %}
+{% endcolumn %}
+{% endcolumns %}
+
 ## Devnet Configuration
 
 | Property        | Value                                                        |
@@ -19,12 +28,6 @@ const balance = await provider.getBalance("0xYourAddress");
 | Explorer        | `https://explorer.v1.pod.network`                            |
 | Currency Symbol | `pUSD`                                                       |
 | EVM Version     | `Prague` (Ethereum block 22,431,084, Released May 7th, 2025) |
-
-### Get Test Tokens
-
-Use the faucet to fund your wallet with test tokens:
-
-{% embed url="https://faucet.dev.pod.network" %}
 
 {% hint style="warning" %}
 We expect the devnet to have breaking changes or be reset (pruned completely) at any time.

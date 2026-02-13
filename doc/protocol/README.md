@@ -10,9 +10,9 @@ Pod does not have blocks or chains. Clients send transactions directly to the va
 
 **Streaming**  - Pod uses a publish/subscribe model over persistent connections. Validators stream attestations, state updates, and events to clients as they become available, rather than batching them into blocks at fixed intervals.
 
-**Enshrined Market Primitives**  - The protocol includes a built-in [order book](markets-architecture/orderbook.md), [batch auction matching engine](markets-architecture/batch-auctions.md), liquidation and margin engines, pricing oracles, and a [fungible token](fungible-tokens.md) model. All expose standard Ethereum interfaces.
+**Enshrined Market Primitives**  - The protocol includes a built-in [order book](markets-architecture/orderbook.md), [batch auction matching engine](markets-architecture/batch-auctions.md), liquidation and margin engines, pricing oracles, and a [token](fungible-tokens.md) model. All expose standard Ethereum interfaces.
 
-**Leaderless Ordering**  - There is no leader or sequencer. All validators receive transactions simultaneously. The matching engine uses batch auctions where orders compete on price alone, independent of submission time or latency. This [eliminates MEV](markets-architecture/no-mev.md) structurally.
+**Leaderless Ordering**  - There is no leader or sequencer. All validators receive transactions simultaneously. The matching engine uses batch auctions where orders compete on price alone, independent of submission time or latency. This [eliminates MEV](markets-architecture/README.md#why-pod-has-no-mev) structurally.
 
 ## Navigating the Docs
 
@@ -23,9 +23,8 @@ Pod does not have blocks or chains. Clients send transactions directly to the va
   - [Censorship Resistance](network-architecture/censorship-resistance.md)  - how the leaderless design guarantees liveness
 - [Native Bridge](native-bridge.md)  - deposit and withdrawal flows between Ethereum and Pod
 
-**Applications**  - the enshrined market primitives:
-- [Markets Architecture](markets-architecture/README.md)  - order book, matching, and settlement
-  - [Orderbook](markets-architecture/orderbook.md)  - the CLOB precompile and order lifecycle
-  - [Batch Auctions](markets-architecture/batch-auctions.md)  - how orders are matched fairly
-  - [Why Pod Has No MEV](markets-architecture/no-mev.md)  - structural MEV elimination
-- [Fungible Tokens](fungible-tokens.md)  - the native token model
+**Markets**  - the enshrined market primitives:
+- [Overview](markets-architecture/README.md)  - purpose-built market infrastructure and MEV elimination
+- [Orderbook](markets-architecture/orderbook.md)  - the enshrined CLOB precompile and order types
+- [Matching](markets-architecture/batch-auctions.md)  - batch auctions, deadlines, and the solver
+- [Tokens](fungible-tokens.md)  - the native token model

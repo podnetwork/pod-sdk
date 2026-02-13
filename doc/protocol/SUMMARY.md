@@ -11,13 +11,12 @@
 * [Censorship Resistance](network-architecture/censorship-resistance.md)
 * [Native Bridge](native-bridge.md)
 
-## Applications
+## Markets
 
-* [Markets Architecture](markets-architecture/README.md)
-  * [Orderbook](markets-architecture/orderbook.md)
-  * [Batch Auctions](markets-architecture/batch-auctions.md)
-  * [Why Pod Has No MEV](markets-architecture/no-mev.md)
-* [Fungible Tokens](fungible-tokens.md)
+* [Overview](markets-architecture/README.md)
+* [Orderbook](markets-architecture/orderbook.md)
+* [Matching](markets-architecture/batch-auctions.md)
+* [Tokens](fungible-tokens.md)
 
 ## More Resources
 
