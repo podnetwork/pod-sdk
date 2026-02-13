@@ -17,8 +17,8 @@ sequenceDiagram
     V->>V: credit balance
 
     C->>+F: send transaction (JSON RPC)
-    F->>V: broadcast trasaction
-    V->>F: brodcast attestations
+    F->>V: broadcast transaction
+    V->>F: broadcast attestations
     F->>-C: transaction confirmed
 
     
@@ -37,7 +37,7 @@ Full nodes are the entry point to the network. They accept JSON-RPC requests fro
 
 ## Validators
 
-Validators form the core of Pod's consensus. Each validator independently receives transactions, validates them, timestamps them, and signs an attestation. Validators do not coordinate with each other before attesting - they respond directly and in parallel. A transaction is final once the client collects attestations from a supermajority (4/5) of the validator set by stake.
+Validators form the core of Pod's protocol. Each validator independently receives transactions, validates them, timestamps them, and signs an attestation. Validators do not coordinate with each other before attesting - they respond directly and in parallel. A transaction is final once the client collects attestations from a supermajority (4/5) of the validator set by stake.
 
 Validators also observe deposit events from the native bridge contract on Ethereum and credit balances accordingly.
 

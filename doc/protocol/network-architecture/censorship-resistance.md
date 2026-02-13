@@ -12,7 +12,7 @@ Layer-2s face a worse version of this problem. Most L2s today rely on centralize
 
 Pod has no leader. Clients broadcast transactions to all validators simultaneously, and each validator independently decides whether to attest. A transaction only needs n - f attestations to be finalized, so up to f validators can refuse to attest and the transaction still confirms. To censor a transaction, an adversary would need to break the network's liveness, which requires controlling more than f validators - violating the protocol's fault assumption.
 
-Transactions confirm within one network round trip (2 delta), so censorship resistance is achieved at the speed of the network itself. For a detailed comparison of censorship resistance properties across different consensus protocols including Pod, see [this report by Common Prefix](https://www.commonprefix.com/static/clients/flashbots/flashbots_report.pdf).
+Transactions confirm within one network round trip (2 delta). For a detailed comparison of censorship resistance properties across different consensus protocols including Pod, see [this report by Common Prefix](https://www.commonprefix.com/static/clients/flashbots/flashbots_report.pdf).
 
 ## Censorship Resistance with Time
 

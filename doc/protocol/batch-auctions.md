@@ -1,10 +1,10 @@
 # Batch Auctions
 
-Pod uses frequent batch auctions to match orders. Instead of processing orders one at a time as they arrive (continuous trading), orders are collected over a short interval and matched together at a single uniform clearing price. This eliminates ordering advantages and ensures competition happens on price alone.
+Pod uses frequent batch auctions to match orders. Instead of processing orders one at a time as they arrive (continuous trading), orders are collected over a short interval and matched together at a single uniform clearing price. This removes timing-based ordering advantages - competition is on price alone.
 
 The batch duration is configurable per market, and is expected to be 100-200ms. The batch duration defines a tradeoff between fairness and latency of market settlement. Longer batches allow users with slower internet connections to participate, but markets settle slower - better for more illiquid markets. Shorter batches mean faster settlement but require lower latency to participate.
 
-## Batch Auctions
+## Clearing
 
 At the end of each batch interval, the matching engine runs a double auction using the average mechanism:
 
@@ -22,7 +22,7 @@ The `deadline` parameter in `submitOrder` specifies the latest batch the user wa
 
 The deadline can currently be set to a maximum of 10 minutes in the future. This is the maximum last look duration. We expect to shorten this as the network matures.
 
-The protocol guarantees (via [past perfection](../network-architecture/timestamping.md#past-perfection)) that if an order receives n - f attestations within the deadline - which it will if it was sent sufficiently early - it will be part of a batch up to and including the latest batch specified by the deadline.
+The protocol guarantees (via [past perfection](network-architecture/timestamping.md#past-perfection)) that if an order receives n - f attestations within the deadline - which it will if it was sent sufficiently early - it will be part of a batch up to and including the latest batch specified by the deadline.
 
 Transactions that do not receive a finality certificate may still be used for matching, but they do not get to settle - the user cannot withdraw funds even if their order is matched. This is by design, to prevent last look attacks.
 

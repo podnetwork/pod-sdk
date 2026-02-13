@@ -1,6 +1,6 @@
 # Precompiles
 
-Pod uses precompiles for both enshrined applications and internal protocol operations. Precompiles are built into the protocol itself rather than deployed as user contracts, giving them performance characteristics that application-layer contracts cannot match.
+Pod uses precompiles for enshrined applications and internal protocol operations. Precompiles are built into the protocol rather than deployed as user contracts, so they can access internal state (validator signatures, timestamps, merkle proofs) and execute without contract call overhead.
 
 ## Precompile Addresses
 

@@ -2,8 +2,8 @@
 
 Pod uses the transaction nonce to locally order transactions per account. The nonce serves two purposes:
 
-1. **User-specified ordering**  - since there is no global ordering of transactions, the nonce ensures that a user's transactions are executed in the order intended by the user.
-2. **Consistency**  - the network maintains a single chain of transactions per account. This prevents double-spending of balances and maintains any consistency guarantees required for single-writer state.
+1. **Per-account sequencing**  - since there is no global ordering of transactions, the nonce establishes a sequence within each account, ensuring transactions execute in the order the user intended.
+2. **Consistency**  - the network maintains a single chain of transactions per account. This prevents double-spending and maintains consistency for single-writer state.
 
 Because ordering is local to each account, validators do not need to coordinate with each other to agree on a global order. This is what enables single round-trip confirmation.
 
@@ -15,7 +15,7 @@ This ensures that for any given account and nonce, at most one transaction can c
 
 ## Account Locking and Recovery
 
-If a client submits conflicting transactions at the same nonce  - whether intentionally or due to a crash fault (e.g. restarting without remembering a transaction was already sent)  - the account becomes **locked**. The nonce cannot advance and no future transactions can be processed.
+If a client submits conflicting transactions at the same nonce  - whether intentionally or due to a crash (e.g. restarting without persisting client state)  - the account becomes **locked**. The nonce cannot advance and no future transactions can be processed.
 
 The existing consensusless literature addresses this by falling back to a consensus protocol to resolve the conflict. Pod does not do this. Pod has a built-in recovery protocol that resolves account locking in **one network round trip**, without invoking consensus or relying on a centralized party.
 

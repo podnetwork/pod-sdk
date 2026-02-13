@@ -13,9 +13,9 @@
 
 ## Markets
 
-* [Overview](markets-architecture/README.md)
-* [Orderbook](markets-architecture/orderbook.md)
-* [Matching](markets-architecture/batch-auctions.md)
+* [Overview](markets-overview.md)
+* [Orderbook](orderbook.md)
+* [Matching](batch-auctions.md)
 * [Tokens](fungible-tokens.md)
 
 ## More Resources

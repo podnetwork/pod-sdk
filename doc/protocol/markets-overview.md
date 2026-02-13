@@ -1,6 +1,6 @@
-# Markets Architecture
+# Markets Overview
 
-Pod is purpose-built for high-performance markets. The protocol exposes a set of asset-agnostic, fully on-chain, composable primitives - including the order book, matching engine, liquidation engine, and oracle system - that allow developers to launch novel markets quickly. Pod's infrastructure can support perpetual futures, options, prediction markets, intent-based matching, and markets for illiquid or exotic assets.
+Pod's protocol includes a set of asset-agnostic, fully on-chain, composable market primitives - the order book, matching engine, liquidation engine, and oracle system. These are enshrined as precompiles rather than deployed as user contracts. The primitives are general enough to support perpetual futures, options, prediction markets, intent-based matching, and markets for exotic or illiquid assets.
 
 ## Why Pod Has No MEV
 
