@@ -1,7 +1,6 @@
 # Table of contents
 
-* [Guides and References](README.md)
-* [Network Config](network-config.md)
+* [Getting Started](README.md)
 
 ## Guides
 

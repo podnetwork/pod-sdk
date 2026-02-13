@@ -29,3 +29,13 @@ Pod does not have blocks or chains. Clients send transactions directly to the va
   - [Batch Auctions](markets-architecture/batch-auctions.md)  - how orders are matched fairly
   - [Why Pod Has No MEV](markets-architecture/no-mev.md)  - structural MEV elimination
 - [Fungible Tokens](fungible-tokens.md)  - the native token model
+
+## More Resources
+
+- [Wait, Why Do We Need Consensus Again?](https://pod.network/blog/wait-why-do-we-need-consensus-again)
+- [Demystifying pod-core](https://pod.network/blog/demystifying-pod-core)
+- [Your Favorite 100k TPS Chain is Probably Slow](https://pod.network/blog/your-favorite-10000000-tps-blockchain-is-probably-slow)
+- [Gas Pricing in a World Without Consensus](https://pod.network/blog/gas-pricing-in-a-world-without-consensus)
+- [Real-time Auctions Are Eating Up Blockchains!](https://pod.network/blog/real-time-auctions-are-eating-up-blockchains)
+- [A Fairer Future for Finance With Batch Auctions on the pod network](https://pod.network/blog/a-fairer-future-for-finance-with-batch-auctions-on-the-pod-network)
+- [Interstellar: A Simpler Way to Test Globally Distributed L1s](https://pod.network/blog/interstellar-a-simpler-way-to-test-globally-distributed-l1s)
