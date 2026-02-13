@@ -1,4 +1,4 @@
-# API Reference
+# Guides and References
 
 Pod provides an Ethereum-like interface, so developers can use existing toolchains and wallets out of the box - `ethers.js`, `viem`, `web3.py`, `alloy`, `cast`, or any EVM-compatible library. No new SDKs or custom clients required.
 

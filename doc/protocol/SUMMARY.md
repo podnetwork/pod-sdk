@@ -5,9 +5,10 @@
 ## Network
 
 * [Network Architecture](network-architecture/README.md)
-  * [Transaction Flow](network-architecture/transaction-flow.md)
-  * [Local Ordering](network-architecture/local-ordering.md)
-  * [Censorship Resistance](network-architecture/censorship-resistance.md)
+* [Transaction Flow](network-architecture/transaction-flow.md)
+* [Local Ordering](network-architecture/local-ordering.md)
+* [Timestamping](network-architecture/timestamping.md)
+* [Censorship Resistance](network-architecture/censorship-resistance.md)
 * [Native Bridge](native-bridge.md)
 
 ## Applications

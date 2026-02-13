@@ -1,7 +1,14 @@
 # Table of contents
 
-* [API Reference](README.md)
+* [Guides and References](README.md)
 * [Network Config](network-config.md)
+
+## Guides
+
+* [Recover a Locked Account](guides/recover-locked-account.md)
+
+## References
+
 * [JSON-RPC](json-rpc/README.md)
   * ```yaml
     props:
