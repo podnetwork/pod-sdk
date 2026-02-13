@@ -2,7 +2,7 @@
 
 * [Protocol Overview](README.md)
 
-## Network
+## Core
 
 * [Network Architecture](network-architecture/README.md)
 * [Transaction Flow](network-architecture/transaction-flow.md)

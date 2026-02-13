@@ -6,7 +6,7 @@ Pod Network consists of four types of entities: **clients**, **full nodes**, **v
 sequenceDiagram
     actor C as Client
     participant F as Full Node
-    participant V as {"type": "collections", "alias": "Validators"}
+    participant V@{ type: "collections", alias: "Validators" }
     participant B as Bridge Contract (Ethereum)
 
     V->>B: subscribe to deposit events
