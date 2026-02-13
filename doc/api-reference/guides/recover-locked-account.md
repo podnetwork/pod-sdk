@@ -1,6 +1,6 @@
 # Recover a locked account
 
-If your account is locked due to conflicting transactions at the same nonce, you can recover it by calling the recovery precompile. For background on why accounts get locked and how the recovery protocol works, see [Local Ordering](../../protocol/network-architecture/local-ordering.md#account-locking-and-recovery).
+If your account is locked due to conflicting transactions at the same nonce, you can recover it by calling the recovery precompile. For background on why accounts get locked and how the recovery protocol works, see [Local Ordering](https://docs.v2.pod.network/documentation/network-architecture/local-ordering#account-locking-and-recovery).
 
 ## Steps
 

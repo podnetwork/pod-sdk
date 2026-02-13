@@ -11,7 +11,7 @@ Pod has a native bridge for moving ERC20 tokens between Ethereum and Pod. The br
 
 Tokens are deposited to the Ethereum bridge contract and locked. Pod validators run Ethereum full nodes, observe finalized deposits, and automatically credit the corresponding balance on Pod. No claim transaction is needed on the Pod side.
 
-See [Bridge to Pod](../api-reference/guides/bridge-to-pod.md) for a step-by-step guide with code examples.
+See [Bridge to Pod](https://docs.v2.pod.network/guides-references/guides/bridge-to-pod) for a step-by-step guide with code examples.
 
 ## Pod → Ethereum
 
@@ -19,7 +19,7 @@ Tokens are deposited to the Pod bridge precompile, which burns them on Pod. Vali
 
 The user obtains the claim proof via `pod_getBridgeClaimProof(txHash)` and submits it to the Ethereum bridge contract to release the tokens. Anyone can submit the claim - it does not need to come from the original depositor.
 
-See [Bridge from Pod](../api-reference/guides/bridge-from-pod.md) for a step-by-step guide with code examples.
+See [Bridge from Pod](https://docs.v2.pod.network/guides-references/guides/bridge-from-pod) for a step-by-step guide with code examples.
 
 ## Network Upgrades
 

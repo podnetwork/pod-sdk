@@ -1,6 +1,8 @@
 # Orderbook
 
-Pod has an enshrined central limit order book (CLOB) built into the protocol as a precompile at `0x000000000000000000000000000000000000C10B`. See the [Orderbook Spot precompile](../../api-reference/applications-precompiles/orderbook-spot.md) for the full interface.
+Pod has an enshrined central limit order book (CLOB) built into the protocol as a precompile at `0x000000000000000000000000000000000000C10B`. See the [Orderbook Spot precompile](https://docs.v2.pod.network/guides-references/applications-precompiles/orderbook-spot) for the full interface.
+
+Orders are immediately added to the orderbook as soon as they are finalized through the standard attestation flow - they do not wait for the current batch to conclude. This means cancellations and modifications are also applied responsively, before the next matching round. This is better than systems that execute cancels and modifications at the top of a block, because in Pod the liquidity from cancels and updates can already be reflected in the book before waiting for batch confirmation.
 
 ## Order Types
 
@@ -10,7 +12,7 @@ All markets use 1e18 tick sizes, matching the token decimal standard.
 
 ## Market Data
 
-The full node includes a built-in indexer for both live and historical market data. This provides orderbook snapshots, OHLCV candles, account-level order history, and position data without requiring users to run their own indexer. See the [`ob_` endpoints](../../api-reference/json-rpc/README.md) in the JSON-RPC reference.
+The full node includes a built-in indexer for both live and historical market data. This provides orderbook snapshots, OHLCV candles, account-level order history, and position data without requiring users to run their own indexer. See the [`ob_` endpoints](https://docs.v2.pod.network/guides-references/json-rpc) in the JSON-RPC reference.
 
 ## AMM Orderbook
 

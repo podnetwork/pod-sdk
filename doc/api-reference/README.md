@@ -11,10 +11,10 @@ const balance = await provider.getBalance("0xYourAddress");
 
 {% columns %}
 {% column %}
-{% embed url="https://faucet.dev.pod.network" %}
+[**Fund your wallet**](https://faucet.dev.pod.network)
 {% endcolumn %}
 {% column %}
-{% embed url="https://explorer.v1.pod.network" %}
+[**Explorer**](https://explorer.v1.pod.network)
 {% endcolumn %}
 {% endcolumns %}
 

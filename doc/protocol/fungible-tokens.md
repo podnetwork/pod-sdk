@@ -6,4 +6,4 @@ Tokens on Pod support standard ERC-20 transfers. Users can transfer tokens using
 
 There is currently no `approve` functionality. Only users themselves can transfer their tokens when interacting with an application - explicit approval to a third party is not required.
 
-See the [Precompiles](../api-reference/applications-precompiles/README.md) page for the list of supported tokens and their addresses.
+See the [Precompiles](https://docs.v2.pod.network/guides-references/applications-precompiles) page for the list of supported tokens and their addresses.

@@ -2,7 +2,7 @@
 
 The bridge precompile allows users to initiate withdrawals from Pod to Ethereum. Tokens deposited to the bridge precompile are burned on Pod and can be claimed on the Ethereum bridge contract using a validator proof.
 
-For how the bridge works end-to-end, see [Native Bridge](../../protocol/native-bridge.md). For step-by-step guides, see [Bridge to Pod](../guides/bridge-to-pod.md) and [Bridge from Pod](../guides/bridge-from-pod.md).
+For how the bridge works end-to-end, see [Native Bridge](https://docs.v2.pod.network/documentation/native-bridge). For step-by-step guides, see [Bridge to Pod](../guides/bridge-to-pod.md) and [Bridge from Pod](../guides/bridge-from-pod.md).
 
 **Precompile address:** `0x000000000000000000000000000000000000C10`
 

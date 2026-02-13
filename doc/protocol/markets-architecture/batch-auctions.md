@@ -4,7 +4,7 @@ Pod uses frequent batch auctions to match orders. Instead of processing orders o
 
 The batch duration is configurable per market, and is expected to be 100-200ms. The batch duration defines a tradeoff between fairness and latency of market settlement. Longer batches allow users with slower internet connections to participate, but markets settle slower - better for more illiquid markets. Shorter batches mean faster settlement but require lower latency to participate.
 
-## Matching
+## Batch Auctions
 
 At the end of each batch interval, the matching engine runs a double auction using the average mechanism:
 
@@ -15,10 +15,6 @@ At the end of each batch interval, the matching engine runs a double auction usi
 5. The first k buyers and sellers trade at price p.
 
 All matched orders execute at the same uniform price. No participant gets a better or worse price based on when their order arrived within the batch.
-
-## Order Lifecycle
-
-Orders are immediately added to the orderbook as soon as they are finalized through the standard attestation flow - they do not wait for the current batch to conclude. This means cancellations and modifications are also applied responsively, before the next matching round. This is better than systems that execute cancels and modifications at the top of a block, because in Pod the liquidity from cancels and updates can already be reflected in the book before waiting for batch confirmation.
 
 ## Deadline
 

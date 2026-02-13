@@ -1,6 +1,6 @@
 # Place an order
 
-This guide walks through placing a limit order on Pod's orderbook. For background on how the orderbook and matching work, see [Orderbook](../../protocol/markets-architecture/orderbook.md) and [Batch Auctions](../../protocol/markets-architecture/batch-auctions.md).
+This guide walks through placing a limit order on Pod's orderbook. For background on how the orderbook and matching work, see [Orderbook](https://docs.v2.pod.network/documentation/markets-architecture/orderbook) and [Batch Auctions](https://docs.v2.pod.network/documentation/markets-architecture/batch-auctions).
 
 ## Steps
 

@@ -1,6 +1,6 @@
 # Bridge from Pod
 
-This guide walks through bridging ERC20 tokens from Pod to Ethereum. For background on how the bridge works, see [Native Bridge](../../protocol/native-bridge.md).
+This guide walks through bridging ERC20 tokens from Pod to Ethereum. For background on how the bridge works, see [Native Bridge](https://docs.v2.pod.network/documentation/native-bridge).
 
 ## Steps
 
