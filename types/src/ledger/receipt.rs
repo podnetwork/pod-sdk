@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use super::log;
 use crate::{
-    consensus::attestation::AttestedTx,
     cryptography::{
         hash::{Hash, Hashable},
         merkle_tree::{MerkleBuilder, MerkleMultiProof, MerkleProof, Merkleizable, index_prefix},
@@ -22,7 +21,6 @@ pub struct Receipt {
     pub logs: Vec<Log>,
     pub logs_root: Hash,
     pub tx_hash: Hash,
-    pub attested_tx: AttestedTx,
     pub signer: Address,
     pub to: Option<Address>,
     pub contract_address: Option<Address>,
@@ -88,7 +86,6 @@ impl Merkleizable for Receipt {
         builder.add_slice("log_hashes", &self.log_hashes());
         builder.add_field("logs_root", self.logs_root.abi_encode().hash_custom());
         builder.add_field("tx_hash", self.tx_hash);
-        builder.add_merkleizable("attested_tx", &self.attested_tx);
     }
 }
 
@@ -134,7 +131,7 @@ mod test {
     use alloy_signer_local::PrivateKeySigner;
 
     use crate::{
-        AttestedTx, Hashable, Merkleizable, Transaction, TxSigner,
+        Hashable, Merkleizable, Transaction, TxSigner,
         cryptography::merkle_tree::StandardMerkleTree,
     };
 
@@ -182,7 +179,6 @@ mod test {
             logs: logs.clone(),
             logs_root,
             tx_hash: tx.hash_custom(),
-            attested_tx: AttestedTx::new(tx.hash_custom(), 0),
             signer: tx.signer,
             to: Some(to),
             contract_address: None,
