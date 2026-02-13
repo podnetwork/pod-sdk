@@ -4,7 +4,9 @@
 
 ## Guides
 
-* [Recover a Locked Account](guides/recover-locked-account.md)
+* [Bridge to Pod](guides/bridge-to-pod.md)
+* [Bridge from Pod](guides/bridge-from-pod.md)
+* [Recover a locked account](guides/recover-locked-account.md)
 
 ## References
 

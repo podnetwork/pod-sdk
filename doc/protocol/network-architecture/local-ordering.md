@@ -28,7 +28,7 @@ The target transaction points to the valid tip of a chain of transactions that c
 
 Note that recovery itself is a transaction, so a client can get locked again if it submits multiple conflicting recovery transactions and none of them reach quorum. The protocol handles this - the client simply initiates recovery again, and the new target transaction will account for the full chain including prior recovery attempts.
 
-See [Recover a Locked Account](../../api-reference/guides/recover-locked-account.md) for a step-by-step guide with code examples.
+See [Recover a locked account](../../api-reference/guides/recover-locked-account.md) for a step-by-step guide with code examples.
 
 ## References
 
