@@ -1,9 +1,18 @@
-# Applications (Precompiles)
+# Precompiles
 
-Pod ships with a set of enshrined applications optimized for efficient markets. These are implemented as precompiles  - built into the protocol itself rather than deployed as user contracts  - giving them performance characteristics that application-layer contracts cannot match. The network currently provides:
+Pod uses precompiles for both enshrined applications and internal protocol operations. Precompiles are built into the protocol itself rather than deployed as user contracts, giving them performance characteristics that application-layer contracts cannot match.
 
-* [**Orderbook Spot**](orderbook-spot.md)  - A central limit order book for spot markets. Supports order placement, cancellation, deposits, and withdrawals.
-* [**Optimistic Auctions**](wip-optimistic-auctions.md)  - A batch auction primitive for intent settlement, where solvers compete to produce the best execution.
+## Precompile Addresses
+
+| Signature | Address | Description |
+| --------- | ------- | ----------- |
+| [Orderbook Spot](orderbook-spot.md) | `0x000000000000000000000000000000000000C10B` | Central limit order book for spot markets |
+| [Bridge](bridge.md) | `0x000000000000000000000000000000000000C10` | ERC-20 token bridging between Pod and Ethereum |
+| Optimistic Auctions | — | Batch auction primitive for intent settlement (WIP) |
+| `recover(bytes32 txHash, uint64 nonce)` | `0x0000000000000000000000000000000004EC0EE4` | Recover a locked account by finalizing the target transaction chain |
+| `requireQuorum(boolean)` | `0x4CF3F1637bfEf1534e56352B6ebAae243aF464c3` | Like `require` but passes if supermajority agrees |
+| `external_call([uint256, [Transaction,bytes]])` | `0x8712E00C337971f876621faB9326908fdF330d77` | Call a smart contract on another EVM-compatible chain |
+| `call_with_state([uint256, Header, EVMCall, EVMState])` | `0xb4bbff8874b41f97535bc8dafbaaff0dc5c72e5a` | Simulate an EVM transaction execution given a particular initial state |
 
 ## Interacting with Precompiles
 

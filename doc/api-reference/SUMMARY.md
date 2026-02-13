@@ -14,7 +14,7 @@
           kind: openapi
           spec: pod-docs
     ```
-* [Applications (Precompiles)](applications-precompiles/README.md)
+* [Precompiles](applications-precompiles/README.md)
   * [Orderbook Spot](applications-precompiles/orderbook-spot.md)
   * [Optimistic Auctions](applications-precompiles/wip-optimistic-auctions.md)
   * [Bridge](applications-precompiles/bridge.md)
