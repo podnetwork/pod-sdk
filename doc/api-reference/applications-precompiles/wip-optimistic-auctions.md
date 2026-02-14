@@ -1,59 +1,39 @@
----
-description: Batch auctions for intent settlement with protocol-enforced fairness.
----
+# Optimistic Auctions
 
-# \[WIP] Optimistic Auctions
+The optimistic auctions precompile is a minimal auction contract for intents. Bidders submit bids into auction instances on Pod, but settlement happens elsewhere - on Ethereum, an L2, or any other chain with an on-chain consumer contract. Pod acts as a censorship-resistant bulletin board: it collects bids before a deadline and uses [past perfection](https://docs.v2.pod.network/documentation/core/timestamping#past-perfection) to guarantee that the bid set is complete once the deadline passes.
 
-The Optimistic Auctions precompile is a **batch auction primitive** for intent execution.
+For background on how optimistic auctions work, see [Optimistic Auctions](https://docs.v2.pod.network/documentation/markets/optimistic-auctions).
 
-Use it to collect many bids in one window.
+**Precompile address:** `0xeDD0670497E00ded712a398563Ea938A29dD28c7`
 
-Let solvers compete to produce the best execution.
+## Interface
 
-This is designed to reduce MEV by moving competition into a transparent auction.
+```solidity
+interface IOptimisticAuction {
+    /// @notice Emitted when a new bid is submitted for an auction instance.
+    event BidSubmitted(
+        uint256 indexed auction_id,
+        address indexed bidder,
+        uint64 indexed deadline,
+        uint256 value,
+        bytes data
+    );
 
-Further reading: [From fair ordering to fair inclusion](https://pod.network/blog/from-fair-ordering-to-fair-inclusion-completing-the-journey-to-trustless-l2-auctions).
+    /// @notice Submit a bid into a specific auction instance.
+    ///         If the auction_id does not exist yet, it is created implicitly.
+    /// @param auction_id Logical auction identifier. Bids with the same id compete together.
+    /// @param deadline Unix timestamp in microseconds. After this, the bid is invalid.
+    /// @param value Application-defined numeric value associated with the bid.
+    /// @param data Opaque payload, commonly encodes an intent or order.
+    function submitBid(
+        uint256 auction_id,
+        uint64 deadline,
+        uint256 value,
+        bytes calldata data
+    ) external;
+}
+```
 
 {% hint style="warning" %}
 **Microseconds, not milliseconds.** Deadlines are Unix timestamps in microseconds.
 {% endhint %}
-
-### Contract interface
-
-```
-sol! {
-    #[sol(rpc, extra_derives(Debug))]
-    contract OptimisticAuction {
-        /**
-         * @notice Emitted when a new bid is submitted for an auction instance.
-         * @param auction_id Logical auction identifier. Bids with the same id compete together.
-         * @param bidder The account that submitted the bid.
-         * @param deadline The latest timestamp (microseconds) at which inclusion is acceptable.
-         * @param value Application-defined numeric value associated with the bid.
-         * @param data Opaque payload interpreted by the auction application/solvers.
-         */
-        event BidSubmitted(
-            uint256 indexed auction_id,
-            address indexed bidder,
-            uint64 indexed deadline,
-            uint256 value,
-            bytes data
-        );
-
-        /**
-         * @notice Submit a bid into a specific auction instance.
-         * @dev If `auction_id` does not exist yet, it is created implicitly.
-         * @param auction_id Logical auction identifier. Use your app’s convention.
-         * @param deadline Unix timestamp in microseconds. After this, the bid is invalid.
-         * @param value Application-defined numeric value associated with the bid.
-         * @param data Opaque payload. Commonly encodes an intent or order.
-         */
-        function submitBid(
-            uint256 auction_id,
-            uint64 deadline,
-            uint256 value,
-            bytes calldata data
-        ) public {}
-    }
-}
-```

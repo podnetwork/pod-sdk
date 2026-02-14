@@ -20,3 +20,5 @@ For time-sensitive applications (e.g. an auction with a deadline), censorship re
 
 Pod provides this through [past perfection](timestamping.md#past-perfection). When an application subscribes to a time of interest, the full node returns a past perfect set once that time has been reached. If a transaction was submitted sufficiently before the time of interest (delta before the deadline, where delta is the network delay between the client and the slowest honest validator), it is guaranteed to be in the past perfect set. Validators cannot selectively exclude timely transactions from the set.
 
+[Optimistic auctions](../optimistic-auctions.md) are a concrete application of this property: bids submitted before the auction deadline are guaranteed to be in the finalized bid set, preventing bid suppression.
+

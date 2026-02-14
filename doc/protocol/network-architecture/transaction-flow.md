@@ -51,3 +51,5 @@ The validator broadcasts its attestation to all other validators and full nodes.
 The full node streams attestations back to the client as they arrive. A transaction is **final** once it has collected **n - f** attestations from the validator set, where **n** is the total number of validators and **f** is the maximum number of Byzantine validators the network tolerates.
 
 With a 5f + 1 validator set, this means a supermajority of 4/5 of validators by stake must attest for finality. Once this threshold is reached, the transaction cannot be reverted  - even if the remaining validators are adversarial.
+
+The collection of n - f attestations forms a **finality certificate** that is verifiable outside Pod. Any external system (a smart contract on Ethereum, a TEE enclave, a ZK circuit) can check the certificate to confirm a transaction was finalized on Pod without trusting a relay or intermediary.
