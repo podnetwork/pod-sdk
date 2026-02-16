@@ -1,4 +1,4 @@
-# Markets Overview
+# Overview
 
 Pod's protocol includes a set of asset-agnostic, fully on-chain, composable market primitives - the order book, matching engine, liquidation engine, and oracle system. These are enshrined as precompiles rather than deployed as user contracts. The primitives are general enough to support perpetual futures, options, prediction markets, intent-based matching, and markets for exotic or illiquid assets.
 
@@ -10,6 +10,6 @@ Pod also provides [optimistic auctions](optimistic-auctions.md) - a more general
 
 ## Navigating the Docs
 
-- [Orderbook](orderbook.md) - the enshrined CLOB precompile, order types, and market data
-- [Batch Auctions](batch-auctions.md) - how orders are matched, the deadline mechanism, and the solver role
-- [Optimistic Auctions](optimistic-auctions.md) - censorship-resistant auctions with off-Pod settlement
+* [Order book](orderbook.md) - the enshrined CLOB precompile, order types, and market data
+* [Batch Auctions](batch-auctions.md) - how orders are matched, the deadline mechanism, and the solver role
+* [Optimistic Auctions](optimistic-auctions.md) - censorship-resistant auctions with off-Pod settlement
