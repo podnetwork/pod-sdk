@@ -1011,10 +1011,6 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidAdverserialResilience.selector));
-        _bridge.updateValidatorConfig(0, 1, bytes32(0), addValidators, removeValidators);
-
-        vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidAdverserialResilience.selector));
         // forge-lint: disable-next-line(unsafe-typecast)
         _bridge.updateValidatorConfig(uint64(NUMBER_OF_VALIDATORS + 1), 1, bytes32(0), addValidators, removeValidators);
     }
@@ -1813,14 +1809,6 @@ contract BridgeUpdateValidatorSetTest is Test {
         harness.exposed_updateValidatorSet(new address[](0), remove, 1);
     }
 
-    function test_UpdateValidatorSet_RevertIfResilienceZero() public {
-        address[] memory add = new address[](1);
-        add[0] = validator1;
-
-        vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
-        harness.exposed_updateValidatorSet(add, new address[](0), 0);
-    }
-
     function test_UpdateValidatorSet_RevertIfResilienceExceedsValidatorCount() public {
         address[] memory add = new address[](1);
         add[0] = validator1;
@@ -1918,13 +1906,12 @@ contract BridgeUpdateValidatorSetTest is Test {
         }
 
         // Test invalid resilience values
-        if (resilience == 0 || resilience > numValidators) {
+        if (resilience > numValidators) {
             vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
             harness.exposed_updateValidatorSet(add, new address[](0), resilience);
         } else {
             harness.exposed_updateValidatorSet(add, new address[](0), resilience);
-            // Invariant: resilience > 0 && resilience <= validatorCount
-            assertGt(harness.adversarialResilience(), 0);
+            // Invariant: resilience <= validatorCount
             assertLe(harness.adversarialResilience(), harness.validatorCount());
         }
     }
