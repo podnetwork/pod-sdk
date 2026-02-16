@@ -1,4 +1,4 @@
-# Batch Auctions
+# Matching
 
 Pod uses frequent batch auctions to match orders. Instead of processing orders one at a time as they arrive (continuous trading), orders are collected over a short interval and matched together at a single uniform clearing price. This removes timing-based ordering advantages - competition is on price alone.
 
@@ -6,7 +6,7 @@ The batch duration is configurable per market, and is expected to be 100-200ms. 
 
 ## Clearing
 
-At the end of each batch interval, the matching engine runs a double auction using the average mechanism:
+At the end of each batch interval, the matching engine runs a double auction using the average mechanism (for simplification, we describe a case where all orders have unit size):
 
 1. Buy orders are sorted by price in descending order: b1 >= b2 >= ... >= bn.
 2. Sell orders are sorted by price in ascending order: s1 <= s2 <= ... <= sn.
@@ -36,4 +36,4 @@ The solver does not get any additional advantage. It cannot censor transactions 
 
 ## References
 
-- E. Budish, P. Cramton, J. Shim. *The High-Frequency Trading Arms Race: Frequent Batch Auctions as a Market Design Response.* Quarterly Journal of Economics, 2015.
+* E. Budish, P. Cramton, J. Shim. _The High-Frequency Trading Arms Race: Frequent Batch Auctions as a Market Design Response._ Quarterly Journal of Economics, 2015.
