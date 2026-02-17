@@ -191,7 +191,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
         validatorCount = uint64(uint256(validatorCount) + addValidators.length - removeValidators.length);
 
-        if (_adversarialResilience == 0 || _adversarialResilience > validatorCount) {
+        if (_adversarialResilience > validatorCount) {
             revert InvalidAdverserialResilience();
         }
         adversarialResilience = _adversarialResilience;
