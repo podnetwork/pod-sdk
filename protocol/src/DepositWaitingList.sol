@@ -89,8 +89,7 @@ contract DepositWaitingList is AccessControl {
 
         _ensureApproval(token);
 
-        Bridge.PermitParams[] memory emptyPermits = new Bridge.PermitParams[](0);
-        bridge.batchDepositAndCall(token, params, emptyPermits, callContract, 0);
+        bridge.batchDepositAndCall(token, params, new Bridge.PermitParams[](0), callContract, 0);
     }
 
     function setCallContract(address _callContract) external onlyRole(DEFAULT_ADMIN_ROLE) {
