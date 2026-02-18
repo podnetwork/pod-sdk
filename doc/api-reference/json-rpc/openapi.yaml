@@ -1,0 +1,1562 @@
+openapi: 3.0.0
+info:
+  title: JSON-RPC API
+  version: 1.0.0
+
+servers:
+  - url: https://rpc.v1.dev.pod.network/
+    description: Pod testnet
+
+tags:
+  - name: Orderbook Data (ob_)
+    description: |
+      Orderbook Data (`ob_`) is a read-focused API surface that provides access to
+      markets and orderbook activity without requiring clients to run their own
+      indexer or interact with the orderbook contracts directly. It is powered
+      by a native indexer built into the Pod protocol, ensuring fast, consistent,
+      and up-to-date views of on-chain state.
+      
+      The API exposes live orderbook snapshots, historical OHLCV candles,
+      account-level order history and positions, making it ideal for trading
+      interfaces, analytics, and monitoring services.
+
+      📝 This is a JSON-RPC 2.0 API. The request path is not important; the
+      method to execute is defined by the method field in the request body. You
+      can send all requests to /, and any path after / is optional and used only
+      for documentation clarity.
+
+      &nbsp; &nbsp; &nbsp;
+
+  - name: Ethereum Interface (eth_)
+    description: |
+      Ethereum Interface (`eth_`) provides an Ethereum-compatible JSON-RPC layer
+      that allows existing wallets, tools, and libraries to interact with Pod
+      using familiar methods and conventions. It is designed to be drop-in
+      compatible with standard Ethereum client workflows, allowing developers to
+      use common tooling such as `ethers.js`, `alloy.rs`, and `cast` without
+      modification.
+
+      The interface covers the transaction submission and receipt lifecycle,
+      including balance and nonce discovery, read-only contract calls, log
+      queries, and real-time subscriptions.
+
+      📝 This is a JSON-RPC 2.0 API. The request path is not important; the
+      method to execute is defined by the method field in the request body. You
+      can send all requests to /, and any path after / is optional and used only
+      for documentation clarity.
+
+      &nbsp; &nbsp; &nbsp;
+
+  - name: Network & Consensus (pod_)
+    description: |
+      Network & Consensus (`pod_`) exposes Pod-specific endpoints that provide
+      visibility into the network’s validator set and consensus process. These
+      APIs surface data that is not available through standard Ethereum JSON-RPC
+      methods, such as validator committees and aggregated voting information.
+
+      This interface is intended for infrastructure providers, validators, and
+      light clients that need to inspect, monitor, or verify the state of the
+      Pod network.
+
+      📝 This is a JSON-RPC 2.0 API. The request path is not important; the
+      method to execute is defined by the method field in the request body. You
+      can send all requests to /, and any path after / is optional and used only
+      for documentation clarity.
+
+      &nbsp; &nbsp; &nbsp;
+
+paths:
+  # ==========================================
+  # GROUP 1: ORDERBOOK DATA (ob_)
+  # ==========================================
+  /ob_getMarkets:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get All Markets
+      operationId: ob_getMarkets
+      description: |
+        Retrieves a list of all available markets/orderbooks with their metadata
+        and statistics. Each market includes token information, current pricing,
+        24-hour statistics, and fee structure.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getMarkets" }
+                id: { type: integer, default: 1 }
+                params: { type: array, default: [] }
+            example:
+              jsonrpc: "2.0"
+              method: "ob_getMarkets"
+              params: []
+              id: 1
+      responses:
+        '200':
+          description: Array of market objects with metadata and statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: array
+                    items: { $ref: '#/components/schemas/Market' }
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  - id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                    name: "PETH/USDT"
+                    base_token_address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+                    quote_token_address: "0x0000000000000000000000000000000000000001"
+                    base_token_symbol: "PETH"
+                    quote_token_symbol: "USDT"
+                    base_token_name: "Wrapped ETH"
+                    quote_token_name: "Test USDT"
+                    market_type: "spot"
+                    last_clearing_price: "0x6f05b59d3b200000"
+                    auction_interval: 500
+                    volume_24h: "0x2386f26fc10000"
+                    high_24h: "0x1158e460913d00000"
+                    low_24h: "0x6f05b59d3b200000"
+                    price_change_24h: 0
+                    maker_fee: "0x0"
+                    taker_fee: "0x0"
+                    tick_precision: "0x1"
+                id: 1
+
+  /ob_getOrderbook:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Orderbook Snapshot
+      operationId: ob_getOrderbook
+      description: |
+        Retrieves the current orderbook snapshot for a specified market, showing buy and sell orders aggregated by price level.
+        
+        Orders are grouped by price and include total volume and minimum expiry at each level.
+        Buy orders are sorted by price descending (best bid first), sell orders by price ascending (best ask first).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getOrderbook" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `orderbook_id` (bytes32): The 32-byte orderbook identifier
+                    2. `depth` (integer, optional): Maximum number of price levels to return for each side. If omitted, all available price levels are returned.
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/Bytes32'
+                      - type: integer
+                        description: Depth - maximum price levels per side
+                  example: ["0x0000000000000000000000000000000000000000000000000000000000000001", 20]
+      responses:
+        '200':
+          description: Orderbook snapshot with aggregated buy and sell orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/OrderbookSnapshot' }
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  clob_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                  buys:
+                    "5000000000000000000":
+                      volume: "1000000000000000000"
+                      minimum_expiry: 1704153600000000
+                    "4900000000000000000":
+                      volume: "2000000000000000000"
+                      minimum_expiry: 1704153600000000
+                  sells:
+                    "5100000000000000000":
+                      volume: "1500000000000000000"
+                      minimum_expiry: 1704153600000000
+                    "5200000000000000000":
+                      volume: "2500000000000000000"
+                      minimum_expiry: 1704153600000000
+                  grouping_precision: "1"
+                  timestamp: 1704153600000000
+                  new_orders_count: 5
+                  buys_count: 2
+                  sells_count: 2
+                id: 1
+
+  /ob_getCandles:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Historical Candles
+      operationId: ob_getCandles
+      description: |
+        Retrieves historical candle (OHLCV) data for a specified orderbook.
+        
+        Candles represent aggregated price and volume data over specified time intervals.
+        Results are returned sorted by timestamp in descending order (newest first).
+        
+        All prices are in quote/base units with 1e18 scale (hex-encoded).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getCandles" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `orderbook_id` (bytes32): The 32-byte orderbook identifier
+                    2. `query` (object): Query parameters with resolution, time range, and limit
+                  example: 
+                    - "0x0000000000000000000000000000000000000000000000000000000000000001"
+                    - resolution: "1h"
+                      from_ts: 1704067200000000
+                      to_ts: 1704153600000000
+                      limit: 100
+      responses:
+        '200':
+          description: Array of candle objects sorted by timestamp (newest first)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: array
+                    items: { $ref: '#/components/schemas/Candle' }
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  - timestamp: 1704153600000000
+                    open: "0x6f05b59d3b200000"
+                    close: "0x6f05b59d3b200000"
+                    high: "0x6f05b59d3b200000"
+                    low: "0x6f05b59d3b200000"
+                    volume: "0x2386f26fc10000"
+                  - timestamp: 1704150000000000
+                    open: "0x6f05b59d3b200000"
+                    close: "0x6f05b59d3b200000"
+                    high: "0x6f05b59d3b200000"
+                    low: "0x6f05b59d3b200000"
+                    volume: "0x2386f26fc10000"
+                id: 1
+
+  /ob_getOrders:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Account Orders
+      operationId: ob_getOrders
+      description: |
+        Retrieves orders for a specific address in a given orderbook, with support for cursor-based pagination.
+        
+        Orders are returned in descending order by timestamp/nonce.
+        Use the `next_cursor` from the response to fetch subsequent pages.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getOrders" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `address` (address): The address to get orders for
+                    2. `query` (object): Query parameters with optional orderbook_id, limit, cursor, and status filter
+                  example: 
+                    - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                    - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                      limit: 10
+                      status: "active"
+      responses:
+        '200':
+          description: Object containing orders array and pagination cursor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: object
+                    properties:
+                      orders:
+                        type: array
+                        items: { $ref: '#/components/schemas/Order' }
+                      total_count:
+                        type: integer
+                        description: Total number of orders matching the query
+                      next_cursor:
+                        type: string
+                        nullable: true
+                        description: Cursor for fetching the next page. Null if no more results.
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  orders:
+                    - tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                      nonce: 42
+                      bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                      initial_size: "1000000000000000000"
+                      filled_base_amount: "500000000000000000"
+                      filled_quote_amount: "2500000000000000000"
+                      price: "5000000000000000000"
+                      deadline: "1704153600000000"
+                      end: "1704240000000000"
+                      fee: "1000000000000000"
+                      status: "active"
+                  total_count: 42
+                  next_cursor: "1704153600000000:42"
+                id: 1
+
+  /ob_getPositions:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Account Positions
+      operationId: ob_getPositions
+      description: |
+        Retrieves trading positions for a specific address across all orderbooks.
+        
+        Positions track the cost basis of acquired tokens (from buys and deposits) and compute
+        unrealized PnL using the current clearing price. The response includes per-token positions
+        (balance, position size, unrealized PnL) and aggregate metrics (total realized PnL,
+        total invested, total unrealized PnL).
+        
+        All amounts use 1e18 fixed-point scale.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getPositions" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `address` (address): The address to get positions for
+                  items: { $ref: '#/components/schemas/Address' }
+                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"]
+      responses:
+        '200':
+          description: Positions response with per-token positions and aggregate PnL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/PositionsResponse' }
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  positions:
+                    - symbol: "PETH"
+                      address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+                      balance: "0x21e19e0c9bab2400000"
+                      position: "0x21e19e0c9bab2400000"
+                      unrealized_pnl: "-99900099900099900100"
+                    - symbol: "USDT"
+                      address: "0x0000000000000000000000000000000000000001"
+                      balance: "0x20dd68aaf3289100000"
+                      position: "0x0"
+                      unrealized_pnl: "0"
+                  total_unrealized_pnl: "-99900099900099900100"
+                  total_realized_pnl: "99900099900099900100"
+                  total_invested: "0x56bc75e2d63100000"
+                id: 1
+
+  # ==========================================
+  # GROUP 2: ETHEREUM COMPATIBLE (eth_)
+  # ==========================================
+  /eth_getBalance:
+    post:
+      tags: [Ethereum Interface (eth_)]
+      summary: Get Native Token Balance
+      operationId: eth_getBalance
+      description: |
+        Returns the native token balance for the specified address in the wallet.
+        
+        **Note:** This returns the wallet balance, which is distinct from the orderbook contract balance.
+        To query the balance deposited in the orderbook contract, call the `getBalance` function on the orderbook contract.
+        
+        The `block_number` parameter is accepted for Ethereum compatibility but is ignored.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "eth_getBalance" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `address` (address): The address to check balance for
+                    2. `block_number` (string): Block identifier (accepted but ignored)
+                  items:
+                    anyOf:
+                      - $ref: '#/components/schemas/Address'
+                      - type: string
+                        default: "latest"
+                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", "latest"]
+      responses:
+        '200':
+          description: Balance in wei (hex-encoded uint256)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/HexUint256' }
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result: "0x6f05b59d3b200000"
+                id: 1
+
+  /eth_chainId:
+    post:
+      tags: [Ethereum Interface (eth_)]
+      summary: Get Chain ID
+      operationId: eth_chainId
+      description: Returns the chain ID used for signing transactions (EIP-155).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "eth_chainId" }
+                id: { type: integer, default: 1 }
+                params: { type: array, default: [] }
+      responses:
+        '200':
+          description: Chain ID (hex-encoded)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { type: string, example: "0x50d" }
+                  id: { type: integer }
+
+  # /eth_blockNumber:
+  #   post:
+  #     tags: [Ethereum Interface (eth_)]
+  #     summary: Get Current Block Number
+  #     operationId: eth_blockNumber
+  #     description: |
+  #       Returns the current timestamp in seconds as the block number.
+        
+  #       **Pod-specific behavior:** In Pod, the block number represents the current Unix timestamp in seconds rather than a sequential block count.
+  #     requestBody:
+  #       content:
+  #         application/json:
+  #           schema:
+  #             type: object
+  #             required: [jsonrpc, method, id]
+  #             properties:
+  #               jsonrpc: { type: string, default: "2.0" }
+  #               method: { type: string, default: "eth_blockNumber" }
+  #               id: { type: integer, default: 1 }
+  #               params: { type: array, default: [] }
+  #     responses:
+  #       '200':
+  #         description: Current timestamp as block number (hex-encoded)
+  #         content:
+  #           application/json:
+  #             schema:
+  #               type: object
+  #               properties:
+  #                 jsonrpc: { type: string }
+  #                 result: { type: string, example: "0x65954e80" }
+  #                 id: { type: integer }
+
+  /eth_getTransactionByHash:
+    post:
+      tags: [Ethereum Interface (eth_)]
+      summary: Get Transaction by Hash
+      operationId: eth_getTransactionByHash
+      description: |
+        Returns the transaction that matches the given hash, or null if not found.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "eth_getTransactionByHash" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `transaction_hash` (bytes32): The transaction hash to look up
+                  items: { $ref: '#/components/schemas/Bytes32' }
+                  example: ["0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"]
+      responses:
+        '200':
+          description: Transaction object, or null if not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    oneOf:
+                      - $ref: '#/components/schemas/Transaction'
+                      - type: "null"
+                  id: { type: integer }
+
+  /eth_getTransactionCount:
+    post:
+      tags: [Ethereum Interface (eth_)]
+      summary: Get Transaction Count (Nonce)
+      operationId: eth_getTransactionCount
+      description: |
+        Returns the transaction count (nonce) for the specified address.
+        Required for transaction signing to prevent replay attacks.
+        The nonce is the current transaction count for the address.
+
+        **Pod-specific:** The `block_tag` parameter is accepted for Ethereum compatibility but is ignored.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "eth_getTransactionCount" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `address` (address): The address to get nonce for
+                    2. `block_tag` (string): Block tag (accepted but ignored)
+                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", "latest"]
+      responses:
+        '200':
+          description: Nonce (hex-encoded uint256)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/HexUint256' }
+                  id: { type: integer }
+
+  /eth_sendRawTransaction:
+    post:
+      tags: [Ethereum Interface (eth_)]
+      summary: Send Raw Transaction (Fire-and-Forget)
+      operationId: eth_sendRawTransaction
+      description: |
+        Submits a signed EIP-1559 transaction to the network. Returns the transaction hash on success.
+        
+        The transaction must be RLP-encoded and signed. Use this method to submit orderbook operations
+        (deposits, withdrawals, order submissions, cancellations) to the orderbook contract.
+        
+        For synchronous attestation feedback (successes/errors from validators), use `pod_sendRawTransaction`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "eth_sendRawTransaction" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `signed_tx` (string): Signed RLP-encoded transaction data
+                  items: { type: string, description: "Signed RLP-encoded transaction" }
+                  example: ["0x02f8..."]
+      responses:
+        '200':
+          description: Transaction hash
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/Bytes32' }
+                  id: { type: integer }
+
+  /pod_sendRawTransaction:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Send Raw Transaction (With Attestation Feedback)
+      operationId: pod_sendRawTransaction
+      description: |
+        Submits a signed EIP-1559 transaction and waits for validator attestations, returning
+        tx_hash, success count, and any rejection errors from validators.
+        
+        **Parameters:**
+        - `signed_tx` (string): Signed RLP-encoded transaction data
+        - `timeout_secs` (integer, optional): Max seconds to wait for attestations. Default 10.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_sendRawTransaction" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `signed_tx` (string): Signed RLP-encoded transaction data
+                    2. `timeout_secs` (integer, optional): Max seconds to wait for attestations
+                  example: ["0x02f8...", 10]
+      responses:
+        '200':
+          description: Object with tx_hash, successes count, and errors array
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: object
+                    properties:
+                      tx_hash: { $ref: '#/components/schemas/Bytes32' }
+                      successes: { type: integer, description: "Number of successful attestations" }
+                      errors: { type: array, items: { type: object } }
+                  id: { type: integer }
+
+  /eth_call:
+    post:
+      tags: [Ethereum Interface (eth_)]
+      summary: Execute Read-Only Call
+      operationId: eth_call
+      description: |
+        Executes a new message call immediately without creating a transaction on the blockchain.
+        
+        Use this method for read-only operations on the orderbook contract, such as:
+        - `getBalance(address token)` - Get deposited balance for a token
+        - `getOrders(bytes32 orderbookId, bytes32[] txHashes)` - Get order details by transaction hashes
+        
+        **Orderbook Contract Address:** `0x000000000000000000000000000000000000C10B`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "eth_call" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `transaction` (object): Call object with `to`, `data`, and optionally `from`
+                    2. `block_tag` (string): Block tag (e.g., "latest")
+                  example: 
+                    - to: "0x000000000000000000000000000000000000C10B"
+                      data: "0x..."
+                    - "latest"
+      responses:
+        '200':
+          description: Return data (hex-encoded)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { type: string, example: "0x000..." }
+                  id: { type: integer }
+
+  /eth_getTransactionReceipt:
+    post:
+      tags: [Ethereum Interface (eth_)]
+      summary: Get Transaction Receipt
+      operationId: eth_getTransactionReceipt
+      description: |
+        Retrieves the transaction receipt including execution status and event logs.
+        
+        **Pod-specific:** The receipt includes `pod_metadata` containing validator attestations for transaction finality verification.
+        
+        Returns `null` if the transaction is not found or not yet processed.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "eth_getTransactionReceipt" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `transaction_hash` (bytes32): The transaction hash to look up
+                  items: { $ref: '#/components/schemas/Bytes32' }
+                  example: ["0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"]
+      responses:
+        '200':
+          description: Transaction receipt with Pod-specific attestation data, or null if not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    oneOf:
+                      - $ref: '#/components/schemas/TransactionReceipt'
+                      - type: "null"
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  type: "0x2"
+                  status: "0x1"
+                  cumulativeGasUsed: "0xf4240"
+                  logs: []
+                  logsBloom: "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                  transactionHash: "0x63dfbb7b3294d3d9aedb9bd1a306ec40156d0da1c374b2348f60c57186704fcd"
+                  transactionIndex: "0x0"
+                  blockHash: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                  blockNumber: "0x1"
+                  gasUsed: "0xf4240"
+                  effectiveGasPrice: "0x1"
+                  from: "0xe51e549231219c35040efcf784f58776d5065d26"
+                  to: "0x000000000000000000000000000000000000c10b"
+                  contractAddress: null
+                  pod_metadata:
+                    attestations:
+                      - validator_address: "0x3ab7e9c61dece769dc872322ad1e83a5012aa480"
+                        sequence_number: 14661
+                        batch_index: 0
+                        timestamp: 1770737135051543
+                        signature: "30450221008bd92c1b51d5f38b2938dab90aa6c401e5695092930885a12a1e42ae445bbbde0220068e6160d83d763079ff0861b21a71af625670dc40361075da7d1b13c92a50c4"
+                    committee_epoch: 0
+                id: 1
+
+  /eth_estimateGas:
+    post:
+      tags: [Ethereum Interface (eth_)]
+      summary: Estimate Gas
+      operationId: eth_estimateGas
+      description: |
+        Estimates the gas required for a transaction.
+        
+        **Pod-specific behavior:** If the transaction already specifies a gas value, returns that value.
+        Otherwise, returns `21000` (standard transaction gas).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "eth_estimateGas" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `transaction` (object): Transaction object with `to`, `data`, `value`, `from`, etc.
+                  example: [{ to: "0x000000000000000000000000000000000000C10B", value: "0x0" }]
+      responses:
+        '200':
+          description: Estimated gas (hex-encoded)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/HexUint256' }
+                  id: { type: integer }
+
+  /eth_getLogs:
+    post:
+      tags: [Ethereum Interface (eth_)]
+      summary: Get Logs
+      operationId: eth_getLogs
+      description: Returns an array of log objects matching the given filter criteria.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "eth_getLogs" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `filter` (object): Filter object with `address`, `topics`, `fromBlock`, `toBlock`
+                  example: [{ address: "0x000000000000000000000000000000000000C10B", topics: [] }]
+      responses:
+        '200':
+          description: Array of log objects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: 
+                    type: array
+                    items: { $ref: '#/components/schemas/Log' }
+                  id: { type: integer }
+
+  /eth_subscribe:
+    post:
+      tags: [Ethereum Interface (eth_)]
+      summary: Subscribe to Events (WebSocket)
+      operationId: eth_subscribe
+      description: |
+        Creates a subscription to receive real-time updates over WebSocket.
+        
+        **Pod-specific subscriptions:**
+        - `pod_orderbook` - Receive orderbook snapshots on each mutation
+        - `pod_orders` - Receive order updates for specified orderbooks
+        
+        Subscriptions follow the standard Ethereum `eth_subscribe` pattern:
+        1. Subscribe with `eth_subscribe` → receive subscription ID
+        2. Receive updates via `eth_subscription` notifications
+        3. Cancel with `eth_unsubscribe`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "eth_subscribe" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `subscription_type` (string): Type of subscription (`pod_orderbook` or `pod_orders`)
+                    2. `options` (object): Subscription options. Use `clob_ids` (array of bytes32) to filter by orderbook; empty array = all orderbooks. Use `depth` for max price levels in orderbook snapshots.
+                  example: ["pod_orderbook", { clob_ids: ["0x0000000000000000000000000000000000000000000000000000000000000001"], depth: 50 }]
+      responses:
+        '200':
+          description: Subscription ID for tracking and unsubscribing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { type: string, description: "Subscription ID" }
+                  id: { type: integer }
+
+  # ==========================================
+  # GROUP 3: Pod Consensus Endpoints (_pod)
+  # ==========================================
+  /pod_getCommittee:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Validator Committee
+      operationId: pod_getCommittee
+      description: Returns information about the current validator committee.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getCommittee" }
+                id: { type: integer, default: 1 }
+                params: { type: array, default: [] }
+      responses:
+        '200':
+          description: Committee information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { type: object }
+                  id: { type: integer }
+
+
+  /pod_getVoteBatches:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Vote Batches
+      operationId: pod_getVoteBatches
+      description: Retrieves vote batches from validators within a specified range.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getVoteBatches" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `from_sequence` (integer, nullable): Starting sequence number. None = start from 0
+                    2. `to_sequence` (integer, nullable): Ending sequence number. None = up to latest
+                  items: { type: integer, nullable: true }
+                  example: [0, 1000]
+      responses:
+        '200':
+          description: Array of vote batch objects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: array
+                    items: { type: object }
+                  id: { type: integer }
+
+
+  /pod_getBridgeClaimProof:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Bridge Claim Proof
+      operationId: pod_getBridgeClaimProof
+      description: |
+        Returns a proof for claiming bridged assets on an external chain. Use this after a
+        deposit transaction has been executed on Pod to obtain the committee attestations
+        and proof data needed to call `claim` on the external bridge contract.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getBridgeClaimProof" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `tx_hash` (bytes32): Transaction hash of the deposit transaction
+                  items: { $ref: '#/components/schemas/Bytes32' }
+                  example: ["0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"]
+      responses:
+        '200':
+          description: Bridge claim proof for the external chain `claim` call
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/BridgeClaimProof' }
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  signatures: "0x..."
+                  committee_epoch: 42
+                  proof: "0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"
+                id: 1
+        '400':
+          description: Receipt not found or insufficient attestations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  error:
+                    type: object
+                    properties:
+                      code: { type: integer }
+                      message: { type: string }
+                  id: { type: integer }
+
+
+components:
+  schemas:
+    # ==========================================
+    # CORE JSON-RPC SCHEMAS
+    # ==========================================
+    JsonRpcRequest:
+      type: object
+      description: Standard JSON-RPC 2.0 request object
+      required: [jsonrpc, method, id]
+      properties:
+        jsonrpc: 
+          type: string 
+          enum: ["2.0"]
+          description: JSON-RPC protocol version (always "2.0")
+        method: 
+          type: string
+          description: Name of the RPC method to invoke
+        params: 
+          type: array
+          items: {}
+          description: Method parameters as an array
+        id: 
+          oneOf: [{ type: integer }, { type: string }]
+          description: Request identifier for correlating responses
+
+    JsonRpcResponse:
+      type: object
+      description: Standard JSON-RPC 2.0 response object
+      required: [jsonrpc, id]
+      properties:
+        jsonrpc: 
+          type: string 
+          enum: ["2.0"]
+        result: 
+          description: Result of the method call (mutually exclusive with error)
+        error: 
+          $ref: '#/components/schemas/JsonRpcError'
+          description: Error object if the call failed
+        id: 
+          oneOf: [{ type: integer }, { type: string }]
+
+    JsonRpcError:
+      type: object
+      description: JSON-RPC error object
+      required: [code, message]
+      properties:
+        code: 
+          type: integer
+          description: Numeric error code
+        message: 
+          type: string
+          description: Human-readable error message
+        data: 
+          description: Additional error information
+
+    # ==========================================
+    # PRIMITIVE TYPES
+    # ==========================================
+    Address:
+      type: string
+      pattern: "^0x[a-fA-F0-9]{40}$"
+      description: Ethereum address (20 bytes, hex-encoded with 0x prefix)
+      example: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+
+    Bytes32:
+      type: string
+      pattern: "^0x[a-fA-F0-9]{64}$"
+      description: 32-byte value (hex-encoded with 0x prefix). Used for transaction hashes, orderbook IDs, etc.
+      example: "0x0000000000000000000000000000000000000000000000000000000000000001"
+
+    HexBytes:
+      type: string
+      pattern: "^0x[a-fA-F0-9]*$"
+      description: Variable-length bytes (hex-encoded with 0x prefix). Length must be even.
+      example: "0x1234"
+
+    BridgeClaimProof:
+      type: object
+      description: Proof data for claiming bridged assets on an external chain via the bridge contract's `claim` function.
+      required: [signatures, committee_epoch, proof]
+      properties:
+        signatures:
+          $ref: '#/components/schemas/HexBytes'
+          description: Aggregated 65-byte ECDSA signatures (r, s, v) from validators, concatenated
+        committee_epoch:
+          type: integer
+          format: uint64
+          description: Committee epoch for signature verification
+        proof:
+          $ref: '#/components/schemas/Bytes32'
+          description: Transaction hash (proof data for the claim)
+
+    HexUint256:
+      type: string
+      pattern: "^0x[a-fA-F0-9]+$"
+      description: Unsigned 256-bit integer (hex-encoded with 0x prefix)
+      example: "0x6f05b59d3b200000"
+
+    DecimalUint256:
+      type: string
+      pattern: "^[0-9]+$"
+      description: Unsigned 256-bit integer (decimal string representation)
+      example: "1000000000000000000"
+
+    Timestamp:
+      type: integer
+      format: int64
+      description: Unix timestamp in microseconds (not milliseconds or seconds)
+      example: 1704153600000000
+
+    TimestampString:
+      type: string
+      pattern: "^[0-9]+$"
+      description: Unix timestamp in microseconds as a string
+      example: "1704153600000000"
+
+    # ==========================================
+    # ENUMS
+    # ==========================================
+    Side:
+      type: string
+      enum: ["Buy", "Sell"]
+      description: Order side - Buy (bid) or Sell (ask)
+
+    OrderStatus:
+      type: string
+      enum: ["pending", "active", "filled", "expired", "canceled"]
+      description: |
+        Current status of an order:
+        - `pending`: Order submitted but not yet included in orderbook
+        - `active`: Order is live in the orderbook
+        - `filled`: Order completely filled
+        - `expired`: Order expired (TTL exceeded)
+        - `canceled`: Order was canceled by user
+
+    MarketType:
+      type: string
+      enum: ["spot", "perpetual"]
+      description: Type of market - spot trading or perpetual futures
+
+    CandleResolution:
+      type: string
+      enum: ["1m", "5m", "15m", "1h", "4h", "1d"]
+      description: Time interval for OHLCV candles
+
+    # ==========================================
+    # DOMAIN OBJECTS
+    # ==========================================
+    Order:
+      type: object
+      description: |
+        Represents an order in the orderbook.
+        The `initial_size` is signed: positive for Buy orders, negative for Sell orders.
+      properties:
+        tx_hash: 
+          $ref: '#/components/schemas/Bytes32'
+          description: Transaction hash that created this order
+        nonce: 
+          type: integer
+          format: int64
+          description: Order nonce for the account
+        bidder: 
+          $ref: '#/components/schemas/Address'
+          description: Address of the order creator
+        initial_size: 
+          type: string
+          description: Original signed order size (positive = Buy/Bid, negative = Sell/Ask)
+        filled_base_amount: 
+          $ref: '#/components/schemas/HexUint256'
+          description: Amount of base tokens filled
+        filled_quote_amount: 
+          $ref: '#/components/schemas/HexUint256'
+          description: Amount of quote tokens filled (spent for buys, received for sells)
+        price: 
+          $ref: '#/components/schemas/HexUint256'
+          description: Limit price in quote/base units with 1e18 scale
+        deadline: 
+          $ref: '#/components/schemas/TimestampString'
+          description: Timestamp by which order must be included in the orderbook (microseconds)
+        end: 
+          $ref: '#/components/schemas/TimestampString'
+          description: Timestamp when order expires (microseconds)
+        status: 
+          $ref: '#/components/schemas/OrderStatus'
+        fee: 
+          $ref: '#/components/schemas/HexUint256'
+          description: Accumulated trading fee
+
+    Candle:
+      type: object
+      description: OHLCV candle representing price/volume data for a time period
+      properties:
+        timestamp: 
+          $ref: '#/components/schemas/Timestamp'
+          description: Candle timestamp in microseconds
+        open: 
+          $ref: '#/components/schemas/HexUint256'
+          description: Opening price (quote/base with 1e18 scale)
+        close: 
+          $ref: '#/components/schemas/HexUint256'
+          description: Closing price (quote/base with 1e18 scale)
+        high: 
+          $ref: '#/components/schemas/HexUint256'
+          description: Highest price (quote/base with 1e18 scale)
+        low: 
+          $ref: '#/components/schemas/HexUint256'
+          description: Lowest price (quote/base with 1e18 scale)
+        volume: 
+          $ref: '#/components/schemas/HexUint256'
+          description: Total volume traded during this candle period
+
+    Market:
+      type: object
+      description: Market/orderbook metadata and 24-hour statistics
+      properties:
+        id: 
+          $ref: '#/components/schemas/Bytes32'
+          description: Unique 32-byte orderbook identifier
+        name: 
+          type: string
+          description: Market name in format `{base_token}/{quote_token}` (e.g. "PETH/USDT")
+          example: "PETH/USDT"
+        base_token_address: 
+          $ref: '#/components/schemas/Address'
+          description: Contract address of the base token
+        quote_token_address: 
+          $ref: '#/components/schemas/Address'
+          description: Contract address of the quote token
+        base_token_symbol: 
+          type: string
+          description: Symbol of the base token (e.g., "PETH")
+        quote_token_symbol: 
+          type: string
+          description: Symbol of the quote token (e.g., "USDT")
+        base_token_name:
+          type: string
+          description: Full name of the base token
+        quote_token_name:
+          type: string
+          description: Full name of the quote token
+        market_type: 
+          $ref: '#/components/schemas/MarketType'
+        last_clearing_price: 
+          $ref: '#/components/schemas/HexUint256'
+          description: Last auction clearing price (quote/base with 1e18 scale)
+        auction_interval:
+          type: integer
+          description: Auction interval in milliseconds
+        volume_24h: 
+          $ref: '#/components/schemas/HexUint256'
+          description: 24-hour trading volume
+        high_24h:
+          $ref: '#/components/schemas/HexUint256'
+          description: 24-hour highest price
+        low_24h:
+          $ref: '#/components/schemas/HexUint256'
+          description: 24-hour lowest price
+        price_change_24h: 
+          type: integer
+          format: int64
+          description: 24-hour price change (signed integer)
+        tick_precision:
+          $ref: '#/components/schemas/HexUint256'
+          description: Minimum price tick size
+        maker_fee:
+          $ref: '#/components/schemas/HexUint256'
+          description: Maker fee rate
+        taker_fee:
+          $ref: '#/components/schemas/HexUint256'
+          description: Taker fee rate
+
+    TickSnapshot:
+      type: object
+      description: Aggregated order volume at a specific price level
+      properties:
+        volume: 
+          $ref: '#/components/schemas/DecimalUint256'
+          description: Total volume available at this price level
+        minimum_expiry: 
+          type: integer
+          description: Minimum expiry timestamp (microseconds) for orders at this price level
+
+    OrderbookSnapshot:
+      type: object
+      description: |
+        Current state of an orderbook with aggregated buy/sell levels.
+        Uses `clob_id` (same as orderbook_id); websocket subscriptions use `clob_ids` for consistency.
+      properties:
+        clob_id: 
+          $ref: '#/components/schemas/Bytes32'
+          description: Orderbook identifier (synonym for orderbook_id)
+        buys: 
+          type: object
+          additionalProperties: { $ref: '#/components/schemas/TickSnapshot' }
+          description: Buy orders keyed by price (decimal string), sorted by price descending
+        sells: 
+          type: object
+          additionalProperties: { $ref: '#/components/schemas/TickSnapshot' }
+          description: Sell orders keyed by price (decimal string), sorted by price ascending
+        clearing_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Current/last clearing price
+        grouping_precision:
+          type: string
+          description: Price grouping precision used for aggregation
+        timestamp: 
+          type: integer
+          description: Snapshot timestamp in microseconds
+        new_orders_count:
+          type: integer
+          description: Number of new orders since the last snapshot
+        buys_count:
+          type: integer
+          description: Total number of buy orders in the orderbook (regardless of depth parameter)
+        sells_count:
+          type: integer
+          description: Total number of sell orders in the orderbook (regardless of depth parameter)
+
+    PodAttestation:
+      type: object
+      description: Validator attestation for a transaction
+      properties:
+        validator_address:
+          $ref: '#/components/schemas/Address'
+          description: Address of the attesting validator
+        sequence_number:
+          type: integer
+          format: int64
+          description: Sequence number of the attestation
+        batch_index:
+          type: integer
+          description: Index within the attestation batch
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+          description: Timestamp when the attestation was created (microseconds)
+        signature:
+          type: string
+          description: Hex-encoded secp256k1 ECDSA signature
+
+    PodMetadata:
+      type: object
+      description: Pod-specific metadata containing validator attestations for finality verification
+      properties:
+        attestations:
+          type: array
+          items: { $ref: '#/components/schemas/PodAttestation' }
+          description: List of validator attestations for the transaction
+        committee_epoch:
+          type: integer
+          format: int64
+          description: The committee epoch during which the transaction was attested
+
+    TransactionReceipt:
+      type: object
+      description: Transaction receipt with execution status, logs, and Pod-specific metadata
+      properties:
+        type:
+          type: string
+          description: Transaction type (EIP-2718)
+          example: "0x2"
+        status:
+          type: string
+          enum: ["0x0", "0x1"]
+          description: Execution status - "0x1" for success, "0x0" for failure
+        cumulativeGasUsed:
+          $ref: '#/components/schemas/HexUint256'
+        logs:
+          type: array
+          items: { $ref: '#/components/schemas/Log' }
+        logsBloom:
+          type: string
+          description: Bloom filter for logs (hex-encoded)
+        transactionHash:
+          $ref: '#/components/schemas/Bytes32'
+        transactionIndex:
+          type: string
+          description: Transaction index in block (hex-encoded)
+        blockHash:
+          $ref: '#/components/schemas/Bytes32'
+        blockNumber:
+          type: string
+          description: Block number (hex-encoded)
+        gasUsed:
+          $ref: '#/components/schemas/HexUint256'
+        effectiveGasPrice:
+          $ref: '#/components/schemas/HexUint256'
+        from:
+          $ref: '#/components/schemas/Address'
+        to:
+          $ref: '#/components/schemas/Address'
+        contractAddress:
+          type: string
+          nullable: true
+          description: Contract address if this was a contract creation (null otherwise)
+        pod_metadata:
+          $ref: '#/components/schemas/PodMetadata'
+          description: Pod-specific attestation data for transaction finality verification
+
+    Transaction:
+      type: object
+      description: Transaction object returned by eth_getTransactionByHash
+      properties:
+        hash: { $ref: '#/components/schemas/Bytes32' }
+        nonce: { type: string }
+        blockHash: { $ref: '#/components/schemas/Bytes32', nullable: true }
+        blockNumber: { type: string, nullable: true }
+        transactionIndex: { type: string, nullable: true }
+        from: { $ref: '#/components/schemas/Address' }
+        to: { $ref: '#/components/schemas/Address', nullable: true }
+        value: { $ref: '#/components/schemas/HexUint256' }
+        gas: { type: string }
+        gasPrice: { type: string }
+        input: { type: string }
+        v: { type: string }
+        r: { type: string }
+        s: { type: string }
+
+    Log:
+      type: object
+      description: Event log emitted during transaction execution
+      properties:
+        address: 
+          $ref: '#/components/schemas/Address'
+          description: Address of the contract that emitted the log
+        topics: 
+          type: array
+          items: { $ref: '#/components/schemas/Bytes32' }
+          description: Indexed event parameters
+        data: 
+          type: string
+          description: Non-indexed event data (hex-encoded)
+
+    # ==========================================
+    # QUERY OBJECTS
+    # ==========================================
+    CandlesQuery:
+      type: object
+      description: Query parameters for fetching historical candles
+      required: [resolution, from_ts]
+      properties:
+        resolution: 
+          $ref: '#/components/schemas/CandleResolution'
+          description: Candle time interval
+        from_ts: 
+          $ref: '#/components/schemas/Timestamp'
+          description: Start timestamp (inclusive) in microseconds
+        to_ts: 
+          $ref: '#/components/schemas/Timestamp'
+          description: End timestamp (inclusive) in microseconds. Defaults to current time if omitted.
+        limit: 
+          type: integer
+          description: Maximum number of candles to return. No limit if omitted.
+
+    OrdersQuery:
+      type: object
+      description: Query parameters for ob_getOrders (address is passed as first param)
+      properties:
+        orderbook_id: 
+          $ref: '#/components/schemas/Bytes32'
+          description: Optional filter by orderbook; omit for all orderbooks
+        limit: 
+          type: integer
+          description: Maximum number of orders to return
+        cursor:
+          type: string
+          description: Pagination cursor from previous response
+        status: 
+          $ref: '#/components/schemas/OrderStatus'
+          description: Filter orders by status
+
+    SubscriptionParams:
+      type: object
+      description: Parameters for WebSocket subscriptions
+      properties:
+        depth: 
+          type: integer
+          description: Maximum price levels to include in orderbook snapshots
+        clob_ids: 
+          type: array
+          items: { $ref: '#/components/schemas/Bytes32' }
+          description: List of orderbook (clob) IDs to subscribe to
+
+    TokenPositionResponse:
+      type: object
+      description: Per-token position for an account
+      properties:
+        symbol:
+          type: string
+          description: Token symbol (e.g., "PETH", "USDT")
+        address:
+          $ref: '#/components/schemas/Address'
+          description: Token contract address
+        balance:
+          $ref: '#/components/schemas/HexUint256'
+          description: Balance of the token in the account (1e18); hex-encoded
+        position:
+          $ref: '#/components/schemas/HexUint256'
+          description: Position size from trades (1e18); includes locked in orders; hex-encoded
+        unrealized_pnl:
+          type: string
+          description: Unrealized PnL for this position in USD (1e18); decimal string (signed int256)
+
+    PositionsResponse:
+      type: object
+      description: Account positions across all orderbooks with aggregate PnL
+      properties:
+        positions:
+          type: array
+          items: { $ref: '#/components/schemas/TokenPositionResponse' }
+          description: Per-token positions
+        total_unrealized_pnl:
+          type: string
+          description: Sum of unrealized PnL across all positions (1e18); decimal string (signed int256)
+        total_realized_pnl:
+          type: string
+          description: Lifetime realized PnL from closed trades (1e18); decimal string (signed int256)
+        total_invested:
+          $ref: '#/components/schemas/HexUint256'
+          description: Lifetime USD invested from buys/deposits (1e18); hex-encoded
