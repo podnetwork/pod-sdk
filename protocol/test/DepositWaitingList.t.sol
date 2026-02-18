@@ -189,8 +189,7 @@ contract DepositWaitingListTest is Test {
 
         DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](3);
         deposits[0] = DepositWaitingList.DepositData({depositId: 0, amount: DEPOSIT_AMOUNT, from: user, to: user});
-        deposits[1] =
-            DepositWaitingList.DepositData({depositId: 1, amount: DEPOSIT_AMOUNT * 2, from: user, to: user});
+        deposits[1] = DepositWaitingList.DepositData({depositId: 1, amount: DEPOSIT_AMOUNT * 2, from: user, to: user});
         deposits[2] = DepositWaitingList.DepositData({depositId: 2, amount: DEPOSIT_AMOUNT, from: user, to: user2});
 
         vm.prank(relayer);
@@ -465,17 +464,12 @@ contract DepositWaitingListTest is Test {
         }
 
         if (numApplied > 0) {
-            DepositWaitingList.DepositData[] memory applyDeposits =
-                new DepositWaitingList.DepositData[](numApplied);
+            DepositWaitingList.DepositData[] memory applyDeposits = new DepositWaitingList.DepositData[](numApplied);
             uint256 idx;
             for (uint256 i = 0; i < numDeposits && idx < numApplied; i++) {
                 if (i == targetIndex) continue;
-                applyDeposits[idx] = DepositWaitingList.DepositData({
-                    depositId: i,
-                    amount: perAmount,
-                    from: depositFroms[i],
-                    to: user
-                });
+                applyDeposits[idx] =
+                    DepositWaitingList.DepositData({depositId: i, amount: perAmount, from: depositFroms[i], to: user});
                 idx++;
             }
             vm.prank(relayer);
