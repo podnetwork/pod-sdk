@@ -11,12 +11,9 @@ contract DepositWaitingList is AccessControl {
     using SafeERC20 for IERC20;
 
     error InvalidToAddress();
-    error InvalidAmount();
-    error AmountExceedsDepositLimit();
-    error DepositAlreadyApplied();
-    error DepositDoesNotExist();
+    error InvalidDepositAmount();
+    error DepositNotPending();
     error InvalidDepositData();
-    error ArrayLengthMismatch();
     error NotAuthorized();
     error InvalidPermitLength();
 
@@ -29,16 +26,20 @@ contract DepositWaitingList is AccessControl {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
 
+    struct DepositData {
+        uint256 depositId;
+        uint256 amount;
+        address from;
+        address to;
+    }
+
     Bridge public immutable bridge;
 
     mapping(uint256 => bytes32) public depositHashes;
     uint256 public nextDepositId;
-    address public callContract;
-    mapping(address => bool) internal _approvedTokens;
 
-    constructor(address _bridge, address _callContract, address _admin) {
+    constructor(address _bridge, address _admin) {
         bridge = Bridge(_bridge);
-        callContract = _callContract;
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(RELAYER_ROLE, _admin);
     }
@@ -49,10 +50,9 @@ contract DepositWaitingList is AccessControl {
         returns (uint256 depositId)
     {
         if (to == address(0)) revert InvalidToAddress();
-        if (amount == 0) revert InvalidAmount();
 
-        (, uint256 depositLimit,,,,) = bridge.tokenData(token);
-        if (amount > depositLimit) revert AmountExceedsDepositLimit();
+        (uint256 minAmount, uint256 depositLimit,,,,) = bridge.tokenData(token);
+        if (amount < minAmount || amount > depositLimit) revert InvalidDepositAmount();
 
         _applyPermit(token, msg.sender, amount, permit);
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
@@ -63,50 +63,32 @@ contract DepositWaitingList is AccessControl {
         emit WaitingDepositCreated(depositId, msg.sender, to, token, amount);
     }
 
-    function applyDeposits(
-        address token,
-        uint256[] calldata depositIds,
-        uint256[] calldata amounts,
-        address[] calldata froms,
-        address[] calldata tos
-    ) external onlyRole(RELAYER_ROLE) {
-        uint256 length = depositIds.length;
-        if (amounts.length != length || froms.length != length || tos.length != length) {
-            revert ArrayLengthMismatch();
+    function applyDeposits(address token, DepositData[] calldata deposits, address callContract)
+        external
+        onlyRole(RELAYER_ROLE)
+    {
+        Bridge.DepositParams[] memory params = new Bridge.DepositParams[](deposits.length);
+
+        for (uint256 i = 0; i < deposits.length; ++i) {
+            DepositData calldata d = deposits[i];
+
+            bytes32 hash = depositHashes[d.depositId];
+            if (hash == bytes32(0)) revert DepositNotPending();
+            if (keccak256(abi.encode(token, d.amount, d.from, d.to)) != hash) revert InvalidDepositData();
+
+            delete depositHashes[d.depositId];
+
+            params[i] = Bridge.DepositParams({from: address(this), to: d.to, amount: d.amount});
+
+            emit WaitingDepositApplied(d.depositId);
         }
 
-        Bridge.DepositParams[] memory params = new Bridge.DepositParams[](length);
-
-        for (uint256 i = 0; i < length; ++i) {
-            uint256 id = depositIds[i];
-            if (id >= nextDepositId) revert DepositDoesNotExist();
-
-            bytes32 hash = depositHashes[id];
-            if (hash == bytes32(0)) revert DepositAlreadyApplied();
-            if (keccak256(abi.encode(token, amounts[i], froms[i], tos[i])) != hash) revert InvalidDepositData();
-
-            delete depositHashes[id];
-
-            params[i] = Bridge.DepositParams({from: address(this), to: tos[i], amount: amounts[i]});
-
-            emit WaitingDepositApplied(id);
-        }
-
-        _ensureApproval(token);
-
-        Bridge.PermitParams[] memory emptyPermits = new Bridge.PermitParams[](0);
-        bridge.batchDepositAndCall(token, params, emptyPermits, callContract, 0);
-    }
-
-    function setCallContract(address _callContract) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        callContract = _callContract;
+        bridge.batchDepositAndCall(token, params, new Bridge.PermitParams[](0), callContract, 0);
     }
 
     function withdraw(uint256 depositId, address token, uint256 amount, address from, address to) external {
-        if (depositId >= nextDepositId) revert DepositDoesNotExist();
-
         bytes32 hash = depositHashes[depositId];
-        if (hash == bytes32(0)) revert DepositAlreadyApplied();
+        if (hash == bytes32(0)) revert DepositNotPending();
         if (keccak256(abi.encode(token, amount, from, to)) != hash) revert InvalidDepositData();
         if (msg.sender != from && !hasRole(RELAYER_ROLE, msg.sender)) revert NotAuthorized();
 
@@ -115,6 +97,10 @@ contract DepositWaitingList is AccessControl {
         IERC20(token).safeTransfer(from, amount);
 
         emit WaitingDepositWithdrawn(depositId);
+    }
+
+    function approveToken(address token) external onlyRole(RELAYER_ROLE) {
+        IERC20(token).approve(address(bridge), type(uint256).max);
     }
 
     function _applyPermit(address token, address owner, uint256 amount, bytes calldata permit) internal {
@@ -134,12 +120,5 @@ contract DepositWaitingList is AccessControl {
         }
 
         try IERC20Permit(token).permit(owner, address(this), amount, deadline, v, r, s) {} catch {}
-    }
-
-    function _ensureApproval(address token) internal {
-        if (!_approvedTokens[token]) {
-            IERC20(token).approve(address(bridge), type(uint256).max);
-            _approvedTokens[token] = true;
-        }
     }
 }
