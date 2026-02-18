@@ -72,26 +72,10 @@ contract DepositWaitingListTest is Test {
 
     // ========== Helpers ==========
 
-    function _applyDeposits(
-        address token,
-        uint256[] memory ids,
-        uint256[] memory amounts,
-        address[] memory froms,
-        address[] memory tos
-    ) internal {
-        _waitingList.applyDeposits(token, ids, amounts, froms, tos);
-    }
-
     function _applySingle(uint256 id, address token, uint256 amount, address from, address to) internal {
-        uint256[] memory ids = new uint256[](1);
-        uint256[] memory amounts = new uint256[](1);
-        address[] memory froms = new address[](1);
-        address[] memory tos = new address[](1);
-        ids[0] = id;
-        amounts[0] = amount;
-        froms[0] = from;
-        tos[0] = to;
-        _waitingList.applyDeposits(token, ids, amounts, froms, tos);
+        DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](1);
+        deposits[0] = DepositWaitingList.DepositData({depositId: id, amount: amount, from: from, to: to});
+        _waitingList.applyDeposits(token, deposits);
     }
 
     // ========== Deposit Tests ==========
@@ -194,28 +178,14 @@ contract DepositWaitingListTest is Test {
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2, "");
         vm.stopPrank();
 
-        uint256[] memory ids = new uint256[](3);
-        uint256[] memory amounts = new uint256[](3);
-        address[] memory froms = new address[](3);
-        address[] memory tos = new address[](3);
-
-        ids[0] = 0;
-        amounts[0] = DEPOSIT_AMOUNT;
-        froms[0] = user;
-        tos[0] = user;
-
-        ids[1] = 1;
-        amounts[1] = DEPOSIT_AMOUNT * 2;
-        froms[1] = user;
-        tos[1] = user;
-
-        ids[2] = 2;
-        amounts[2] = DEPOSIT_AMOUNT;
-        froms[2] = user;
-        tos[2] = user2;
+        DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](3);
+        deposits[0] = DepositWaitingList.DepositData({depositId: 0, amount: DEPOSIT_AMOUNT, from: user, to: user});
+        deposits[1] =
+            DepositWaitingList.DepositData({depositId: 1, amount: DEPOSIT_AMOUNT * 2, from: user, to: user});
+        deposits[2] = DepositWaitingList.DepositData({depositId: 2, amount: DEPOSIT_AMOUNT, from: user, to: user2});
 
         vm.prank(relayer);
-        _applyDeposits(address(_token), ids, amounts, froms, tos);
+        _waitingList.applyDeposits(address(_token), deposits);
 
         for (uint256 i = 0; i < 3; i++) {
             assertEq(_waitingList.depositHashes(i), bytes32(0));
@@ -257,18 +227,12 @@ contract DepositWaitingListTest is Test {
     }
 
     function test_Apply_RevertIfNonexistent() public {
-        uint256[] memory ids = new uint256[](1);
-        uint256[] memory amounts = new uint256[](1);
-        address[] memory froms = new address[](1);
-        address[] memory tos = new address[](1);
-        ids[0] = 999;
-        amounts[0] = DEPOSIT_AMOUNT;
-        froms[0] = user;
-        tos[0] = user;
+        DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](1);
+        deposits[0] = DepositWaitingList.DepositData({depositId: 999, amount: DEPOSIT_AMOUNT, from: user, to: user});
 
         vm.prank(relayer);
         vm.expectRevert(DepositWaitingList.DepositDoesNotExist.selector);
-        _applyDeposits(address(_token), ids, amounts, froms, tos);
+        _waitingList.applyDeposits(address(_token), deposits);
     }
 
     function test_Deposit_RevertIfAmountExceedsDepositLimit() public {
@@ -305,23 +269,12 @@ contract DepositWaitingListTest is Test {
         vm.stopPrank();
 
         // Apply in reverse order (ids 2, 0)
-        uint256[] memory ids = new uint256[](2);
-        uint256[] memory amounts = new uint256[](2);
-        address[] memory froms = new address[](2);
-        address[] memory tos = new address[](2);
-
-        ids[0] = 2;
-        amounts[0] = DEPOSIT_AMOUNT;
-        froms[0] = user;
-        tos[0] = user;
-
-        ids[1] = 0;
-        amounts[1] = DEPOSIT_AMOUNT;
-        froms[1] = user;
-        tos[1] = user;
+        DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](2);
+        deposits[0] = DepositWaitingList.DepositData({depositId: 2, amount: DEPOSIT_AMOUNT, from: user, to: user});
+        deposits[1] = DepositWaitingList.DepositData({depositId: 0, amount: DEPOSIT_AMOUNT, from: user, to: user});
 
         vm.prank(relayer);
-        _applyDeposits(address(_token), ids, amounts, froms, tos);
+        _waitingList.applyDeposits(address(_token), deposits);
 
         assertEq(_waitingList.depositHashes(0), bytes32(0));
         assertNotEq(_waitingList.depositHashes(1), bytes32(0));
@@ -348,25 +301,6 @@ contract DepositWaitingListTest is Test {
         vm.prank(relayer);
         vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
         _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user2);
-    }
-
-    function test_Apply_RevertIfArrayLengthMismatch() public {
-        vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
-
-        uint256[] memory ids = new uint256[](1);
-        uint256[] memory amounts = new uint256[](2);
-        address[] memory froms = new address[](1);
-        address[] memory tos = new address[](1);
-        ids[0] = 0;
-        amounts[0] = DEPOSIT_AMOUNT;
-        amounts[1] = DEPOSIT_AMOUNT;
-        froms[0] = user;
-        tos[0] = user;
-
-        vm.prank(relayer);
-        vm.expectRevert(DepositWaitingList.ArrayLengthMismatch.selector);
-        _applyDeposits(address(_token), ids, amounts, froms, tos);
     }
 
     // ========== Token Mismatch Tests ==========
@@ -492,13 +426,6 @@ contract DepositWaitingListTest is Test {
 
     // ========== Fuzz Tests ==========
 
-    struct DepositData {
-        address token;
-        uint256 amount;
-        address from;
-        address to;
-    }
-
     function _createDepositsAndApplyWithdraw(
         uint256 numDeposits,
         uint256 totalAmount,
@@ -529,21 +456,21 @@ contract DepositWaitingListTest is Test {
         }
 
         if (numApplied > 0) {
-            uint256[] memory applyIds = new uint256[](numApplied);
-            uint256[] memory applyAmounts = new uint256[](numApplied);
-            address[] memory applyFroms = new address[](numApplied);
-            address[] memory applyTos = new address[](numApplied);
+            DepositWaitingList.DepositData[] memory applyDeposits =
+                new DepositWaitingList.DepositData[](numApplied);
             uint256 idx;
             for (uint256 i = 0; i < numDeposits && idx < numApplied; i++) {
                 if (i == targetIndex) continue;
-                applyIds[idx] = i;
-                applyAmounts[idx] = perAmount;
-                applyFroms[idx] = depositFroms[i];
-                applyTos[idx] = user;
+                applyDeposits[idx] = DepositWaitingList.DepositData({
+                    depositId: i,
+                    amount: perAmount,
+                    from: depositFroms[i],
+                    to: user
+                });
                 idx++;
             }
             vm.prank(relayer);
-            _applyDeposits(address(_token), applyIds, applyAmounts, applyFroms, applyTos);
+            _waitingList.applyDeposits(address(_token), applyDeposits);
         }
 
         uint256 withdrawn;
@@ -792,23 +719,12 @@ contract DepositWaitingListTest is Test {
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
         vm.stopPrank();
 
-        uint256[] memory ids = new uint256[](2);
-        uint256[] memory amounts = new uint256[](2);
-        address[] memory froms = new address[](2);
-        address[] memory tos = new address[](2);
-
-        ids[0] = 0;
-        amounts[0] = DEPOSIT_AMOUNT;
-        froms[0] = user;
-        tos[0] = user;
-
-        ids[1] = 1;
-        amounts[1] = DEPOSIT_AMOUNT;
-        froms[1] = user;
-        tos[1] = user;
+        DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](2);
+        deposits[0] = DepositWaitingList.DepositData({depositId: 0, amount: DEPOSIT_AMOUNT, from: user, to: user});
+        deposits[1] = DepositWaitingList.DepositData({depositId: 1, amount: DEPOSIT_AMOUNT, from: user, to: user});
 
         vm.prank(relayer);
-        _applyDeposits(address(_token), ids, amounts, froms, tos);
+        _waitingList.applyDeposits(address(_token), deposits);
 
         assertEq(_bridge.depositIndex(), bridgeIndexBefore + 2);
     }

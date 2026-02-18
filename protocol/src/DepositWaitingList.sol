@@ -16,7 +16,6 @@ contract DepositWaitingList is AccessControl {
     error DepositAlreadyApplied();
     error DepositDoesNotExist();
     error InvalidDepositData();
-    error ArrayLengthMismatch();
     error NotAuthorized();
     error InvalidPermitLength();
 
@@ -28,6 +27,13 @@ contract DepositWaitingList is AccessControl {
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
+
+    struct DepositData {
+        uint256 depositId;
+        uint256 amount;
+        address from;
+        address to;
+    }
 
     Bridge public immutable bridge;
 
@@ -63,33 +69,22 @@ contract DepositWaitingList is AccessControl {
         emit WaitingDepositCreated(depositId, msg.sender, to, token, amount);
     }
 
-    function applyDeposits(
-        address token,
-        uint256[] calldata depositIds,
-        uint256[] calldata amounts,
-        address[] calldata froms,
-        address[] calldata tos
-    ) external onlyRole(RELAYER_ROLE) {
-        uint256 length = depositIds.length;
-        if (amounts.length != length || froms.length != length || tos.length != length) {
-            revert ArrayLengthMismatch();
-        }
+    function applyDeposits(address token, DepositData[] calldata deposits) external onlyRole(RELAYER_ROLE) {
+        Bridge.DepositParams[] memory params = new Bridge.DepositParams[](deposits.length);
 
-        Bridge.DepositParams[] memory params = new Bridge.DepositParams[](length);
+        for (uint256 i = 0; i < deposits.length; ++i) {
+            DepositData calldata d = deposits[i];
+            if (d.depositId >= nextDepositId) revert DepositDoesNotExist();
 
-        for (uint256 i = 0; i < length; ++i) {
-            uint256 id = depositIds[i];
-            if (id >= nextDepositId) revert DepositDoesNotExist();
-
-            bytes32 hash = depositHashes[id];
+            bytes32 hash = depositHashes[d.depositId];
             if (hash == bytes32(0)) revert DepositAlreadyApplied();
-            if (keccak256(abi.encode(token, amounts[i], froms[i], tos[i])) != hash) revert InvalidDepositData();
+            if (keccak256(abi.encode(token, d.amount, d.from, d.to)) != hash) revert InvalidDepositData();
 
-            delete depositHashes[id];
+            delete depositHashes[d.depositId];
 
-            params[i] = Bridge.DepositParams({from: address(this), to: tos[i], amount: amounts[i]});
+            params[i] = Bridge.DepositParams({from: address(this), to: d.to, amount: d.amount});
 
-            emit WaitingDepositApplied(id);
+            emit WaitingDepositApplied(d.depositId);
         }
 
         _ensureApproval(token);
