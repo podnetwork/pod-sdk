@@ -49,13 +49,16 @@ contract DepositWaitingListTest is Test {
         _bridge.setCallContractWhitelist(callContract, true);
 
         // Deploy waiting list
-        _waitingList = new DepositWaitingList(address(_bridge), callContract, admin);
+        _waitingList = new DepositWaitingList(address(_bridge), admin);
 
         // Grant waiting list RELAYER_ROLE on the bridge
         _bridge.grantRole(_bridge.RELAYER_ROLE(), address(_waitingList));
 
         // Grant relayer RELAYER_ROLE on the waiting list
         _waitingList.grantRole(_waitingList.RELAYER_ROLE(), relayer);
+
+        // Approve token on the bridge
+        _waitingList.approveToken(address(_token));
 
         // Mint tokens
         _token.mint(user, INITIAL_BALANCE);
@@ -75,7 +78,7 @@ contract DepositWaitingListTest is Test {
     function _applySingle(uint256 id, address token, uint256 amount, address from, address to) internal {
         DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](1);
         deposits[0] = DepositWaitingList.DepositData({depositId: id, amount: amount, from: from, to: to});
-        _waitingList.applyDeposits(token, deposits);
+        _waitingList.applyDeposits(token, deposits, callContract);
     }
 
     // ========== Deposit Tests ==========
@@ -185,7 +188,7 @@ contract DepositWaitingListTest is Test {
         deposits[2] = DepositWaitingList.DepositData({depositId: 2, amount: DEPOSIT_AMOUNT, from: user, to: user2});
 
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), deposits);
+        _waitingList.applyDeposits(address(_token), deposits, callContract);
 
         for (uint256 i = 0; i < 3; i++) {
             assertEq(_waitingList.depositHashes(i), bytes32(0));
@@ -222,7 +225,7 @@ contract DepositWaitingListTest is Test {
         _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
 
         vm.prank(relayer);
-        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
@@ -231,8 +234,8 @@ contract DepositWaitingListTest is Test {
         deposits[0] = DepositWaitingList.DepositData({depositId: 999, amount: DEPOSIT_AMOUNT, from: user, to: user});
 
         vm.prank(relayer);
-        vm.expectRevert(DepositWaitingList.DepositDoesNotExist.selector);
-        _waitingList.applyDeposits(address(_token), deposits);
+        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
+        _waitingList.applyDeposits(address(_token), deposits, callContract);
     }
 
     function test_Deposit_RevertIfAmountExceedsDepositLimit() public {
@@ -274,7 +277,7 @@ contract DepositWaitingListTest is Test {
         deposits[1] = DepositWaitingList.DepositData({depositId: 0, amount: DEPOSIT_AMOUNT, from: user, to: user});
 
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), deposits);
+        _waitingList.applyDeposits(address(_token), deposits, callContract);
 
         assertEq(_waitingList.depositHashes(0), bytes32(0));
         assertNotEq(_waitingList.depositHashes(1), bytes32(0));
@@ -382,7 +385,7 @@ contract DepositWaitingListTest is Test {
         _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
 
         vm.prank(user);
-        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
@@ -394,13 +397,13 @@ contract DepositWaitingListTest is Test {
         _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
 
         vm.prank(user);
-        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
     function test_Withdraw_RevertIfNonexistent() public {
         vm.prank(user);
-        vm.expectRevert(DepositWaitingList.DepositDoesNotExist.selector);
+        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _waitingList.withdraw(999, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
@@ -470,7 +473,7 @@ contract DepositWaitingListTest is Test {
                 idx++;
             }
             vm.prank(relayer);
-            _waitingList.applyDeposits(address(_token), applyDeposits);
+            _waitingList.applyDeposits(address(_token), applyDeposits, callContract);
         }
 
         uint256 withdrawn;
@@ -524,7 +527,7 @@ contract DepositWaitingListTest is Test {
         _applySingle(targetIndex, address(_token), perAmount, depositor, user);
 
         vm.prank(depositor);
-        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
     }
 
@@ -546,7 +549,7 @@ contract DepositWaitingListTest is Test {
         _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
 
         vm.prank(depositor);
-        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
     }
 
@@ -590,7 +593,7 @@ contract DepositWaitingListTest is Test {
         _applySingle(targetIndex, address(_token), perAmount, depositor, user);
 
         vm.prank(relayer);
-        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _applySingle(targetIndex, address(_token), perAmount, depositor, user);
     }
 
@@ -612,7 +615,7 @@ contract DepositWaitingListTest is Test {
         _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
 
         vm.prank(relayer);
-        vm.expectRevert(DepositWaitingList.DepositAlreadyApplied.selector);
+        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _applySingle(targetIndex, address(_token), perAmount, depositor, user);
     }
 
@@ -692,23 +695,6 @@ contract DepositWaitingListTest is Test {
         assertEq(permitToken.balanceOf(address(_waitingList)), DEPOSIT_AMOUNT);
     }
 
-    // ========== Config Tests ==========
-
-    function test_SetCallContract() public {
-        address newCallContract = makeAddr("newCallContract");
-
-        vm.prank(admin);
-        _waitingList.setCallContract(newCallContract);
-
-        assertEq(_waitingList.callContract(), newCallContract);
-    }
-
-    function test_SetCallContract_RevertIfNotAdmin() public {
-        vm.prank(user);
-        vm.expectRevert();
-        _waitingList.setCallContract(makeAddr("newCallContract"));
-    }
-
     // ========== Bridge Interaction Tests ==========
 
     function test_Apply_BridgeDepositIndexIncrements() public {
@@ -724,7 +710,7 @@ contract DepositWaitingListTest is Test {
         deposits[1] = DepositWaitingList.DepositData({depositId: 1, amount: DEPOSIT_AMOUNT, from: user, to: user});
 
         vm.prank(relayer);
-        _waitingList.applyDeposits(address(_token), deposits);
+        _waitingList.applyDeposits(address(_token), deposits, callContract);
 
         assertEq(_bridge.depositIndex(), bridgeIndexBefore + 2);
     }
