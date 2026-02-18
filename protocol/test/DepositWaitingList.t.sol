@@ -120,8 +120,14 @@ contract DepositWaitingListTest is Test {
 
     function test_Deposit_RevertOnZeroAmount() public {
         vm.prank(user);
-        vm.expectRevert(DepositWaitingList.InvalidAmount.selector);
+        vm.expectRevert(DepositWaitingList.InvalidDepositAmount.selector);
         _waitingList.deposit(address(_token), 0, user, "");
+    }
+
+    function test_Deposit_RevertIfBelowMinAmount() public {
+        vm.prank(user);
+        vm.expectRevert(DepositWaitingList.InvalidDepositAmount.selector);
+        _waitingList.deposit(address(_token), minAmount - 1, user, "");
     }
 
     function test_Deposit_TransfersTokens() public {
@@ -240,7 +246,7 @@ contract DepositWaitingListTest is Test {
 
     function test_Deposit_RevertIfAmountExceedsDepositLimit() public {
         vm.prank(user);
-        vm.expectRevert(DepositWaitingList.AmountExceedsDepositLimit.selector);
+        vm.expectRevert(DepositWaitingList.InvalidDepositAmount.selector);
         _waitingList.deposit(address(_token), depositLimit + 1, user, "");
     }
 
