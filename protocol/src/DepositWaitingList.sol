@@ -11,8 +11,7 @@ contract DepositWaitingList is AccessControl {
     using SafeERC20 for IERC20;
 
     error InvalidToAddress();
-    error InvalidAmount();
-    error AmountExceedsDepositLimit();
+    error InvalidDepositAmount();
     error DepositNotPending();
     error InvalidDepositData();
     error NotAuthorized();
@@ -39,7 +38,6 @@ contract DepositWaitingList is AccessControl {
     mapping(uint256 => bytes32) public depositHashes;
     uint256 public nextDepositId;
 
-
     constructor(address _bridge, address _admin) {
         bridge = Bridge(_bridge);
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
@@ -52,10 +50,9 @@ contract DepositWaitingList is AccessControl {
         returns (uint256 depositId)
     {
         if (to == address(0)) revert InvalidToAddress();
-        if (amount == 0) revert InvalidAmount();
 
-        (, uint256 depositLimit,,,,) = bridge.tokenData(token);
-        if (amount > depositLimit) revert AmountExceedsDepositLimit();
+        (uint256 minAmount, uint256 depositLimit,,,,) = bridge.tokenData(token);
+        if (amount < minAmount || amount > depositLimit) revert InvalidDepositAmount();
 
         _applyPermit(token, msg.sender, amount, permit);
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
