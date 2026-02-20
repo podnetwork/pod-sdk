@@ -4,7 +4,7 @@ The bridge precompile allows users to initiate withdrawals from Pod to Ethereum.
 
 For how the bridge works end-to-end, see [Native Bridge](https://docs.v2.pod.network/documentation/native-bridge). For step-by-step guides, see [Bridge to Pod](../guides/bridge-to-pod.md) and [Bridge from Pod](../guides/bridge-from-pod.md).
 
-**Precompile address:** `0x000000000000000000000000000000000000C10`
+**Precompile address:** `0x0000000000000000000000000000000000B41D9E`
 
 ## Interface
 
@@ -33,3 +33,13 @@ interface IPodBridge {
     ) external returns (bytes32 id);
 }
 ```
+
+## Decimal Scaling
+
+All tokens on Pod are represented with 18 decimals, regardless of their decimals on Ethereum (e.g. USDC has 6 decimals on Ethereum but 18 on Pod).
+
+When calling `deposit` to bridge from Pod to Ethereum, the `amount` must be specified in the **Ethereum token's units**, not in Pod's 18-decimal representation. For example, to bridge 1 USDC, pass `1000000` (1e6), not `1000000000000000000` (1e18).
+
+## Native Token Deposits
+
+When depositing the native token (ETH), **`tx.value` must be `0`**. The bridge deducts the balance internally — do not send value with the transaction.
