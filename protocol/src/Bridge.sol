@@ -96,7 +96,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
-    bytes4 internal constant DEPOSIT_SELECTOR = bytes4(keccak256("deposit(address,uint256,address,uint256)"));
+    bytes4 internal constant WITHDRAW_SELECTOR = bytes4(keccak256("withdraw(address,uint256,address,uint256)"));
     uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
 
     address public immutable BRIDGE_CONTRACT;
@@ -204,7 +204,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         bytes32 _domainSeparator,
         bytes calldata auxTxSuffix
     ) internal view returns (bytes32 result) {
-        bytes4 selector = DEPOSIT_SELECTOR;
+        bytes4 selector = WITHDRAW_SELECTOR;
         address bridgeContract = BRIDGE_CONTRACT;
 
         uint256 lenTx = 32 + 32 + 32 + auxTxSuffix.length; // DOMAIN_SEPARATOR + bridgeContract + dataHash + auxTxSuffix

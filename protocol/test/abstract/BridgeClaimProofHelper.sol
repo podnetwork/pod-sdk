@@ -31,7 +31,7 @@ abstract contract BridgeClaimProofHelper is Test {
         uint256 numberOfRequiredSignatures,
         bytes32 domainSeparator
     ) internal view returns (bytes32 txHash, bytes memory proof, bytes memory auxTxSuffix) {
-        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address,uint256)"));
+        bytes4 selector = bytes4(keccak256("withdraw(address,uint256,address,uint256)"));
 
         // Match the exact encoding used by Bridge.depositTxHash():
         // dataHash = keccak256(selector || token || amount || to || chainId) where each is 32-byte aligned
@@ -88,7 +88,7 @@ abstract contract BridgeClaimProofHelper is Test {
         function(bytes32[] memory, uint256) internal pure returns (bytes32[] memory) getMerkleProof
     ) internal view returns (bytes32 txHash, bytes memory proof, bytes32 merkleRoot) {
         // Compute txHash with versioned domain separator
-        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address,uint256)"));
+        bytes4 selector = bytes4(keccak256("withdraw(address,uint256,address,uint256)"));
         bytes32 dataHash = keccak256(
             abi.encodePacked(selector, uint256(uint160(claimToken)), amount, uint256(uint160(to)), block.chainid)
         );
