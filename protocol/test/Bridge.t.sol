@@ -1071,9 +1071,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Get the correct txHash that will be computed during claim
         bytes32 domainSep = _bridge.domainSeparator();
-        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
+        bytes4 selector = bytes4(keccak256("withdraw(address,uint256,address,uint256)"));
         bytes32 dataHash = keccak256(
-            abi.encodePacked(selector, uint256(uint160(MIRROR_TOKEN)), DEPOSIT_AMOUNT, uint256(uint160(user)))
+            abi.encodePacked(
+                selector, uint256(uint160(MIRROR_TOKEN)), DEPOSIT_AMOUNT, uint256(uint160(user)), block.chainid
+            )
         );
         bytes32 txHash =
             keccak256(abi.encodePacked(domainSep, bytes32(uint256(uint160(otherBridgeContract))), dataHash));
@@ -1114,9 +1116,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Get the correct txHash that will be computed during claim
         bytes32 domainSep = _bridge.domainSeparator();
-        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
+        bytes4 selector = bytes4(keccak256("withdraw(address,uint256,address,uint256)"));
         bytes32 dataHash = keccak256(
-            abi.encodePacked(selector, uint256(uint160(MIRROR_TOKEN)), DEPOSIT_AMOUNT, uint256(uint160(user)))
+            abi.encodePacked(
+                selector, uint256(uint160(MIRROR_TOKEN)), DEPOSIT_AMOUNT, uint256(uint160(user)), block.chainid
+            )
         );
         bytes32 txHash =
             keccak256(abi.encodePacked(domainSep, bytes32(uint256(uint160(otherBridgeContract))), dataHash));
@@ -1139,9 +1143,10 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         view
         returns (bytes32)
     {
-        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
-        bytes32 dataHash =
-            keccak256(abi.encodePacked(selector, uint256(uint160(mirrorToken)), amount, uint256(uint160(to))));
+        bytes4 selector = bytes4(keccak256("withdraw(address,uint256,address,uint256)"));
+        bytes32 dataHash = keccak256(
+            abi.encodePacked(selector, uint256(uint160(mirrorToken)), amount, uint256(uint160(to)), block.chainid)
+        );
         return keccak256(abi.encodePacked(domainSep, bytes32(uint256(uint160(otherBridgeContract))), dataHash));
     }
 
