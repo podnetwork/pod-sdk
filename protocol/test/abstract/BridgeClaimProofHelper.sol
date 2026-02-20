@@ -31,14 +31,15 @@ abstract contract BridgeClaimProofHelper is Test {
         uint256 numberOfRequiredSignatures,
         bytes32 domainSeparator
     ) internal view returns (bytes32 txHash, bytes memory proof, bytes memory auxTxSuffix) {
-        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
+        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address,uint256)"));
 
         // Match the exact encoding used by Bridge.depositTxHash():
-        // dataHash = keccak256(selector || token || amount || to) where each is 32-byte aligned
-        // selector at offset 0 (4 bytes), token at offset 4 (32 bytes), amount at offset 36, to at offset 68
-        // Total: 100 bytes
-        bytes32 dataHash =
-            keccak256(abi.encodePacked(selector, uint256(uint160(claimToken)), amount, uint256(uint160(to))));
+        // dataHash = keccak256(selector || token || amount || to || chainId) where each is 32-byte aligned
+        // selector at offset 0 (4 bytes), token at offset 4 (32 bytes), amount at offset 36, to at offset 68, chainId at offset 100
+        // Total: 132 bytes
+        bytes32 dataHash = keccak256(
+            abi.encodePacked(selector, uint256(uint160(claimToken)), amount, uint256(uint160(to)), block.chainid)
+        );
 
         // auxTxSuffix is empty for simplified version
         auxTxSuffix = "";
@@ -87,9 +88,10 @@ abstract contract BridgeClaimProofHelper is Test {
         function(bytes32[] memory, uint256) internal pure returns (bytes32[] memory) getMerkleProof
     ) internal view returns (bytes32 txHash, bytes memory proof, bytes32 merkleRoot) {
         // Compute txHash with versioned domain separator
-        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address)"));
-        bytes32 dataHash =
-            keccak256(abi.encodePacked(selector, uint256(uint160(claimToken)), amount, uint256(uint160(to))));
+        bytes4 selector = bytes4(keccak256("deposit(address,uint256,address,uint256)"));
+        bytes32 dataHash = keccak256(
+            abi.encodePacked(selector, uint256(uint160(claimToken)), amount, uint256(uint160(to)), block.chainid)
+        );
         txHash = keccak256(
             abi.encodePacked(versionedDomainSeparator, bytes32(uint256(uint160(otherBridgeContract))), dataHash)
         );
