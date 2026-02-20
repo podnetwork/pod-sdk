@@ -85,7 +85,7 @@ contract DepositWaitingList is AccessControl {
             emit WaitingDepositApplied(d.depositId);
         }
 
-        bridge.batchDepositAndCall(token, params, new Bridge.PermitParams[](0), callContract, reserveBalance);
+        bridge.batchDeposit(token, params, new Bridge.PermitParams[](0), callContract, reserveBalance);
     }
 
     function withdraw(uint256 depositId, address token, uint256 amount, address from, address to) external {
