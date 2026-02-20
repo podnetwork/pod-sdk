@@ -63,10 +63,12 @@ contract DepositWaitingList is AccessControl {
         emit WaitingDepositCreated(depositId, msg.sender, to, token, amount);
     }
 
-    function applyDeposits(address token, DepositData[] calldata deposits, address callContract)
-        external
-        onlyRole(RELAYER_ROLE)
-    {
+    function applyDeposits(
+        address token,
+        DepositData[] calldata deposits,
+        address callContract,
+        uint256 reserveBalance
+    ) external onlyRole(RELAYER_ROLE) {
         Bridge.DepositParams[] memory params = new Bridge.DepositParams[](deposits.length);
 
         for (uint256 i = 0; i < deposits.length; ++i) {
@@ -83,7 +85,7 @@ contract DepositWaitingList is AccessControl {
             emit WaitingDepositApplied(d.depositId);
         }
 
-        bridge.batchDepositAndCall(token, params, new Bridge.PermitParams[](0), callContract, 0);
+        bridge.batchDepositAndCall(token, params, new Bridge.PermitParams[](0), callContract, reserveBalance);
     }
 
     function withdraw(uint256 depositId, address token, uint256 amount, address from, address to) external {
