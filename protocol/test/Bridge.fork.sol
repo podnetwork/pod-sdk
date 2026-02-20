@@ -58,8 +58,8 @@ contract BridgeForkTest is BridgeClaimProofHelper {
         IERC20(USDC).approve(address(bridge), DEPOSIT_AMOUNT);
 
         vm.expectEmit(true, true, true, true);
-        emit Bridge.Deposit(0, user, user, USDC, DEPOSIT_AMOUNT);
-        bridge.deposit(USDC, DEPOSIT_AMOUNT, user, "");
+        emit Bridge.Deposit(0, user, user, USDC, DEPOSIT_AMOUNT, address(0), 0);
+        bridge.deposit(USDC, DEPOSIT_AMOUNT, user, address(0), 0, "");
         vm.stopPrank();
 
         assertEq(IERC20(USDC).balanceOf(user), userBalanceBefore - DEPOSIT_AMOUNT);
@@ -73,8 +73,8 @@ contract BridgeForkTest is BridgeClaimProofHelper {
         IERC20(USDC).approve(address(bridge), DEPOSIT_AMOUNT);
 
         vm.expectEmit(true, true, true, true);
-        emit Bridge.Deposit(0, user, recipient, USDC, DEPOSIT_AMOUNT);
-        bridge.deposit(USDC, DEPOSIT_AMOUNT, recipient, "");
+        emit Bridge.Deposit(0, user, recipient, USDC, DEPOSIT_AMOUNT, address(0), 0);
+        bridge.deposit(USDC, DEPOSIT_AMOUNT, recipient, address(0), 0, "");
         vm.stopPrank();
     }
 
@@ -99,7 +99,7 @@ contract BridgeForkTest is BridgeClaimProofHelper {
         // Step 1: User deposits USDC
         vm.startPrank(user);
         IERC20(USDC).approve(address(bridge), DEPOSIT_AMOUNT);
-        uint256 depositId = bridge.deposit(USDC, DEPOSIT_AMOUNT, recipient, "");
+        uint256 depositId = bridge.deposit(USDC, DEPOSIT_AMOUNT, recipient, address(0), 0, "");
         vm.stopPrank();
 
         assertEq(depositId, 0);
@@ -118,9 +118,9 @@ contract BridgeForkTest is BridgeClaimProofHelper {
         vm.startPrank(user);
         IERC20(USDC).approve(address(bridge), DEPOSIT_AMOUNT * 3);
 
-        uint256 id1 = bridge.deposit(USDC, DEPOSIT_AMOUNT, user, "");
-        uint256 id2 = bridge.deposit(USDC, DEPOSIT_AMOUNT, user, "");
-        uint256 id3 = bridge.deposit(USDC, DEPOSIT_AMOUNT, user, "");
+        uint256 id1 = bridge.deposit(USDC, DEPOSIT_AMOUNT, user, address(0), 0, "");
+        uint256 id2 = bridge.deposit(USDC, DEPOSIT_AMOUNT, user, address(0), 0, "");
+        uint256 id3 = bridge.deposit(USDC, DEPOSIT_AMOUNT, user, address(0), 0, "");
         vm.stopPrank();
 
         assertEq(id1, 0);
@@ -144,11 +144,11 @@ contract BridgeForkTest is BridgeClaimProofHelper {
         IERC20(USDC).approve(address(bridge), MIN_AMOUNT - 1);
 
         vm.expectRevert(Bridge.InvalidTokenAmount.selector);
-        bridge.deposit(USDC, MIN_AMOUNT - 1, user, "");
+        bridge.deposit(USDC, MIN_AMOUNT - 1, user, address(0), 0, "");
         vm.stopPrank();
     }
 
-    function test_Fork_BatchDepositAndCall_ViaRelayer() public {
+    function test_Fork_BatchDeposit_ViaRelayer() public {
         address relayer = makeAddr("relayer");
         address callContract = makeAddr("callContract");
 
@@ -175,14 +175,14 @@ contract BridgeForkTest is BridgeClaimProofHelper {
         // Relayer submits deposit on behalf of user
         vm.prank(relayer);
         vm.expectEmit(true, true, true, true);
-        emit Bridge.DepositAndCall(0, USDC, DEPOSIT_AMOUNT, user, callContract, MIN_AMOUNT);
-        bridge.batchDepositAndCall(USDC, deposits, permits, callContract, MIN_AMOUNT);
+        emit Bridge.Deposit(0, user, user, USDC, DEPOSIT_AMOUNT, callContract, MIN_AMOUNT);
+        bridge.batchDeposit(USDC, deposits, permits, callContract, MIN_AMOUNT);
 
         assertEq(IERC20(USDC).balanceOf(user), userBalanceBefore - DEPOSIT_AMOUNT);
         assertEq(IERC20(USDC).balanceOf(address(bridge)), bridgeBalanceBefore + DEPOSIT_AMOUNT);
     }
 
-    function test_Fork_BatchDepositAndCall_WithUSDCPermit() public {
+    function test_Fork_BatchDeposit_WithUSDCPermit() public {
         // Use a specific private key for the user
         uint256 userPrivateKey = 0xA11CE;
         address userWithKey = vm.addr(userPrivateKey);
@@ -223,7 +223,7 @@ contract BridgeForkTest is BridgeClaimProofHelper {
 
         // Relayer submits deposit with permit on behalf of user
         vm.prank(relayer);
-        bridge.batchDepositAndCall(USDC, deposits, permits, callContract, MIN_AMOUNT);
+        bridge.batchDeposit(USDC, deposits, permits, callContract, MIN_AMOUNT);
 
         assertEq(IERC20(USDC).balanceOf(userWithKey), userBalanceBefore - DEPOSIT_AMOUNT);
         assertEq(IERC20(USDC).balanceOf(address(bridge)), bridgeBalanceBefore + DEPOSIT_AMOUNT);

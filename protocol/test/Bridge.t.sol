@@ -65,8 +65,8 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Deposit_EmitsEvent() public {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
-        emit Bridge.Deposit(0, user, user, address(_token), DEPOSIT_AMOUNT);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        emit Bridge.Deposit(0, user, user, address(_token), DEPOSIT_AMOUNT, address(0), 0);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
     }
 
     function test_Deposit_RevertIfPaused() public {
@@ -74,45 +74,45 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.setState(Bridge.ContractState.Paused);
         vm.expectRevert(Bridge.ContractPaused.selector);
         vm.prank(user);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
     }
 
     function test_Deposit_MinAndDailyLimit() public {
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenAmount.selector));
-        _bridge.deposit(address(_token), minAmount - 1, user, "");
+        _bridge.deposit(address(_token), minAmount - 1, user, address(0), 0, "");
 
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(Bridge.DailyLimitExhausted.selector));
-        _bridge.deposit(address(_token), depositLimit + 1, user, "");
+        _bridge.deposit(address(_token), depositLimit + 1, user, address(0), 0, "");
     }
 
     function test_Deposit_ExactlyAtMinAndLimit() public {
         vm.prank(user);
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
         vm.prank(user);
-        _bridge.deposit(address(_token), depositLimit - minAmount, user, "");
+        _bridge.deposit(address(_token), depositLimit - minAmount, user, address(0), 0, "");
     }
 
     function test_Deposit_MultipleSameDay_TracksConsumed() public {
         vm.prank(user);
-        _bridge.deposit(address(_token), 100e18, user, "");
+        _bridge.deposit(address(_token), 100e18, user, address(0), 0, "");
         vm.prank(user);
-        _bridge.deposit(address(_token), 200e18, user, "");
+        _bridge.deposit(address(_token), 200e18, user, address(0), 0, "");
         (,,, Bridge.TokenUsage memory dep,,) = _bridge.tokenData(address(_token));
         assertEq(dep.consumed, 300e18);
     }
 
     function test_Deposit_DailyLimitResets_AfterOneDayOnly() public {
         vm.prank(user);
-        _bridge.deposit(address(_token), depositLimit, user, "");
+        _bridge.deposit(address(_token), depositLimit, user, address(0), 0, "");
         vm.warp(block.timestamp + 1 days - 1);
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(Bridge.DailyLimitExhausted.selector));
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
         vm.warp(block.timestamp + 2);
         vm.prank(user);
-        _bridge.deposit(address(_token), depositLimit, user, "");
+        _bridge.deposit(address(_token), depositLimit, user, address(0), 0, "");
     }
 
     function test_Deposit_SplittingDoesNotReduceUsage() public {
@@ -123,24 +123,24 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // First consume most of the limit
         vm.prank(user);
-        _bridge.deposit(address(_token), 400e18, user, "");
+        _bridge.deposit(address(_token), 400e18, user, address(0), 0, "");
 
         // Warp past the reset period
         vm.warp(block.timestamp + 1 days + 1);
 
         // Now deposit 200 which exceeds remaining capacity (100)
         vm.prank(user);
-        _bridge.deposit(address(_token), 200e18, user, "");
+        _bridge.deposit(address(_token), 200e18, user, address(0), 0, "");
 
         // The excess should be 200 - 100 = 100 (not the full 200)
         // Verify by checking we can still deposit up to (limit - 100 = 400)
         vm.prank(user);
-        _bridge.deposit(address(_token), 400e18, user, "");
+        _bridge.deposit(address(_token), 400e18, user, address(0), 0, "");
 
         // But not more
         vm.prank(user);
         vm.expectRevert(Bridge.DailyLimitExhausted.selector);
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
     }
 
     function test_Deposit_ExcessMustFitInNewPeriod() public {
@@ -149,18 +149,18 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         // Remaining=100, excess=500, which equals limit (should succeed)
 
         vm.prank(user);
-        _bridge.deposit(address(_token), 400e18, user, "");
+        _bridge.deposit(address(_token), 400e18, user, address(0), 0, "");
 
         vm.warp(block.timestamp + 1 days + 1);
 
         // Deposit that uses remaining (100) + full new period (500) = 600
         vm.prank(user);
-        _bridge.deposit(address(_token), 600e18, user, "");
+        _bridge.deposit(address(_token), 600e18, user, address(0), 0, "");
 
         // Now the new period is fully consumed, can't deposit more
         vm.prank(user);
         vm.expectRevert(Bridge.DailyLimitExhausted.selector);
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
     }
 
     function test_Deposit_RevertIfExcessExceedsLimit() public {
@@ -169,31 +169,31 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         // Remaining=100, excess=501 > 500, should revert
 
         vm.prank(user);
-        _bridge.deposit(address(_token), 400e18, user, "");
+        _bridge.deposit(address(_token), 400e18, user, address(0), 0, "");
 
         vm.warp(block.timestamp + 1 days + 1);
 
         // Deposit that would require excess > limit
         vm.prank(user);
         vm.expectRevert(Bridge.DailyLimitExhausted.selector);
-        _bridge.deposit(address(_token), 601e18, user, "");
+        _bridge.deposit(address(_token), 601e18, user, address(0), 0, "");
     }
 
     function test_Deposit_RevertIfTokenNotWhitelisted() public {
         address notWhitelisted = address(0xBEEF);
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenConfig.selector));
-        _bridge.deposit(notWhitelisted, 1, user, "");
+        _bridge.deposit(notWhitelisted, 1, user, address(0), 0, "");
     }
 
     function test_DepositIndex_IncrementsSequentially() public {
         uint256 beforeIdx = _bridge.depositIndex();
         vm.prank(user);
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
         assertEq(_bridge.depositIndex(), beforeIdx + 1);
 
         vm.prank(user);
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
         assertEq(_bridge.depositIndex(), beforeIdx + 2);
     }
 
@@ -201,7 +201,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         uint256 ub = _token.balanceOf(user);
         uint256 bb = _token.balanceOf(address(_bridge));
         vm.prank(user);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
         assertEq(_token.balanceOf(user), ub - DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_bridge)), bb + DEPOSIT_AMOUNT);
     }
@@ -212,14 +212,14 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _token.mint(u, DEPOSIT_AMOUNT);
         vm.prank(u);
         vm.expectRevert();
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, u, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, u, address(0), 0, "");
     }
 
     function test_DepositNative_NotSupported() public {
         vm.deal(user, DEPOSIT_AMOUNT);
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenConfig.selector));
-        _bridge.deposit(address(0), 0, user, "");
+        _bridge.deposit(address(0), 0, user, address(0), 0, "");
     }
 
     function test_Deposit_RevertAfterMigrated() public {
@@ -229,7 +229,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.stopPrank();
         vm.prank(user);
         vm.expectRevert(Bridge.ContractPaused.selector);
-        _bridge.deposit(address(_token), 1, user, "");
+        _bridge.deposit(address(_token), 1, user, address(0), 0, "");
     }
 
     function test_Deposit_SkipsDailyLimit_WhenDepositCapZero() public {
@@ -238,14 +238,14 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(user);
         vm.expectRevert();
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
     }
 
     // ========== Claim Tests ==========
 
     function test_Claim() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         uint256 initialBalance = _token.balanceOf(user);
         assertEq(_token.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
@@ -268,7 +268,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfNotEnoughSignatures() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 2, _bridge.domainSeparator());
@@ -279,7 +279,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfInvalidProof() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
@@ -292,7 +292,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfAlreadyClaimed() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         (bytes32 txHash, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
@@ -327,7 +327,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfInvalidAmount() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, minAmount - 1, user, 3, _bridge.domainSeparator());
@@ -340,7 +340,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_BatchClaim() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), 3 * DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), 3 * DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         address user1 = makeAddr("user1");
         address user2 = makeAddr("user2");
@@ -374,7 +374,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_BatchClaim_RevertIfAlreadyClaimed() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         (, bytes memory proof1, bytes memory auxTxSuffix1) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 4, _bridge.domainSeparator());
@@ -428,7 +428,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_ConfigureToken_ResetsDailyLimits() public {
         vm.prank(user);
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
         (,,, Bridge.TokenUsage memory dep,,) = _bridge.tokenData(address(_token));
         assertEq(dep.consumed, minAmount);
         vm.prank(admin);
@@ -436,17 +436,17 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         (,,, Bridge.TokenUsage memory dep2,,) = _bridge.tokenData(address(_token));
         assertEq(dep2.consumed, 0);
         vm.prank(user);
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
     }
 
     function test_ConfigureToken_DisableToken() public {
         vm.prank(user);
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
         vm.prank(admin);
         _bridge.configureToken(address(_token), 1e18, 0, 0);
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(Bridge.DailyLimitExhausted.selector));
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
     }
 
     // ========== Whitelist Tests ==========
@@ -474,7 +474,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.whiteListToken(t2, address(t2Mock), minAmount, depositLimit, claimLimit);
 
         vm.prank(user);
-        _bridge.deposit(address(_token), minAmount, user, "");
+        _bridge.deposit(address(_token), minAmount, user, address(0), 0, "");
         (,,, Bridge.TokenUsage memory dep1,,) = _bridge.tokenData(address(_token));
         assertEq(dep1.consumed, minAmount);
 
@@ -536,7 +536,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Migrate_TransfersAllTokenBalances() public {
         vm.prank(user);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
         vm.startPrank(admin);
         _bridge.setState(Bridge.ContractState.Paused);
         uint256 beforeAmt = _token.balanceOf(address(_bridge));
@@ -575,7 +575,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(user);
         _token.approve(address(_bridge), type(uint256).max);
         vm.prank(user);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
         vm.startPrank(admin);
         _bridge.setState(Bridge.ContractState.Paused);
         _bridge.migrate(newBridge);
@@ -597,7 +597,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         _bridge.whiteListToken(address(t2), address(m2), minAmount, depositLimit, claimLimit);
 
         vm.prank(user);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
 
         t2.mint(address(_bridge), DEPOSIT_AMOUNT);
 
@@ -672,7 +672,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         uint256 balanceBefore = permitToken.balanceOf(permitUser);
         vm.prank(permitUser);
-        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, permit);
+        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, address(0), 0, permit);
 
         assertEq(permitToken.balanceOf(permitUser), balanceBefore - DEPOSIT_AMOUNT);
         assertEq(permitToken.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
@@ -692,7 +692,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(permitUser);
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidPermitLength.selector));
-        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, invalidPermit);
+        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, address(0), 0, invalidPermit);
     }
 
     function test_Deposit_WithEmptyPermit_RequiresApproval() public {
@@ -707,20 +707,20 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(permitUser);
         vm.expectRevert();
-        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, "");
+        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, address(0), 0, "");
 
         vm.prank(permitUser);
         permitToken.approve(address(_bridge), DEPOSIT_AMOUNT);
 
         vm.prank(permitUser);
-        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, "");
+        _bridge.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, address(0), 0, "");
 
         assertEq(permitToken.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
     }
 
-    // ========== Batch Deposit And Call Tests ==========
+    // ========== Batch Deposit Tests ==========
 
-    function test_DepositAndCall_WithPermit() public {
+    function test_BatchDeposit_WithPermit() public {
         MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
         address mirrorPermitToken = makeAddr("mirrorPermitToken");
         address callContract = makeAddr("callContract");
@@ -763,14 +763,14 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         permits[1] = Bridge.PermitParams({deadline: deadline, v: v2, r: r2, s: s2});
 
         vm.prank(admin);
-        _bridge.batchDepositAndCall(address(permitToken), deposits, permits, callContract, minAmount);
+        _bridge.batchDeposit(address(permitToken), deposits, permits, callContract, minAmount);
 
         assertEq(permitToken.balanceOf(user1), INITIAL_BALANCE - DEPOSIT_AMOUNT);
         assertEq(permitToken.balanceOf(user2), INITIAL_BALANCE - DEPOSIT_AMOUNT);
         assertEq(permitToken.balanceOf(address(_bridge)), 2 * DEPOSIT_AMOUNT);
     }
 
-    function test_DepositAndCall_MixedPermitAndApproval() public {
+    function test_BatchDeposit_MixedPermitAndApproval() public {
         MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
         address mirrorPermitToken = makeAddr("mirrorPermitToken");
         address callContract = makeAddr("callContract");
@@ -819,7 +819,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         permits[1] = Bridge.PermitParams({deadline: deadline, v: v2, r: r2, s: s2});
 
         vm.prank(admin);
-        _bridge.batchDepositAndCall(address(permitToken), deposits, permits, callContract, minAmount);
+        _bridge.batchDeposit(address(permitToken), deposits, permits, callContract, minAmount);
 
         assertEq(permitToken.balanceOf(user1), INITIAL_BALANCE - DEPOSIT_AMOUNT);
         assertEq(permitToken.balanceOf(user2), INITIAL_BALANCE - DEPOSIT_AMOUNT);
@@ -827,7 +827,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         assertEq(permitToken.balanceOf(address(_bridge)), 3 * DEPOSIT_AMOUNT);
     }
 
-    function test_DepositAndCall_RevertIfNotRelayer() public {
+    function test_BatchDeposit_RevertIfNotRelayer() public {
         MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
         address mirrorPermitToken = makeAddr("mirrorPermitToken");
         address callContract = makeAddr("callContract");
@@ -844,10 +844,10 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(user);
         vm.expectRevert();
-        _bridge.batchDepositAndCall(address(permitToken), deposits, permits, callContract, minAmount);
+        _bridge.batchDeposit(address(permitToken), deposits, permits, callContract, minAmount);
     }
 
-    function test_DepositAndCall_RevertIfCallContractNotWhitelisted() public {
+    function test_BatchDeposit_RevertIfCallContractNotWhitelisted() public {
         MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
         address mirrorPermitToken = makeAddr("mirrorPermitToken");
         address callContract = makeAddr("callContract");
@@ -864,10 +864,10 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.CallContractNotWhitelisted.selector));
-        _bridge.batchDepositAndCall(address(permitToken), deposits, permits, callContract, minAmount);
+        _bridge.batchDeposit(address(permitToken), deposits, permits, callContract, minAmount);
     }
 
-    function test_DepositAndCall_RevertIfAmountBelowReserve() public {
+    function test_BatchDeposit_RevertIfAmountBelowReserve() public {
         MockERC20Permit permitToken = new MockERC20Permit("PermitToken", "PTK", 18);
         address mirrorPermitToken = makeAddr("mirrorPermitToken");
         address callContract = makeAddr("callContract");
@@ -885,10 +885,10 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.AmountBelowReserve.selector));
-        _bridge.batchDepositAndCall(address(permitToken), deposits, permits, callContract, DEPOSIT_AMOUNT + 1);
+        _bridge.batchDeposit(address(permitToken), deposits, permits, callContract, DEPOSIT_AMOUNT + 1);
     }
 
-    function test_DepositAndCall_RevertIfEmpty() public {
+    function test_BatchDeposit_RevertIfEmpty() public {
         address callContract = makeAddr("callContract");
 
         vm.startPrank(admin);
@@ -901,7 +901,57 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidTokenAmount.selector));
-        _bridge.batchDepositAndCall(address(_token), deposits, permits, callContract, minAmount);
+        _bridge.batchDeposit(address(_token), deposits, permits, callContract, minAmount);
+    }
+
+    function test_Deposit_RevertIfReserveBalanceWithoutCallContract() public {
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidReserveBalance.selector));
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 1, "");
+    }
+
+    function test_BatchDeposit_RevertIfReserveBalanceWithoutCallContract() public {
+        vm.startPrank(admin);
+        _bridge.grantRole(_bridge.RELAYER_ROLE(), admin);
+        vm.stopPrank();
+
+        Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](1);
+        deposits[0] = Bridge.DepositParams({from: user, to: user, amount: DEPOSIT_AMOUNT});
+
+        Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](0);
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidReserveBalance.selector));
+        _bridge.batchDeposit(address(_token), deposits, permits, address(0), 1);
+    }
+
+    function test_Deposit_WithCallContract() public {
+        address callContract = makeAddr("callContract");
+
+        vm.startPrank(admin);
+        _bridge.setCallContractWhitelist(callContract, true);
+        vm.stopPrank();
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit Bridge.Deposit(0, user, user, address(_token), DEPOSIT_AMOUNT, callContract, minAmount);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, minAmount, "");
+    }
+
+    function test_BatchDeposit_WithZeroCallContract() public {
+        vm.startPrank(admin);
+        _bridge.grantRole(_bridge.RELAYER_ROLE(), admin);
+        vm.stopPrank();
+
+        Bridge.DepositParams[] memory deposits = new Bridge.DepositParams[](1);
+        deposits[0] = Bridge.DepositParams({from: user, to: user, amount: DEPOSIT_AMOUNT});
+
+        Bridge.PermitParams[] memory permits = new Bridge.PermitParams[](0);
+
+        vm.prank(admin);
+        vm.expectEmit(true, true, true, true);
+        emit Bridge.Deposit(0, user, user, address(_token), DEPOSIT_AMOUNT, address(0), 0);
+        _bridge.batchDeposit(address(_token), deposits, permits, address(0), 0);
     }
 
     // ========== Validator Management Tests ==========
@@ -1017,7 +1067,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_ComputeTxWeight_RevertIfSignatureOrderInvalid() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         // Get the correct txHash that will be computed during claim
         bytes32 domainSep = _bridge.domainSeparator();
@@ -1057,7 +1107,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_ComputeTxWeight_RevertIfSignerNotActive() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         // Use a non-validator private key
         uint256 nonValidatorKey = 0xDEAD;
@@ -1184,7 +1234,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Claim_WithMerkleProof() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         // Compute the txHash for the claim
         bytes32 txHash = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
@@ -1220,7 +1270,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfInvalidMerkleProof() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         // Create a merkle tree WITHOUT the actual txHash
         bytes32[] memory leaves = new bytes32[](4);
@@ -1247,7 +1297,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Claim_VersionedMerkleProof_OldVersion() public {
         // Test that merkle proofs with old version work after version update
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         // Get certificate proof with current version (version 1)
         (, bytes memory certProof, bytes memory auxTxSuffix) =
@@ -1285,7 +1335,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfInvalidProofType() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         // Create proof with invalid type (2)
         bytes memory invalidProof = abi.encodePacked(uint8(2), bytes("some data"));
@@ -1296,7 +1346,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_BatchClaim_WithMerkleProof() public {
         vm.prank(admin);
-        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         address user1 = makeAddr("user1");
 
@@ -1333,7 +1383,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Claim_VersionedMerkle_MultipleVersionsInTree() public {
         // Test that a single merkle tree can contain txHashes from different versions
         vm.prank(admin);
-        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         address user1 = makeAddr("user1");
         address user2 = makeAddr("user2");
@@ -1375,7 +1425,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_BatchClaim_MixedVersionMerkleProofs() public {
         // Test batch claim with merkle proofs from different versions
         vm.prank(admin);
-        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         address user1 = makeAddr("user1");
         address user2 = makeAddr("user2");
@@ -1420,7 +1470,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_BatchClaim_MixedCertificateAndVersionedMerkle() public {
         // Test batch claim mixing certificate and versioned merkle proofs
         vm.prank(admin);
-        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         address user1 = makeAddr("user1");
         address user2 = makeAddr("user2");
@@ -1462,7 +1512,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Claim_VersionedMerkle_PreventDoubleClaim() public {
         // Test that the same deposit cannot be claimed twice with merkle proof
         vm.prank(admin);
-        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         // Compute txHash
         bytes32 txHash = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
@@ -1496,7 +1546,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Claim_VersionedMerkle_PreventDoubleClaimAcrossVersions() public {
         // Test that a deposit claimed with merkle proof cannot be claimed again after version update
         vm.prank(admin);
-        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         // Compute txHash with version 1
         bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, _bridge.domainSeparator());
@@ -1535,7 +1585,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_Certificate_StillUsesCurrentVersion() public {
         // Verify certificates use current version only (don't have version field)
         vm.prank(admin);
-        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, "");
+        _bridge.deposit(address(_token), 2 * DEPOSIT_AMOUNT, admin, address(0), 0, "");
 
         // Create certificate with current version (1)
         (, bytes memory certProofV1,) =
@@ -1589,7 +1639,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Fund bridge (deposit limit check)
         vm.prank(admin);
-        _bridge.deposit(address(_token), amount, admin, "");
+        _bridge.deposit(address(_token), amount, admin, address(0), 0, "");
 
         // Create certificate proof
         (bytes32 txHash, bytes memory proof,) =
@@ -1626,7 +1676,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Fund bridge
         vm.prank(admin);
-        _bridge.deposit(address(_token), amount, admin, "");
+        _bridge.deposit(address(_token), amount, admin, address(0), 0, "");
 
         // Create certificate proof
         (, bytes memory proof,) = createTokenClaimProof(MIRROR_TOKEN, amount, recipient, 4, _bridge.domainSeparator());
@@ -1651,7 +1701,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Fund bridge
         vm.prank(admin);
-        _bridge.deposit(address(_token), amount, admin, "");
+        _bridge.deposit(address(_token), amount, admin, address(0), 0, "");
 
         // Compute txHash with version 1
         bytes32 txHashV1 = _computeTxHash(MIRROR_TOKEN, amount, recipient, _bridge.domainSeparator());
