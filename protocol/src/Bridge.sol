@@ -198,7 +198,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         adversarialResilience = _adversarialResilience;
     }
 
-    function _depositTxHash(
+    function _claimTxHash(
         address token,
         uint256 amount,
         address to,
@@ -519,7 +519,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
         (ProofLib.ProofType proofType, bytes32 _domainSeparator, bytes calldata proofData) = _parseProof(proof);
 
-        bytes32 txHash = _depositTxHash(mirrorToken, amount, to, _domainSeparator, auxTxSuffix);
+        bytes32 txHash = _claimTxHash(mirrorToken, amount, to, _domainSeparator, auxTxSuffix);
 
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
@@ -572,7 +572,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
             (ProofLib.ProofType proofType, bytes32 _domainSeparator, bytes calldata proofData) = _parseProof(c.proof);
 
-            bytes32 txHash = _depositTxHash(mirrorToken, c.amount, c.to, _domainSeparator, c.auxTxSuffix);
+            bytes32 txHash = _claimTxHash(mirrorToken, c.amount, c.to, _domainSeparator, c.auxTxSuffix);
 
             if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 

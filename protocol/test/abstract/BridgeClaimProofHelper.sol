@@ -33,7 +33,7 @@ abstract contract BridgeClaimProofHelper is Test {
     ) internal view returns (bytes32 txHash, bytes memory proof, bytes memory auxTxSuffix) {
         bytes4 selector = bytes4(keccak256("withdraw(address,uint256,address,uint256)"));
 
-        // Match the exact encoding used by Bridge.depositTxHash():
+        // Match the exact encoding used by Bridge._claimTxHash():
         // dataHash = keccak256(selector || token || amount || to || chainId) where each is 32-byte aligned
         // selector at offset 0 (4 bytes), token at offset 4 (32 bytes), amount at offset 36, to at offset 68, chainId at offset 100
         // Total: 132 bytes
