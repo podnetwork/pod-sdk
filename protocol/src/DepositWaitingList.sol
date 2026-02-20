@@ -63,12 +63,10 @@ contract DepositWaitingList is AccessControl {
         emit WaitingDepositCreated(depositId, msg.sender, to, token, amount);
     }
 
-    function applyDeposits(
-        address token,
-        DepositData[] calldata deposits,
-        address callContract,
-        uint256 reserveBalance
-    ) external onlyRole(RELAYER_ROLE) {
+    function applyDeposits(address token, DepositData[] calldata deposits, address callContract, uint256 reserveBalance)
+        external
+        onlyRole(RELAYER_ROLE)
+    {
         Bridge.DepositParams[] memory params = new Bridge.DepositParams[](deposits.length);
 
         for (uint256 i = 0; i < deposits.length; ++i) {
