@@ -40,7 +40,7 @@ alloy-signer = "1.2.1"
 alloy-signer-local = "1.2.1"
 alloy-rpc-types = "1.2.1"
 anyhow = "1.0.100"
-bytes = "1.10.0"
+bytes = "1.11.1"
 hex = { version = "0.4.3", features = ["serde"] }
 serde = { version = "1.0.226", features = ["derive"] }
 itertools = "0.14.0"
