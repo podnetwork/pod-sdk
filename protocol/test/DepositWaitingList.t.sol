@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {Bridge} from "../src/Bridge.sol";
 import {DepositWaitingList} from "../src/DepositWaitingList.sol";
 import {WrappedToken} from "../src/WrappedToken.sol";
@@ -241,24 +241,26 @@ contract DepositWaitingListTest is Test {
         _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
-    function test_Apply_RevertIfAlreadyApplied() public {
+    function test_Apply_SkipsAlreadyApplied() public {
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         vm.prank(relayer);
         _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
 
+        // Second apply should silently skip (no revert, no state change)
+        uint256 bridgeBefore = _token.balanceOf(address(_bridge));
         vm.prank(relayer);
-        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
+        assertEq(_token.balanceOf(address(_bridge)), bridgeBefore);
     }
 
-    function test_Apply_RevertIfNonexistent() public {
+    function test_Apply_SkipsNonexistent() public {
         DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](1);
         deposits[0] = DepositWaitingList.DepositData({depositId: 999, amount: DEPOSIT_AMOUNT, from: user, to: user});
 
+        // Should silently skip (no revert)
         vm.prank(relayer);
-        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _waitingList.applyDeposits(address(_token), deposits, callContract, 0);
     }
 
@@ -306,6 +308,46 @@ contract DepositWaitingListTest is Test {
         assertEq(_waitingList.depositHashes(0), bytes32(0));
         assertNotEq(_waitingList.depositHashes(1), bytes32(0));
         assertEq(_waitingList.depositHashes(2), bytes32(0));
+    }
+
+    function test_Apply_SkipsWithdrawnDeposit_FrontRunProtection() public {
+        // User deposits twice
+        vm.startPrank(user);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
+        vm.stopPrank();
+
+        // User front-runs relayer by withdrawing deposit 0
+        vm.prank(user);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user, callContract, 0);
+
+        // Relayer tries to apply both — should NOT revert, just skip deposit 0
+        DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](2);
+        deposits[0] = DepositWaitingList.DepositData({depositId: 0, amount: DEPOSIT_AMOUNT, from: user, to: user});
+        deposits[1] = DepositWaitingList.DepositData({depositId: 1, amount: DEPOSIT_AMOUNT, from: user, to: user});
+
+        vm.recordLogs();
+        vm.prank(relayer);
+        _waitingList.applyDeposits(address(_token), deposits, callContract, 0);
+
+        // Verify only deposit 1 emitted WaitingDepositApplied, not deposit 0
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 appliedSelector = DepositWaitingList.WaitingDepositApplied.selector;
+        uint256 appliedCount;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == appliedSelector) {
+                assertEq(logs[i].topics[1], bytes32(uint256(1)), "unexpected depositId in event");
+                appliedCount++;
+            }
+        }
+        assertEq(appliedCount, 1);
+
+        // Deposit 0 was already withdrawn, deposit 1 was applied
+        assertEq(_waitingList.depositHashes(0), bytes32(0));
+        assertEq(_waitingList.depositHashes(1), bytes32(0));
+
+        // Only deposit 1's amount reached the bridge
+        assertEq(_token.balanceOf(address(_bridge)), DEPOSIT_AMOUNT);
     }
 
     // ========== Invalid Deposit Data Tests ==========
@@ -617,7 +659,7 @@ contract DepositWaitingListTest is Test {
         assertEq(_token.balanceOf(address(_bridge)), bridgeBefore + perAmount);
     }
 
-    function testFuzz_Apply_RevertIfApplied(
+    function testFuzz_Apply_SkipsIfApplied(
         uint256 numDeposits,
         uint256 totalAmount,
         uint256 numWithdrawn,
@@ -634,12 +676,14 @@ contract DepositWaitingListTest is Test {
         vm.prank(relayer);
         _applySingle(targetIndex, address(_token), perAmount, depositor, user);
 
+        // Second apply should silently skip
+        uint256 bridgeBefore = _token.balanceOf(address(_bridge));
         vm.prank(relayer);
-        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _applySingle(targetIndex, address(_token), perAmount, depositor, user);
+        assertEq(_token.balanceOf(address(_bridge)), bridgeBefore);
     }
 
-    function testFuzz_Apply_RevertIfWithdrawn(
+    function testFuzz_Apply_SkipsIfWithdrawn(
         uint256 numDeposits,
         uint256 totalAmount,
         uint256 numWithdrawn,
@@ -656,9 +700,11 @@ contract DepositWaitingListTest is Test {
         vm.prank(depositor);
         _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user, callContract, 0);
 
+        // Apply should silently skip the withdrawn deposit
+        uint256 bridgeBefore = _token.balanceOf(address(_bridge));
         vm.prank(relayer);
-        vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
         _applySingle(targetIndex, address(_token), perAmount, depositor, user);
+        assertEq(_token.balanceOf(address(_bridge)), bridgeBefore);
     }
 
     // ========== Permit Tests ==========
