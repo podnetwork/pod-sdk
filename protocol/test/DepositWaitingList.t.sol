@@ -85,18 +85,18 @@ contract DepositWaitingListTest is Test {
 
     function test_Deposit_Success() public {
         vm.prank(user);
-        uint256 id = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        uint256 id = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
         assertEq(id, 0);
 
-        bytes32 expectedHash = keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT, user, user));
+        bytes32 expectedHash = keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT, user, user, callContract, 0));
         assertEq(_waitingList.depositHashes(0), expectedHash);
     }
 
     function test_Deposit_SequentialIds() public {
         vm.startPrank(user);
-        uint256 id0 = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
-        uint256 id1 = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
-        uint256 id2 = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        uint256 id0 = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
+        uint256 id1 = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
+        uint256 id2 = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
         vm.stopPrank();
 
         assertEq(id0, 0);
@@ -108,26 +108,45 @@ contract DepositWaitingListTest is Test {
     function test_Deposit_EmitsEvent() public {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
-        emit DepositWaitingList.WaitingDepositCreated(0, user, user, address(_token), DEPOSIT_AMOUNT);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        emit DepositWaitingList.WaitingDepositCreated(0, user, user, address(_token), DEPOSIT_AMOUNT, callContract, 0);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
     }
 
     function test_Deposit_RevertOnZeroAddress() public {
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.InvalidToAddress.selector);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, address(0), "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, address(0), callContract, 0, "");
     }
 
     function test_Deposit_RevertOnZeroAmount() public {
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.InvalidDepositAmount.selector);
-        _waitingList.deposit(address(_token), 0, user, "");
+        _waitingList.deposit(address(_token), 0, user, callContract, 0, "");
     }
 
     function test_Deposit_RevertIfBelowMinAmount() public {
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.InvalidDepositAmount.selector);
-        _waitingList.deposit(address(_token), minAmount - 1, user, "");
+        _waitingList.deposit(address(_token), minAmount - 1, user, callContract, 0, "");
+    }
+
+    function test_Deposit_RevertIfCallContractNotWhitelisted() public {
+        address notWhitelisted = makeAddr("notWhitelisted");
+        vm.prank(user);
+        vm.expectRevert(DepositWaitingList.CallContractNotWhitelisted.selector);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, notWhitelisted, 0, "");
+    }
+
+    function test_Deposit_RevertIfAmountBelowReserve() public {
+        vm.prank(user);
+        vm.expectRevert(DepositWaitingList.AmountBelowReserve.selector);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, DEPOSIT_AMOUNT + 1, "");
+    }
+
+    function test_Deposit_RevertIfReserveBalanceWithoutCallContract() public {
+        vm.prank(user);
+        vm.expectRevert(DepositWaitingList.InvalidReserveBalance.selector);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 1, "");
     }
 
     function test_Deposit_TransfersTokens() public {
@@ -135,7 +154,7 @@ contract DepositWaitingListTest is Test {
         uint256 wlBefore = _token.balanceOf(address(_waitingList));
 
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         assertEq(_token.balanceOf(user), userBefore - DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_waitingList)), wlBefore + DEPOSIT_AMOUNT);
@@ -143,32 +162,32 @@ contract DepositWaitingListTest is Test {
 
     function test_Deposit_MultipleUsers() public {
         vm.prank(user);
-        uint256 id0 = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        uint256 id0 = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
         vm.prank(user2);
-        uint256 id1 = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT * 2, user2, "");
+        uint256 id1 = _waitingList.deposit(address(_token), DEPOSIT_AMOUNT * 2, user2, callContract, 0, "");
 
         assertEq(id0, 0);
         assertEq(id1, 1);
 
         bytes32 hash0 = _waitingList.depositHashes(0);
         bytes32 hash1 = _waitingList.depositHashes(1);
-        assertEq(hash0, keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT, user, user)));
-        assertEq(hash1, keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT * 2, user2, user2)));
+        assertEq(hash0, keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT, user, user, callContract, 0)));
+        assertEq(hash1, keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT * 2, user2, user2, callContract, 0)));
     }
 
     function test_Deposit_DifferentRecipient() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2, callContract, 0, "");
 
         bytes32 hash = _waitingList.depositHashes(0);
-        assertEq(hash, keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT, user, user2)));
+        assertEq(hash, keccak256(abi.encode(address(_token), DEPOSIT_AMOUNT, user, user2, callContract, 0)));
     }
 
     // ========== Apply Tests ==========
 
     function test_Apply_Single() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         vm.prank(relayer);
         _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
@@ -182,9 +201,9 @@ contract DepositWaitingListTest is Test {
 
     function test_Apply_Batch() public {
         vm.startPrank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT * 2, user, "");
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT * 2, user, callContract, 0, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2, callContract, 0, "");
         vm.stopPrank();
 
         DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](3);
@@ -205,7 +224,7 @@ contract DepositWaitingListTest is Test {
 
     function test_Apply_EmitsEvents() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         vm.prank(relayer);
         vm.expectEmit(true, true, true, true);
@@ -215,7 +234,7 @@ contract DepositWaitingListTest is Test {
 
     function test_Apply_RevertIfNotRelayer() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         vm.prank(user);
         vm.expectRevert();
@@ -224,7 +243,7 @@ contract DepositWaitingListTest is Test {
 
     function test_Apply_RevertIfAlreadyApplied() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         vm.prank(relayer);
         _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
@@ -246,14 +265,14 @@ contract DepositWaitingListTest is Test {
     function test_Deposit_RevertIfAmountExceedsDepositLimit() public {
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.InvalidDepositAmount.selector);
-        _waitingList.deposit(address(_token), depositLimit + 1, user, "");
+        _waitingList.deposit(address(_token), depositLimit + 1, user, callContract, 0, "");
     }
 
     function test_Apply_RevertIfBridgeLimitHit() public {
         // Deposit exactly at the limit, then deposit again — bridge should reject the second apply
         vm.startPrank(user);
-        _waitingList.deposit(address(_token), depositLimit, user, "");
-        _waitingList.deposit(address(_token), minAmount, user, "");
+        _waitingList.deposit(address(_token), depositLimit, user, callContract, 0, "");
+        _waitingList.deposit(address(_token), minAmount, user, callContract, 0, "");
         vm.stopPrank();
 
         // Apply the first deposit (uses all capacity)
@@ -271,9 +290,9 @@ contract DepositWaitingListTest is Test {
 
     function test_Apply_OutOfOrder() public {
         vm.startPrank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
         vm.stopPrank();
 
         // Apply in reverse order (ids 2, 0)
@@ -293,7 +312,7 @@ contract DepositWaitingListTest is Test {
 
     function test_Apply_RevertIfInvalidDepositData() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         // Wrong amount
         vm.prank(relayer);
@@ -323,8 +342,8 @@ contract DepositWaitingListTest is Test {
 
         vm.startPrank(user);
         token2.approve(address(_waitingList), type(uint256).max);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
-        _waitingList.deposit(address(token2), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
+        _waitingList.deposit(address(token2), DEPOSIT_AMOUNT, user, callContract, 0, "");
         vm.stopPrank();
 
         // Try to apply deposit 1 (token2) with token1 as the token param — hash won't match
@@ -333,16 +352,39 @@ contract DepositWaitingListTest is Test {
         _applySingle(1, address(_token), DEPOSIT_AMOUNT, user, user);
     }
 
+    // ========== CallContract Mismatch Tests ==========
+
+    function test_Apply_RevertIfCallContractMismatch() public {
+        uint256 reserve = 10e18;
+
+        // Deposit 0: with callContract and reserveBalance
+        vm.prank(user);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, reserve, "");
+
+        // Deposit 1: without callContract
+        vm.prank(user);
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
+
+        // Relayer tries to apply both using deposit 0's params (callContract, reserve)
+        DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](2);
+        deposits[0] = DepositWaitingList.DepositData({depositId: 0, amount: DEPOSIT_AMOUNT, from: user, to: user});
+        deposits[1] = DepositWaitingList.DepositData({depositId: 1, amount: DEPOSIT_AMOUNT, from: user, to: user});
+
+        vm.prank(relayer);
+        vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
+        _waitingList.applyDeposits(address(_token), deposits, callContract, reserve);
+    }
+
     // ========== Withdraw Tests ==========
 
     function test_Withdraw_BySender() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2, callContract, 0, "");
 
         uint256 userBefore = _token.balanceOf(user);
 
         vm.prank(user);
-        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user2);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user2, callContract, 0);
 
         assertEq(_token.balanceOf(user), userBefore + DEPOSIT_AMOUNT);
         assertEq(_token.balanceOf(address(_waitingList)), 0);
@@ -352,12 +394,12 @@ contract DepositWaitingListTest is Test {
 
     function test_Withdraw_ByRelayer() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user2, callContract, 0, "");
 
         uint256 userBefore = _token.balanceOf(user);
 
         vm.prank(relayer);
-        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user2);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user2, callContract, 0);
 
         // Tokens go back to the original sender, not the relayer
         assertEq(_token.balanceOf(user), userBefore + DEPOSIT_AMOUNT);
@@ -365,71 +407,71 @@ contract DepositWaitingListTest is Test {
 
     function test_Withdraw_EmitsEvent() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
         emit DepositWaitingList.WaitingDepositWithdrawn(0);
-        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user, callContract, 0);
     }
 
     function test_Withdraw_RevertIfNotAuthorized() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         vm.prank(user2);
         vm.expectRevert(DepositWaitingList.NotAuthorized.selector);
-        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user, callContract, 0);
     }
 
     function test_Withdraw_RevertIfAlreadyApplied() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         vm.prank(relayer);
         _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
 
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
-        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user, callContract, 0);
     }
 
     function test_Withdraw_RevertIfAlreadyWithdrawn() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         vm.prank(user);
-        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user, callContract, 0);
 
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
-        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user, callContract, 0);
     }
 
     function test_Withdraw_RevertIfNonexistent() public {
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
-        _waitingList.withdraw(999, address(_token), DEPOSIT_AMOUNT, user, user);
+        _waitingList.withdraw(999, address(_token), DEPOSIT_AMOUNT, user, user, callContract, 0);
     }
 
     function test_Withdraw_RevertIfInvalidDepositData() public {
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         // Wrong amount
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
-        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT + 1, user, user);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT + 1, user, user, callContract, 0);
 
         // Wrong token
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
-        _waitingList.withdraw(0, address(0xdead), DEPOSIT_AMOUNT, user, user);
+        _waitingList.withdraw(0, address(0xdead), DEPOSIT_AMOUNT, user, user, callContract, 0);
 
         // Wrong to
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.InvalidDepositData.selector);
-        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user2);
+        _waitingList.withdraw(0, address(_token), DEPOSIT_AMOUNT, user, user2, callContract, 0);
     }
 
     // ========== Fuzz Tests ==========
@@ -460,7 +502,7 @@ contract DepositWaitingListTest is Test {
             address depositor = i % 2 == 0 ? user : user2;
             depositFroms[i] = depositor;
             vm.prank(depositor);
-            _waitingList.deposit(address(_token), perAmount, user, "");
+            _waitingList.deposit(address(_token), perAmount, user, callContract, 0, "");
         }
 
         if (numApplied > 0) {
@@ -482,7 +524,7 @@ contract DepositWaitingListTest is Test {
             bytes32 hash = _waitingList.depositHashes(i);
             if (hash == bytes32(0)) continue;
             vm.prank(depositFroms[i]);
-            _waitingList.withdraw(i, address(_token), perAmount, depositFroms[i], user);
+            _waitingList.withdraw(i, address(_token), perAmount, depositFroms[i], user, callContract, 0);
             withdrawn++;
         }
     }
@@ -503,7 +545,7 @@ contract DepositWaitingListTest is Test {
         uint256 senderBefore = _token.balanceOf(depositor);
 
         vm.prank(depositor);
-        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
+        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user, callContract, 0);
 
         assertEq(_token.balanceOf(depositor), senderBefore + perAmount);
         assertEq(_waitingList.depositHashes(targetIndex), bytes32(0));
@@ -528,7 +570,7 @@ contract DepositWaitingListTest is Test {
 
         vm.prank(depositor);
         vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
-        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
+        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user, callContract, 0);
     }
 
     function testFuzz_Withdraw_RevertIfAlreadyWithdrawn(
@@ -546,11 +588,11 @@ contract DepositWaitingListTest is Test {
         address depositor = targetIndex % 2 == 0 ? user : user2;
 
         vm.prank(depositor);
-        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
+        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user, callContract, 0);
 
         vm.prank(depositor);
         vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
-        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
+        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user, callContract, 0);
     }
 
     function testFuzz_Apply_PendingDeposit(
@@ -612,7 +654,7 @@ contract DepositWaitingListTest is Test {
         address depositor = targetIndex % 2 == 0 ? user : user2;
 
         vm.prank(depositor);
-        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user);
+        _waitingList.withdraw(targetIndex, address(_token), perAmount, depositor, user, callContract, 0);
 
         vm.prank(relayer);
         vm.expectRevert(DepositWaitingList.DepositNotPending.selector);
@@ -647,7 +689,7 @@ contract DepositWaitingListTest is Test {
 
         uint256 balanceBefore = permitToken.balanceOf(permitUser);
         vm.prank(permitUser);
-        uint256 id = _waitingList.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, permit);
+        uint256 id = _waitingList.deposit(address(permitToken), DEPOSIT_AMOUNT, permitUser, callContract, 0, permit);
 
         assertEq(permitToken.balanceOf(permitUser), balanceBefore - DEPOSIT_AMOUNT);
         assertEq(permitToken.balanceOf(address(_waitingList)), DEPOSIT_AMOUNT);
@@ -668,7 +710,7 @@ contract DepositWaitingListTest is Test {
 
         vm.prank(user);
         vm.expectRevert(DepositWaitingList.InvalidPermitLength.selector);
-        _waitingList.deposit(address(permitToken), DEPOSIT_AMOUNT, user, invalidPermit);
+        _waitingList.deposit(address(permitToken), DEPOSIT_AMOUNT, user, callContract, 0, invalidPermit);
     }
 
     function test_Deposit_WithEmptyPermit_RequiresApproval() public {
@@ -683,14 +725,14 @@ contract DepositWaitingListTest is Test {
         // No approval and empty permit — should revert on transferFrom
         vm.prank(user);
         vm.expectRevert();
-        _waitingList.deposit(address(permitToken), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(permitToken), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         // Now approve and deposit with empty permit — should work
         vm.prank(user);
         permitToken.approve(address(_waitingList), DEPOSIT_AMOUNT);
 
         vm.prank(user);
-        _waitingList.deposit(address(permitToken), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(permitToken), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         assertEq(permitToken.balanceOf(address(_waitingList)), DEPOSIT_AMOUNT);
     }
@@ -701,8 +743,8 @@ contract DepositWaitingListTest is Test {
         uint256 bridgeIndexBefore = _bridge.depositIndex();
 
         vm.startPrank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
         vm.stopPrank();
 
         DepositWaitingList.DepositData[] memory deposits = new DepositWaitingList.DepositData[](2);
@@ -720,7 +762,7 @@ contract DepositWaitingListTest is Test {
         _bridge.setState(Bridge.ContractState.Public);
 
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         vm.prank(relayer);
         _applySingle(0, address(_token), DEPOSIT_AMOUNT, user, user);
@@ -733,7 +775,7 @@ contract DepositWaitingListTest is Test {
         _bridge.setState(Bridge.ContractState.Paused);
 
         vm.prank(user);
-        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, "");
+        _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, callContract, 0, "");
 
         vm.prank(relayer);
         vm.expectRevert(Bridge.ContractPaused.selector);

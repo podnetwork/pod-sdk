@@ -16,9 +16,18 @@ contract DepositWaitingList is AccessControl {
     error InvalidDepositData();
     error NotAuthorized();
     error InvalidPermitLength();
+    error CallContractNotWhitelisted();
+    error AmountBelowReserve();
+    error InvalidReserveBalance();
 
     event WaitingDepositCreated(
-        uint256 indexed depositId, address indexed from, address to, address token, uint256 amount
+        uint256 indexed depositId,
+        address indexed from,
+        address to,
+        address token,
+        uint256 amount,
+        address callContract,
+        uint256 reserveBalance
     );
     event WaitingDepositApplied(uint256 indexed depositId);
     event WaitingDepositWithdrawn(uint256 indexed depositId);
@@ -45,11 +54,22 @@ contract DepositWaitingList is AccessControl {
     }
 
     /// @param permit Tightly packed permit data (97 bytes) or empty for no permit.
-    function deposit(address token, uint256 amount, address to, bytes calldata permit)
-        external
-        returns (uint256 depositId)
-    {
+    function deposit(
+        address token,
+        uint256 amount,
+        address to,
+        address callContract,
+        uint256 reserveBalance,
+        bytes calldata permit
+    ) external returns (uint256 depositId) {
         if (to == address(0)) revert InvalidToAddress();
+
+        if (callContract != address(0)) {
+            if (!bridge.whitelistedCallContracts(callContract)) revert CallContractNotWhitelisted();
+            if (amount < reserveBalance) revert AmountBelowReserve();
+        } else {
+            if (reserveBalance != 0) revert InvalidReserveBalance();
+        }
 
         (uint256 minAmount, uint256 depositLimit,,,,) = bridge.tokenData(token);
         if (amount < minAmount || amount > depositLimit) revert InvalidDepositAmount();
@@ -58,9 +78,9 @@ contract DepositWaitingList is AccessControl {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         depositId = nextDepositId++;
-        depositHashes[depositId] = keccak256(abi.encode(token, amount, msg.sender, to));
+        depositHashes[depositId] = keccak256(abi.encode(token, amount, msg.sender, to, callContract, reserveBalance));
 
-        emit WaitingDepositCreated(depositId, msg.sender, to, token, amount);
+        emit WaitingDepositCreated(depositId, msg.sender, to, token, amount, callContract, reserveBalance);
     }
 
     function applyDeposits(address token, DepositData[] calldata deposits, address callContract, uint256 reserveBalance)
@@ -74,7 +94,9 @@ contract DepositWaitingList is AccessControl {
 
             bytes32 hash = depositHashes[d.depositId];
             if (hash == bytes32(0)) revert DepositNotPending();
-            if (keccak256(abi.encode(token, d.amount, d.from, d.to)) != hash) revert InvalidDepositData();
+            if (keccak256(abi.encode(token, d.amount, d.from, d.to, callContract, reserveBalance)) != hash) {
+                revert InvalidDepositData();
+            }
 
             delete depositHashes[d.depositId];
 
@@ -86,10 +108,20 @@ contract DepositWaitingList is AccessControl {
         bridge.batchDeposit(token, params, new Bridge.PermitParams[](0), callContract, reserveBalance);
     }
 
-    function withdraw(uint256 depositId, address token, uint256 amount, address from, address to) external {
+    function withdraw(
+        uint256 depositId,
+        address token,
+        uint256 amount,
+        address from,
+        address to,
+        address callContract,
+        uint256 reserveBalance
+    ) external {
         bytes32 hash = depositHashes[depositId];
         if (hash == bytes32(0)) revert DepositNotPending();
-        if (keccak256(abi.encode(token, amount, from, to)) != hash) revert InvalidDepositData();
+        if (keccak256(abi.encode(token, amount, from, to, callContract, reserveBalance)) != hash) {
+            revert InvalidDepositData();
+        }
         if (msg.sender != from && !hasRole(RELAYER_ROLE, msg.sender)) revert NotAuthorized();
 
         delete depositHashes[depositId];
