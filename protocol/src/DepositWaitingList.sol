@@ -88,21 +88,29 @@ contract DepositWaitingList is AccessControl {
         onlyRole(RELAYER_ROLE)
     {
         Bridge.DepositParams[] memory params = new Bridge.DepositParams[](deposits.length);
+        uint256 validCount;
 
         for (uint256 i = 0; i < deposits.length; ++i) {
             DepositData calldata d = deposits[i];
 
             bytes32 hash = depositHashes[d.depositId];
-            if (hash == bytes32(0)) revert DepositNotPending();
+            if (hash == bytes32(0)) continue;
             if (keccak256(abi.encode(token, d.amount, d.from, d.to, callContract, reserveBalance)) != hash) {
                 revert InvalidDepositData();
             }
 
             delete depositHashes[d.depositId];
 
-            params[i] = Bridge.DepositParams({from: address(this), to: d.to, amount: d.amount});
+            params[validCount++] = Bridge.DepositParams({from: address(this), to: d.to, amount: d.amount});
 
             emit WaitingDepositApplied(d.depositId);
+        }
+
+        if (validCount == 0) return;
+
+        // Trim params array to actual count
+        assembly {
+            mstore(params, validCount)
         }
 
         bridge.batchDeposit(token, params, new Bridge.PermitParams[](0), callContract, reserveBalance);
