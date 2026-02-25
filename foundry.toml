@@ -3,7 +3,7 @@ src = "solidity-sdk/src"
 out = "solidity-sdk/out"
 libs = ["solidity-sdk/lib"]
 remappings = ["@openzeppelin/=lib/openzeppelin-contracts/"]
-solc = "0.8.28"
+solc = "0.8.34"
 evm_version = "prague"
 bytecode_hash = "none"
 cbor_metadata = false
