@@ -24,6 +24,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
     error RequestAlreadyProcessed();
     error InvalidBridgeContract();
     error AmountBelowReserve();
+    error InvalidReserveBalance();
     error CallContractNotWhitelisted();
     error InvalidPermitLength();
     error ContractPaused();
@@ -46,16 +47,16 @@ contract Bridge is Initializable, AccessControlUpgradeable {
     event ValidatorAdded(address indexed validator);
     event ValidatorRemoved(address indexed validator);
     event ValidatorConfigUpdated(uint256 oldVersion, uint256 newVersion);
-    event Deposit(uint256 indexed id, address indexed from, address indexed to, address token, uint256 amount);
-    event Claim(bytes32 indexed txHash, address token, address mirrorToken, uint256 amount, address indexed to);
-    event DepositAndCall(
+    event Deposit(
         uint256 indexed id,
-        address indexed token,
-        uint256 amount,
+        address indexed from,
         address indexed to,
+        address token,
+        uint256 amount,
         address callContract,
         uint256 reserveBalance
     );
+    event Claim(bytes32 indexed txHash, address token, address mirrorToken, uint256 amount, address indexed to);
 
     struct DepositParams {
         address from;
@@ -96,7 +97,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
-    bytes4 internal constant DEPOSIT_SELECTOR = bytes4(keccak256("deposit(address,uint256,address)"));
+    bytes4 internal constant WITHDRAW_SELECTOR = bytes4(keccak256("withdraw(address,uint256,address,uint256)"));
     uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
 
     address public immutable BRIDGE_CONTRACT;
@@ -197,18 +198,18 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         adversarialResilience = _adversarialResilience;
     }
 
-    function _depositTxHash(
+    function _claimTxHash(
         address token,
         uint256 amount,
         address to,
         bytes32 _domainSeparator,
         bytes calldata auxTxSuffix
     ) internal view returns (bytes32 result) {
-        bytes4 selector = DEPOSIT_SELECTOR;
+        bytes4 selector = WITHDRAW_SELECTOR;
         address bridgeContract = BRIDGE_CONTRACT;
 
         uint256 lenTx = 32 + 32 + 32 + auxTxSuffix.length; // DOMAIN_SEPARATOR + bridgeContract + dataHash + auxTxSuffix
-        uint256 lenData = 4 + 32 + 32 + 32; // selector + token + amount + to
+        uint256 lenData = 4 + 32 + 32 + 32 + 32; // selector + token + amount + to + chainId (recipient chain)
         bytes memory scratch = new bytes(lenTx > lenData ? lenTx : lenData); // reuse memory
         bytes32 dataHash;
         assembly {
@@ -218,6 +219,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
             mstore(add(ptr, 0x04), token)
             mstore(add(ptr, 0x24), amount)
             mstore(add(ptr, 0x44), to)
+            mstore(add(ptr, 0x64), chainid())
 
             dataHash := keccak256(ptr, lenData)
 
@@ -324,30 +326,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
     }
 
     /// @param permit Tightly packed permit data (97 bytes) or empty for no permit.
-    function deposit(address token, uint256 amount, address to, bytes calldata permit)
-        external
-        whenPublic
-        returns (uint256)
-    {
-        if (to == address(0)) revert InvalidToAddress();
-
-        TokenData storage t = tokenData[token];
-        _checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
-
-        _applyPermit(token, msg.sender, amount, permit);
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-        uint256 id = depositIndex++;
-
-        emit Deposit(id, msg.sender, to, token, amount);
-
-        return id;
-    }
-
-    /**
-     * @dev The callee contract on the destination chain must
-     *         implement deposit(address token, uint256 amount, address to)
-     */
-    function depositAndCall(
+    function deposit(
         address token,
         uint256 amount,
         address to,
@@ -356,8 +335,13 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         bytes calldata permit
     ) external whenPublic returns (uint256) {
         if (to == address(0)) revert InvalidToAddress();
-        if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
-        if (amount < reserveBalance) revert AmountBelowReserve();
+
+        if (callContract != address(0)) {
+            if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
+            if (amount < reserveBalance) revert AmountBelowReserve();
+        } else {
+            if (reserveBalance != 0) revert InvalidReserveBalance();
+        }
 
         TokenData storage t = tokenData[token];
         _checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, amount);
@@ -366,7 +350,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         uint256 id = depositIndex++;
 
-        emit DepositAndCall(id, token, amount, to, callContract, reserveBalance);
+        emit Deposit(id, msg.sender, to, token, amount, callContract, reserveBalance);
 
         return id;
     }
@@ -379,24 +363,40 @@ contract Bridge is Initializable, AccessControlUpgradeable {
      *      For deposits[i] where i < permits.length, the corresponding permits[i] is applied.
      *      For deposits[i] where i >= permits.length, no permit is applied (requires prior approval).
      */
-    function batchDepositAndCall(
+    function batchDeposit(
         address token,
         DepositParams[] calldata deposits,
         PermitParams[] calldata permits,
         address callContract,
         uint256 reserveBalance
     ) external whenOperational onlyRole(RELAYER_ROLE) {
-        if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
+        if (callContract != address(0)) {
+            if (!whitelistedCallContracts[callContract]) revert CallContractNotWhitelisted();
+        } else {
+            if (reserveBalance != 0) revert InvalidReserveBalance();
+        }
+
         if (deposits.length == 0) revert InvalidTokenAmount();
 
+        _processBatchDeposit(token, deposits, permits, callContract, reserveBalance);
+    }
+
+    function _processBatchDeposit(
+        address token,
+        DepositParams[] calldata deposits,
+        PermitParams[] calldata permits,
+        address callContract,
+        uint256 reserveBalance
+    ) internal {
         TokenData storage t = tokenData[token];
+        bool hasCallContract = callContract != address(0);
         uint256 depositsLength = deposits.length;
         uint256 permitsLength = permits.length;
 
         for (uint256 i = 0; i < depositsLength; ++i) {
             DepositParams calldata d = deposits[i];
 
-            if (d.amount < reserveBalance) revert AmountBelowReserve();
+            if (hasCallContract && d.amount < reserveBalance) revert AmountBelowReserve();
             if (d.to == address(0)) revert InvalidToAddress();
 
             _checkInLimits(t.depositUsage, t.minAmount, t.depositLimit, d.amount);
@@ -409,9 +409,8 @@ contract Bridge is Initializable, AccessControlUpgradeable {
             }
 
             IERC20(token).safeTransferFrom(d.from, address(this), d.amount);
-            uint256 id = depositIndex++;
 
-            emit DepositAndCall(id, token, d.amount, d.to, callContract, reserveBalance);
+            emit Deposit(depositIndex++, d.from, d.to, token, d.amount, callContract, reserveBalance);
         }
     }
 
@@ -520,7 +519,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
         (ProofLib.ProofType proofType, bytes32 _domainSeparator, bytes calldata proofData) = _parseProof(proof);
 
-        bytes32 txHash = _depositTxHash(mirrorToken, amount, to, _domainSeparator, auxTxSuffix);
+        bytes32 txHash = _claimTxHash(mirrorToken, amount, to, _domainSeparator, auxTxSuffix);
 
         if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
@@ -573,7 +572,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
             (ProofLib.ProofType proofType, bytes32 _domainSeparator, bytes calldata proofData) = _parseProof(c.proof);
 
-            bytes32 txHash = _depositTxHash(mirrorToken, c.amount, c.to, _domainSeparator, c.auxTxSuffix);
+            bytes32 txHash = _claimTxHash(mirrorToken, c.amount, c.to, _domainSeparator, c.auxTxSuffix);
 
             if (processedRequests[txHash]) revert RequestAlreadyProcessed();
 
