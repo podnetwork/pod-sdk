@@ -5,7 +5,7 @@ Pod has a native bridge for moving ERC20 tokens between Ethereum and Pod. The br
 ## Architecture
 
 - **Ethereum bridge contract** - holds deposited tokens on Ethereum. Users deposit here to bridge into Pod, and claim here when bridging out.
-- **Pod bridge precompile** - at `0x000000000000000000000000000000000000C10` on Pod. Users call this to initiate withdrawals to Ethereum.
+- **Pod bridge precompile** - at `0x0000000000000000000000000000000000B41D9E` on Pod. Users call this to initiate withdrawals to Ethereum.
 
 ## Ethereum → Pod
 
@@ -20,6 +20,13 @@ Tokens are deposited to the Pod bridge precompile, which burns them on Pod. Vali
 The user obtains the claim proof via `pod_getBridgeClaimProof(txHash)` and submits it to the Ethereum bridge contract to release the tokens. Anyone can submit the claim - it does not need to come from the original depositor.
 
 See [Bridge from Pod](https://docs.v2.pod.network/guides-references/guides/bridge-from-pod) for a step-by-step guide with code examples.
+
+## Decimal Scaling
+
+All tokens on Pod are represented with 18 decimals internally, regardless of their decimals on the source chain (e.g. USDC has 6 decimals on Ethereum but 18 on Pod). The bridge handles the conversion automatically:
+
+- **Ethereum → Pod**: The bridge scales amounts up to 18 decimals when crediting balances on Pod.
+- **Pod → Ethereum**: When calling `deposit` on the Pod bridge precompile, the `amount` must be specified in the Ethereum token's native units (e.g. 1e6 for 1 USDC), not in Pod's 18-decimal representation. The Deposit event also emits amounts in the source chain's decimals.
 
 ## Network Upgrades
 
