@@ -13,9 +13,24 @@ Tokens are deposited to the Ethereum bridge contract and locked. Pod validators 
 
 See [Bridge to Pod](https://docs.v2.pod.network/guides-references/guides/bridge-to-pod) for a step-by-step guide with code examples.
 
+### Deposit and Call
+
+The Ethereum bridge contract supports depositing tokens and calling a whitelisted contract on Pod in a single transaction. This is useful for bridging tokens and immediately depositing them into the orderbook without a separate step.
+
+When calling `deposit` on the Ethereum contract, the `callContract` and `reserveBalance` parameters control this behavior:
+
+- **`callContract`**: Address of a whitelisted contract on Pod to call with the bridged funds (e.g. the orderbook contract). Set to `address(0)` for a normal deposit.
+- **`reserveBalance`**: Amount (in the Ethereum token's units) to keep in the user's EOA on Pod. The remainder is forwarded to `callContract` via `deposit(token, amount, to)`.
+
+For example, to bridge 1000 USDC and deposit 900 USDC into the orderbook while keeping 100 USDC in your account, set `amount = 1000e6`, `reserveBalance = 100e6`, and `callContract` to the orderbook address.
+
+The `callContract` must be whitelisted by the bridge admin via `setCallContractWhitelist`. If `callContract` is `address(0)`, `reserveBalance` must be `0`.
+
 ## Pod → Ethereum
 
-Tokens are deposited to the Pod bridge precompile, which burns them on Pod. Validators sign the withdrawal using separate cold keys (KMS-backed) dedicated to bridge attestations, distinct from transaction attestation keys. These signatures are specially packed for efficient on-chain verification. The Ethereum bridge contract checks that at least `n - f` validators signed the withdrawal - the same threshold used for transaction finality.
+Users call `withdraw` on the Pod bridge precompile, which burns the tokens on Pod. Validators sign the withdrawal using separate cold keys (KMS-backed) dedicated to bridge attestations, distinct from transaction attestation keys. These signatures are specially packed for efficient on-chain verification. The Ethereum bridge contract checks that at least `n - f` validators signed the withdrawal - the same threshold used for transaction finality.
+
+The `withdraw` function takes a `chainId` parameter specifying the target chain where the tokens will be claimed. This prevents the same withdrawal proof from being replayed on multiple chains when the bridge is deployed across several networks.
 
 The user obtains the claim proof via `pod_getBridgeClaimProof(txHash)` and submits it to the Ethereum bridge contract to release the tokens. Anyone can submit the claim - it does not need to come from the original depositor.
 
@@ -26,7 +41,7 @@ See [Bridge from Pod](https://docs.v2.pod.network/guides-references/guides/bridg
 All tokens on Pod are represented with 18 decimals internally, regardless of their decimals on the source chain (e.g. USDC has 6 decimals on Ethereum but 18 on Pod). The bridge handles the conversion automatically:
 
 - **Ethereum → Pod**: The bridge scales amounts up to 18 decimals when crediting balances on Pod.
-- **Pod → Ethereum**: When calling `deposit` on the Pod bridge precompile, the `amount` must be specified in the Ethereum token's native units (e.g. 1e6 for 1 USDC), not in Pod's 18-decimal representation. The Deposit event also emits amounts in the source chain's decimals.
+- **Pod → Ethereum**: When calling `withdraw` on the Pod bridge precompile, the `amount` must be specified in the target chain token's native units (e.g. 1e6 for 1 USDC), not in Pod's 18-decimal representation. The Withdraw event also emits amounts in the target chain's decimals.
 
 ## Network Upgrades
 
