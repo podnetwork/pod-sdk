@@ -8,13 +8,13 @@ This repository contains the Software Development Kit for the pod Network. It pr
 - Transaction creation and submission
 - Receipt verification
 - Event subscription and verification
-- Lightclient support for verifying transactions and events  
+- Light client support for verifying transactions and events
 
 ## Repository Structure
 - **rust-sdk/**: Custom alloy provider to support pod-specific features.
-- **solidity-sdk/**: Solidity contracts to build a verifying pod client. 
-- **examples**: Example contracts and scripts to demonstrate the SDK usage. 
-- **types**: Common types.
+- **solidity-sdk/**: Solidity contracts to build a verifying pod client.
+- **examples/**: Example contracts and scripts to demonstrate the SDK usage.
+- **types/**: Common types.
 
 ## Key Types
 
@@ -31,6 +31,7 @@ The SDK provides several key types:
 
 ```rust
 use pod_sdk::{PodProvider, PodProviderBuilder};
+use alloy::signers::local::PrivateKeySigner;
 use alloy_network::EthereumWallet;
 use alloy::consensus::TxLegacy;
 
@@ -89,6 +90,7 @@ Add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
 pod-sdk = "0.1.0"
+```
 
 ## ⚠️ Warning
 
