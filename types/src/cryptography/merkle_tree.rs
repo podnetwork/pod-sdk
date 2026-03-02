@@ -432,7 +432,10 @@ impl MerkleTree {
         let reconstructed_root = match (stack.len(), path.len()) {
             (1, 0) => stack.remove(0),
             (0, 1) => path.remove(0),
-            _ => panic!("invalid multiproof: invalid total hashes"),
+            _ => {
+                tracing::debug!("invalid multiproof: invalid total hashes");
+                return false;
+            }
         };
 
         root == reconstructed_root
