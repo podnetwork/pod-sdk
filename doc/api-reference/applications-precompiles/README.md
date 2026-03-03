@@ -7,7 +7,7 @@ Pod uses precompiles for enshrined applications and internal protocol operations
 | Signature | Address | Description |
 | --------- | ------- | ----------- |
 | [Orderbook Spot](orderbook-spot.md) | `0x000000000000000000000000000000000000C10B` | Central limit order book for spot markets |
-| [Bridge](bridge.md) | `0x000000000000000000000000000000000000C10` | ERC-20 token bridging between Pod and Ethereum |
+| [Bridge](bridge.md) | `0x0000000000000000000000000000000000B41D9E` | ERC-20 token bridging between Pod and Ethereum |
 | [Optimistic Auctions](wip-optimistic-auctions.md) | `0xeDD0670497E00ded712a398563Ea938A29dD28c7` | Censorship-resistant auction for intents (settlement happens off-Pod) |
 | `recover(bytes32 txHash, uint64 nonce)` | `0x0000000000000000000000000000000004EC0EE4` | Recover a locked account by finalizing the target transaction chain |
 | `requireQuorum(boolean)` | `0x4CF3F1637bfEf1534e56352B6ebAae243aF464c3` | Like `require` but passes if supermajority agrees |
