@@ -4,7 +4,7 @@ This guide walks through bridging ERC20 tokens from Pod to Ethereum. For backgro
 
 ## Decimal Scaling
 
-All tokens on Pod are represented with 18 decimals, regardless of their decimals on Ethereum. When calling `deposit` on the Pod bridge precompile, the `amount` must be specified in the **Ethereum token's units**. For example, to bridge 1 USDC (6 decimals on Ethereum), pass `1000000` (1e6), not `1000000000000000000` (1e18).
+All tokens on Pod are represented with 18 decimals, regardless of their decimals on Ethereum. When calling `withdraw` on the Pod bridge precompile, the `amount` must be specified in the **Ethereum token's units**. For example, to bridge 1 USDC (6 decimals on Ethereum), pass `1000000` (1e6), not `1000000000000000000` (1e18).
 
 {% hint style="warning" %}
 When bridging the native token, **set `tx.value` to `0`**. The bridge deducts the balance internally — do not send value with the transaction.
@@ -12,7 +12,7 @@ When bridging the native token, **set `tx.value` to `0`**. The bridge deducts th
 
 ## Steps
 
-1. Call `deposit(token, amount, ethRecipient)` on the Pod bridge precompile.
+1. Call `withdraw(token, amount, ethRecipient, chainId)` on the Pod bridge precompile. The `chainId` is the chain ID of the target chain (e.g. `1` for Ethereum mainnet) — it prevents the withdrawal proof from being replayed on other chains.
 2. Call `pod_getBridgeClaimProof(txHash)` on the full node to get the claim proof.
 3. Call `claim(token, amount, ethRecipient, proof, auxTxSuffix)` on the Ethereum bridge contract.
 
@@ -34,16 +34,17 @@ const POD_TOKEN = "POD_TOKEN_ADDRESS"; // use 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeee
 const ETH_TOKEN = "ETH_TOKEN_ADDRESS";
 const amount = ethers.parseUnits("100", 6); // amount in Ethereum token units (e.g. 6 decimals for USDC)
 const ethRecipient = ethWallet.address;
+const ETH_CHAIN_ID = 1; // Ethereum mainnet chain ID
 
-// 1. Deposit on Pod bridge precompile
-// IMPORTANT: tx.value must be 0, even for native token deposits
+// 1. Withdraw on Pod bridge precompile
+// IMPORTANT: tx.value must be 0, even for native token withdrawals
 const podBridge = new ethers.Contract(
   POD_BRIDGE,
-  ["function deposit(address token, uint256 amount, address to) returns (bytes32)"],
+  ["function withdraw(address token, uint256 amount, address to, uint256 chainId) returns (bytes32)"],
   podWallet
 );
-const depositTx = await podBridge.deposit(POD_TOKEN, amount, ethRecipient, { value: 0 });
-const receipt = await depositTx.wait();
+const withdrawTx = await podBridge.withdraw(POD_TOKEN, amount, ethRecipient, ETH_CHAIN_ID, { value: 0 });
+const receipt = await withdrawTx.wait();
 
 // 2. Get claim proof
 const claimProof = await podProvider.send("pod_getBridgeClaimProof", [receipt.hash]);
@@ -71,7 +72,9 @@ use alloy::primitives::U256;
 sol! {
     #[sol(rpc)]
     contract PodBridge {
-        function deposit(address token, uint256 amount, address to) public returns (bytes32);
+        function withdraw(
+            address token, uint256 amount, address to, uint256 chainId
+        ) public returns (bytes32);
     }
 
     #[sol(rpc)]
@@ -96,15 +99,16 @@ let pod_token = "POD_TOKEN_ADDRESS".parse()?; // use 0xEeeeeEeeeEeEeeEeEeEeeEEEe
 let eth_token = "ETH_TOKEN_ADDRESS".parse()?;
 let amount = U256::from(100_000_000u64); // amount in Ethereum token units (e.g. 100 USDC = 100 * 1e6)
 let eth_recipient = signer.address();
+let eth_chain_id = U256::from(1u64); // Ethereum mainnet chain ID
 
-// 1. Deposit on Pod bridge precompile
-// IMPORTANT: tx.value must be 0, even for native token deposits
+// 1. Withdraw on Pod bridge precompile
+// IMPORTANT: tx.value must be 0, even for native token withdrawals
 let pod_bridge = PodBridge::new(
     "0x0000000000000000000000000000000000B41D9E".parse()?,
     &pod_provider,
 );
-let deposit_receipt = pod_bridge
-    .deposit(pod_token, amount, eth_recipient)
+let withdraw_receipt = pod_bridge
+    .withdraw(pod_token, amount, eth_recipient, eth_chain_id)
     .send().await?
     .get_receipt().await?;
 
@@ -112,7 +116,7 @@ let deposit_receipt = pod_bridge
 let claim_proof: serde_json::Value = pod_provider
     .raw_request(
         "pod_getBridgeClaimProof".into(),
-        vec![deposit_receipt.transaction_hash],
+        vec![withdraw_receipt.transaction_hash],
     )
     .await?;
 
