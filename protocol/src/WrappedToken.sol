@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import {ERC20Pausable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
+import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
@@ -11,7 +12,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  * @notice A contract for wrapping and unwrapping tokens.
  * @dev This contract is used to wrap and unwrap tokens between chains.
  */
-contract WrappedToken is ERC20Burnable, ERC20Pausable, AccessControl {
+contract WrappedToken is ERC20Burnable, ERC20Pausable, ERC20Permit, AccessControl {
     /**
      * @dev The role for the minter.
      */
@@ -33,7 +34,7 @@ contract WrappedToken is ERC20Burnable, ERC20Pausable, AccessControl {
      * @param symbol_ The symbol of the token.
      * @param decimals_ The number of decimals of the token.
      */
-    constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) {
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) ERC20Permit(name_) {
         DECIMALS = decimals_;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
