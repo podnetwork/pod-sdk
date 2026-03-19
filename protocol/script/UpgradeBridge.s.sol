@@ -6,10 +6,9 @@ import {console} from "forge-std/console.sol";
 import {Bridge} from "pod-protocol/Bridge.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 contract UpgradeBridge is Script {
-    /// @dev ERC-1967 admin slot: bytes32(uint256(keccak256("eip1967.proxy.admin")) - 1)
-    bytes32 internal constant ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
 
     /**
      * @param proxyAddr The TransparentUpgradeableProxy address.
@@ -21,7 +20,7 @@ contract UpgradeBridge is Script {
         Bridge bridge = Bridge(proxyAddr);
 
         // Read ProxyAdmin from ERC-1967 admin slot
-        address proxyAdminAddr = address(uint160(uint256(vm.load(proxyAddr, ADMIN_SLOT))));
+        address proxyAdminAddr = address(uint160(uint256(vm.load(proxyAddr, ERC1967Utils.ADMIN_SLOT))));
         console.log("ProxyAdmin:", proxyAdminAddr);
 
         // Read immutables from current implementation
