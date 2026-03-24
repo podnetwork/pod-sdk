@@ -144,6 +144,10 @@ contract DepositWaitingList is AccessControl {
         IERC20(token).approve(address(bridge), type(uint256).max);
     }
 
+    function revokeToken(address token) external onlyRole(RELAYER_ROLE) {
+        IERC20(token).approve(address(bridge), 0);
+    }
+
     function setBridge(address _bridge) external onlyRole(DEFAULT_ADMIN_ROLE) {
         emit BridgeUpdated(address(bridge), _bridge);
         bridge = Bridge(_bridge);
