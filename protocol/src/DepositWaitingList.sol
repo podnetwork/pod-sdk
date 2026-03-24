@@ -20,6 +20,7 @@ contract DepositWaitingList is AccessControl {
     error AmountBelowReserve();
     error InvalidReserveBalance();
 
+    event BridgeUpdated(address indexed oldBridge, address indexed newBridge);
     event WaitingDepositCreated(
         uint256 indexed depositId,
         address indexed from,
@@ -42,7 +43,7 @@ contract DepositWaitingList is AccessControl {
         address to;
     }
 
-    Bridge public immutable bridge;
+    Bridge public bridge;
 
     mapping(uint256 => bytes32) public depositHashes;
     uint256 public nextDepositId;
@@ -141,6 +142,11 @@ contract DepositWaitingList is AccessControl {
 
     function approveToken(address token) external onlyRole(RELAYER_ROLE) {
         IERC20(token).approve(address(bridge), type(uint256).max);
+    }
+
+    function setBridge(address _bridge) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        emit BridgeUpdated(address(bridge), _bridge);
+        bridge = Bridge(_bridge);
     }
 
     function _applyPermit(address token, address owner, uint256 amount, bytes calldata permit) internal {
