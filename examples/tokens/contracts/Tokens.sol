@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {requireQuorum} from "pod-sdk/Quorum.sol";
-
 contract Tokens {
     string  public name;
     string  public symbol;
@@ -30,7 +28,7 @@ contract Tokens {
 
     function transfer(address to, int256 amount) external returns (bool) {
         require(to != address(0),            "transfer to the zero address");
-        requireQuorum(balances[msg.sender] >= amount, "transfer amount exceeds balance");
+        require(balances[msg.sender] >= amount, "transfer amount exceeds balance");
 
         balances[msg.sender] -= amount;
         balances[to] += amount;
