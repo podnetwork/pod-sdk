@@ -416,22 +416,25 @@ impl MerkleTree {
 
         let mut stack = leaves.to_vec();
 
-        let mut path = proof.path.to_vec();
+        let path = proof.path;
+        let mut cursor = 0;
 
         for flag in proof.flags {
             let a = stack.remove(0);
             let b = if flag {
                 stack.remove(0)
             } else {
-                path.remove(0)
+                let value = path[cursor];
+                cursor += 1;
+                value
             };
 
             stack.push(commutative_hash_pair(a, b));
         }
 
-        let reconstructed_root = match (stack.len(), path.len()) {
+        let reconstructed_root = match (stack.len(), path.len() - cursor) {
             (1, 0) => stack.remove(0),
-            (0, 1) => path.remove(0),
+            (0, 1) => path[cursor],
             _ => {
                 tracing::debug!("invalid multiproof: invalid total hashes");
                 return false;
