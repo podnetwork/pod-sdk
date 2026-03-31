@@ -5,7 +5,7 @@ use std::{
     ops::Deref,
 };
 
-use crate::cryptography::hash::{Hash, Hashable};
+use crate::cryptography::hash::{Hash, Hashable, hash};
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum MerkleError {
@@ -50,7 +50,10 @@ impl MerkleProof {
 }
 
 fn hash_pair(left: Hash, right: Hash) -> Hash {
-    [left, right].concat().hash_custom()
+    let mut bytes = [0u8; 64];
+    bytes[..32].copy_from_slice(left.as_slice());
+    bytes[32..].copy_from_slice(right.as_slice());
+    hash(bytes)
 }
 
 fn commutative_hash_pair(left: Hash, right: Hash) -> Hash {
