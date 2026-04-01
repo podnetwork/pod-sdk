@@ -11,8 +11,8 @@ contract ArbitrumWhitelist is Script {
         // TODO: update with actual address after deployment
         Bridge bridgeProxyOnArbitrum = Bridge(0xA79B109ae254A3b132866234d2bfc3D56df197e7); 
         address usdcOnArbitrum = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
-        address usdcOnPod = address(0x50D0000000000000000000000000000000000002);
-        address exchangeOnPod = address(0x50d0000000000000000000000000000000000003);
+        address usdcOnPod = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+        address exchangeOnPod = address(0x50d0000000000000000000000000000000000002);
         uint256 minAmount = 5 * 10 ** 6; // 5 USDC with 6 decimals
         uint256 depositLimit = 1000000 * 10 ** 6; // 1 million USDC with 6 decimals
         uint256 claimLimit = 100000 * 10 ** 6; // 100k USDC with 6 decimals
