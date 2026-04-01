@@ -6,10 +6,10 @@ import {console} from "forge-std/console.sol";
 import {DepositWaitingList} from "pod-protocol/DepositWaitingList.sol";
 
 contract DeployDepositWaitingList is Script {
-    function run(address bridge, address admin) external returns (address) {
+    function run(address bridge, address admin, address relayer) external returns (address) {
         vm.startBroadcast();
 
-        DepositWaitingList waitingList = new DepositWaitingList(bridge, admin);
+        DepositWaitingList waitingList = new DepositWaitingList(bridge, admin, relayer);
 
         vm.stopBroadcast();
 
