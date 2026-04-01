@@ -1577,7 +1577,7 @@ paths:
 
 
         **Orderbook Contract Address:**
-        `0x000000000000000000000000000000000000C10B`
+        `0x50d0000000000000000000000000000000000002`
       requestBody:
         content:
           application/json:
@@ -1608,7 +1608,7 @@ paths:
 
                     2. `block_tag` (string): Block tag (e.g., "latest")
                   example:
-                    - to: '0x000000000000000000000000000000000000C10B'
+                    - to: '0x50d0000000000000000000000000000000000002'
                       data: 0x...
                     - latest
                   x-gitbook-description-html: >-
@@ -1744,7 +1744,7 @@ paths:
                     text: ' '
                     marks: []
                   - object: leaf
-                    text: '0x000000000000000000000000000000000000C10B'
+                    text: '0x50d0000000000000000000000000000000000002'
                     marks:
                       - object: mark
                         type: code
@@ -1760,7 +1760,7 @@ paths:
         balance for a token</li><li><code>getOrders(bytes32 orderbookId,
         bytes32[] txHashes)</code> - Get order details by transaction
         hashes</li></ul><p><strong>Orderbook Contract Address:</strong>
-        <code>0x000000000000000000000000000000000000C10B</code></p>
+        <code>0x50d0000000000000000000000000000000000002</code></p>
   /eth_getTransactionReceipt:
     post:
       tags:
@@ -1955,7 +1955,7 @@ paths:
                     1. `transaction` (object): Transaction object with `to`,
                     `data`, `value`, `from`, etc.
                   example:
-                    - to: '0x000000000000000000000000000000000000C10B'
+                    - to: '0x50d0000000000000000000000000000000000002'
                       value: '0x0'
                   x-gitbook-description-html: >-
                     <p>Parameters:</p>
@@ -2067,7 +2067,7 @@ paths:
                     1. `filter` (object): Filter object with `address`,
                     `topics`, `fromBlock`, `toBlock`
                   example:
-                    - address: '0x000000000000000000000000000000000000C10B'
+                    - address: '0x50d0000000000000000000000000000000000002'
                       topics: []
                   x-gitbook-description-html: >-
                     <p>Parameters:</p>

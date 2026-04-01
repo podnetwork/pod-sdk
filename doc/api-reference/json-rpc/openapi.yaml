@@ -688,7 +688,7 @@ paths:
         - `getBalance(address token)` - Get deposited balance for a token
         - `getOrders(bytes32 orderbookId, bytes32[] txHashes)` - Get order details by transaction hashes
         
-        **Orderbook Contract Address:** `0x000000000000000000000000000000000000C10B`
+        **Orderbook Contract Address:** `0x50d0000000000000000000000000000000000002`
       requestBody:
         content:
           application/json:
@@ -706,7 +706,7 @@ paths:
                     1. `transaction` (object): Call object with `to`, `data`, and optionally `from`
                     2. `block_tag` (string): Block tag (e.g., "latest")
                   example: 
-                    - to: "0x000000000000000000000000000000000000C10B"
+                    - to: "0x50d0000000000000000000000000000000000002"
                       data: "0x..."
                     - "latest"
       responses:
@@ -815,7 +815,7 @@ paths:
                   description: |
                     Parameters:
                     1. `transaction` (object): Transaction object with `to`, `data`, `value`, `from`, etc.
-                  example: [{ to: "0x000000000000000000000000000000000000C10B", value: "0x0" }]
+                  example: [{ to: "0x50d0000000000000000000000000000000000002", value: "0x0" }]
       responses:
         '200':
           description: Estimated gas (hex-encoded)
@@ -849,7 +849,7 @@ paths:
                   description: |
                     Parameters:
                     1. `filter` (object): Filter object with `address`, `topics`, `fromBlock`, `toBlock`
-                  example: [{ address: "0x000000000000000000000000000000000000C10B", topics: [] }]
+                  example: [{ address: "0x50d0000000000000000000000000000000000002", topics: [] }]
       responses:
         '200':
           description: Array of log objects

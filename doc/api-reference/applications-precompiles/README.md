@@ -6,8 +6,8 @@ Pod uses precompiles for enshrined applications and internal protocol operations
 
 | Signature | Address | Description |
 | --------- | ------- | ----------- |
-| [Orderbook Spot](orderbook-spot.md) | `0x000000000000000000000000000000000000C10B` | Central limit order book for spot markets |
-| [Bridge](bridge.md) | `0x0000000000000000000000000000000000B41D9E` | ERC-20 token bridging between Pod and Ethereum |
+| [Orderbook Spot](orderbook-spot.md) | `0x50d0000000000000000000000000000000000002` | Central limit order book for spot markets |
+| [Bridge](bridge.md) | `0x50d0000000000000000000000000000000000001` | ERC-20 token bridging between Pod and Ethereum |
 | [Optimistic Auctions](wip-optimistic-auctions.md) | `0xeDD0670497E00ded712a398563Ea938A29dD28c7` | Censorship-resistant auction for intents (settlement happens off-Pod) |
 | `recover(bytes32 txHash, uint64 nonce)` | `0x0000000000000000000000000000000004EC0EE4` | Recover a locked account by finalizing the target transaction chain |
 | `requireQuorum(boolean)` | `0x4CF3F1637bfEf1534e56352B6ebAae243aF464c3` | Like `require` but passes if supermajority agrees |
@@ -29,7 +29,7 @@ import { ethers } from "ethers";
 
 const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
 
-const ORDERBOOK = "0x000000000000000000000000000000000000C10B";
+const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = ["function getBalance(address token) view returns (uint256)"];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, provider);
 
@@ -45,7 +45,7 @@ from web3 import Web3
 
 w3 = Web3(Web3.HTTPProvider("https://rpc.v1.dev.pod.network"))
 
-ORDERBOOK = "0x000000000000000000000000000000000000C10B"
+ORDERBOOK = "0x50d0000000000000000000000000000000000002"
 abi = [{"inputs": [{"name": "token", "type": "address"}],
         "name": "getBalance",
         "outputs": [{"name": "", "type": "uint256"}],
@@ -76,7 +76,7 @@ async fn main() -> eyre::Result<()> {
         .on_http("https://rpc.v1.dev.pod.network".parse()?);
 
     let orderbook = Orderbook::new(
-        "0x000000000000000000000000000000000000C10B".parse()?,
+        "0x50d0000000000000000000000000000000000002".parse()?,
         &provider,
     );
 
@@ -102,7 +102,7 @@ import { ethers } from "ethers";
 const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
 const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
-const ORDERBOOK = "0x000000000000000000000000000000000000C10B";
+const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
   `function submitOrder(
     bytes32 orderbookId, int256 volume, uint256 price,
@@ -132,7 +132,7 @@ import time, os
 w3 = Web3(Web3.HTTPProvider("https://rpc.v1.dev.pod.network"))
 account = w3.eth.account.from_key(os.environ["PRIVATE_KEY"])
 
-ORDERBOOK = "0x000000000000000000000000000000000000C10B"
+ORDERBOOK = "0x50d0000000000000000000000000000000000002"
 abi = [{"inputs": [
     {"name": "orderbookId", "type": "bytes32"},
     {"name": "volume", "type": "int256"},
@@ -193,7 +193,7 @@ async fn main() -> eyre::Result<()> {
         .on_http("https://rpc.v1.dev.pod.network".parse()?);
 
     let orderbook = Orderbook::new(
-        "0x000000000000000000000000000000000000C10B".parse()?,
+        "0x50d0000000000000000000000000000000000002".parse()?,
         &provider,
     );
 

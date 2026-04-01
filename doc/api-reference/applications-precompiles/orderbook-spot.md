@@ -5,7 +5,7 @@ The CLOB Spot **Orderbook precompile** is the on-chain execution surface for spo
 Use it for **placing/canceling orders**, **depositing/withdrawing funds**, and **reading balances and order state**.
 
 {% hint style="info" %}
-**Orderbook precompile address:** `0x000000000000000000000000000000000000C10B`
+**Orderbook precompile address:** `0x50d0000000000000000000000000000000000002`
 {% endhint %}
 
 {% hint style="warning" %}

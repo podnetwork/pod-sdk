@@ -1,6 +1,6 @@
 # Order book
 
-Pod has an enshrined central limit order book (CLOB) built into the protocol as a precompile at `0x000000000000000000000000000000000000C10B`. See the [Order book Spot precompile](https://docs.v2.pod.network/guides-references/applications-precompiles/orderbook-spot) for the full interface.
+Pod has an enshrined central limit order book (CLOB) built into the protocol as a precompile at `0x50d0000000000000000000000000000000000002`. See the [Order book Spot precompile](https://docs.v2.pod.network/guides-references/applications-precompiles/orderbook-spot) for the full interface.
 
 Orders are immediately added to the order book as soon as they are finalized through the standard attestation flow - they do not wait for the current batch to conclude. This means cancellations and modifications are also applied responsively, before the next matching round. This is better than systems that execute cancels and modifications at the top of a block, because in Pod the liquidity from cancels and updates can already be reflected in the book before waiting for batch confirmation.
 

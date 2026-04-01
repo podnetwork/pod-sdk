@@ -5,7 +5,7 @@ Pod has a native bridge for moving ERC20 tokens between Ethereum and Pod. The br
 ## Architecture
 
 - **Ethereum bridge contract** - holds deposited tokens on Ethereum. Users deposit here to bridge into Pod, and claim here when bridging out.
-- **Pod bridge precompile** - at `0x0000000000000000000000000000000000B41D9E` on Pod. Users call this to initiate withdrawals to Ethereum.
+- **Pod bridge precompile** - at `0x50d0000000000000000000000000000000000001` on Pod. Users call this to initiate withdrawals to Ethereum.
 
 ## Ethereum → Pod
 
