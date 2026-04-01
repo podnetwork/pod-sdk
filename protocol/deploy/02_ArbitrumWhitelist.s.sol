@@ -8,8 +8,7 @@ import {DepositWaitingList} from "pod-protocol/DepositWaitingList.sol";
 
 contract ArbitrumWhitelist is Script {
     function run() public {
-        // TODO: update with actual address after deployment
-        Bridge bridgeProxyOnArbitrum = Bridge(0x2DEd0774D7dAD35EC7ED73A7083E33F7881e2F00);
+        Bridge bridgeProxyOnArbitrum = Bridge(0xB77E6fB078918f255FC71E8b11A798124b7f0Fa0);
         address usdcOnArbitrum = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
         address usdcOnPod = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
         address exchangeOnPod = address(0x50D0000000000000000000000000000000000002);

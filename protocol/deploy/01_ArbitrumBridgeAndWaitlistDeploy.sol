@@ -8,8 +8,8 @@ import {DepositWaitingList} from "pod-protocol/DepositWaitingList.sol";
 
 contract DeployArbitrumBridgeAndWaitlist is Script {
     function run() public {
-        address adminOnArbitrum = vm.envOr("ADMIN_ADDRESS", msg.sender);
-        address relayerOnArbitrum = address(0x648041FaFdF29781eD8bbC3d54c9e3183474aA45);
+        address adminOnArbitrum = address(0x34B16959F6BccEe214B370dE66674A0563F36107);
+        address relayerOnArbitrum = address(0x1212ED49e656486034103b765a8834Fb938bA48b);
         address bridgePrecompileOnPod = address(0x50d0000000000000000000000000000000000001);
         uint256 podChainId = 0x50d;
         uint256 version = 0;
