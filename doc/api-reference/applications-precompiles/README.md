@@ -10,9 +10,6 @@ Pod uses precompiles for enshrined applications and internal protocol operations
 | [Bridge](bridge.md) | `0x50d0000000000000000000000000000000000001` | ERC-20 token bridging between Pod and Ethereum |
 | [Optimistic Auctions](wip-optimistic-auctions.md) | `0xeDD0670497E00ded712a398563Ea938A29dD28c7` | Censorship-resistant auction for intents (settlement happens off-Pod) |
 | [Recovery](recovery.md) | `0x50d0000000000000000000000000000000000003` | Recover a locked account by finalizing the target transaction chain |
-| `requireQuorum(boolean)` | `0x4CF3F1637bfEf1534e56352B6ebAae243aF464c3` | Like `require` but passes if supermajority agrees |
-| `external_call([uint256, [Transaction,bytes]])` | `0x8712E00C337971f876621faB9326908fdF330d77` | Call a smart contract on another EVM-compatible chain |
-| `call_with_state([uint256, Header, EVMCall, EVMState])` | `0xb4bbff8874b41f97535bc8dafbaaff0dc5c72e5a` | Simulate an EVM transaction execution given a particular initial state |
 
 ## Interacting with Precompiles
 
