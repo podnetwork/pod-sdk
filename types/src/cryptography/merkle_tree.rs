@@ -5,7 +5,7 @@ use std::{
     ops::Deref,
 };
 
-use crate::cryptography::hash::{Hash, Hashable};
+use crate::cryptography::hash::{Hash, Hashable, hash};
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum MerkleError {
@@ -50,7 +50,10 @@ impl MerkleProof {
 }
 
 fn hash_pair(left: Hash, right: Hash) -> Hash {
-    [left, right].concat().hash_custom()
+    let mut bytes = [0u8; 64];
+    bytes[..32].copy_from_slice(left.as_slice());
+    bytes[32..].copy_from_slice(right.as_slice());
+    hash(bytes)
 }
 
 fn commutative_hash_pair(left: Hash, right: Hash) -> Hash {
@@ -416,22 +419,25 @@ impl MerkleTree {
 
         let mut stack = leaves.to_vec();
 
-        let mut path = proof.path.to_vec();
+        let path = proof.path;
+        let mut cursor = 0;
 
         for flag in proof.flags {
             let a = stack.remove(0);
             let b = if flag {
                 stack.remove(0)
             } else {
-                path.remove(0)
+                let value = path[cursor];
+                cursor += 1;
+                value
             };
 
             stack.push(commutative_hash_pair(a, b));
         }
 
-        let reconstructed_root = match (stack.len(), path.len()) {
+        let reconstructed_root = match (stack.len(), path.len() - cursor) {
             (1, 0) => stack.remove(0),
-            (0, 1) => path.remove(0),
+            (0, 1) => path[cursor],
             _ => {
                 tracing::debug!("invalid multiproof: invalid total hashes");
                 return false;
