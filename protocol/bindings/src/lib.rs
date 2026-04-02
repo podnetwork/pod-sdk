@@ -4,4 +4,5 @@
 //! Do not manually edit these files.
 //! These files may be overwritten by the codegen system at any time.
 pub mod r#bridge;
+pub mod r#deposit_waiting_list;
 pub mod r#wrapped_token;

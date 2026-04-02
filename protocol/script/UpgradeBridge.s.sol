@@ -9,7 +9,6 @@ import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transp
 import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 contract UpgradeBridge is Script {
-
     /**
      * @param proxyAddr The TransparentUpgradeableProxy address.
      * @param newMerkleRoot Merkle root covering all unprocessed claims from before the upgrade.
