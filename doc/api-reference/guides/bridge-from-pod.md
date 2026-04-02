@@ -28,7 +28,7 @@ const ethProvider = new ethers.JsonRpcProvider("https://eth.llamarpc.com");
 const podWallet = new ethers.Wallet(PRIVATE_KEY, podProvider);
 const ethWallet = new ethers.Wallet(PRIVATE_KEY, ethProvider);
 
-const POD_BRIDGE = "0x0000000000000000000000000000000000B41D9E";
+const POD_BRIDGE = "0x50d0000000000000000000000000000000000001";
 const ETH_BRIDGE = "ETHEREUM_BRIDGE_ADDRESS";
 const POD_TOKEN = "POD_TOKEN_ADDRESS"; // use 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for native token
 const ETH_TOKEN = "ETH_TOKEN_ADDRESS";
@@ -104,7 +104,7 @@ let eth_chain_id = U256::from(1u64); // Ethereum mainnet chain ID
 // 1. Withdraw on Pod bridge precompile
 // IMPORTANT: tx.value must be 0, even for native token withdrawals
 let pod_bridge = PodBridge::new(
-    "0x0000000000000000000000000000000000B41D9E".parse()?,
+    "0x50d0000000000000000000000000000000000001".parse()?,
     &pod_provider,
 );
 let withdraw_receipt = pod_bridge

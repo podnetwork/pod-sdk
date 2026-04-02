@@ -15,7 +15,7 @@ import { ethers } from "ethers";
 const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
-const ORDERBOOK = "0x000000000000000000000000000000000000C10B";
+const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
   "function deposit(address token, address recipient, uint256 amount, uint128 deadline)",
   "function submitOrder(bytes32 orderbookId, int256 volume, uint256 price, uint128 deadline, uint128 ttl, bool reduceOnly)",
@@ -65,7 +65,7 @@ let provider = ProviderBuilder::new()
     .on_http("https://rpc.v1.dev.pod.network".parse()?);
 
 let orderbook = Orderbook::new(
-    "0x000000000000000000000000000000000000C10B".parse()?,
+    "0x50d0000000000000000000000000000000000002".parse()?,
     &provider,
 );
 

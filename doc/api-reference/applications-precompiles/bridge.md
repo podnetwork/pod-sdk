@@ -4,7 +4,7 @@ The bridge precompile allows users to initiate withdrawals from Pod to other cha
 
 For how the bridge works end-to-end, see [Native Bridge](https://docs.v2.pod.network/documentation/native-bridge). For step-by-step guides, see [Bridge to Pod](../guides/bridge-to-pod.md) and [Bridge from Pod](../guides/bridge-from-pod.md).
 
-**Precompile address:** `0x0000000000000000000000000000000000B41D9E`
+**Precompile address:** `0x50d0000000000000000000000000000000000001`
 
 ## Interface
 
