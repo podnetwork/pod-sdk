@@ -22,7 +22,7 @@ The existing consensusless literature addresses this by falling back to a consen
 To recover, the client:
 
 1. Calls `pod_getRecoveryTargetTx(account)` on the full node to fetch a valid target transaction to recover to.
-2. Sends a transaction to the **recovery precompile** at `0x0000000000000000000000000000000004EC0EE4`, calling `recover(txHash, nonce)`.
+2. Sends a transaction to the **recovery precompile** at `0x50d0000000000000000000000000000000000003`, calling `recover(txHash, nonce)`.
 
 The target transaction points to the valid tip of a chain of transactions that can all be finalized. The protocol executes this chain, recovers the account state to the state after executing the target transaction, and increments the nonce. The client can then sign a new transaction with the next nonce (stuck nonce + 1) and continue transacting normally.
 
