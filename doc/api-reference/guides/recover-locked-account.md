@@ -5,7 +5,7 @@ If your account is locked due to conflicting transactions at the same nonce, you
 ## Steps
 
 1. Call `pod_getRecoveryTargetTx(account)` on the full node to get the target transaction to recover to.
-2. Send a transaction to the recovery precompile at `0x0000000000000000000000000000000004EC0EE4`, calling `recover(txHash, nonce)` with the values from step 1.
+2. Send a transaction to the recovery precompile at `0x50d0000000000000000000000000000000000003`, calling `recover(txHash, nonce)` with the values from step 1.
 
 The protocol will finalize the target transaction chain, recover your account state, and increment the nonce. You can then send a new transaction with the next nonce.
 
@@ -17,7 +17,7 @@ import { ethers } from "ethers";
 const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
-const RECOVERY = "0x0000000000000000000000000000000004EC0EE4";
+const RECOVERY = "0x50d0000000000000000000000000000000000003";
 const abi = ["function recover(bytes32 txHash, uint64 nonce) public"];
 const recovery = new ethers.Contract(RECOVERY, abi, wallet);
 
@@ -49,7 +49,7 @@ let provider = ProviderBuilder::new()
     .on_http("https://rpc.v1.dev.pod.network".parse()?);
 
 let recovery = Recovery::new(
-    "0x0000000000000000000000000000000004EC0EE4".parse()?,
+    "0x50d0000000000000000000000000000000000003".parse()?,
     &provider,
 );
 
