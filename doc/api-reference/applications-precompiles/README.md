@@ -102,20 +102,21 @@ const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
   `function submitOrder(
-    bytes32 orderbookId, int256 volume, uint256 price,
-    uint128 deadline, uint128 ttl, bool reduceOnly
+    bytes32 orderbookId, int256 size, uint256 price,
+    uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly
   )`
 ];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, signer);
 
 const orderbookId = "0x0000000000000000000000000000000000000000000000000000000000000001";
-const volume = ethers.parseEther("1");          // buy 1 unit
+const size = ethers.parseEther("1");            // buy 1 unit
 const price = ethers.parseEther("5000");        // limit price
+const orderType = 0;                            // 0 = Limit, 1 = Market
 const deadline = BigInt(Date.now()) * 1000n;    // now in microseconds
 const ttl = 60n * 1_000_000n;                  // 60 seconds in microseconds
 
 const tx = await orderbook.submitOrder(
-  orderbookId, volume, price, deadline, ttl, false
+  orderbookId, size, price, orderType, deadline, ttl, false
 );
 console.log("Order tx:", tx.hash);
 ```
@@ -132,8 +133,9 @@ account = w3.eth.account.from_key(os.environ["PRIVATE_KEY"])
 ORDERBOOK = "0x50d0000000000000000000000000000000000002"
 abi = [{"inputs": [
     {"name": "orderbookId", "type": "bytes32"},
-    {"name": "volume", "type": "int256"},
+    {"name": "size", "type": "int256"},
     {"name": "price", "type": "uint256"},
+    {"name": "orderType", "type": "uint8"},
     {"name": "deadline", "type": "uint128"},
     {"name": "ttl", "type": "uint128"},
     {"name": "reduceOnly", "type": "bool"}],
@@ -144,8 +146,9 @@ orderbook = w3.eth.contract(address=ORDERBOOK, abi=abi)
 
 tx = orderbook.functions.submitOrder(
     bytes.fromhex("00" * 31 + "01"),            # orderbook id
-    10**18,                                      # volume: buy 1 unit
+    10**18,                                      # size: buy 1 unit
     5000 * 10**18,                               # limit price
+    0,                                           # order type: 0 = Limit
     int(time.time() * 1_000_000),                # deadline in microseconds
     60 * 1_000_000,                              # ttl: 60 seconds
     False,                                       # reduce only
@@ -173,9 +176,10 @@ use alloy::{
 sol! {
     #[sol(rpc)]
     contract Orderbook {
+        enum OrderType { Limit, Market }
         function submitOrder(
-            bytes32 orderbookId, int256 volume, uint256 price,
-            uint128 deadline, uint128 ttl, bool reduceOnly
+            bytes32 orderbookId, int256 size, uint256 price,
+            OrderType orderType, uint128 deadline, uint128 ttl, bool reduceOnly
         ) public;
     }
 }
@@ -202,6 +206,7 @@ async fn main() -> eyre::Result<()> {
         FixedBytes::left_padding_from(&[1]),     // orderbook id
         I256::from_raw(U256::from(10).pow(U256::from(18))), // buy 1 unit
         U256::from(5000) * U256::from(10).pow(U256::from(18)), // limit price
+        Orderbook::OrderType::Limit,             // order type
         now_us,                                   // deadline
         60 * 1_000_000,                          // ttl: 60 seconds
         false,                                    // reduce only
