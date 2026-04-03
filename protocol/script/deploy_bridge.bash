@@ -16,6 +16,7 @@ source .env
 : "${POD_CHAIN_ID:=1293}"   # Pod network chain ID (0x50d)
 : "${BRIDGE_VERSION:=1}"
 : "${BRIDGE_MERKLE_ROOT:=0x0000000000000000000000000000000000000000000000000000000000000000}"
+: "${FAULT_TOLERANCE:=0}"
 
 echo "SOURCE_CHAIN_RPC: $SOURCE_CHAIN_RPC"
 echo "PK_SOURCE_CHAIN: $PK_SOURCE_CHAIN"
@@ -26,8 +27,8 @@ echo "POD_COMMITTEE_KEYS: $POD_COMMITTEE_KEYS"
 OUTPUT=$(forge script ./script/DeployBridge.s.sol:Deploy \
   --rpc-url "$SOURCE_CHAIN_RPC" --private-key "$PK_SOURCE_CHAIN" --broadcast --slow \
   --json \
-  --sig "run(address,uint256,uint256,bytes32)" \
-  "$POD_BRIDGE_ADDR" "$POD_CHAIN_ID" "$BRIDGE_VERSION" "$BRIDGE_MERKLE_ROOT")
+  --sig "run(address,uint256,uint256,bytes32,uint64)" \
+  "$POD_BRIDGE_ADDR" "$POD_CHAIN_ID" "$BRIDGE_VERSION" "$BRIDGE_MERKLE_ROOT" "$FAULT_TOLERANCE")
 
 SOURCE_CHAIN_BRIDGE_ADDR=$(jq -sr 'map(.returns?.proxy?.value // empty) | map(select(. != "")) | last' <<< "$OUTPUT")
 
