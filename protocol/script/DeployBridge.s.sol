@@ -29,13 +29,10 @@ library BridgeDeployer {
 }
 
 contract Deploy is BaseDeployer {
-    function run(
-        address podBridgeAddr,
-        uint256 srcChainId,
-        uint256 version,
-        bytes32 merkleRoot,
-        uint64 faultTolerance
-    ) external returns (address proxy) {
+    function run(address podBridgeAddr, uint256 srcChainId, uint256 version, bytes32 merkleRoot, uint64 faultTolerance)
+        external
+        returns (address proxy)
+    {
         address[] memory initialValidators = getValidatorAddresses();
         vm.startBroadcast();
 
