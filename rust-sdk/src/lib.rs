@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! pod-sdk = "0.1.0"
+//! pod-sdk = "0.5.0"
 //! ```
 //!
 //! ## Querying account balance
