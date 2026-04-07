@@ -22,22 +22,43 @@ Use it for **placing/canceling orders**, **depositing/withdrawing funds**, and *
  */
 contract Orderbook {
 
+    enum Side { Buy, Sell }
+    enum OrderType { Limit, Market }
+
+    struct SolutionCallData {
+        bytes32[] orders;
+        bytes32[] cancels;
+        bytes32[] updates;
+    }
+
+    // --- Events ---
+
+    event SolutionExecuted(
+        bytes32 indexed orderbookId,
+        uint128 deadline,
+        uint256 clearingPrice,
+        uint256 totalVolume,
+        uint256 newOrdersCount
+    );
+
     // --- Order Management ---
 
     /**
      * Submits a new order to the orderbook.
-     * The direction of the trade (Bid/Ask) is determined by the sign of the volume.
+     * The direction of the trade (Bid/Ask) is determined by the sign of the size.
      * @param orderbookId The unique identifier of the specific market (e.g., ETH-USDC).
-     * @param volume The size of the order. Positive (+) for Buy/Bid, Negative (-) for Sell/Ask.
+     * @param size The size of the order. Positive (+) for Buy/Bid, Negative (-) for Sell/Ask.
      * @param price The limit price for the order.
+     * @param orderType The order type (Limit or Market).
      * @param deadline The timestamp limit for this order to be included in a batch in microseconds.
      * @param ttl The "Time To Live" duration in microseconds; how long the order remains active in the book.
      * @param reduceOnly If true, this order will only reduce an existing position and not increase leverage.
      */
     function submitOrder(
         bytes32 orderbookId,
-        int256 volume,
+        int256 size,
         uint256 price,
+        OrderType orderType,
         uint128 deadline,
         uint128 ttl,
         bool reduceOnly
@@ -55,12 +76,41 @@ contract Orderbook {
         uint128 deadline
     ) public {}
 
+    /**
+     * @notice Updates an existing open order.
+     * @param orderbookId The unique identifier of the market the order belongs to.
+     * @param updatedOrder The unique hash/identifier of the order to update.
+     * @param newSize The new size for the order.
+     * @param newPrice The new price for the order.
+     * @param token The token address for any additional cost.
+     * @param extraCost The additional cost for the update.
+     * @param deadline The Unix timestamp after which this update is invalid in microseconds.
+     */
+    function update(
+        bytes32 orderbookId,
+        bytes32 updatedOrder,
+        uint256 newSize,
+        uint256 newPrice,
+        address token,
+        uint256 extraCost,
+        uint128 deadline
+    ) public {}
+
     // --- Data Retrieval ---
 
     /**
-     * @notice Retrieves the deposited balance of a user for a specific token.
+     * @notice Retrieves the deposited balance of a token for a specific account.
+     * @param token The address of the ERC20 token to check.
+     * @param account The address of the account to check.
+     * @return The current balance of the token held by the account within the exchange.
+     */
+    function balanceOf(address token, address account) public view returns (uint256) {}
+
+    /**
+     * @notice Retrieves the deposited balance of the caller for a specific token.
      * @param token The address of the ERC20 token to check.
      * @return The current balance of the token held by the caller within the exchange.
+     * @deprecated Use balanceOf(address token, address account) instead.
      */
     function getBalance(address token) public view returns (uint256) {}
 
@@ -115,5 +165,22 @@ contract Orderbook {
         uint256 amount,
         uint128 deadline
     ) public {}
+
+    // --- Orderbook Management ---
+
+    /**
+     * @notice Creates a new orderbook for a trading pair.
+     * @param base The address of the base token.
+     * @param quote The address of the quote token.
+     * @param auctionInterval The interval between batch auctions in microseconds.
+     * @param solverPk The public key of the solver for this orderbook.
+     * @return The unique identifier for the new orderbook.
+     */
+    function createOrderBook(
+        address base,
+        address quote,
+        uint128 auctionInterval,
+        bytes solverPk
+    ) public returns (bytes32) {}
 }
 ```
