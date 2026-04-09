@@ -396,6 +396,70 @@ paths:
                   total_invested: "0x56bc75e2d63100000"
                 id: 1
 
+  /ob_getFills:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Account Fills
+      operationId: ob_getFills
+      description: |
+        Retrieves trade fills for a specific address within a time range.
+
+        Fills represent individual trade executions from batch auction settlements.
+        A single order may produce multiple fills across different batches. Each fill
+        includes the clearing price, base and quote amounts, and the associated
+        orderbook and token addresses.
+
+        Results are returned in descending order by timestamp (most recent first).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getFills" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `address` (address): The address to get fills for
+                    2. `query` (object): Query parameters with required from_ts and optional to_ts, orderbook_id, and limit
+                  example:
+                    - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                    - from_ts: 1704067200000000
+                      to_ts: 1704153600000000
+                      orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                      limit: 100
+      responses:
+        '200':
+          description: Object containing fills array
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/GetFillsResponse' }
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  fills:
+                    - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                      base_token: "0x0000000000000000000000000000000000000001"
+                      quote_token: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+                      tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                      order_type: "limit"
+                      initial_size: "1000000000000000000"
+                      fee: "0"
+                      base_amount: "500000000000000000"
+                      quote_amount: "2500000000000000000"
+                      timestamp: 1704153600000000
+                      price: "5000000000000000000"
+                id: 1
+
   # ==========================================
   # GROUP 2: ETHEREUM COMPATIBLE (eth_)
   # ==========================================
@@ -1510,6 +1574,72 @@ components:
         status: 
           $ref: '#/components/schemas/OrderStatus'
           description: Filter orders by status
+
+    FillsQuery:
+      type: object
+      description: Query parameters for ob_getFills (address is passed as first param)
+      required: [from_ts]
+      properties:
+        from_ts:
+          $ref: '#/components/schemas/Timestamp'
+          description: Start timestamp (inclusive) in microseconds
+        to_ts:
+          $ref: '#/components/schemas/Timestamp'
+          description: End timestamp (exclusive) in microseconds. Defaults to current time if omitted.
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Optional filter by orderbook; omit for all orderbooks
+        limit:
+          type: integer
+          description: Maximum number of fills to return (max 500). Defaults to 500.
+
+    FillResponse:
+      type: object
+      description: A single trade fill from a batch auction settlement
+      properties:
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: The orderbook this fill belongs to
+        base_token:
+          $ref: '#/components/schemas/Address'
+          description: Base token contract address
+        quote_token:
+          $ref: '#/components/schemas/Address'
+          description: Quote token contract address
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+          description: Transaction hash of the order that was filled
+        order_type:
+          type: string
+          enum: [limit, market]
+          description: Type of the order
+        initial_size:
+          type: string
+          description: Initial order size (1e18); decimal string (signed int256). Positive for buy, negative for sell.
+        fee:
+          $ref: '#/components/schemas/HexUint256'
+          description: Accumulated fee for this order (1e18); hex-encoded. Currently always zero.
+        base_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Base token amount filled in this settlement round (1e18); hex-encoded
+        quote_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Quote token amount filled in this settlement round (1e18); hex-encoded
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+          description: Timestamp of the batch settlement, in microseconds.
+        price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Clearing price of the batch (1e18); hex-encoded
+
+    GetFillsResponse:
+      type: object
+      description: Response containing a list of fills
+      properties:
+        fills:
+          type: array
+          items: { $ref: '#/components/schemas/FillResponse' }
+          description: List of fills ordered by timestamp descending
 
     SubscriptionParams:
       type: object
