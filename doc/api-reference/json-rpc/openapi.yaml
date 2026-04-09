@@ -1627,7 +1627,7 @@ components:
           description: Quote token amount filled in this settlement round (1e18); hex-encoded
         timestamp:
           $ref: '#/components/schemas/Timestamp'
-          description: Timestamp of the batch settlement
+          description: Timestamp of the batch settlement, in microseconds.
         price:
           $ref: '#/components/schemas/HexUint256'
           description: Clearing price of the batch (1e18); hex-encoded
