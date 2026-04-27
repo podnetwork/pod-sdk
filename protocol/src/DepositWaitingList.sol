@@ -47,16 +47,17 @@ contract DepositWaitingList is AccessControl {
     mapping(uint256 => bytes32) public depositHashes;
     uint256 public nextDepositId;
 
-    constructor(address _bridge, address _admin) {
+    constructor(address _bridge, address _admin, address _initialRelayer) {
         bridge = Bridge(_bridge);
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
-        _grantRole(RELAYER_ROLE, _admin);
+        _grantRole(RELAYER_ROLE, _initialRelayer);
     }
 
     /// @param permit Tightly packed permit data (97 bytes) or empty for no permit.
     function deposit(
         address token,
         uint256 amount,
+        address from,
         address to,
         address callContract,
         uint256 reserveBalance,
@@ -71,16 +72,23 @@ contract DepositWaitingList is AccessControl {
             if (reserveBalance != 0) revert InvalidReserveBalance();
         }
 
+        // Either the depositor is the sender,
+        // or it's a relayer acting on behalf of the depositor
+        // in which case the depositor and recipient must be the same.
+        if (msg.sender != from && !(from == to && hasRole(RELAYER_ROLE, msg.sender))) {
+            revert NotAuthorized();
+        }
+
         (uint256 minAmount, uint256 depositLimit,,,,) = bridge.tokenData(token);
         if (amount < minAmount || amount > depositLimit) revert InvalidDepositAmount();
 
-        _applyPermit(token, msg.sender, amount, permit);
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        _applyPermit(token, from, amount, permit);
+        IERC20(token).safeTransferFrom(from, address(this), amount);
 
         depositId = nextDepositId++;
-        depositHashes[depositId] = keccak256(abi.encode(token, amount, msg.sender, to, callContract, reserveBalance));
+        depositHashes[depositId] = keccak256(abi.encode(token, amount, from, to, callContract, reserveBalance));
 
-        emit WaitingDepositCreated(depositId, msg.sender, to, token, amount, callContract, reserveBalance);
+        emit WaitingDepositCreated(depositId, from, to, token, amount, callContract, reserveBalance);
     }
 
     function applyDeposits(address token, DepositData[] calldata deposits, address callContract, uint256 reserveBalance)
