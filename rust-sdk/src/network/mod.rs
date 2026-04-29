@@ -27,7 +27,7 @@ pub struct PodTransactionRequest {
 impl Default for PodTransactionRequest {
     fn default() -> Self {
         let mut inner = TransactionRequest::default();
-        inner.set_max_fee_per_gas(1_000_000_000);
+        inner.set_max_fee_per_gas(100_000_000_000);
         inner.set_max_priority_fee_per_gas(0);
         Self { inner }
     }
