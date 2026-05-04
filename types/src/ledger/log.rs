@@ -197,7 +197,7 @@ mod test {
         let to: Address = "0x217f5658c6ecc27d439922263ad9bb8e992e0373"
             .parse()
             .unwrap();
-        let transaction = Transaction {
+        let transaction = Transaction::Eip1559(alloy_consensus::TxEip1559 {
             chain_id: 0x50d,
             to: TxKind::Call(to),
             nonce: 0,
@@ -217,7 +217,7 @@ mod test {
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             ]
             .into(),
-        };
+        });
         let signer = PrivateKeySigner::random();
 
         let logs = vec![log.clone()];
@@ -242,7 +242,7 @@ mod test {
                 receipt: Receipt {
                     status: true,
                     actual_gas_used: 21784,
-                    max_fee_per_gas: transaction.max_fee_per_gas,
+                    max_fee_per_gas: alloy_consensus::Transaction::max_fee_per_gas(&transaction),
                     logs: logs.clone(),
                     logs_root,
                     tx_hash: transaction.hash_custom(),
@@ -314,7 +314,7 @@ mod test {
         let to: Address = "0x12296f2D128530a834460DF6c36a2895B793F26d"
             .parse()
             .unwrap();
-        let transaction = Transaction {
+        let transaction = Transaction::Eip1559(alloy_consensus::TxEip1559 {
             chain_id: 0x50d,
             to: TxKind::Call(to),
             nonce: 0,
@@ -331,7 +331,7 @@ mod test {
                 241, 58, 85, 196, 171, 238, 82, 164,
             ]
             .into(),
-        };
+        });
         let signer = PrivateKeySigner::random();
 
         let logs = vec![log.clone(), log2.clone()];
@@ -356,7 +356,7 @@ mod test {
                 receipt: Receipt {
                     status: true,
                     actual_gas_used: 21784,
-                    max_fee_per_gas: transaction.max_fee_per_gas,
+                    max_fee_per_gas: alloy_consensus::Transaction::max_fee_per_gas(&transaction),
                     logs: logs.clone(),
                     logs_root,
                     tx_hash: transaction.hash_custom(),
