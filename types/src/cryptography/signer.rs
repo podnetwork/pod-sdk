@@ -1,6 +1,4 @@
-use alloy_consensus::{
-    SignableTransaction, TxEip1559, serde_bincode_compat, transaction::RlpEcdsaEncodableTx,
-};
+use alloy_consensus::{SignableTransaction, TxEip1559, transaction::RlpEcdsaEncodableTx};
 use alloy_primitives::{Signature, SignatureError};
 use alloy_sol_types::SolValue;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -95,7 +93,7 @@ impl Serialize for Signed<Transaction> {
         #[serde_as]
         #[derive(Serialize)]
         struct Helper<'a> {
-            #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
+            #[serde_as(as = "crate::ledger::transaction::serde_bincode_compat::Transaction<'_>")]
             signed: &'a Transaction,
             signature: &'a Signature,
         }
@@ -116,7 +114,7 @@ impl<'de> Deserialize<'de> for Signed<Transaction> {
         #[serde_as]
         #[derive(Deserialize)]
         struct Helper {
-            #[serde_as(as = "serde_bincode_compat::transaction::TxEip1559")]
+            #[serde_as(as = "crate::ledger::transaction::serde_bincode_compat::Transaction<'_>")]
             signed: Transaction,
             signature: Signature,
         }
@@ -161,7 +159,7 @@ impl TryFrom<alloy_consensus::Signed<TxEip1559, Signature>> for Signed<Transacti
 
         Ok(Signed {
             signature: *value.signature(),
-            signed: value.strip_signature(),
+            signed: Transaction::Eip1559(value.strip_signature()),
             signer,
             hash: OnceLock::new(),
         })

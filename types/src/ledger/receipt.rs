@@ -143,7 +143,7 @@ mod test {
     #[tokio::test]
     async fn test_provable_receipt() {
         let to: Address = "217f5658c6ecc27d439922263ad9bb8e992e0373".parse().unwrap();
-        let transaction = Transaction {
+        let transaction = Transaction::Eip1559(alloy_consensus::TxEip1559 {
             chain_id: 0x50d,
             to: TxKind::Call(to),
             nonce: 1337,
@@ -153,7 +153,7 @@ mod test {
             value: U256::ZERO,
             access_list: Default::default(),
             input: Default::default(),
-        };
+        });
 
         let log = Log {
             address: "217f5658c6ecc27d439922263ad9bb8e992e0373".parse().unwrap(),
@@ -178,7 +178,7 @@ mod test {
         let receipt = Receipt {
             status: true,
             actual_gas_used: 23_112,
-            max_fee_per_gas: transaction.max_fee_per_gas,
+            max_fee_per_gas: alloy_consensus::Transaction::max_fee_per_gas(&transaction),
             logs: logs.clone(),
             logs_root,
             tx_hash: tx.hash_custom(),
