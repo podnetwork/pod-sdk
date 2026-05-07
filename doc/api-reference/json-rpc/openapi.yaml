@@ -111,13 +111,13 @@ paths:
                 jsonrpc: "2.0"
                 result:
                   - id: "0x0000000000000000000000000000000000000000000000000000000000000001"
-                    name: "PETH/USDT"
-                    base_token_address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
-                    quote_token_address: "0x0000000000000000000000000000000000000001"
-                    base_token_symbol: "PETH"
-                    quote_token_symbol: "USDT"
-                    base_token_name: "Wrapped ETH"
-                    quote_token_name: "Test USDT"
+                    name: "NVDAx/USD"
+                    base_token_address: "0x0000000000000000000000000000000000000001"
+                    quote_token_address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+                    base_token_symbol: "NVDAx"
+                    quote_token_symbol: "USD"
+                    base_token_name: "Nvidia"
+                    quote_token_name: "USD"
                     market_type: "spot"
                     last_clearing_price: "0x6f05b59d3b200000"
                     auction_interval: 500
@@ -128,6 +128,7 @@ paths:
                     maker_fee: "0x0"
                     taker_fee: "0x0"
                     tick_precision: "0x1"
+                    lot_size: "0x1"
                 id: 1
 
   /ob_getOrderbook:
@@ -320,17 +321,25 @@ paths:
                 jsonrpc: "2.0"
                 result:
                   orders:
-                    - tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
-                      nonce: 42
+                    - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                      market_type: "spot"
+                      kind: "user_signed"
+                      tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                       bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                      nonce: 42
+                      order_type: "limit"
+                      status: "active"
+                      side: "buy"
+                      price: "0x4563918244f40000"
                       initial_size: "1000000000000000000"
-                      filled_base_amount: "500000000000000000"
-                      filled_quote_amount: "2500000000000000000"
-                      price: "5000000000000000000"
+                      filled_base_amount: "0x6f05b59d3b20000"
+                      filled_quote_amount: "0x22b1c8c1227a0000"
+                      fee: "0x0"
                       deadline: "1704153600000000"
                       end: "1704240000000000"
-                      fee: "1000000000000000"
-                      status: "active"
+                      effective_price: "0x4563918244f40000"
+                      fills: []
+                      direction: "buy"
                   total_count: 42
                   next_cursor: "1704153600000000:42"
                 id: 1
@@ -381,19 +390,37 @@ paths:
                 jsonrpc: "2.0"
                 result:
                   positions:
-                    - symbol: "PETH"
-                      address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
-                      balance: "0x21e19e0c9bab2400000"
-                      position: "0x21e19e0c9bab2400000"
-                      unrealized_pnl: "-99900099900099900100"
-                    - symbol: "USDT"
-                      address: "0x0000000000000000000000000000000000000001"
-                      balance: "0x20dd68aaf3289100000"
-                      position: "0x0"
+                    - kind: "spot"
+                      orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                      base_symbol: "NVDAx"
+                      quote_symbol: "USD"
+                      balance: "0x6c6b935b8bbd400000"
+                      free_balance: "0x6c6b935b8bbd400000"
+                      locked_balance: "0x0"
+                      cost_basis: "0x21e19e0c9bab2400000"
+                      mark_price: "0x4563918244f40000"
                       unrealized_pnl: "0"
-                  total_unrealized_pnl: "-99900099900099900100"
-                  total_realized_pnl: "99900099900099900100"
-                  total_invested: "0x56bc75e2d63100000"
+                      realized_pnl: "0"
+                    - kind: "perp"
+                      orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
+                      base_symbol: "BTC"
+                      quote_symbol: "USD"
+                      margin_mode: "Cross"
+                      side: "long"
+                      size: "10000000000000000"
+                      notional: "0x4f0d4f7e7a3e0000"
+                      entry_price: "0x130ee8e7179044a0000"
+                      mark_price: "0x130ee8e7179044a0000"
+                      margin: "0xc7d713b49da00000"
+                      leverage: "0x4563918244f40000"
+                      funding_accrued: "0"
+                      liquidation_price: "0x115ad84a8ad03c00000"
+                      unrealized_pnl: "0"
+                      realized_pnl: "0"
+                      stop_loss: null
+                      take_profit: null
+                  total_unrealized_pnl: "0"
+                  total_realized_pnl: "0"
                 id: 1
 
   /ob_getFills:
@@ -1253,45 +1280,129 @@ components:
     # ==========================================
     # DOMAIN OBJECTS
     # ==========================================
+    OrderKind:
+      type: string
+      enum: [user_signed, liquidation, adl, backstop_transfer]
+      description: |
+        Origin of the order:
+        - `user_signed`: a normal user-submitted order
+        - `liquidation`: synthesized by the engine when liquidating a perp position
+        - `adl`: synthesized for auto-deleveraging when equity goes negative
+        - `backstop_transfer`: synthesized when the portfolio is transferred to the backstop vault
+
+    OrderDirection:
+      type: string
+      enum:
+        - buy
+        - sell
+        - open_long
+        - add_long
+        - reduce_long
+        - close_long
+        - open_short
+        - add_short
+        - reduce_short
+        - close_short
+        - long_to_short
+        - short_to_long
+        - liquidation
+      description: |
+        Composite per-order direction for history and open-orders UIs.
+        Spot orders use `buy`/`sell`. Perp orders use the position-effect labels (`open_long`, `reduce_long`, `close_long`, `long_to_short`, etc.) computed from the position before/after the fill. `liquidation` is set when `kind = liquidation`.
+
+    PartialFill:
+      type: object
+      description: A single fill round against this order.
+      properties:
+        base_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Base token amount filled in this round (1e18)
+        quote_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Quote token amount filled in this round (1e18)
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+          description: Batch settlement timestamp (microseconds)
+        price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Clearing price of the batch (1e18)
+
     Order:
       type: object
       description: |
-        Represents an order in the orderbook.
-        The `initial_size` is signed: positive for Buy orders, negative for Sell orders.
+        An order returned by `ob_getOrders`. Carries spot and perp shapes — perp-only fields (`leverage`, `reduce_only`, `ioc`, `direction`) are present only when `market_type = perpetual`. The `initial_size` is signed: positive for Buy/Long, negative for Sell/Short.
       properties:
-        tx_hash: 
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: The orderbook this order belongs to
+        market_type:
+          $ref: '#/components/schemas/MarketType'
+        kind:
+          $ref: '#/components/schemas/OrderKind'
+        tx_hash:
           $ref: '#/components/schemas/Bytes32'
           description: Transaction hash that created this order
-        nonce: 
+        bidder:
+          $ref: '#/components/schemas/Address'
+          description: Address of the order creator
+        nonce:
           type: integer
           format: int64
           description: Order nonce for the account
-        bidder: 
-          $ref: '#/components/schemas/Address'
-          description: Address of the order creator
-        initial_size: 
+        order_type:
           type: string
-          description: Original signed order size (positive = Buy/Bid, negative = Sell/Ask)
-        filled_base_amount: 
-          $ref: '#/components/schemas/HexUint256'
-          description: Amount of base tokens filled
-        filled_quote_amount: 
-          $ref: '#/components/schemas/HexUint256'
-          description: Amount of quote tokens filled (spent for buys, received for sells)
-        price: 
+          enum: [limit, market]
+          description: Limit or market
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        side:
+          type: string
+          enum: [buy, sell]
+          description: Bid (buy) or ask (sell). For perps, prefer `direction` for the position-effect label.
+        price:
           $ref: '#/components/schemas/HexUint256'
           description: Limit price in quote/base units with 1e18 scale
-        deadline: 
+        initial_size:
+          type: string
+          description: Original signed order size (positive = Buy/Long, negative = Sell/Short)
+        filled_base_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Cumulative amount of base tokens filled
+        filled_quote_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Cumulative amount of quote tokens filled
+        fee:
+          $ref: '#/components/schemas/HexUint256'
+          description: Accumulated trading fee. Currently always zero.
+        deadline:
           $ref: '#/components/schemas/TimestampString'
           description: Timestamp by which order must be included in the orderbook (microseconds)
-        end: 
+        end:
           $ref: '#/components/schemas/TimestampString'
           description: Timestamp when order expires (microseconds)
-        status: 
-          $ref: '#/components/schemas/OrderStatus'
-        fee: 
+        effective_price:
           $ref: '#/components/schemas/HexUint256'
-          description: Accumulated trading fee
+          description: Effective price the order has been filled at so far (filled_quote / filled_base, 1e18)
+        fills:
+          type: array
+          items: { $ref: '#/components/schemas/PartialFill' }
+          description: Per-batch partial fills against this order
+        leverage:
+          $ref: '#/components/schemas/HexUint256'
+          description: Perp only. Requested leverage (1e18-scaled). Omitted for spot orders.
+          nullable: true
+        reduce_only:
+          type: boolean
+          description: Perp only. If true, the order can only reduce existing exposure. Omitted for spot orders.
+          nullable: true
+        ioc:
+          type: boolean
+          description: Perp only. Immediate-or-cancel — any unfilled remainder is canceled at end of batch. Omitted for spot orders.
+          nullable: true
+        direction:
+          $ref: '#/components/schemas/OrderDirection'
+          description: Composite direction label (set for spot, and for perps once fills land or for liquidation/ADL orders).
+          nullable: true
 
     Candle:
       type: object
@@ -1325,8 +1436,8 @@ components:
           description: Unique 32-byte orderbook identifier
         name: 
           type: string
-          description: Market name in format `{base_token}/{quote_token}` (e.g. "PETH/USDT")
-          example: "PETH/USDT"
+          description: Market name in format `{base_token}/{quote_token}` (e.g. "NVDAx/USD")
+          example: "NVDAx/USD"
         base_token_address: 
           $ref: '#/components/schemas/Address'
           description: Contract address of the base token
@@ -1335,10 +1446,10 @@ components:
           description: Contract address of the quote token
         base_token_symbol: 
           type: string
-          description: Symbol of the base token (e.g., "PETH")
+          description: Symbol of the base token (e.g., "NVDAx")
         quote_token_symbol: 
           type: string
-          description: Symbol of the quote token (e.g., "USDT")
+          description: Symbol of the quote token (e.g., "USD")
         base_token_name:
           type: string
           description: Full name of the base token
@@ -1369,6 +1480,9 @@ components:
         tick_precision:
           $ref: '#/components/schemas/HexUint256'
           description: Minimum price tick size
+        lot_size:
+          $ref: '#/components/schemas/HexUint256'
+          description: Minimum order size increment. Order sizes must be multiples of this value.
         maker_fee:
           $ref: '#/components/schemas/HexUint256'
           description: Maker fee rate
@@ -1653,40 +1767,134 @@ components:
           items: { $ref: '#/components/schemas/Bytes32' }
           description: List of orderbook (clob) IDs to subscribe to
 
-    TokenPositionResponse:
+    MarginMode:
+      type: string
+      enum: [Cross, Isolated]
+      description: |
+        Margin mode for a perp position. All current orders are submitted as `Cross` — `Isolated` is reserved for future use.
+
+    PerpPositionSide:
+      type: string
+      enum: [long, short]
+      description: Side of a perpetual position, derived from the sign of `size`.
+
+    SpotHolding:
       type: object
-      description: Per-token position for an account
+      description: A token balance with cost-basis tracking. One per token the wallet has touched on a spot market.
       properties:
-        symbol:
+        kind:
           type: string
-          description: Token symbol (e.g., "PETH", "USDT")
-        address:
-          $ref: '#/components/schemas/Address'
-          description: Token contract address
+          enum: [spot]
+          description: Discriminator for the `Position` union.
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+        base_symbol:
+          type: string
+        quote_symbol:
+          type: string
         balance:
           $ref: '#/components/schemas/HexUint256'
-          description: Balance of the token in the account (1e18); hex-encoded
-        position:
+          description: Total base tokens held for this market (free + locked, 1e18).
+        free_balance:
           $ref: '#/components/schemas/HexUint256'
-          description: Position size from trades (1e18); includes locked in orders; hex-encoded
+          description: Spendable portion of `balance` after sell-side order locks (1e18).
+        locked_balance:
+          $ref: '#/components/schemas/HexUint256'
+          description: Base tokens locked in open sell orders (`balance - free_balance`, 1e18).
+        cost_basis:
+          $ref: '#/components/schemas/HexUint256'
+          description: Total quote spent to acquire `balance` (1e18 USD).
+        mark_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Last clearing price for this token's market (1e18).
         unrealized_pnl:
           type: string
-          description: Unrealized PnL for this position in USD (1e18); decimal string (signed int256)
+          description: '`(mark - avg_cost) × balance` (signed, 1e18 USD).'
+        realized_pnl:
+          type: string
+          description: Lifetime realized PnL on the user's spot trading (signed, 1e18 USD; portfolio-wide for v1).
+
+    PerpPosition:
+      type: object
+      description: A leveraged perp position. One per (user, pair, margin_mode).
+      properties:
+        kind:
+          type: string
+          enum: [perp]
+          description: Discriminator for the `Position` union.
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+        base_symbol:
+          type: string
+        quote_symbol:
+          type: string
+        margin_mode:
+          $ref: '#/components/schemas/MarginMode'
+        side:
+          $ref: '#/components/schemas/PerpPositionSide'
+        size:
+          type: string
+          description: Signed position size in base units (1e18). Positive = long, negative = short.
+        notional:
+          $ref: '#/components/schemas/HexUint256'
+          description: '`|size| × mark_price / 1e18` — dollar value of exposure (1e18).'
+        entry_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Volume-weighted average entry price; updated only on opening fills (1e18).
+        mark_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Latest mark price for the pair, post batch clearing (1e18).
+        margin:
+          $ref: '#/components/schemas/HexUint256'
+          description: Allocated initial margin; cumulative across opens/increases, released proportionally on partial closes (1e18).
+        leverage:
+          $ref: '#/components/schemas/HexUint256'
+          description: '`notional × 1e18 / margin`. Effective leverage (0 if `margin` is 0).'
+        funding_accrued:
+          type: string
+          description: '`(market.funding − position.entry_funding) × size` (signed, 1e18 USD).'
+        liquidation_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Mark price at which this position would be liquidated against its own `margin` and the market's maintenance-margin rate. Funding ignored. 0 when position is empty.
+        unrealized_pnl:
+          type: string
+          description: '`((mark − entry) − (funding − entry_funding)) × size` (signed, 1e18 USD).'
+        realized_pnl:
+          type: string
+          description: Lifetime realized PnL on this position (signed, 1e18 USD). Resets to 0 when the position closes — the next open of the same pair starts fresh.
+        stop_loss:
+          $ref: '#/components/schemas/HexUint256'
+          description: Reserved — stop-loss not yet supported.
+          nullable: true
+        take_profit:
+          $ref: '#/components/schemas/HexUint256'
+          description: Reserved — take-profit not yet supported.
+          nullable: true
+
+    Position:
+      description: |
+        Tagged union: a single entry in `PositionsResponse.positions`. The `kind` field selects between a `SpotHolding` (one per token) or a `PerpPosition` (one per `(pair, margin_mode)`).
+      oneOf:
+        - $ref: '#/components/schemas/SpotHolding'
+        - $ref: '#/components/schemas/PerpPosition'
+      discriminator:
+        propertyName: kind
+        mapping:
+          spot: '#/components/schemas/SpotHolding'
+          perp: '#/components/schemas/PerpPosition'
 
     PositionsResponse:
       type: object
-      description: Account positions across all orderbooks with aggregate PnL
+      description: Account positions across all orderbooks with aggregate PnL.
       properties:
         positions:
           type: array
-          items: { $ref: '#/components/schemas/TokenPositionResponse' }
-          description: Per-token positions
+          items: { $ref: '#/components/schemas/Position' }
+          description: Heterogeneous list of spot holdings and open perp positions.
         total_unrealized_pnl:
           type: string
-          description: Sum of unrealized PnL across all positions (1e18); decimal string (signed int256)
+          description: Sum of `unrealized_pnl` across every spot holding and perp position (signed, 1e18 USD).
         total_realized_pnl:
           type: string
-          description: Lifetime realized PnL from closed trades (1e18); decimal string (signed int256)
-        total_invested:
-          $ref: '#/components/schemas/HexUint256'
-          description: Lifetime USD invested from buys/deposits (1e18); hex-encoded
+          description: |
+            Lifetime portfolio-wide spot realized PnL plus per-position realized PnL across currently-open perps. Closed perps' lifetime realized PnL is not retained (signed, 1e18 USD).

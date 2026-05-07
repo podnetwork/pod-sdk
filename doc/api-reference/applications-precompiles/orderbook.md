@@ -1,8 +1,8 @@
-# Orderbook Spot
+# Orderbook
 
-The CLOB Spot **Orderbook precompile** is the on-chain execution surface for spot markets.
+The **Orderbook precompile** is the on-chain execution surface for native markets — both **spot** and **perpetual**. The same contract, calls, and balances are shared across both market types; a market's behavior is determined by the `MarketType` set at creation.
 
-Use it for **placing/canceling orders**, **depositing/withdrawing funds**, and **reading balances and order state**.
+Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds**, **opening leveraged perpetual positions**, and **reading balances and order state**.
 
 {% hint style="info" %}
 **Orderbook precompile address:** `0x50d0000000000000000000000000000000000002`
@@ -24,12 +24,7 @@ contract Orderbook {
 
     enum Side { Buy, Sell }
     enum OrderType { Limit, Market }
-
-    struct SolutionCallData {
-        bytes32[] orders;
-        bytes32[] cancels;
-        bytes32[] updates;
-    }
+    enum MarketType { Spot, Perp }
 
     // --- Events ---
 
@@ -52,7 +47,9 @@ contract Orderbook {
      * @param orderType The order type (Limit or Market).
      * @param deadline The timestamp limit for this order to be included in a batch in microseconds.
      * @param ttl The "Time To Live" duration in microseconds; how long the order remains active in the book.
-     * @param reduceOnly If true, this order will only reduce an existing position and not increase leverage.
+     * @param reduceOnly If true, this order will only reduce an existing position and not increase leverage. Perp markets only.
+     * @param ioc If true, the order is Immediate-Or-Cancel: any unmatched portion is cancelled at the end of the batch instead of resting on the book.
+     * @param leverage The requested leverage for the position, scaled by 1e18 (e.g. `5e18` = 5x). Must be ≤ the market's `maxLeverage`. Perp markets only; pass `1e18` for spot.
      */
     function submitOrder(
         bytes32 orderbookId,
@@ -61,7 +58,9 @@ contract Orderbook {
         OrderType orderType,
         uint128 deadline,
         uint128 ttl,
-        bool reduceOnly
+        bool reduceOnly,
+        bool ioc,
+        uint256 leverage
     ) public {}
 
     /**
@@ -82,8 +81,7 @@ contract Orderbook {
      * @param updatedOrder The unique hash/identifier of the order to update.
      * @param newSize The new size for the order.
      * @param newPrice The new price for the order.
-     * @param token The token address for any additional cost.
-     * @param extraCost The additional cost for the update.
+     * @param token The token used to cover any additional collateral required by the update.
      * @param deadline The Unix timestamp after which this update is invalid in microseconds.
      */
     function update(
@@ -92,7 +90,6 @@ contract Orderbook {
         uint256 newSize,
         uint256 newPrice,
         address token,
-        uint256 extraCost,
         uint128 deadline
     ) public {}
 
@@ -172,15 +169,17 @@ contract Orderbook {
      * @notice Creates a new orderbook for a trading pair.
      * @param base The address of the base token.
      * @param quote The address of the quote token.
-     * @param auctionInterval The interval between batch auctions in microseconds.
      * @param solverPk The public key of the solver for this orderbook.
+     * @param marketType The market type — `Spot` or `Perp`.
+     * @param maxLeverage Maximum leverage allowed on this market (perp only; ignored for spot).
      * @return The unique identifier for the new orderbook.
      */
     function createOrderBook(
         address base,
         address quote,
-        uint128 auctionInterval,
-        bytes solverPk
+        bytes solverPk,
+        MarketType marketType,
+        uint8 maxLeverage
     ) public returns (bytes32) {}
 }
 ```

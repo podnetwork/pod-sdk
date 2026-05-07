@@ -25,15 +25,24 @@ Each market on Pod is created with a set of protocol-level parameters that gover
 | Oracle | Price feed source and address |
 | Max Position Size | Maximum notional position size per account |
 
-## Perpetual Markets
+## Live Markets
 
-All perpetual markets are quoted in pUSD and use [Pyth](https://pyth.network/) price feeds as the oracle.
+All markets are quoted in pUSD (the native token, address `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`). The `x` suffix on base symbols denotes synthetic representations of the underlying assets. Perpetual markets use [Pyth](https://pyth.network/) price feeds as the oracle. To discover markets at runtime, call [`ob_getMarkets`](https://docs.v2.pod.network/api-reference/json-rpc).
 
-| Market | Asset | Max Leverage | Initial Margin | Maintenance Margin | Batch Interval |
-| ------ | ----- | ------------ | -------------- | ------------------ | -------------- |
-| AAPL-USD | Apple | 20x | 5% | 2.5% | 100ms |
-| GOOGL-USD | Google | 20x | 5% | 2.5% | 100ms |
-| NVDA-USD | Nvidia | 20x | 5% | 2.5% | 100ms |
-| NQ-USD | Nasdaq 100 | 20x | 5% | 2.5% | 100ms |
-| SP500-USD | S&P 500 | 20x | 5% | 2.5% | 100ms |
-| XAU-USD | Gold | 20x | 5% | 2.5% | 100ms |
+| Market | Asset | Type | Market ID (`bytes32`) | Base Token Address |
+| ------ | ----- | ---- | --------------------- | ------------------ |
+| NVDAx-USD | Nvidia | Spot | `0x0000000000000000000000000000000000000000000000000000000000000001` | `0x0000000000000000000000000000000000000001` |
+| AAPLx-USD | Apple | Spot | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000002` |
+| GOOGLx-USD | Google | Spot | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000003` |
+| QQQx-USD | Nasdaq 100 | Spot | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000004` |
+| SPYx-USD | S&P 500 | Spot | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000005` |
+| GLDx-USD | Gold | Spot | `0x0000000000000000000000000000000000000000000000000000000000000006` | `0x0000000000000000000000000000000000000006` |
+| BTC-USD | Bitcoin | Perpetual | `0x0000000000000000000000000000000000000000000000000000000000000007` | `0x0000000000000000000000000000000000000007` |
+
+## Perpetual Market Parameters
+
+For markets with `Type = Perpetual`, the following parameters apply:
+
+| Market | Max Leverage | Initial Margin | Maintenance Margin | Batch Interval |
+| ------ | ------------ | -------------- | ------------------ | -------------- |
+| BTC-USD | 10x | 10% | 5% | 500ms |

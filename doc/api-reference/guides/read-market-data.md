@@ -12,7 +12,7 @@ const markets = await provider.send("ob_getMarkets", []);
 ## Get orderbook snapshot
 
 ```javascript
-const orderbookId = "0x0000000000000000000000000000000000000000000000000000000000000001";
+const orderbookId = "0x0000000000000000000000000000000000000000000000000000000000000001"; // NVDAx-USD spot
 const depth = 20; // price levels per side
 
 const snapshot = await provider.send("ob_getOrderbook", [orderbookId, depth]);

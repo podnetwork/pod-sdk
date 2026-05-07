@@ -26,7 +26,7 @@
           spec: pod-docs
     ```
 * [Precompiles](applications-precompiles/README.md)
-  * [Orderbook Spot](applications-precompiles/orderbook-spot.md)
+  * [Orderbook](applications-precompiles/orderbook.md)
   * [Optimistic Auctions](applications-precompiles/wip-optimistic-auctions.md)
   * [Bridge](applications-precompiles/bridge.md)
   * [Recovery](applications-precompiles/recovery.md)
