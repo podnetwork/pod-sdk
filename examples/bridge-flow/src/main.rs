@@ -312,9 +312,8 @@ async fn bridge_native_from_source_chain_to_pod(
 ) -> Result<U256> {
     let prev_balance_pod = pod_bridge_client.provider.get_balance(to).await?;
 
-    let (request_id, source_chain_block_number) = source_chain_bridge_client
-        .deposit_token(to, amount)
-        .await?;
+    let (request_id, source_chain_block_number) =
+        source_chain_bridge_client.deposit_token(to, amount).await?;
 
     println!("Deposited; Request ID: {request_id}, Block Number: {source_chain_block_number}");
 
@@ -352,7 +351,11 @@ async fn bridge_token_from_source_chain_to_pod(
 
     let end_balance = tokio::time::timeout(timeout, async {
         loop {
-            let pod_balance = pod_bridge_client.token_contract.balanceOf(to).call().await?;
+            let pod_balance = pod_bridge_client
+                .token_contract
+                .balanceOf(to)
+                .call()
+                .await?;
             if pod_balance >= prev_balance_pod + amount {
                 return anyhow::Ok(pod_balance);
             }
