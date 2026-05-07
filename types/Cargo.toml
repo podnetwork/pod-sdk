@@ -28,17 +28,17 @@ ignored = [
 ]
 
 [dependencies]
-alloy-consensus = { version = "1.2.1", features = [
+alloy-consensus = { version = "2.0.4", features = [
   "serde",
   "k256",
   "serde-bincode-compat",
 ] }
-alloy-network = "1.2.1"
-alloy-primitives = { version = "1.5.2", features = ["k256", "serde"] }
-alloy-sol-types = "1.5.2"
-alloy-signer = "1.2.1"
-alloy-signer-local = "1.2.1"
-alloy-rpc-types = "1.2.1"
+alloy-network = "2.0.4"
+alloy-primitives = { version = "1.5.7", features = ["k256", "serde"] }
+alloy-sol-types = "1.5.7"
+alloy-signer = "2.0.4"
+alloy-signer-local = "2.0.4"
+alloy-rpc-types = "2.0.4"
 anyhow = "1.0.100"
 bytes = "1.11.1"
 hex = { version = "0.4.3", features = ["serde"] }
