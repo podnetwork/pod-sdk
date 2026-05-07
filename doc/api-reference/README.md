@@ -9,14 +9,14 @@ const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
 const balance = await provider.getBalance("0xYourAddress");
 ```
 
-{% columns %}
-{% column %}
-[**Fund your wallet**](https://faucet.dev.pod.network)
-{% endcolumn %}
-{% column %}
-[**Explorer**](https://explorer.v1.pod.network)
-{% endcolumn %}
-{% endcolumns %}
+{% cards %}
+{% card title="Fund your wallet" href="https://faucet.dev.pod.network" %}
+Get testnet tokens from the faucet
+{% endcard %}
+{% card title="Explorer" href="https://explorer.v1.pod.network" %}
+View transactions and accounts
+{% endcard %}
+{% endcards %}
 
 ## Devnet Configuration
 

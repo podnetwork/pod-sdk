@@ -14,7 +14,7 @@ Not every application can be built fully coordination-free. This is a new paradi
 
 **Streaming**  - Pod uses a publish/subscribe model over persistent connections. Validators stream attestations, state updates, and events to clients as they become available, rather than batching them into blocks at fixed intervals.
 
-**Enshrined Market Primitives**  - The protocol includes a built-in [order book](orderbook.md), [batch auction matching engine](batch-auctions.md), [optimistic auctions](optimistic-auctions.md), liquidation and margin engines, pricing oracles, and a [token](fungible-tokens.md) model. All expose standard Ethereum interfaces.
+**Enshrined Market Primitives**  - The protocol includes a built-in [order book](orderbook.md) with batch auction matching, [perpetuals](perpetuals.md), [optimistic auctions](optimistic-auctions.md), liquidation and margin engines, pricing oracles, and a [token](fungible-tokens.md) model. All expose standard Ethereum interfaces.
 
 **MEV-Free**  - Transactions are finalized without going through a centralized entity (e.g. leader or sequencer). All validators receive transactions simultaneously. The matching engine uses batch auctions where orders compete on price alone, independent of submission time or latency. This [eliminates MEV](markets-overview.md#why-pod-has-no-mev) structurally.
 
@@ -29,7 +29,7 @@ Not every application can be built fully coordination-free. This is a new paradi
 
 **Markets**  - the enshrined market primitives:
 - [Overview](markets-overview.md)  - enshrined market infrastructure and MEV elimination
-- [Orderbook](orderbook.md)  - the enshrined CLOB precompile and order types
-- [Matching](batch-auctions.md)  - batch auctions, deadlines, and the solver
+- [Orderbook](orderbook.md)  - the enshrined CLOB, order types, and batch auction matching
+- [Perpetuals](perpetuals.md)  - margin, funding, liquidation, and ADL
 - [Optimistic Auctions](optimistic-auctions.md)  - censorship-resistant auctions with off-Pod settlement
 - [Tokens](fungible-tokens.md)  - the native token model
