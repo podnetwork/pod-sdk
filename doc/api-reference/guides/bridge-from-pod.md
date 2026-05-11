@@ -23,7 +23,7 @@ When bridging the native token, **set `tx.value` to `0`**. The bridge deducts th
 ```typescript
 import { ethers } from "ethers";
 
-const podProvider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
+const podProvider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 const ethProvider = new ethers.JsonRpcProvider("https://eth.llamarpc.com");
 const podWallet = new ethers.Wallet(PRIVATE_KEY, podProvider);
 const ethWallet = new ethers.Wallet(PRIVATE_KEY, ethProvider);
@@ -89,7 +89,7 @@ let signer: PrivateKeySigner = PRIVATE_KEY.parse()?;
 
 let pod_provider = ProviderBuilder::new()
     .wallet(signer.clone())
-    .on_http("https://rpc.v1.dev.pod.network".parse()?);
+    .on_http("https://rpc.podtestnet.dev".parse()?);
 
 let eth_provider = ProviderBuilder::new()
     .wallet(signer.clone())

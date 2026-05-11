@@ -6,7 +6,7 @@ Pod uses precompiles for enshrined applications and internal protocol operations
 
 | Signature | Address | Description |
 | --------- | ------- | ----------- |
-| [Orderbook Spot](orderbook-spot.md) | `0x50d0000000000000000000000000000000000002` | Central limit order book for spot markets |
+| [Orderbook](orderbook.md) | `0x50d0000000000000000000000000000000000002` | Central limit order book for spot and perpetual markets |
 | [Bridge](bridge.md) | `0x50d0000000000000000000000000000000000001` | ERC-20 token bridging between Pod and Ethereum |
 | [Optimistic Auctions](wip-optimistic-auctions.md) | `0x50d0000000000000000000000000000000000004` | Censorship-resistant auction for intents (settlement happens off-Pod) |
 | [Recovery](recovery.md) | `0x50d0000000000000000000000000000000000003` | Recover a locked account by finalizing the target transaction chain |
@@ -24,7 +24,7 @@ Query the deposited balance of a token in the orderbook contract using `eth_call
 ```javascript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
+const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = ["function getBalance(address token) view returns (uint256)"];
@@ -40,7 +40,7 @@ console.log("Balance:", balance.toString());
 ```python
 from web3 import Web3
 
-w3 = Web3(Web3.HTTPProvider("https://rpc.v1.dev.pod.network"))
+w3 = Web3(Web3.HTTPProvider("https://rpc.podtestnet.dev"))
 
 ORDERBOOK = "0x50d0000000000000000000000000000000000002"
 abi = [{"inputs": [{"name": "token", "type": "address"}],
@@ -70,7 +70,7 @@ sol! {
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     let provider = ProviderBuilder::new()
-        .on_http("https://rpc.v1.dev.pod.network".parse()?);
+        .on_http("https://rpc.podtestnet.dev".parse()?);
 
     let orderbook = Orderbook::new(
         "0x50d0000000000000000000000000000000000002".parse()?,
@@ -96,19 +96,20 @@ Send a signed transaction to place a buy order on the orderbook via `eth_sendRaw
 ```javascript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
+const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
   `function submitOrder(
     bytes32 orderbookId, int256 size, uint256 price,
-    uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly
+    uint8 orderType, uint128 deadline, uint128 ttl,
+    bool reduceOnly, bool ioc
   )`
 ];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, signer);
 
-const orderbookId = "0x0000000000000000000000000000000000000000000000000000000000000001";
+const orderbookId = "0x0000000000000000000000000000000000000000000000000000000000000001"; // NVDAx-USD spot
 const size = ethers.parseEther("1");            // buy 1 unit
 const price = ethers.parseEther("5000");        // limit price
 const orderType = 0;                            // 0 = Limit, 1 = Market
@@ -116,7 +117,9 @@ const deadline = BigInt(Date.now()) * 1000n;    // now in microseconds
 const ttl = 60n * 1_000_000n;                  // 60 seconds in microseconds
 
 const tx = await orderbook.submitOrder(
-  orderbookId, size, price, orderType, deadline, ttl, false
+  orderbookId, size, price, orderType, deadline, ttl,
+  false,    // reduceOnly (perp only)
+  false,    // ioc — immediate-or-cancel
 );
 console.log("Order tx:", tx.hash);
 ```
@@ -127,7 +130,7 @@ console.log("Order tx:", tx.hash);
 from web3 import Web3
 import time, os
 
-w3 = Web3(Web3.HTTPProvider("https://rpc.v1.dev.pod.network"))
+w3 = Web3(Web3.HTTPProvider("https://rpc.podtestnet.dev"))
 account = w3.eth.account.from_key(os.environ["PRIVATE_KEY"])
 
 ORDERBOOK = "0x50d0000000000000000000000000000000000002"
@@ -138,7 +141,8 @@ abi = [{"inputs": [
     {"name": "orderType", "type": "uint8"},
     {"name": "deadline", "type": "uint128"},
     {"name": "ttl", "type": "uint128"},
-    {"name": "reduceOnly", "type": "bool"}],
+    {"name": "reduceOnly", "type": "bool"},
+    {"name": "ioc", "type": "bool"}],
     "name": "submitOrder", "outputs": [],
     "stateMutability": "nonpayable", "type": "function"}]
 
@@ -151,7 +155,8 @@ tx = orderbook.functions.submitOrder(
     0,                                           # order type: 0 = Limit
     int(time.time() * 1_000_000),                # deadline in microseconds
     60 * 1_000_000,                              # ttl: 60 seconds
-    False,                                       # reduce only
+    False,                                       # reduce only (perp only)
+    False,                                       # ioc (immediate-or-cancel)
 ).build_transaction({
     "from": account.address,
     "nonce": w3.eth.get_transaction_count(account.address),
@@ -179,7 +184,8 @@ sol! {
         enum OrderType { Limit, Market }
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
-            OrderType orderType, uint128 deadline, uint128 ttl, bool reduceOnly
+            OrderType orderType, uint128 deadline, uint128 ttl,
+            bool reduceOnly, bool ioc
         ) public;
     }
 }
@@ -191,7 +197,7 @@ async fn main() -> eyre::Result<()> {
 
     let provider = ProviderBuilder::new()
         .wallet(wallet)
-        .on_http("https://rpc.v1.dev.pod.network".parse()?);
+        .on_http("https://rpc.podtestnet.dev".parse()?);
 
     let orderbook = Orderbook::new(
         "0x50d0000000000000000000000000000000000002".parse()?,
@@ -202,14 +208,17 @@ async fn main() -> eyre::Result<()> {
         .duration_since(std::time::UNIX_EPOCH)?
         .as_micros() as u128;
 
+    let one_e18 = U256::from(10).pow(U256::from(18));
+
     let tx = orderbook.submitOrder(
         FixedBytes::left_padding_from(&[1]),     // orderbook id
-        I256::from_raw(U256::from(10).pow(U256::from(18))), // buy 1 unit
-        U256::from(5000) * U256::from(10).pow(U256::from(18)), // limit price
+        I256::from_raw(one_e18),                 // size: buy 1 unit
+        U256::from(5000) * one_e18,              // limit price
         Orderbook::OrderType::Limit,             // order type
         now_us,                                   // deadline
         60 * 1_000_000,                          // ttl: 60 seconds
-        false,                                    // reduce only
+        false,                                    // reduceOnly (perp only)
+        false,                                    // ioc — immediate-or-cancel
     ).send().await?;
 
     println!("Order tx: {:?}", tx.tx_hash());

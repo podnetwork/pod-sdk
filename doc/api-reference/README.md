@@ -5,33 +5,39 @@ Pod provides an Ethereum-like interface, so developers can use existing toolchai
 ```javascript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
+const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 const balance = await provider.getBalance("0xYourAddress");
 ```
 
-{% columns %}
-{% column %}
-[**Fund your wallet**](https://faucet.dev.pod.network)
-{% endcolumn %}
-{% column %}
-[**Explorer**](https://explorer.v1.pod.network)
-{% endcolumn %}
-{% endcolumns %}
+{% cards %}
+{% card title="Fund your wallet" href="https://faucet.dev.pod.network" %}
+Get testnet tokens from the faucet
+{% endcard %}
+{% card title="Explorer" href="https://explorer.v1.pod.network" %}
+View transactions and accounts
+{% endcard %}
+{% endcards %}
 
-## Devnet Configuration
+## Network Configuration
 
+{% tabs %}
+{% tab title="Testnet" %}
 | Property        | Value                                                        |
 | --------------- | ------------------------------------------------------------ |
 | Name            | `pod`                                                        |
-| RPC             | `https://rpc.v1.dev.pod.network`                             |
+| RPC             | `https://rpc.podtestnet.dev`                                 |
 | Chain ID        | `1293`                                                       |
 | Explorer        | `https://explorer.v1.pod.network`                            |
-| Currency Symbol | `pUSD`                                                       |
+| Currency Symbol | `USD`                                                        |
 | EVM Version     | `Prague` (Ethereum block 22,431,084, Released May 7th, 2025) |
+{% endtab %}
 
-{% hint style="warning" %}
-We expect the devnet to have breaking changes or be reset (pruned completely) at any time.
+{% tab title="Mainnet" %}
+{% hint style="info" %}
+**Mainnet is not live yet.** Network details will be published here once mainnet launches.
 {% endhint %}
+{% endtab %}
+{% endtabs %}
 
 ## Next Steps
 
