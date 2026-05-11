@@ -15,7 +15,7 @@ The funding rate is calculated every 8 hours. Payments are continuous and applie
 - A position requires initial margin to open. The maintenance margin is the minimum collateral to keep your position.
 - When the sum of the portfolio's maintenance margin exceeds the account's equity, a position can become eligible for liquidation.
 - Liquidations are submitted as market orders into the order book. They contribute to liquidity and are matched like normal orders.
-- If equity falls below one-third of the maintenance margin, the entire portfolio is transferred to the backstop vault.
+- If the account's equity falls below 2/3rd of maintenance margin, the entire portfolio is transferred to the backstop vault.
 - If equity goes negative, auto-deleveraging (ADL) is triggered.
 
 ## Auto-Deleveraging (ADL)

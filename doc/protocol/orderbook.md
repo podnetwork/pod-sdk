@@ -48,7 +48,7 @@ Traders can set the deadline to be small to ensure they are matched quickly, but
 
 The solver is the service responsible for settling a batch. It can be a rotating set of solvers or a single entity, configurable per market. The solver waits for the auction deadline and then settles the batch.
 
-The solver does not get any additional advantage. It cannot censor transactions or include transactions that were not submitted in time. It has some flexibility on whether to include malicious transactions - orders that were out of time or received some attestations but not the required n - f. These orders always lose, because they cannot claim funds even if they get matched.
+The solver does not get any additional advantage. It cannot censor transactions or include transactions that were not submitted in time. It has some flexibility on whether to include out-of-time transactions - orders submitted after the batch timestamp, or orders that received some attestations but fewer than the required n − f. These orders always lose, because they cannot claim funds even if they get matched.
 
 ### References
 
