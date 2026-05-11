@@ -2,7 +2,7 @@
 
 This guide walks through placing a limit order on one of Pod's spot markets. For background, see [Orderbook](https://docs.v2.pod.network/documentation/markets/orderbook).
 
-Spot orders use the same `submitOrder` call as perpetual orders. For spot, pass `leverage = 1e18` (1x), `reduceOnly = false`, and `ioc = false` for a resting limit order. Deposit the quote token (USD) before submitting.
+Spot orders use the same `submitOrder` call as perpetual orders. For spot, pass `reduceOnly = false` and `ioc = false` for a resting limit order. Deposit the quote token (USD) before submitting.
 
 The example below trades the NVDAx-USD spot market — see [Market Configurations](../market-configurations.md) for the full live list.
 
@@ -22,7 +22,7 @@ const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
   "function deposit(address token, address recipient, uint256 amount, uint128 deadline)",
-  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc, uint256 leverage)",
+  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
 ];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 
@@ -41,13 +41,11 @@ const price = ethers.parseEther("200");      // limit price in USD
 const orderType = 0;                         // 0 = Limit, 1 = Market
 const deadline = now + 10_000_000n;          // include in batches within next 10 seconds
 const ttl = 60n * 1_000_000n;               // order lives for 60 seconds
-const leverage = ethers.parseEther("1");     // 1e18 = 1x (spot)
 
 const tx = await orderbook.submitOrder(
   orderbookId, size, price, orderType, deadline, ttl,
   false,    // reduceOnly (perp only)
   false,    // ioc — immediate-or-cancel
-  leverage,
 );
 console.log("Order tx:", tx.hash);
 ```
@@ -68,7 +66,7 @@ sol! {
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
             OrderType orderType, uint128 deadline, uint128 ttl,
-            bool reduceOnly, bool ioc, uint256 leverage
+            bool reduceOnly, bool ioc
         ) public;
     }
 }
@@ -108,7 +106,6 @@ let tx = orderbook
         orderbook_id, size, price, Orderbook::OrderType::Limit, deadline, ttl,
         false,        // reduceOnly (perp only)
         false,        // ioc — immediate-or-cancel
-        one_e18,      // leverage: 1e18 = 1x (spot)
     )
     .send().await?;
 println!("Order tx: {:?}", tx.tx_hash());

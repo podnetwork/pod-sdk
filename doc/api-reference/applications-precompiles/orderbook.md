@@ -47,9 +47,8 @@ contract Orderbook {
      * @param orderType The order type (Limit or Market).
      * @param deadline The timestamp limit for this order to be included in a batch in microseconds.
      * @param ttl The "Time To Live" duration in microseconds; how long the order remains active in the book.
-     * @param reduceOnly If true, this order will only reduce an existing position and not increase leverage. Perp markets only.
+     * @param reduceOnly If true, this order will only reduce an existing position. Perp markets only.
      * @param ioc If true, the order is Immediate-Or-Cancel: any unmatched portion is cancelled at the end of the batch instead of resting on the book.
-     * @param leverage The requested leverage for the position, scaled by 1e18 (e.g. `5e18` = 5x). Must be ≤ the market's `maxLeverage`. Perp markets only; pass `1e18` for spot.
      */
     function submitOrder(
         bytes32 orderbookId,
@@ -59,8 +58,7 @@ contract Orderbook {
         uint128 deadline,
         uint128 ttl,
         bool reduceOnly,
-        bool ioc,
-        uint256 leverage
+        bool ioc
     ) public {}
 
     /**

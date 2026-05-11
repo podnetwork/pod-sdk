@@ -2,12 +2,12 @@
 
 This guide walks through opening a leveraged perpetual position on one of Pod's perp markets. For background, see [Perpetuals](https://docs.v2.pod.network/documentation/markets/perpetuals) and [Market Configurations](../market-configurations.md) for the live perp market list.
 
-Perpetual markets are quoted in **USD** and use cross-margin: a single USD deposit serves as collateral for all open perp positions on the account. `size` is the order quantity in **base-asset units** and is signed — positive opens a long, negative opens a short. `leverage` is 1e18-scaled and must fall in `[1e18, maxLeverage × 1e18]`; orders outside that range are rejected.
+Perpetual markets are quoted in **USD** and use cross-margin: a single USD deposit serves as collateral for all open perp positions on the account. `size` is the order quantity in **base-asset units** and is signed — positive opens a long, negative opens a short. Margin is computed by the market from `|size| × price / maxLeverage`.
 
 ## Steps
 
 1. Deposit USD as margin into the orderbook contract.
-2. Submit a leveraged limit order for the perp market (e.g. BTC-USD).
+2. Submit a limit order for the perp market (e.g. BTC-USD).
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -20,7 +20,7 @@ const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
   "function deposit(address token, address recipient, uint256 amount, uint128 deadline)",
-  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc, uint256 leverage)",
+  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
 ];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 
@@ -33,19 +33,17 @@ const now = BigInt(Date.now()) * 1000n; // microseconds
 const margin = ethers.parseEther("1000"); // 1,000 USD
 await (await orderbook.deposit(USD, wallet.address, margin, now + 60_000_000n)).wait();
 
-// 2. Open a 5x long on BTC-USD: 0.01 BTC notional at $90,000 limit
+// 2. Open a long on BTC-USD: 0.01 BTC at $90,000 limit
 const size = ethers.parseEther("0.01");       // +0.01 BTC long (negative = short)
 const price = ethers.parseEther("90000");     // limit price in USD
 const orderType = 0;                          // 0 = Limit
 const deadline = now + 10_000_000n;
 const ttl = 60n * 1_000_000n;
-const leverage = ethers.parseEther("5");      // 5e18 = 5x leverage (BTC-USD caps at 10x)
 
 const tx = await orderbook.submitOrder(
   btcPerpId, size, price, orderType, deadline, ttl,
   false,    // reduceOnly — set true to only close existing positions
   false,    // ioc
-  leverage,
 );
 console.log("Perp order tx:", tx.hash);
 ```
@@ -66,7 +64,7 @@ sol! {
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
             OrderType orderType, uint128 deadline, uint128 ttl,
-            bool reduceOnly, bool ioc, uint256 leverage
+            bool reduceOnly, bool ioc
         ) public;
     }
 }
@@ -95,19 +93,17 @@ orderbook
     .deposit(pusd, signer.address(), margin, now_us + 60_000_000)
     .send().await?.watch().await?;
 
-// 2. Open a 5x long on BTC-USD: 0.01 BTC notional at $90,000 limit
+// 2. Open a long on BTC-USD: 0.01 BTC at $90,000 limit
 let size = I256::from_raw(one_e18 / U256::from(100)); // +0.01 BTC long
 let price = U256::from(90_000) * one_e18;             // limit price in USD
 let deadline = now_us + 10_000_000;
 let ttl = 60 * 1_000_000;
-let leverage = U256::from(5) * one_e18;               // 5x (BTC-USD caps at 10x)
 
 let tx = orderbook
     .submitOrder(
         btc_perp_id, size, price, Orderbook::OrderType::Limit, deadline, ttl,
         false,        // reduceOnly — set true to only close existing positions
         false,        // ioc
-        leverage,
     )
     .send().await?;
 println!("Perp order tx: {:?}", tx.tx_hash());
@@ -120,7 +116,7 @@ println!("Perp order tx: {:?}", tx.tx_hash());
 Submit an opposite-sided order with `reduceOnly = true`. Reduce-only orders can only decrease your existing exposure — they will be rejected if matching them would flip your position direction or open a new one.
 
 {% hint style="info" %}
-**Leverage caps.** Each perp market has a `maxLeverage` set at creation (10x for APPL/USD). Submitting an order with a higher `leverage` will be rejected.
+**Market leverage.** Each perp market has a fixed `maxLeverage` set at creation (10x for APPL/USD). It determines the margin required per position — there's no per-order leverage to set.
 {% endhint %}
 
 {% hint style="warning" %}

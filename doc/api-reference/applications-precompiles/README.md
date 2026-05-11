@@ -104,7 +104,7 @@ const abi = [
   `function submitOrder(
     bytes32 orderbookId, int256 size, uint256 price,
     uint8 orderType, uint128 deadline, uint128 ttl,
-    bool reduceOnly, bool ioc, uint256 leverage
+    bool reduceOnly, bool ioc
   )`
 ];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, signer);
@@ -115,13 +115,11 @@ const price = ethers.parseEther("5000");        // limit price
 const orderType = 0;                            // 0 = Limit, 1 = Market
 const deadline = BigInt(Date.now()) * 1000n;    // now in microseconds
 const ttl = 60n * 1_000_000n;                  // 60 seconds in microseconds
-const leverage = ethers.parseEther("1");        // 1e18 = 1x (use higher values for perp)
 
 const tx = await orderbook.submitOrder(
   orderbookId, size, price, orderType, deadline, ttl,
   false,    // reduceOnly (perp only)
   false,    // ioc — immediate-or-cancel
-  leverage
 );
 console.log("Order tx:", tx.hash);
 ```
@@ -144,8 +142,7 @@ abi = [{"inputs": [
     {"name": "deadline", "type": "uint128"},
     {"name": "ttl", "type": "uint128"},
     {"name": "reduceOnly", "type": "bool"},
-    {"name": "ioc", "type": "bool"},
-    {"name": "leverage", "type": "uint256"}],
+    {"name": "ioc", "type": "bool"}],
     "name": "submitOrder", "outputs": [],
     "stateMutability": "nonpayable", "type": "function"}]
 
@@ -160,7 +157,6 @@ tx = orderbook.functions.submitOrder(
     60 * 1_000_000,                              # ttl: 60 seconds
     False,                                       # reduce only (perp only)
     False,                                       # ioc (immediate-or-cancel)
-    10**18,                                      # leverage: 1e18 = 1x (use higher values for perp)
 ).build_transaction({
     "from": account.address,
     "nonce": w3.eth.get_transaction_count(account.address),
@@ -189,7 +185,7 @@ sol! {
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
             OrderType orderType, uint128 deadline, uint128 ttl,
-            bool reduceOnly, bool ioc, uint256 leverage
+            bool reduceOnly, bool ioc
         ) public;
     }
 }
@@ -223,7 +219,6 @@ async fn main() -> eyre::Result<()> {
         60 * 1_000_000,                          // ttl: 60 seconds
         false,                                    // reduceOnly (perp only)
         false,                                    // ioc — immediate-or-cancel
-        one_e18,                                  // leverage: 1e18 = 1x (use higher values for perp)
     ).send().await?;
 
     println!("Order tx: {:?}", tx.tx_hash());

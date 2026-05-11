@@ -2798,7 +2798,7 @@ components:
           description: Clearing price of the batch (1e18).
     Order:
       type: object
-      description: An order returned by `ob_getOrders`. Carries spot and perp shapes — perp-only fields (`leverage`, `reduce_only`, `ioc`, `direction`) are present only when `market_type = perpetual`.
+      description: An order returned by `ob_getOrders`. Carries spot and perp shapes — perp-only fields (`reduce_only`, `ioc`, `direction`) are present only when `market_type = perpetual`.
       properties:
         orderbook_id:
           $ref: '#/components/schemas/Bytes32'
@@ -2844,10 +2844,6 @@ components:
         fills:
           type: array
           items: { $ref: '#/components/schemas/PartialFill' }
-        leverage:
-          $ref: '#/components/schemas/HexUint256'
-          nullable: true
-          description: Perp only. Requested leverage (1e18-scaled).
         reduce_only:
           type: boolean
           nullable: true
