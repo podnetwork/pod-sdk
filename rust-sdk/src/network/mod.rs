@@ -1,7 +1,8 @@
 use alloy_consensus::{TxEnvelope, TxType, TypedTransaction};
 use alloy_eips::eip2930::AccessList;
 use alloy_network::{
-    BuildResult, Network, NetworkWallet, TransactionBuilder, TransactionBuilderError,
+    BuildResult, Network, NetworkTransactionBuilder, NetworkWallet, TransactionBuilder,
+    TransactionBuilderError,
 };
 use alloy_primitives::{Address, Bytes, ChainId, Signature, TxKind, U256};
 use alloy_provider::fillers::{
@@ -69,7 +70,15 @@ impl From<TxEnvelope> for PodTransactionRequest {
     }
 }
 
-impl TransactionBuilder<PodNetwork> for PodTransactionRequest {
+impl From<alloy_rpc_types::Transaction> for PodTransactionRequest {
+    fn from(value: alloy_rpc_types::Transaction) -> Self {
+        Self {
+            inner: value.into(),
+        }
+    }
+}
+
+impl TransactionBuilder for PodTransactionRequest {
     fn chain_id(&self) -> Option<ChainId> {
         self.chain_id
     }
@@ -165,7 +174,9 @@ impl TransactionBuilder<PodNetwork> for PodTransactionRequest {
     fn set_access_list(&mut self, access_list: AccessList) {
         self.access_list = Some(access_list);
     }
+}
 
+impl NetworkTransactionBuilder<PodNetwork> for PodTransactionRequest {
     fn complete_type(&self, ty: TxType) -> Result<(), Vec<&'static str>> {
         match ty {
             TxType::Eip1559 => self.complete_1559(),
@@ -247,7 +258,7 @@ impl RecommendedFillers for PodNetwork {
 
     fn recommended_fillers() -> Self::RecommendedFillers {
         JoinFill::new(
-            GasFiller,
+            GasFiller::default(),
             JoinFill::new(NonceFiller::default(), ChainIdFiller::default()),
         )
     }
