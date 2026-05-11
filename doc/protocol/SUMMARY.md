@@ -16,7 +16,6 @@
 * [Overview](markets-overview.md)
 * [Order Book](orderbook.md)
 * [Perpetuals](perpetuals.md)
-* [Market Configurations](market-configurations.md)
 * [Optimistic Auctions](optimistic-auctions.md)
 * [Tokens](fungible-tokens.md)
 

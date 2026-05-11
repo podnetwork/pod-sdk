@@ -26,7 +26,7 @@ View transactions and accounts
 | RPC             | `https://rpc.v1.dev.pod.network`                             |
 | Chain ID        | `1293`                                                       |
 | Explorer        | `https://explorer.v1.pod.network`                            |
-| Currency Symbol | `pUSD`                                                       |
+| Currency Symbol | `USD`                                                        |
 | EVM Version     | `Prague` (Ethereum block 22,431,084, Released May 7th, 2025) |
 
 {% hint style="warning" %}

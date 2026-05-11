@@ -18,7 +18,7 @@ The full node includes a built-in indexer for both live and historical market da
 
 Pod uses frequent batch auctions to match orders. Instead of processing orders one at a time as they arrive (continuous trading), orders are collected over a short interval and matched together at a single uniform clearing price. This removes timing-based ordering advantages - competition is on price alone.
 
-Each market has a fixed **batch interval** that defines how often matching rounds run. At the end of every interval the solver settles a batch covering all orders whose `deadline` lands at or before that interval. See [Market Configurations](market-configurations.md) for the per-market interval on live markets.
+Each market has a fixed **batch interval** that defines how often matching rounds run. At the end of every interval the solver settles a batch covering all orders whose `deadline` lands at or before that interval. See [Market Configurations](https://docs.v2.pod.network/guides-references/market-configurations) for the per-market interval on live markets.
 
 ### Clearing
 

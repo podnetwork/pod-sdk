@@ -14,6 +14,7 @@
 
 ## References
 
+* [Market Configurations](market-configurations.md)
 * [JSON-RPC](json-rpc/README.md)
   * ```yaml
     props:

@@ -1,12 +1,12 @@
 # Place a perpetual order
 
-This guide walks through opening a leveraged perpetual position on one of Pod's perp markets. For background, see [Perpetuals](https://docs.v2.pod.network/documentation/markets/perpetuals) and [Market Configurations](https://docs.v2.pod.network/documentation/markets/market-configurations) for the live perp market list.
+This guide walks through opening a leveraged perpetual position on one of Pod's perp markets. For background, see [Perpetuals](https://docs.v2.pod.network/documentation/markets/perpetuals) and [Market Configurations](../market-configurations.md) for the live perp market list.
 
-Perpetual markets are quoted in **pUSD** and use cross-margin: a single pUSD deposit serves as collateral for all open perp positions on the account. `size` is the order quantity in **base-asset units** and is signed — positive opens a long, negative opens a short. `leverage` is 1e18-scaled and must fall in `[1e18, maxLeverage × 1e18]`; orders outside that range are rejected.
+Perpetual markets are quoted in **USD** and use cross-margin: a single USD deposit serves as collateral for all open perp positions on the account. `size` is the order quantity in **base-asset units** and is signed — positive opens a long, negative opens a short. `leverage` is 1e18-scaled and must fall in `[1e18, maxLeverage × 1e18]`; orders outside that range are rejected.
 
 ## Steps
 
-1. Deposit pUSD as margin into the orderbook contract.
+1. Deposit USD as margin into the orderbook contract.
 2. Submit a leveraged limit order for the perp market (e.g. BTC-USD).
 
 {% tabs %}
@@ -24,18 +24,18 @@ const abi = [
 ];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 
-// pUSD is Pod's native token — use the canonical native-token sentinel address
-const PUSD = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+// USD is Pod's native token — use the canonical native-token sentinel address
+const USD = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const btcPerpId = "0x0000000000000000000000000000000000000000000000000000000000000007"; // BTC-USD perp (max 10x)
 const now = BigInt(Date.now()) * 1000n; // microseconds
 
-// 1. Deposit pUSD margin
-const margin = ethers.parseEther("1000"); // 1,000 pUSD
-await (await orderbook.deposit(PUSD, wallet.address, margin, now + 60_000_000n)).wait();
+// 1. Deposit USD margin
+const margin = ethers.parseEther("1000"); // 1,000 USD
+await (await orderbook.deposit(USD, wallet.address, margin, now + 60_000_000n)).wait();
 
 // 2. Open a 5x long on BTC-USD: 0.01 BTC notional at $90,000 limit
 const size = ethers.parseEther("0.01");       // +0.01 BTC long (negative = short)
-const price = ethers.parseEther("90000");     // limit price in pUSD
+const price = ethers.parseEther("90000");     // limit price in USD
 const orderType = 0;                          // 0 = Limit
 const deadline = now + 10_000_000n;
 const ttl = 60n * 1_000_000n;
@@ -81,7 +81,7 @@ let orderbook = Orderbook::new(
     &provider,
 );
 
-// pUSD is Pod's native token — use the canonical native-token sentinel address
+// USD is Pod's native token — use the canonical native-token sentinel address
 let pusd: Address = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE".parse()?;
 let btc_perp_id = FixedBytes::left_padding_from(&[7]); // BTC-USD perp (max 10x)
 let now_us = std::time::SystemTime::now()
@@ -89,7 +89,7 @@ let now_us = std::time::SystemTime::now()
     .as_micros() as u128;
 let one_e18 = U256::from(10).pow(U256::from(18));
 
-// 1. Deposit pUSD margin
+// 1. Deposit USD margin
 let margin = U256::from(1000) * one_e18;
 orderbook
     .deposit(pusd, signer.address(), margin, now_us + 60_000_000)
@@ -97,7 +97,7 @@ orderbook
 
 // 2. Open a 5x long on BTC-USD: 0.01 BTC notional at $90,000 limit
 let size = I256::from_raw(one_e18 / U256::from(100)); // +0.01 BTC long
-let price = U256::from(90_000) * one_e18;             // limit price in pUSD
+let price = U256::from(90_000) * one_e18;             // limit price in USD
 let deadline = now_us + 10_000_000;
 let ttl = 60 * 1_000_000;
 let leverage = U256::from(5) * one_e18;               // 5x (BTC-USD caps at 10x)
@@ -120,7 +120,7 @@ println!("Perp order tx: {:?}", tx.tx_hash());
 Submit an opposite-sided order with `reduceOnly = true`. Reduce-only orders can only decrease your existing exposure — they will be rejected if matching them would flip your position direction or open a new one.
 
 {% hint style="info" %}
-**Leverage caps.** Each perp market has a `maxLeverage` set at creation (10x for BTC-USD). Submitting an order with a higher `leverage` will be rejected.
+**Leverage caps.** Each perp market has a `maxLeverage` set at creation (10x for APPL/USD). Submitting an order with a higher `leverage` will be rejected.
 {% endhint %}
 
 {% hint style="warning" %}

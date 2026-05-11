@@ -27,7 +27,7 @@ Each market on Pod is created with a set of protocol-level parameters that gover
 
 ## Live Markets
 
-All markets are quoted in pUSD (the native token, address `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`). The `x` suffix on base symbols denotes synthetic representations of the underlying assets. Perpetual markets use [Pyth](https://pyth.network/) price feeds as the oracle. To discover markets at runtime, call [`ob_getMarkets`](https://docs.v2.pod.network/api-reference/json-rpc).
+All markets are quoted in USD (the native token, address `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`). The `x` suffix on base symbols denotes synthetic representations of the underlying assets. Perpetual markets use [Pyth](https://pyth.network/) price feeds as the oracle. To discover markets at runtime, call [`ob_getMarkets`](https://docs.v2.pod.network/api-reference/json-rpc).
 
 {% tabs %}
 {% tab title="Testnet" %}
@@ -44,15 +44,9 @@ All markets are quoted in pUSD (the native token, address `0xEeeeeEeeeEeEeeEeEeE
 
 ### Perpetual Markets
 
-| Market | Asset | Market ID (`bytes32`) | Base Token Address |
-| ------ | ----- | --------------------- | ------------------ |
-| BTC-USD | Bitcoin | `0x0000000000000000000000000000000000000000000000000000000000000007` | `0x0000000000000000000000000000000000000007` |
-
-### Perpetual Market Parameters
-
-| Market | Max Leverage | Initial Margin | Maintenance Margin | Batch Interval |
-| ------ | ------------ | -------------- | ------------------ | -------------- |
-| BTC-USD | 10x | 10% | 5% | 500ms |
+| Market | Asset | Market ID (`bytes32`) | Base Token Address | Max Leverage | Initial Margin | Maintenance Margin | Batch Interval |
+| ------ | ----- | --------------------- | ------------------ | ------------ | -------------- | ------------------ | -------------- |
+| BTC-USD | Bitcoin | `0x0000000000000000000000000000000000000000000000000000000000000007` | `0x0000000000000000000000000000000000000007` | 10x | 10% | 5% | 500ms |
 {% endtab %}
 
 {% tab title="Mainnet" %}
