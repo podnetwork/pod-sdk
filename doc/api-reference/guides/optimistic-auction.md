@@ -14,7 +14,7 @@ import { ethers } from "ethers";
 const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
-const AUCTION = "0xeDD0670497E00ded712a398563Ea938A29dD28c7";
+const AUCTION = "0x50d0000000000000000000000000000000000004";
 const abi = [
   "function submitBid(uint256 auction_id, uint64 deadline, uint256 value, bytes data)",
   "event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint64 indexed deadline, uint256 value, bytes data)",
@@ -47,7 +47,7 @@ let provider = PodProviderBuilder::with_recommended_settings()
 
 let auction = AuctionClient::new(
     provider,
-    "0xeDD0670497E00ded712a398563Ea938A29dD28c7".parse()?,
+    "0x50d0000000000000000000000000000000000004".parse()?,
 );
 
 let auction_id = U256::from(1);
