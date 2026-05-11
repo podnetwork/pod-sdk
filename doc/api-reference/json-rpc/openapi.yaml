@@ -405,7 +405,6 @@ paths:
                       orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
                       base_symbol: "BTC"
                       quote_symbol: "USD"
-                      margin_mode: "Cross"
                       side: "long"
                       size: "10000000000000000"
                       notional: "0x4f0d4f7e7a3e0000"
@@ -1767,12 +1766,6 @@ components:
           items: { $ref: '#/components/schemas/Bytes32' }
           description: List of orderbook (clob) IDs to subscribe to
 
-    MarginMode:
-      type: string
-      enum: [Cross, Isolated]
-      description: |
-        Margin mode for a perp position. All current orders are submitted as `Cross` — `Isolated` is reserved for future use.
-
     PerpPositionSide:
       type: string
       enum: [long, short]
@@ -1816,7 +1809,7 @@ components:
 
     PerpPosition:
       type: object
-      description: A leveraged perp position. One per (user, pair, margin_mode).
+      description: A leveraged perp position. One per (user, pair).
       properties:
         kind:
           type: string
@@ -1828,8 +1821,6 @@ components:
           type: string
         quote_symbol:
           type: string
-        margin_mode:
-          $ref: '#/components/schemas/MarginMode'
         side:
           $ref: '#/components/schemas/PerpPositionSide'
         size:
@@ -1873,7 +1864,7 @@ components:
 
     Position:
       description: |
-        Tagged union: a single entry in `PositionsResponse.positions`. The `kind` field selects between a `SpotHolding` (one per token) or a `PerpPosition` (one per `(pair, margin_mode)`).
+        Tagged union: a single entry in `PositionsResponse.positions`. The `kind` field selects between a `SpotHolding` (one per token) or a `PerpPosition` (one per pair).
       oneOf:
         - $ref: '#/components/schemas/SpotHolding'
         - $ref: '#/components/schemas/PerpPosition'

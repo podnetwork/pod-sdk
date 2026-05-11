@@ -4,7 +4,7 @@ Pod supports perpetual futures as a native market type. Perpetual contracts trac
 
 ## Margin
 
-Pod uses cross margin. Spot and perpetual balances are held together in the market contract and collectively used as margin for open positions. There is no isolated margin mode - users who want isolated positions can use separate addresses. Subaccount support is planned for the future.
+Pod uses cross margin. There is a single collateral asset, USD, shared between perpetual and spot markets, so there is no need to transfer between the two.
 
 ## Funding
 
@@ -12,8 +12,8 @@ The funding rate is calculated every 8 hours. Payments are continuous and applie
 
 ## Liquidation
 
-- A position requires initial margin to open. The maintenance margin is typically half of the initial margin.
-- When the sum of the portfolio's maintenance margin exceeds the account's equity, the portfolio becomes eligible for liquidation.
+- A position requires initial margin to open. The maintenance margin is the minimum collateral to keep your position.
+- When the sum of the portfolio's maintenance margin exceeds the account's equity, a position can become eligible for liquidation.
 - Liquidations are submitted as market orders into the order book. They contribute to liquidity and are matched like normal orders.
 - If equity falls below one-third of the maintenance margin, the entire portfolio is transferred to the backstop vault.
 - If equity goes negative, auto-deleveraging (ADL) is triggered.

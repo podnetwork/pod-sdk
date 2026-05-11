@@ -36,5 +36,5 @@ External markets use the [Optimistic Auctions](optimistic-auctions.md) precompil
 
 ## Navigating the Docs
 
-* [Order book](orderbook.md) - the enshrined CLOB, order types, matching, and market data
+* [Order Book](orderbook.md) - the enshrined CLOB, order types, matching, and market data
 * [Optimistic Auctions](optimistic-auctions.md) - censorship-resistant auctions with off-Pod settlement

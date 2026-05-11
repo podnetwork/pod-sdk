@@ -29,20 +29,35 @@ Each market on Pod is created with a set of protocol-level parameters that gover
 
 All markets are quoted in pUSD (the native token, address `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`). The `x` suffix on base symbols denotes synthetic representations of the underlying assets. Perpetual markets use [Pyth](https://pyth.network/) price feeds as the oracle. To discover markets at runtime, call [`ob_getMarkets`](https://docs.v2.pod.network/api-reference/json-rpc).
 
-| Market | Asset | Type | Market ID (`bytes32`) | Base Token Address |
-| ------ | ----- | ---- | --------------------- | ------------------ |
-| NVDAx-USD | Nvidia | Spot | `0x0000000000000000000000000000000000000000000000000000000000000001` | `0x0000000000000000000000000000000000000001` |
-| AAPLx-USD | Apple | Spot | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000002` |
-| GOOGLx-USD | Google | Spot | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000003` |
-| QQQx-USD | Nasdaq 100 | Spot | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000004` |
-| SPYx-USD | S&P 500 | Spot | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000005` |
-| GLDx-USD | Gold | Spot | `0x0000000000000000000000000000000000000000000000000000000000000006` | `0x0000000000000000000000000000000000000006` |
-| BTC-USD | Bitcoin | Perpetual | `0x0000000000000000000000000000000000000000000000000000000000000007` | `0x0000000000000000000000000000000000000007` |
+{% tabs %}
+{% tab title="Testnet" %}
+### Spot Markets
 
-## Perpetual Market Parameters
+| Market | Asset | Market ID (`bytes32`) | Base Token Address |
+| ------ | ----- | --------------------- | ------------------ |
+| NVDAx-USD | Nvidia | `0x0000000000000000000000000000000000000000000000000000000000000001` | `0x0000000000000000000000000000000000000001` |
+| AAPLx-USD | Apple | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000002` |
+| GOOGLx-USD | Google | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000003` |
+| QQQx-USD | Nasdaq 100 | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000004` |
+| SPYx-USD | S&P 500 | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000005` |
+| GLDx-USD | Gold | `0x0000000000000000000000000000000000000000000000000000000000000006` | `0x0000000000000000000000000000000000000006` |
 
-For markets with `Type = Perpetual`, the following parameters apply:
+### Perpetual Markets
+
+| Market | Asset | Market ID (`bytes32`) | Base Token Address |
+| ------ | ----- | --------------------- | ------------------ |
+| BTC-USD | Bitcoin | `0x0000000000000000000000000000000000000000000000000000000000000007` | `0x0000000000000000000000000000000000000007` |
+
+### Perpetual Market Parameters
 
 | Market | Max Leverage | Initial Margin | Maintenance Margin | Batch Interval |
 | ------ | ------------ | -------------- | ------------------ | -------------- |
 | BTC-USD | 10x | 10% | 5% | 500ms |
+{% endtab %}
+
+{% tab title="Mainnet" %}
+{% hint style="info" %}
+**Mainnet is not live yet.** Market configurations will be published here once mainnet launches.
+{% endhint %}
+{% endtab %}
+{% endtabs %}

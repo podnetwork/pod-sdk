@@ -1,4 +1,4 @@
-# Order book
+# Order Book
 
 Pod has an enshrined central limit order book (CLOB) built into the protocol as a precompile.
 
@@ -14,17 +14,11 @@ All markets use 1e18 tick sizes, matching the token decimal standard.
 
 The full node includes a built-in indexer for both live and historical market data. This provides order book snapshots, OHLCV candles, account-level order history, and position data without requiring users to run their own indexer. See the [`ob_` endpoints](https://docs.v2.pod.network/guides-references/json-rpc) in the JSON-RPC reference.
 
-## AMM Order book
-
-{% hint style="info" %}
-Coming soon.
-{% endhint %}
-
-Pod's order book allows traders to attach custom EVM contracts that define pricing curves for their orders. This enables AMMs and limit orders to coexist natively on the same book. Markets can be bootstrapped using passive AMM curves and progressively transition to professional market maker liquidity for tighter spreads and better price discovery. Market makers can update orders across the entire pricing curve with minimal state changes.
-
 ## Matching
 
 Pod uses frequent batch auctions to match orders. Instead of processing orders one at a time as they arrive (continuous trading), orders are collected over a short interval and matched together at a single uniform clearing price. This removes timing-based ordering advantages - competition is on price alone.
+
+Each market has a fixed **batch interval** that defines how often matching rounds run. At the end of every interval the solver settles a batch covering all orders whose `deadline` lands at or before that interval. See [Market Configurations](market-configurations.md) for the per-market interval on live markets.
 
 ### Clearing
 
@@ -38,7 +32,7 @@ At the end of each batch interval, the matching engine runs a double auction usi
 
 All matched orders execute at the same uniform price. No participant gets a better or worse price based on when their order arrived within the batch.
 
-### Deadline
+### Batch Deadline
 
 The `deadline` parameter in `submitOrder` specifies the latest batch the user wants their order included in. The order can be included in any batch up to and including the deadline batch.
 
@@ -59,3 +53,11 @@ The solver does not get any additional advantage. It cannot censor transactions 
 ### References
 
 * E. Budish, P. Cramton, J. Shim. _The High-Frequency Trading Arms Race: Frequent Batch Auctions as a Market Design Response._ Quarterly Journal of Economics, 2015.
+
+## AMM Order Book
+
+{% hint style="info" %}
+Coming soon.
+{% endhint %}
+
+Pod's order book allows traders to attach custom EVM contracts that define pricing curves for their orders. This enables AMMs and limit orders to coexist natively on the same book. Markets can be bootstrapped using passive AMM curves and progressively transition to professional market maker liquidity for tighter spreads and better price discovery. Market makers can update orders across the entire pricing curve with minimal state changes.

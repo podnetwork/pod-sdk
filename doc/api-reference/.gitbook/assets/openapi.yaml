@@ -1043,7 +1043,6 @@ paths:
                       orderbook_id: '0x0000000000000000000000000000000000000000000000000000000000000007'
                       base_symbol: BTC
                       quote_symbol: USD
-                      margin_mode: Cross
                       side: long
                       size: '10000000000000000'
                       notional: '0x4f0d4f7e7a3e0000'
@@ -3189,10 +3188,6 @@ components:
           description: List of orderbook IDs to subscribe to
           x-gitbook-description-html: <p>List of orderbook IDs to subscribe to</p>
       x-gitbook-description-html: <p>Parameters for WebSocket subscriptions</p>
-    MarginMode:
-      type: string
-      enum: [Cross, Isolated]
-      description: Margin mode for a perp position. Currently always `Cross` — `Isolated` is reserved.
     PerpPositionSide:
       type: string
       enum: [long, short]
@@ -3231,7 +3226,7 @@ components:
           description: Lifetime realized spot PnL, portfolio-wide for v1 (signed, 1e18 USD).
     PerpPosition:
       type: object
-      description: A leveraged perp position. One per (user, pair, margin_mode).
+      description: A leveraged perp position. One per (user, pair).
       properties:
         kind:
           type: string
@@ -3240,8 +3235,6 @@ components:
           $ref: '#/components/schemas/Bytes32'
         base_symbol: { type: string }
         quote_symbol: { type: string }
-        margin_mode:
-          $ref: '#/components/schemas/MarginMode'
         side:
           $ref: '#/components/schemas/PerpPositionSide'
         size:
