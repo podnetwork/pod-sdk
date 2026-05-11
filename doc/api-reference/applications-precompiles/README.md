@@ -24,7 +24,7 @@ Query the deposited balance of a token in the orderbook contract using `eth_call
 ```javascript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
+const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = ["function getBalance(address token) view returns (uint256)"];
@@ -40,7 +40,7 @@ console.log("Balance:", balance.toString());
 ```python
 from web3 import Web3
 
-w3 = Web3(Web3.HTTPProvider("https://rpc.v1.dev.pod.network"))
+w3 = Web3(Web3.HTTPProvider("https://rpc.podtestnet.dev"))
 
 ORDERBOOK = "0x50d0000000000000000000000000000000000002"
 abi = [{"inputs": [{"name": "token", "type": "address"}],
@@ -70,7 +70,7 @@ sol! {
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     let provider = ProviderBuilder::new()
-        .on_http("https://rpc.v1.dev.pod.network".parse()?);
+        .on_http("https://rpc.podtestnet.dev".parse()?);
 
     let orderbook = Orderbook::new(
         "0x50d0000000000000000000000000000000000002".parse()?,
@@ -96,7 +96,7 @@ Send a signed transaction to place a buy order on the orderbook via `eth_sendRaw
 ```javascript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
+const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
@@ -130,7 +130,7 @@ console.log("Order tx:", tx.hash);
 from web3 import Web3
 import time, os
 
-w3 = Web3(Web3.HTTPProvider("https://rpc.v1.dev.pod.network"))
+w3 = Web3(Web3.HTTPProvider("https://rpc.podtestnet.dev"))
 account = w3.eth.account.from_key(os.environ["PRIVATE_KEY"])
 
 ORDERBOOK = "0x50d0000000000000000000000000000000000002"
@@ -197,7 +197,7 @@ async fn main() -> eyre::Result<()> {
 
     let provider = ProviderBuilder::new()
         .wallet(wallet)
-        .on_http("https://rpc.v1.dev.pod.network".parse()?);
+        .on_http("https://rpc.podtestnet.dev".parse()?);
 
     let orderbook = Orderbook::new(
         "0x50d0000000000000000000000000000000000002".parse()?,

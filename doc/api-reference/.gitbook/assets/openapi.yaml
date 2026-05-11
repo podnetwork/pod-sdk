@@ -3,7 +3,7 @@ info:
   title: JSON-RPC API
   version: 1.0.0
 servers:
-  - url: https://rpc.v1.dev.pod.network/
+  - url: https://rpc.podtestnet.dev/
     description: Pod testnet
     x-gitbook-description-html: <p>Pod testnet</p>
 tags:

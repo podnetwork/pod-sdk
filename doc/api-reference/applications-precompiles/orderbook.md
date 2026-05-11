@@ -160,24 +160,5 @@ contract Orderbook {
         uint256 amount,
         uint128 deadline
     ) public {}
-
-    // --- Orderbook Management ---
-
-    /**
-     * @notice Creates a new orderbook for a trading pair.
-     * @param base The address of the base token.
-     * @param quote The address of the quote token.
-     * @param solverPk The public key of the solver for this orderbook.
-     * @param marketType The market type — `Spot` or `Perp`.
-     * @param maxLeverage Maximum leverage allowed on this market (perp only; ignored for spot).
-     * @return The unique identifier for the new orderbook.
-     */
-    function createOrderBook(
-        address base,
-        address quote,
-        bytes solverPk,
-        MarketType marketType,
-        uint8 maxLeverage
-    ) public returns (bytes32) {}
 }
 ```

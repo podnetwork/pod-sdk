@@ -11,7 +11,7 @@ A bid is a transaction to the `submitBid` function on the precompile. Each bid s
 ```typescript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
+const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 const AUCTION = "0xeDD0670497E00ded712a398563Ea938A29dD28c7";
@@ -42,7 +42,7 @@ use std::time::{Duration, SystemTime};
 
 let provider = PodProviderBuilder::with_recommended_settings()
     .with_private_key(PRIVATE_KEY.parse()?)
-    .on_url("wss://rpc.v2.pod.network")
+    .on_url("wss://rpc.podtestnet.dev")
     .await?;
 
 let auction = AuctionClient::new(

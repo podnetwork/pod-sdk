@@ -10,7 +10,6 @@ Each market on Pod is created with a set of protocol-level parameters that gover
 | Base Asset | The asset being traded (e.g. BTC, ETH) |
 | Quote Asset | The settlement currency (e.g. USDC) |
 | Market Type | `spot` or `perpetual` |
-| Batch Interval | Time between matching rounds (microseconds) |
 | Tick Size | Minimum price increment (1e18) |
 | Solver | Public key of the solver responsible for settling batches |
 
@@ -18,12 +17,11 @@ Each market on Pod is created with a set of protocol-level parameters that gover
 
 | Parameter | Description |
 | --------- | ----------- |
-| Initial Margin | Required margin to open a position |
-| Maintenance Margin | Minimum margin before liquidation (typically half of initial margin) |
-| Max Leverage | Maximum allowed leverage (inverse of initial margin) |
-| Funding Interval | Funding rate calculation period (8 hours) |
-| Oracle | Price feed source and address |
-| Max Position Size | Maximum notional position size per account |
+| Max Leverage | Maximum allowed leverage; set per market at creation |
+| Initial Margin | Required margin to open a position. Derived: `1 / Max Leverage` |
+| Maintenance Margin | Margin floor below which the position becomes eligible for liquidation. Derived: `Initial Margin / 2` |
+| Funding Interval | Funding rate calculation period (fixed at 8 hours network-wide) |
+| Oracle | Price feed source (Pyth asset) |
 
 ## Live Markets
 
@@ -31,22 +29,31 @@ All markets are quoted in USD (the native token, address `0xEeeeeEeeeEeEeeEeEeEe
 
 {% tabs %}
 {% tab title="Testnet" %}
+### Global
+
+| Parameter | Value |
+| --------- | ----- |
+| Batch Interval | 500ms |
+| Initial Margin | `1 / Max Leverage` |
+| Maintenance Margin | `0.5 × Initial Margin` |
+| Backstop | `0.75 × Initial Margin` |
+
 ### Spot Markets
 
-| Market | Asset | Market ID (`bytes32`) | Base Token Address |
-| ------ | ----- | --------------------- | ------------------ |
-| NVDAx-USD | Nvidia | `0x0000000000000000000000000000000000000000000000000000000000000001` | `0x0000000000000000000000000000000000000001` |
-| AAPLx-USD | Apple | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000002` |
-| GOOGLx-USD | Google | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000003` |
-| QQQx-USD | Nasdaq 100 | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000004` |
-| SPYx-USD | S&P 500 | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000005` |
-| GLDx-USD | Gold | `0x0000000000000000000000000000000000000000000000000000000000000006` | `0x0000000000000000000000000000000000000006` |
+| Market | Market ID (`bytes32`) | Base Token Address |
+| ------ | --------------------- | ------------------ |
+| NVDAx-USD | `0x0000000000000000000000000000000000000000000000000000000000000001` | `0x0000000000000000000000000000000000000001` |
+| AAPLx-USD | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000002` |
+| GOOGLx-USD | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000003` |
+| QQQx-USD | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000004` |
+| SPYx-USD | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000005` |
+| GLDx-USD | `0x0000000000000000000000000000000000000000000000000000000000000006` | `0x0000000000000000000000000000000000000006` |
 
 ### Perpetual Markets
 
-| Market | Asset | Market ID (`bytes32`) | Base Token Address | Max Leverage | Initial Margin | Maintenance Margin | Batch Interval |
-| ------ | ----- | --------------------- | ------------------ | ------------ | -------------- | ------------------ | -------------- |
-| BTC-USD | Bitcoin | `0x0000000000000000000000000000000000000000000000000000000000000007` | `0x0000000000000000000000000000000000000007` | 10x | 10% | 5% | 500ms |
+| Market | Market ID (`bytes32`) | Max Leverage | Oracle |
+| ------ | --------------------- | ------------ | ------ |
+| BTC-USD | `0x0000000000000000000000000000000000000000000000000000000000000007` | 10x | Pyth `Btc` |
 {% endtab %}
 
 {% tab title="Mainnet" %}

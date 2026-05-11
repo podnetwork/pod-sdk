@@ -14,7 +14,7 @@ Perpetual markets are quoted in **USD** and use cross-margin: a single USD depos
 ```typescript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
+const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
@@ -72,7 +72,7 @@ sol! {
 let signer: PrivateKeySigner = PRIVATE_KEY.parse()?;
 let provider = ProviderBuilder::new()
     .wallet(signer.clone())
-    .on_http("https://rpc.v1.dev.pod.network".parse()?);
+    .on_http("https://rpc.podtestnet.dev".parse()?);
 
 let orderbook = Orderbook::new(
     "0x50d0000000000000000000000000000000000002".parse()?,
