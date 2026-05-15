@@ -657,7 +657,7 @@ paths:
                   example: ["0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"]
       responses:
         '200':
-          description: Transaction object, or null if not found
+          description: Transaction object, or `null` if not found.
           content:
             application/json:
               schema:
@@ -665,9 +665,7 @@ paths:
                 properties:
                   jsonrpc: { type: string }
                   result:
-                    oneOf:
-                      - $ref: '#/components/schemas/Transaction'
-                      - type: "null"
+                    $ref: '#/components/schemas/Transaction'
                   id: { type: integer }
 
   /eth_getTransactionCount:
@@ -872,7 +870,7 @@ paths:
                   example: ["0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"]
       responses:
         '200':
-          description: Transaction receipt with Pod-specific attestation data, or null if not found
+          description: Transaction receipt with Pod-specific attestation data, or `null` if not found.
           content:
             application/json:
               schema:
@@ -880,9 +878,7 @@ paths:
                 properties:
                   jsonrpc: { type: string }
                   result:
-                    oneOf:
-                      - $ref: '#/components/schemas/TransactionReceipt'
-                      - type: "null"
+                    $ref: '#/components/schemas/TransactionReceipt'
                   id: { type: integer }
               example:
                 jsonrpc: "2.0"
@@ -1521,7 +1517,6 @@ components:
           example: 10
         oracle_price:
           type: string
-          pattern: "^0x[a-fA-F0-9]+$"
           nullable: true
           description: |
             Perp markets only. Latest Pyth oracle price as a hex-encoded
@@ -1529,14 +1524,12 @@ components:
             and liquidation. `null` for spot markets.
         funding_rate_8h:
           type: string
-          pattern: "^-?[0-9]+$"
           nullable: true
           description: |
             Perp markets only. Per-8-hour funding rate as a signed decimal
             string (1e18-scaled, may be negative). `null` for spot markets.
         funding_index:
           type: string
-          pattern: "^-?[0-9]+$"
           nullable: true
           description: |
             Perp markets only. Cumulative per-unit-size funding accumulator as
@@ -1551,7 +1544,6 @@ components:
             the most recent funding update. `null` for spot markets.
         open_interest:
           type: string
-          pattern: "^0x[a-fA-F0-9]+$"
           nullable: true
           description: |
             Perp markets only. Open interest in 1e18-scaled USD notional as a
