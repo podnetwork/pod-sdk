@@ -20,7 +20,7 @@ Each market on Pod is created with a set of protocol-level parameters that gover
 | Max Leverage | Maximum allowed leverage; set per market at creation |
 | Initial Margin | Required margin to open a position. Derived: `1 / Max Leverage` |
 | Maintenance Margin | Margin floor below which the position becomes eligible for liquidation. Derived: `Initial Margin / 2` |
-| Funding Interval | Funding rate calculation period (fixed at 8 hours network-wide) |
+| Interest Rate | Per-market funding constant, defaulting to 0.01% per 8 hours. See [Perpetuals → Funding](../protocol/perpetuals.md) |
 | Oracle | Price feed source (Pyth asset) |
 
 ## Live Markets
