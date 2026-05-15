@@ -129,6 +129,37 @@ paths:
                     taker_fee: "0x0"
                     tick_precision: "0x1"
                     lot_size: "0x1"
+                    max_leverage: 1
+                    oracle_price: null
+                    funding_rate_8h: null
+                    funding_index: null
+                    funding_last_updated: null
+                    open_interest: null
+                  - id: "0x0000000000000000000000000000000000000000000000000000000000000007"
+                    name: "NVDA/USD"
+                    base_token_address: "0x0000000000000000000000000000000000000007"
+                    quote_token_address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+                    base_token_symbol: "NVDA"
+                    quote_token_symbol: "USD"
+                    base_token_name: "Nvidia Perpetual"
+                    quote_token_name: "USD"
+                    market_type: "perpetual"
+                    last_clearing_price: "0x796e3ea3f8ab00000"
+                    auction_interval: 500
+                    volume_24h: "0x0"
+                    high_24h: "0x0"
+                    low_24h: "0x0"
+                    price_change_24h: 0
+                    maker_fee: "0x0"
+                    taker_fee: "0x0"
+                    tick_precision: "0x1"
+                    lot_size: "0x1"
+                    max_leverage: 20
+                    oracle_price: "0x796e3ea3f8ab00000"
+                    funding_rate_8h: "0"
+                    funding_index: "0"
+                    funding_last_updated: 1704153600000000
+                    open_interest: "0x0"
                 id: 1
 
   /ob_getOrderbook:
@@ -403,7 +434,7 @@ paths:
                       realized_pnl: "0"
                     - kind: "perp"
                       orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
-                      base_symbol: "BTC"
+                      base_symbol: "NVDA"
                       quote_symbol: "USD"
                       side: "long"
                       size: "10000000000000000"
@@ -1235,6 +1266,12 @@ components:
       description: Unsigned 256-bit integer (decimal string representation)
       example: "1000000000000000000"
 
+    DecimalInt256:
+      type: string
+      pattern: "^-?[0-9]+$"
+      description: Signed 256-bit integer (decimal string representation, may be negative)
+      example: "-1000000000000000000"
+
     Timestamp:
       type: integer
       format: int64
@@ -1474,16 +1511,57 @@ components:
           description: 24-hour price change (signed integer)
         tick_precision:
           $ref: '#/components/schemas/HexUint256'
-          description: Minimum price tick size
+          description: Minimum price tick size, hex-encoded with `1e18` scale (e.g. `0xde0b6b3a7640000` = `1e18` = one whole tick).
         lot_size:
           $ref: '#/components/schemas/HexUint256'
-          description: Minimum order size increment. Order sizes must be multiples of this value.
+          description: Minimum order size increment, hex-encoded with `1e18` scale. Order sizes must be multiples of this value.
         maker_fee:
           $ref: '#/components/schemas/HexUint256'
-          description: Maker fee rate
+          description: Maker fee rate (1e18-scaled)
         taker_fee:
           $ref: '#/components/schemas/HexUint256'
-          description: Taker fee rate
+          description: Taker fee rate (1e18-scaled)
+        max_leverage:
+          type: integer
+          description: Maximum allowed leverage. Returned for both spot and perp markets, but only meaningful for perp.
+          example: 10
+        oracle_price:
+          allOf:
+            - $ref: '#/components/schemas/HexUint256'
+          nullable: true
+          description: |
+            Perp markets only. Latest Pyth oracle price (1e18-scaled), used as the
+            mark for funding and liquidation. `null` for spot markets.
+        funding_rate_8h:
+          allOf:
+            - $ref: '#/components/schemas/DecimalInt256'
+          nullable: true
+          description: |
+            Perp markets only. Per-8-hour funding rate, signed and 1e18-scaled,
+            returned as a decimal string. `null` for spot markets.
+        funding_index:
+          allOf:
+            - $ref: '#/components/schemas/DecimalInt256'
+          nullable: true
+          description: |
+            Perp markets only. Cumulative per-unit-size funding accumulator,
+            signed and 1e18-scaled, returned as a decimal string. `null` for
+            spot markets.
+        funding_last_updated:
+          allOf:
+            - $ref: '#/components/schemas/Timestamp'
+          nullable: true
+          description: |
+            Perp markets only. Microsecond timestamp of the batch that produced
+            the most recent funding update. `null` for spot markets.
+        open_interest:
+          allOf:
+            - $ref: '#/components/schemas/HexUint256'
+          nullable: true
+          description: |
+            Perp markets only. Open interest in 1e18-scaled USD notional —
+            `mark_price * Σ |position.size|` across every open cross-margin
+            position on this market. `null` for spot markets.
 
     TickSnapshot:
       type: object

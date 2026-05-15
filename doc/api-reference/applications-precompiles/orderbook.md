@@ -64,7 +64,10 @@ contract Orderbook {
     /**
      * @notice Cancels an existing open order.
      * @param orderbookId The unique identifier of the market the order belongs to.
-     * @param canceledOrder The unique hash/identifier of the order to be cancelled.
+     * @param canceledOrder The order id, which is the `tx_hash` of the original
+     *        `submitOrder` transaction — i.e. the hash returned by
+     *        `eth_sendRawTransaction` when the order was submitted (also exposed
+     *        as `tx_hash` on `ob_getOrders`).
      * @param deadline The Unix timestamp after which this cancellation request is invalid in microseconds.
      */
     function cancel(

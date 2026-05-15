@@ -4,10 +4,24 @@ This guide walks through opening a leveraged perpetual position on one of Pod's 
 
 Perpetual markets are quoted in **USD** and use cross-margin: a single USD deposit serves as collateral for all open perp positions on the account. `size` is the order quantity in **base-asset units** and is signed — positive opens a long, negative opens a short. Margin is computed by the market from `|size| × price / maxLeverage`.
 
+{% hint style="warning" %}
+**All timestamps sent to the RPC are in microseconds**, not milliseconds or seconds.
+{% endhint %}
+
+{% hint style="warning" %}
+**`deadline` must be aligned to the market's auction interval.** The orderbook validator rejects any intent (orders, cancels, updates, deposits, withdrawals) whose deadline is not a multiple of `auction_interval` with `"CLOB validation failed: Deadline is not aligned to auction interval"`. Compute it as:
+
+```text
+deadline_us = ceil(now_us / auction_interval_us) * auction_interval_us
+```
+
+`auction_interval` is returned in **milliseconds** by `ob_getMarkets` — multiply by 1,000 to get microseconds. `ttl` does not need to be aligned, but must extend at least one full `auction_interval` past `deadline`.
+{% endhint %}
+
 ## Steps
 
 1. Deposit USD as margin into the orderbook contract.
-2. Submit a limit order for the perp market (e.g. BTC-USD).
+2. Submit a limit order for the perp market (e.g. NVDA-USD).
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -26,22 +40,22 @@ const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 
 // USD is Pod's native token — use the canonical native-token sentinel address
 const USD = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
-const btcPerpId = "0x0000000000000000000000000000000000000000000000000000000000000007"; // BTC-USD perp (max 10x)
+const nvdaPerpId = "0x0000000000000000000000000000000000000000000000000000000000000007"; // NVDA-USD perp (max 20x)
 const now = BigInt(Date.now()) * 1000n; // microseconds
 
 // 1. Deposit USD margin
 const margin = ethers.parseEther("1000"); // 1,000 USD
 await (await orderbook.deposit(USD, wallet.address, margin, now + 60_000_000n)).wait();
 
-// 2. Open a long on BTC-USD: 0.01 BTC at $90,000 limit
-const size = ethers.parseEther("0.01");       // +0.01 BTC long (negative = short)
-const price = ethers.parseEther("90000");     // limit price in USD
+// 2. Open a long on NVDA-USD: 5 NVDA at $140 limit
+const size = ethers.parseEther("5");          // +5 NVDA long (negative = short)
+const price = ethers.parseEther("140");       // limit price in USD
 const orderType = 0;                          // 0 = Limit
 const deadline = now + 10_000_000n;
 const ttl = 60n * 1_000_000n;
 
 const tx = await orderbook.submitOrder(
-  btcPerpId, size, price, orderType, deadline, ttl,
+  nvdaPerpId, size, price, orderType, deadline, ttl,
   false,    // reduceOnly — set true to only close existing positions
   false,    // ioc
 );
@@ -81,7 +95,7 @@ let orderbook = Orderbook::new(
 
 // USD is Pod's native token — use the canonical native-token sentinel address
 let pusd: Address = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE".parse()?;
-let btc_perp_id = FixedBytes::left_padding_from(&[7]); // BTC-USD perp (max 10x)
+let nvda_perp_id = FixedBytes::left_padding_from(&[7]); // NVDA-USD perp (max 20x)
 let now_us = std::time::SystemTime::now()
     .duration_since(std::time::UNIX_EPOCH)?
     .as_micros() as u128;
@@ -93,15 +107,15 @@ orderbook
     .deposit(pusd, signer.address(), margin, now_us + 60_000_000)
     .send().await?.watch().await?;
 
-// 2. Open a long on BTC-USD: 0.01 BTC at $90,000 limit
-let size = I256::from_raw(one_e18 / U256::from(100)); // +0.01 BTC long
-let price = U256::from(90_000) * one_e18;             // limit price in USD
+// 2. Open a long on NVDA-USD: 5 NVDA at $140 limit
+let size = I256::from_raw(U256::from(5) * one_e18);   // +5 NVDA long
+let price = U256::from(140) * one_e18;                // limit price in USD
 let deadline = now_us + 10_000_000;
 let ttl = 60 * 1_000_000;
 
 let tx = orderbook
     .submitOrder(
-        btc_perp_id, size, price, Orderbook::OrderType::Limit, deadline, ttl,
+        nvda_perp_id, size, price, Orderbook::OrderType::Limit, deadline, ttl,
         false,        // reduceOnly — set true to only close existing positions
         false,        // ioc
     )
@@ -116,9 +130,5 @@ println!("Perp order tx: {:?}", tx.tx_hash());
 Submit an opposite-sided order with `reduceOnly = true`. Reduce-only orders can only decrease your existing exposure — they will be rejected if matching them would flip your position direction or open a new one.
 
 {% hint style="info" %}
-**Market leverage.** Each perp market has a fixed `maxLeverage` set at creation (10x for APPL/USD). It determines the margin required per position — there's no per-order leverage to set.
-{% endhint %}
-
-{% hint style="warning" %}
-**Microseconds, not milliseconds.** Deadlines and TTLs are Unix timestamps in microseconds.
+**Market leverage.** Each perp market has a fixed `maxLeverage` set at creation (20x on every testnet perp). It determines the margin required per position — there's no per-order leverage to set.
 {% endhint %}

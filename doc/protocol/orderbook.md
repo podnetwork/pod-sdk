@@ -2,6 +2,10 @@
 
 Pod has an enshrined central limit order book (CLOB) built into the protocol as a precompile.
 
+{% hint style="info" %}
+**Orderbook precompile address:** `0x50d0000000000000000000000000000000000002` (same on every Pod network). All `submitOrder` / `cancel` / `update` / `deposit` / `withdraw` calls target this address — see the [Orderbook precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook) for the full ABI.
+{% endhint %}
+
 Orders are immediately added to the order book as soon as they are finalized through the standard attestation flow - they do not wait for the current batch to conclude. This means cancellations and modifications are also applied responsively, before the next matching round. This is better than systems that execute cancels and modifications at the top of a block, because in Pod the liquidity from cancels and updates can already be reflected in the book before waiting for batch confirmation.
 
 ## Order Types
