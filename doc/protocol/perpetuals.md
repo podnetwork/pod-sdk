@@ -33,8 +33,8 @@ For each market, on every batch:
 ```
 funding_rate = clamp(
     interest_rate
-      + saturate(impact_bid − oracle_price)
-      − saturate(oracle_price − impact_ask),
+      + saturate((impact_bid − oracle_price) / oracle_price)
+      − saturate((oracle_price − impact_ask) / oracle_price),
     max_funding_rate,
 )
 ```
