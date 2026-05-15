@@ -41,6 +41,10 @@ View transactions and accounts
 
 ## Next Steps
 
+{% hint style="info" %}
+**Transaction hashes as identifiers.** Pod uses the **transaction hash** — the value returned by `eth_sendRawTransaction` when the transaction was submitted — as the canonical identifier for the entity that transaction created. Anywhere a later call needs to reference that entity, pass its creating tx hash. For example, the orderbook precompile's `cancel(orderbookId, canceledOrder, …)` and `update(orderbookId, updatedOrder, …)` both take the `submitOrder` tx hash as the order id, and `ob_getOrders` exposes the same value as `tx_hash`.
+{% endhint %}
+
 Pod supports standard Ethereum RPC methods under the `eth_` namespace, with a few differences due to Pod's blockless architecture. Pod also introduces additional namespaces for protocol-specific and orderbook functionality:
 
 * [**JSON-RPC**](json-rpc/README.md) - Standard `eth_` methods, Pod-specific `pod_` extensions, and orderbook data via `ob_` endpoints.

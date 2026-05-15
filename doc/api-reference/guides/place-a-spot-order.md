@@ -6,6 +6,8 @@ Spot orders use the same `submitOrder` call as perpetual orders. For spot, pass 
 
 The example below trades the NVDAx-USD spot market — see [Market Configurations](../market-configurations.md) for the full live list.
 
+See the [Orderbook precompile reference](../applications-precompiles/orderbook.md) for the timestamp unit, deadline-alignment, and TTL rules that apply to every call below.
+
 ## Steps
 
 1. Deposit the quote token into the orderbook contract.

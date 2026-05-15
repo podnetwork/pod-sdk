@@ -4,19 +4,7 @@ This guide walks through opening a leveraged perpetual position on one of Pod's 
 
 Perpetual markets are quoted in **USD** and use cross-margin: a single USD deposit serves as collateral for all open perp positions on the account. `size` is the order quantity in **base-asset units** and is signed — positive opens a long, negative opens a short. Margin is computed by the market from `|size| × price / maxLeverage`.
 
-{% hint style="warning" %}
-**All timestamps sent to the RPC are in microseconds**, not milliseconds or seconds.
-{% endhint %}
-
-{% hint style="warning" %}
-**`deadline` must be aligned to the market's auction interval.** The orderbook validator rejects any intent (orders, cancels, updates, deposits, withdrawals) whose deadline is not a multiple of `auction_interval` with `"CLOB validation failed: Deadline is not aligned to auction interval"`. Compute it as:
-
-```text
-deadline_us = ceil(now_us / auction_interval_us) * auction_interval_us
-```
-
-`auction_interval` is returned in **milliseconds** by `ob_getMarkets` — multiply by 1,000 to get microseconds. `ttl` does not need to be aligned, but must extend at least one full `auction_interval` past `deadline`.
-{% endhint %}
+See the [Orderbook precompile reference](../applications-precompiles/orderbook.md) for the timestamp unit, deadline-alignment, and TTL rules that apply to every call below.
 
 ## Steps
 

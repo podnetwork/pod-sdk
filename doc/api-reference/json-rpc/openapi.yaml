@@ -1266,12 +1266,6 @@ components:
       description: Unsigned 256-bit integer (decimal string representation)
       example: "1000000000000000000"
 
-    DecimalInt256:
-      type: string
-      pattern: "^-?[0-9]+$"
-      description: Signed 256-bit integer (decimal string representation, may be negative)
-      example: "-1000000000000000000"
-
     Timestamp:
       type: integer
       format: int64
@@ -1526,40 +1520,42 @@ components:
           description: Maximum allowed leverage. Returned for both spot and perp markets, but only meaningful for perp.
           example: 10
         oracle_price:
-          allOf:
-            - $ref: '#/components/schemas/HexUint256'
+          type: string
+          pattern: "^0x[a-fA-F0-9]+$"
           nullable: true
           description: |
-            Perp markets only. Latest Pyth oracle price (1e18-scaled), used as the
-            mark for funding and liquidation. `null` for spot markets.
+            Perp markets only. Latest Pyth oracle price as a hex-encoded
+            unsigned 256-bit integer (1e18-scaled), used as the mark for funding
+            and liquidation. `null` for spot markets.
         funding_rate_8h:
-          allOf:
-            - $ref: '#/components/schemas/DecimalInt256'
+          type: string
+          pattern: "^-?[0-9]+$"
           nullable: true
           description: |
-            Perp markets only. Per-8-hour funding rate, signed and 1e18-scaled,
-            returned as a decimal string. `null` for spot markets.
+            Perp markets only. Per-8-hour funding rate as a signed decimal
+            string (1e18-scaled, may be negative). `null` for spot markets.
         funding_index:
-          allOf:
-            - $ref: '#/components/schemas/DecimalInt256'
+          type: string
+          pattern: "^-?[0-9]+$"
           nullable: true
           description: |
-            Perp markets only. Cumulative per-unit-size funding accumulator,
-            signed and 1e18-scaled, returned as a decimal string. `null` for
+            Perp markets only. Cumulative per-unit-size funding accumulator as
+            a signed decimal string (1e18-scaled, may be negative). `null` for
             spot markets.
         funding_last_updated:
-          allOf:
-            - $ref: '#/components/schemas/Timestamp'
+          type: integer
+          format: int64
           nullable: true
           description: |
-            Perp markets only. Microsecond timestamp of the batch that produced
+            Perp markets only. Microsecond Unix timestamp of the batch that produced
             the most recent funding update. `null` for spot markets.
         open_interest:
-          allOf:
-            - $ref: '#/components/schemas/HexUint256'
+          type: string
+          pattern: "^0x[a-fA-F0-9]+$"
           nullable: true
           description: |
-            Perp markets only. Open interest in 1e18-scaled USD notional —
+            Perp markets only. Open interest in 1e18-scaled USD notional as a
+            hex-encoded unsigned 256-bit integer —
             `mark_price * Σ |position.size|` across every open cross-margin
             position on this market. `null` for spot markets.
 
