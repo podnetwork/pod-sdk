@@ -9,7 +9,23 @@ Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds
 {% endhint %}
 
 {% hint style="warning" %}
-**Microseconds, not milliseconds.** Most client libraries default to seconds or milliseconds.
+**All timestamps sent to the orderbook are in microseconds**, not milliseconds or seconds. This applies to every `deadline` and `ttl` on this precompile.
+{% endhint %}
+
+{% hint style="info" %}
+**Orders are identified by the `submitOrder` tx hash.** Wherever a call references an existing order — `cancel(canceledOrder, …)`, `update(updatedOrder, …)`, the batch `getOrders(txHashes, …)` read — pass the **transaction hash returned by `eth_sendRawTransaction`** when the order was originally submitted. The same value is echoed as `tx_hash` on `ob_getOrders`. See [Transaction hashes as identifiers](../README.md) in the API reference index for the general rule.
+{% endhint %}
+
+{% hint style="warning" %}
+**`deadline`** is the latest batch the intent is allowed to be included in — the intent can land in any batch up to and including the one whose end matches `deadline`. It must be aligned to the market's `auction_interval` (a multiple of it), or the validator rejects the intent with `"CLOB validation failed: Deadline is not aligned to auction interval"`. Compute it as:
+
+```text
+deadline = ceil((now + LAG) / auction_interval) * auction_interval
+```
+
+`LAG` is the headroom you add to `now` so the intent reaches enough validators before its target batch. It is capped at **10 minutes**; aim for **at least 1 minute** under normal conditions, smaller when you want to target a specific upcoming batch.
+
+See [Batch Deadline](../../protocol/orderbook.md#batch-deadline) in the protocol reference for the full discussion of `deadline` semantics and the trade-offs around `LAG`.
 {% endhint %}
 
 ### Solidity interface (ABI)
@@ -45,7 +61,7 @@ contract Orderbook {
      * @param size The size of the order. Positive (+) for Buy/Bid, Negative (-) for Sell/Ask.
      * @param price The limit price for the order.
      * @param orderType The order type (Limit or Market).
-     * @param deadline The timestamp limit for this order to be included in a batch in microseconds.
+     * @param deadline The timestamp limit for this order to be included in a batch in microseconds. Must be a multiple of the market's `auction_interval`.
      * @param ttl The "Time To Live" duration in microseconds; how long the order remains active in the book.
      * @param reduceOnly If true, this order will only reduce an existing position. Perp markets only.
      * @param ioc If true, the order is Immediate-Or-Cancel: any unmatched portion is cancelled at the end of the batch instead of resting on the book.
@@ -64,8 +80,9 @@ contract Orderbook {
     /**
      * @notice Cancels an existing open order.
      * @param orderbookId The unique identifier of the market the order belongs to.
-     * @param canceledOrder The unique hash/identifier of the order to be cancelled.
-     * @param deadline The Unix timestamp after which this cancellation request is invalid in microseconds.
+     * @param canceledOrder The unique identifier/`tx_hash` of the original `submitOrder` transaction
+     *        (also exposed as `tx_hash` on `ob_getOrders`).
+     * @param deadline The Unix timestamp after which this cancellation request is invalid in microseconds. Must be a multiple of the market's `auction_interval`.
      */
     function cancel(
         bytes32 orderbookId,
@@ -76,11 +93,12 @@ contract Orderbook {
     /**
      * @notice Updates an existing open order.
      * @param orderbookId The unique identifier of the market the order belongs to.
-     * @param updatedOrder The unique hash/identifier of the order to update.
+     * @param updatedOrder The unique identifier/`tx_hash` of the original `submitOrder` transaction
+     *        (also exposed as `tx_hash` on `ob_getOrders`).
      * @param newSize The new size for the order.
      * @param newPrice The new price for the order.
      * @param token The token used to cover any additional collateral required by the update.
-     * @param deadline The Unix timestamp after which this update is invalid in microseconds.
+     * @param deadline The Unix timestamp after which this update is invalid in microseconds. Must be a multiple of the market's `auction_interval`.
      */
     function update(
         bytes32 orderbookId,
@@ -138,7 +156,7 @@ contract Orderbook {
      * @param token The address of the token to deposit.
      * @param recipient The address that will be credited with the deposit.
      * @param amount The amount of tokens to deposit (in atomic units).
-     * @param deadline The Unix timestamp after which the deposit is invalid in microseconds.
+     * @param deadline The Unix timestamp after which the deposit is invalid in microseconds. Must be a multiple of the `auction_interval`.
      */
     function deposit(
         address token,
@@ -152,7 +170,7 @@ contract Orderbook {
      * @param token The address of the ERC20 token to withdraw.
      * @param recipient The address receiving the withdrawn tokens.
      * @param amount The amount of tokens to withdraw.
-     * @param deadline The Unix timestamp after which the withdrawal is invalid in microseconds.
+     * @param deadline The Unix timestamp after which the withdrawal is invalid in microseconds. Must be a multiple of the `auction_interval`.
      */
     function withdraw(
         address token,

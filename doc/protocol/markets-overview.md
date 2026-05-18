@@ -38,3 +38,4 @@ External markets use the [Optimistic Auctions](optimistic-auctions.md) precompil
 
 * [Order Book](orderbook.md) - the enshrined CLOB, order types, matching, and market data
 * [Optimistic Auctions](optimistic-auctions.md) - censorship-resistant auctions with off-Pod settlement
+* [JSON-RPC reference](https://docs.v2.pod.network/api-reference/json-rpc) - the `ob_*` methods (`ob_getMarkets`, `ob_getOrders`, `ob_getPositions`, …) used to read market state and order/position history

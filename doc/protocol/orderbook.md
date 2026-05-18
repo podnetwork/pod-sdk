@@ -2,6 +2,10 @@
 
 Pod has an enshrined central limit order book (CLOB) built into the protocol as a precompile.
 
+{% hint style="info" %}
+**Orderbook precompile address:** `0x50d0000000000000000000000000000000000002` (same on every Pod network). All `submitOrder` / `cancel` / `update` / `deposit` / `withdraw` calls target this address — see the [Orderbook precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook) for the full ABI.
+{% endhint %}
+
 Orders are immediately added to the order book as soon as they are finalized through the standard attestation flow - they do not wait for the current batch to conclude. This means cancellations and modifications are also applied responsively, before the next matching round. This is better than systems that execute cancels and modifications at the top of a block, because in Pod the liquidity from cancels and updates can already be reflected in the book before waiting for batch confirmation.
 
 ## Order Types
@@ -34,9 +38,15 @@ All matched orders execute at the same uniform price. No participant gets a bett
 
 ### Batch Deadline
 
-The `deadline` parameter in `submitOrder` specifies the latest batch the user wants their order included in. The order can be included in any batch up to and including the deadline batch.
+The `deadline` parameter in `submitOrder` specifies the latest batch the user wants their order included in. The order can be included in any batch up to and including the deadline batch — so pushing `deadline` further into the future widens the window of batches the order can land in, it does not delay execution.
 
-The deadline can currently be set to a maximum of 10 minutes in the future. This is the maximum last look duration. We expect to shorten this as the network matures.
+`deadline` must be **aligned to the market's `auction_interval`** (a multiple of it); intents whose deadline is not aligned are rejected by the validator with `"CLOB validation failed: Deadline is not aligned to auction interval"`. Compute it as:
+
+```text
+deadline = ceil((now + LAG) / auction_interval) * auction_interval
+```
+
+`LAG` is the headroom you give for network and attestation propagation, capped at **10 minutes** in the future from `now_us`. Most integrators should aim for **at least 1 minute**; experts who want to target a specific upcoming batch can push it lower at the risk of missing the batch if the transaction doesn't reach enough validators in time. This 10-minute ceiling is the maximum last look duration and is expected to shorten as the network matures.
 
 The protocol guarantees (via [past perfection](network-architecture/timestamping.md#past-perfection)) that if an order receives n - f attestations within the deadline - which it will if it was sent sufficiently early - it will be part of a batch up to and including the latest batch specified by the deadline.
 

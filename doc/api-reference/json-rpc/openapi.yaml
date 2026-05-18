@@ -120,7 +120,7 @@ paths:
                     quote_token_name: "USD"
                     market_type: "spot"
                     last_clearing_price: "0x6f05b59d3b200000"
-                    auction_interval: 500
+                    auction_interval: "500000"
                     volume_24h: "0x2386f26fc10000"
                     high_24h: "0x1158e460913d00000"
                     low_24h: "0x6f05b59d3b200000"
@@ -129,6 +129,37 @@ paths:
                     taker_fee: "0x0"
                     tick_precision: "0x1"
                     lot_size: "0x1"
+                    max_leverage: 1
+                    oracle_price: null
+                    funding_rate_8h: null
+                    funding_index: null
+                    funding_last_updated: null
+                    open_interest: null
+                  - id: "0x0000000000000000000000000000000000000000000000000000000000000007"
+                    name: "NVDA/USD"
+                    base_token_address: "0x0000000000000000000000000000000000000007"
+                    quote_token_address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+                    base_token_symbol: "NVDA"
+                    quote_token_symbol: "USD"
+                    base_token_name: "Nvidia Perpetual"
+                    quote_token_name: "USD"
+                    market_type: "perpetual"
+                    last_clearing_price: "0x796e3ea3f8ab00000"
+                    auction_interval: "500000"
+                    volume_24h: "0x0"
+                    high_24h: "0x0"
+                    low_24h: "0x0"
+                    price_change_24h: 0
+                    maker_fee: "0x0"
+                    taker_fee: "0x0"
+                    tick_precision: "0x1"
+                    lot_size: "0x1"
+                    max_leverage: 20
+                    oracle_price: "0x796e3ea3f8ab00000"
+                    funding_rate_8h: "0"
+                    funding_index: "0"
+                    funding_last_updated: 1704153600000000
+                    open_interest: "0x0"
                 id: 1
 
   /ob_getOrderbook:
@@ -403,7 +434,7 @@ paths:
                       realized_pnl: "0"
                     - kind: "perp"
                       orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
-                      base_symbol: "BTC"
+                      base_symbol: "NVDA"
                       quote_symbol: "USD"
                       side: "long"
                       size: "10000000000000000"
@@ -626,7 +657,7 @@ paths:
                   example: ["0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"]
       responses:
         '200':
-          description: Transaction object, or null if not found
+          description: Transaction object, or `null` if not found.
           content:
             application/json:
               schema:
@@ -634,9 +665,7 @@ paths:
                 properties:
                   jsonrpc: { type: string }
                   result:
-                    oneOf:
-                      - $ref: '#/components/schemas/Transaction'
-                      - type: "null"
+                    $ref: '#/components/schemas/Transaction'
                   id: { type: integer }
 
   /eth_getTransactionCount:
@@ -841,7 +870,7 @@ paths:
                   example: ["0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"]
       responses:
         '200':
-          description: Transaction receipt with Pod-specific attestation data, or null if not found
+          description: Transaction receipt with Pod-specific attestation data, or `null` if not found.
           content:
             application/json:
               schema:
@@ -849,9 +878,7 @@ paths:
                 properties:
                   jsonrpc: { type: string }
                   result:
-                    oneOf:
-                      - $ref: '#/components/schemas/TransactionReceipt'
-                      - type: "null"
+                    $ref: '#/components/schemas/TransactionReceipt'
                   id: { type: integer }
               example:
                 jsonrpc: "2.0"
@@ -1457,8 +1484,10 @@ components:
           $ref: '#/components/schemas/HexUint256'
           description: Last auction clearing price (quote/base with 1e18 scale)
         auction_interval:
-          type: integer
-          description: Auction interval in milliseconds
+          type: string
+          pattern: "^[0-9]+$"
+          description: Length of a matching round. Serialized as a decimal string because the value is a `u128` on the wire.
+          example: "500000"
         volume_24h: 
           $ref: '#/components/schemas/HexUint256'
           description: 24-hour trading volume
@@ -1474,16 +1503,55 @@ components:
           description: 24-hour price change (signed integer)
         tick_precision:
           $ref: '#/components/schemas/HexUint256'
-          description: Minimum price tick size
+          description: Minimum price tick size, hex-encoded with `1e18` scale (e.g. `0xde0b6b3a7640000` = `1e18` = one whole tick).
         lot_size:
           $ref: '#/components/schemas/HexUint256'
-          description: Minimum order size increment. Order sizes must be multiples of this value.
+          description: Minimum order size increment, hex-encoded with `1e18` scale. Order sizes must be multiples of this value.
         maker_fee:
           $ref: '#/components/schemas/HexUint256'
-          description: Maker fee rate
+          description: Maker fee rate (1e18-scaled)
         taker_fee:
           $ref: '#/components/schemas/HexUint256'
-          description: Taker fee rate
+          description: Taker fee rate (1e18-scaled)
+        max_leverage:
+          type: integer
+          description: Maximum allowed leverage. Returned for both spot and perp markets, but only meaningful for perp.
+          example: 10
+        oracle_price:
+          type: string
+          nullable: true
+          description: |
+            Perp markets only. Latest Pyth oracle price as a hex-encoded
+            unsigned 256-bit integer (1e18-scaled), used as the mark for funding
+            and liquidation. `null` for spot markets.
+        funding_rate_8h:
+          type: string
+          nullable: true
+          description: |
+            Perp markets only. Per-8-hour funding rate as a signed decimal
+            string (1e18-scaled, may be negative). `null` for spot markets.
+        funding_index:
+          type: string
+          nullable: true
+          description: |
+            Perp markets only. Cumulative per-unit-size funding accumulator as
+            a signed decimal string (1e18-scaled, may be negative). `null` for
+            spot markets.
+        funding_last_updated:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            Perp markets only. Microsecond Unix timestamp of the batch that produced
+            the most recent funding update. `null` for spot markets.
+        open_interest:
+          type: string
+          nullable: true
+          description: |
+            Perp markets only. Open interest in 1e18-scaled USD notional as a
+            hex-encoded unsigned 256-bit integer —
+            `mark_price * Σ |position.size|` across every open cross-margin
+            position on this market. `null` for spot markets.
 
     TickSnapshot:
       type: object
