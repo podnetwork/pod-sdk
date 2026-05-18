@@ -12,14 +12,20 @@ Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds
 **All timestamps sent to the orderbook are in microseconds**, not milliseconds or seconds. This applies to every `deadline` and `ttl` on this precompile.
 {% endhint %}
 
+{% hint style="info" %}
+**Orders are identified by the `submitOrder` tx hash.** Wherever a call references an existing order — `cancel(canceledOrder, …)`, `update(updatedOrder, …)`, the batch `getOrders(txHashes, …)` read — pass the **transaction hash returned by `eth_sendRawTransaction`** when the order was originally submitted. The same value is echoed as `tx_hash` on `ob_getOrders`. See [Transaction hashes as identifiers](../README.md) in the API reference index for the general rule.
+{% endhint %}
+
 {% hint style="warning" %}
-**`deadline` must be aligned to the market's auction interval.** The orderbook validator rejects any intent (orders, cancels, updates, deposits, withdrawals) whose deadline is not a multiple of `auction_interval` with `"CLOB validation failed: Deadline is not aligned to auction interval"`. Compute it as:
+**`deadline`** is the latest batch the intent is allowed to be included in — the intent can land in any batch up to and including the one whose end matches `deadline`. It must be aligned to the market's `auction_interval` (a multiple of it), or the validator rejects the intent with `"CLOB validation failed: Deadline is not aligned to auction interval"`. Compute it as:
 
 ```text
-deadline_us = ceil(now_us / auction_interval_us) * auction_interval_us
+deadline = ceil((now + LAG) / auction_interval) * auction_interval
 ```
 
-`auction_interval` is returned in **milliseconds** by `ob_getMarkets` — multiply by 1,000 to get microseconds. `ttl` does not need to be aligned, but on `submitOrder` it must extend at least one full `auction_interval` past `deadline`.
+`LAG` is the headroom you add to `now` so the intent reaches enough validators before its target batch. It is capped at **10 minutes**; aim for **at least 1 minute** under normal conditions, smaller when you want to target a specific upcoming batch.
+
+See [Batch Deadline](../../protocol/orderbook.md#batch-deadline) in the protocol reference for the full discussion of `deadline` semantics and the trade-offs around `LAG`.
 {% endhint %}
 
 ### Solidity interface (ABI)

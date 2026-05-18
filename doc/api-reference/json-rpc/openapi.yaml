@@ -120,7 +120,7 @@ paths:
                     quote_token_name: "USD"
                     market_type: "spot"
                     last_clearing_price: "0x6f05b59d3b200000"
-                    auction_interval: 500
+                    auction_interval: "500000"
                     volume_24h: "0x2386f26fc10000"
                     high_24h: "0x1158e460913d00000"
                     low_24h: "0x6f05b59d3b200000"
@@ -145,7 +145,7 @@ paths:
                     quote_token_name: "USD"
                     market_type: "perpetual"
                     last_clearing_price: "0x796e3ea3f8ab00000"
-                    auction_interval: 500
+                    auction_interval: "500000"
                     volume_24h: "0x0"
                     high_24h: "0x0"
                     low_24h: "0x0"
@@ -1484,8 +1484,10 @@ components:
           $ref: '#/components/schemas/HexUint256'
           description: Last auction clearing price (quote/base with 1e18 scale)
         auction_interval:
-          type: integer
-          description: Auction interval in milliseconds
+          type: string
+          pattern: "^[0-9]+$"
+          description: Length of a matching round. Serialized as a decimal string because the value is a `u128` on the wire.
+          example: "500000"
         volume_24h: 
           $ref: '#/components/schemas/HexUint256'
           description: 24-hour trading volume
