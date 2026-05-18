@@ -42,7 +42,7 @@ funding_rate = clamp(
 ```
 
 - `oracle_price` - the spot price reported by the oracle for the underlying.
-- `impact_bid` / `impact_ask` - the best price at which a fixed impact volume can be bought / sold, computed with the batch auction logic.
+- `impact_bid` / `impact_ask` - the effective price a taker would get when opening a short / long position of size `impact_notional` (a per-market USD amount, defaulting to $10,000) against the current batch auction.
 - `saturate(x)` - `max(x, 0)`: each term contributes only when it pushes the perp away from spot.
 - `interest_rate` - a per-market constant, defaulting to 0.01% per 8 hours.
 - `max_funding_rate` - a per-market cap on the rate's magnitude, defaulting to 4% per hour.
