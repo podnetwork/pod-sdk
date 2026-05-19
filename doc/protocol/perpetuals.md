@@ -10,10 +10,12 @@ Each perp market maintains a **mark price** - a smoothed reference price derived
 
 It is recomputed every batch:
 
-```
-price_diff_ema = clamp(ema(clearing_or_mid − oracle_price, 3 min), 0, max_premium)
-mark_price     = clamp(oracle_price + price_diff_ema, last_mark_price, mark_clamp_pct × last_mark_price)
-```
+$$
+\begin{aligned}
+\text{price\_diff\_ema} &= \operatorname{clamp}\bigl(\operatorname{ema}(\text{clearing\_or\_mid} - \text{oracle\_price},\ 3\,\text{min}),\ 0,\ \text{max\_premium}\bigr) \\
+\text{mark\_price} &= \operatorname{clamp}\bigl(\text{oracle\_price} + \text{price\_diff\_ema},\ \text{last\_mark\_price},\ \text{mark\_clamp\_pct} \cdot \text{last\_mark\_price}\bigr)
+\end{aligned}
+$$
 
 - `clamp(x, center, half_width)` - clips `x` to `[center − half_width, center + half_width]`.
 - `clearing_or_mid` - the batch's uniform clearing price if it matched, otherwise the order book mid price.
@@ -29,15 +31,15 @@ Perpetuals use a funding mechanism to keep the mark price aligned with the under
 
 For each market, on every batch:
 
-```
-funding_rate = clamp(
-    interest_rate
-      + saturate((impact_bid − oracle_price) / oracle_price)
-      − saturate((oracle_price − impact_ask) / oracle_price),
-    0,
-    max_funding_rate,
-)
-```
+$$
+\begin{aligned}
+\text{funding\_rate} = \operatorname{clamp}\Bigl(\,
+  &\text{interest\_rate} \\
+  &+ \operatorname{saturate}\!\bigl(\tfrac{\text{impact\_bid} - \text{oracle\_price}}{\text{oracle\_price}}\bigr) \\
+  &- \operatorname{saturate}\!\bigl(\tfrac{\text{oracle\_price} - \text{impact\_ask}}{\text{oracle\_price}}\bigr), \\
+  &0,\ \text{max\_funding\_rate}
+\Bigr)
+$$
 
 - `oracle_price` - the spot price reported by the oracle for the underlying.
 - `impact_bid` / `impact_ask` - the effective price a taker would get when opening a short / long position of size `impact_notional` (a per-market USD amount, defaulting to $10,000) against the current batch auction.
@@ -52,9 +54,11 @@ When the perp trades at a premium (`impact_bid` above the oracle) the first `sat
 
 Every batch, each open position settles funding into cash:
 
-```
-funding_payment = funding_rate × oracle_price × position.size
-realized_pnl   −= funding_payment
-```
+$$
+\begin{aligned}
+\text{funding\_payment} &= \text{funding\_rate} \cdot \text{oracle\_price} \cdot \text{position.size} \\
+\text{realized\_pnl} &\leftarrow \text{realized\_pnl} - \text{funding\_payment}
+\end{aligned}
+$$
 
-`position.size` is signed (long positive, short negative), so a positive `funding_rate` charges longs and credits shorts, and vice versa. After settlement, the position's unrealized PnL is pure price drift: `(mark − entry) × size`.
+`position.size` is signed (long positive, short negative), so a positive `funding_rate` charges longs and credits shorts, and vice versa. After settlement, the position's unrealized PnL is pure price drift: $(\text{mark} - \text{entry}) \cdot \text{size}$.
