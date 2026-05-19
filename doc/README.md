@@ -1,7 +1,6 @@
 ---
 description: The network for high-performance, MEV-free, global markets
 layout:
-  width: wide
   title:
     visible: true
   description:
