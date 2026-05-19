@@ -8,51 +8,47 @@ Each account is summarized by a handful of quantities.
 
 Start with **cash** - the part of the account not tied to any position's PnL. It accumulates deposits and incoming funding, and decreases on withdrawals and outgoing funding:
 
-$$
-\text{cash} = \text{deposits} - \text{withdrawals} + \text{funding\_payments}
-$$
+```
+cash = deposits − withdrawals + Σ funding_payments
+```
 
 (See [Per-position payment](perpetuals.md#per-position-payment) for how funding settles.)
 
-**Equity** is the account's mark-to-market value: cash plus the PnL on every open position, where each position's PnL is $(\text{mark\_price} - \text{entry\_price}) \cdot \text{position.size}$:
+**Equity** is the account's mark-to-market value: cash plus the PnL on every open position, where each position's PnL is `(mark_price − entry_price) × position.size`:
 
-$$
-\text{equity} = \text{cash} + \sum_{\text{positions}} \text{pnl}
-$$
+```
+equity = cash + Σ pnl
+```
 
 A position's **notional** is its mark-to-market size, and the account's **effective leverage** is total notional divided by equity:
 
-$$
-\begin{aligned}
-\text{notional} &= \sum_{\text{positions}} |\text{position.size}| \cdot \text{mark\_price} \\
-\text{effective\_leverage} &= \frac{\text{notional}}{\text{equity}}
-\end{aligned}
-$$
+```
+notional           = Σ |position.size| × mark_price
+effective_leverage = notional / equity
+```
 
 ## Margin requirements
 
 Every open position contributes to two margin levels for the account: **initial margin**, required to open or increase a position, and **maintenance margin**, required to keep it open. Each contributes a fraction of its notional:
 
-$$
-\begin{aligned}
-\text{locked\_margin} &= \sum_{\text{positions}} |\text{position.size}| \cdot \text{mark\_price} \cdot \text{initial\_margin\_ratio} \\
-\text{liquidation\_margin} &= \sum_{\text{positions}} |\text{position.size}| \cdot \text{mark\_price} \cdot \text{maintenance\_margin\_ratio}
-\end{aligned}
-$$
+```
+locked_margin      = Σ |position.size| × mark_price × initial_margin_ratio
+liquidation_margin = Σ |position.size| × mark_price × maintenance_margin_ratio
+```
 
 `initial_margin_ratio` and `maintenance_margin_ratio` are per-market parameters, with the maintenance ratio strictly smaller.
 
 The headroom between equity and `locked_margin` is the **available margin** - new positions can be opened, or existing ones increased, only while it is non-negative:
 
-$$
-\text{available\_margin} = \text{equity} - \text{locked\_margin}
-$$
+```
+available_margin = equity − locked_margin
+```
 
 The maximum cash that can be withdrawn at any time is capped both by available margin and by realized cash, since unrealized PnL is not withdrawable until the position closes:
 
-$$
-\text{withdrawable\_cash} = \min(\text{available\_margin},\ \text{cash})
-$$
+```
+withdrawable_cash = min(available_margin, cash)
+```
 
 When `equity < liquidation_margin`, positions become eligible for liquidation.
 
