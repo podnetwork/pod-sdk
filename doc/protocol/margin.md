@@ -9,7 +9,7 @@ Each account is summarized by a handful of quantities.
 Start with **cash** - the part of the account not tied to any position's PnL. It accumulates deposits and incoming funding, and decreases on withdrawals and outgoing funding:
 
 ```
-cash = deposits − withdrawals + Σ funding_payments
+cash = deposits − withdrawals + funding_payments
 ```
 
 (See [Per-position payment](perpetuals.md#per-position-payment) for how funding settles.)
@@ -17,13 +17,13 @@ cash = deposits − withdrawals + Σ funding_payments
 **Equity** is the account's mark-to-market value: cash plus the PnL on every open position, where each position's PnL is `(mark_price − entry_price) × position.size`:
 
 ```
-equity = cash + Σ pnl
+equity = cash + Σ_{open positions} ( pnl )
 ```
 
 A position's **notional** is its mark-to-market size, and the account's **effective leverage** is total notional divided by equity:
 
 ```
-notional           = Σ |position.size| × mark_price
+notional           = Σ_{open positions} ( |position.size| × mark_price )
 effective_leverage = notional / equity
 ```
 
@@ -32,8 +32,8 @@ effective_leverage = notional / equity
 Every open position contributes to two margin levels for the account: **initial margin**, required to open or increase a position, and **maintenance margin**, required to keep it open. Each contributes a fraction of its notional:
 
 ```
-locked_margin      = Σ |position.size| × mark_price × initial_margin_ratio
-liquidation_margin = Σ |position.size| × mark_price × maintenance_margin_ratio
+locked_margin      = Σ_{open positions} ( |position.size| × mark_price × initial_margin_ratio )
+liquidation_margin = Σ_{open positions} ( |position.size| × mark_price × maintenance_margin_ratio )
 ```
 
 `initial_margin_ratio` and `maintenance_margin_ratio` are per-market parameters, with the maintenance ratio strictly smaller.
