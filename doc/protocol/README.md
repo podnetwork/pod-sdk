@@ -30,6 +30,7 @@ Not every application can be built fully coordination-free. This is a new paradi
 **Markets**  - the enshrined market primitives:
 - [Overview](markets-overview.md)  - enshrined market infrastructure and MEV elimination
 - [Orderbook](orderbook.md)  - the enshrined CLOB, order types, and batch auction matching
-- [Perpetuals](perpetuals.md)  - margin, funding, liquidation, and ADL
+- [Perpetuals](perpetuals.md)  - mark price and funding
+- [Margin](margin.md)  - cross margin, margin requirements, liquidation, and ADL
 - [Optimistic Auctions](optimistic-auctions.md)  - censorship-resistant auctions with off-Pod settlement
 - [Tokens](fungible-tokens.md)  - the native token model
