@@ -53,6 +53,10 @@ The highest absolute P&L wins the Rolex Submariner Date. The winner will be cont
 * The testnet resets at the start — there is no carryover from prior testnet activity.
 * Late registrations are allowed throughout the competition but start with a 9,000 USD balance.
 
+## Legal
+
+By registering, participants agree to the [Terms of Use](https://pod.network/terms) and [Privacy Policy](https://pod.network/terms?tab=privacy). The full Official Rules for this competition will be published on this page before the start date and govern in case of any conflict with the summary above.
+
 ## Next steps
 
 {% cards %}
