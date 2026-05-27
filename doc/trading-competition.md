@@ -31,9 +31,9 @@ Every registered participant gets paper testnet USD to trade with. The starting 
 
 | Participant                                                         | Starting balance |
 | ------------------------------------------------------------------- | ---------------- |
-| Registered before the start, deposited on the waitlist              | **10,500 USD**   |
+| Registered before the start and deposited on the waitlist           | **10,500 USD**   |
 | Registered before the start, no waitlist deposit                    | **10,000 USD**   |
-| Registered after the competition has started                        | **9,000 USD**    |
+| Registered after the competition has started                        | ** 9,000 USD**   |
 
 {% hint style="info" %}
 **Paper money only.** Competition balances cannot be withdrawn from the network or transferred between accounts. They exist purely for the duration of the competition.
@@ -41,7 +41,7 @@ Every registered participant gets paper testnet USD to trade with. The starting 
 
 ## How winners are decided
 
-At the end of the three weeks, each registered account is scored by **absolute P&L** — the change in total account value (cash + open positions, marked to market) from the participant's starting balance.
+At the end of the three weeks, each registered account is scored by **absolute P&L** - the change in total account value (cash + open positions, marked to market) from the participant's starting balance.
 
 The highest absolute P&L wins the Rolex Submariner Date. The winner will be contacted by **DM from the official Pod X account** to their verified X account to arrange delivery of the prize.
 
@@ -51,7 +51,7 @@ The highest absolute P&L wins the Rolex Submariner Date. The winner will be cont
 * One X account is linked to one wallet for the duration of the competition.
 * Paper testnet balances are non-withdrawable and non-transferable.
 * The testnet resets at the start — there is no carryover from prior testnet activity.
-* Late registrations are allowed throughout the competition but start with a 9,000 USD balance.
+* Late registrations are allowed throughout the competition but start with 9,000 USD instead of a 10,0000 USD balance.
 
 ## Legal
 
