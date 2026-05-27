@@ -55,7 +55,7 @@ The highest absolute P&L wins the Rolex Submariner Ref: 124060. The winner will 
 
 ## Legal
 
-By registering, participants agree to the [Terms of Use](https://pod.network/terms) and [Privacy Policy](https://pod.network/terms?tab=privacy). The full Official Rules for this competition will be published on this page before the start date and govern in case of any conflict with the summary above.
+By registering, participants agree to the [Official Rules](https://app.pod.network/terms?tab=challenge), the [Terms of Use](https://pod.network/terms), and the [Privacy Policy](https://pod.network/terms?tab=privacy). The Official Rules govern the competition and prevail in case of any conflict with the summary above.
 
 ## Next steps
 
@@ -66,7 +66,7 @@ Sign up, link your X account, and claim your starting balance.
 {% card title="Join the waitlist" href="https://app.pod.network" %}
 Deposit on the waitlist to start the competition with an extra 500 USD.
 {% endcard %}
-{% card title="Place a perpetual order" href="api-reference/guides/place-a-perpetual-order.md" %}
+{% card title="Place a perpetual order" href="../api-reference/guides/place-a-perpetual-order.md" %}
 Guide for opening a leveraged perp position on Pod.
 {% endcard %}
 {% endcards %}
