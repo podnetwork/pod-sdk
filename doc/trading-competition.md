@@ -1,13 +1,13 @@
 # Trading Competition
 
-A three-week trading competition hosted at [**test.pod.network**](https://test.pod.network). Highest absolute P&L at the end wins a **Rolex Submariner Date**.
+A three-week trading competition hosted at [**test.pod.network**](https://test.pod.network). Highest absolute P&L at the end wins a **Rolex Submariner Ref: 124060**.
 
 |                | |
-| -------------- | -------------------------------- |
-| **Starts**     | Wednesday, June 3, 2026          |
-| **Ends**       | Wednesday, June 24, 2026         |
-| **Site**       | [test.pod.network](https://test.pod.network) |
-| **Prize**      | Rolex Submariner Date            |
+| -------------- | --------------------------------  |
+| **Starts**     | Wednesday, June 3, 2026, 2PM CET  |
+| **Ends**       | Wednesday, June 24, 2026, 2PM CET |
+| **Site**       | [test.pod.network](https://test.pod.network)|
+| **Prize**      | Rolex Submariner Ref: 124060      |
 | **Registration** | Open to anyone meeting the eligibility criteria below |
 
 {% hint style="warning" %}
@@ -31,9 +31,9 @@ Every registered participant gets paper testnet USD to trade with. The starting 
 
 | Participant                                                         | Starting balance |
 | ------------------------------------------------------------------- | ---------------- |
-| Registered before the start, deposited on the waitlist              | **10,500 USD**   |
-| Registered before the start, no waitlist deposit                    | **10,000 USD**   |
-| Registered after the competition has started                        | **9,000 USD**    |
+| Registered before the start, deposited on the waitlist              | **$10,500 USD**   |
+| Registered before the start, no waitlist deposit                    | **$10,000 USD**   |
+| Registered after the competition has started                        | **$ 9,000 USD**   |
 
 {% hint style="info" %}
 **Paper money only.** Competition balances cannot be withdrawn from the network or transferred between accounts. They exist purely for the duration of the competition.
@@ -43,7 +43,7 @@ Every registered participant gets paper testnet USD to trade with. The starting 
 
 At the end of the three weeks, each registered account is scored by **absolute P&L** — the change in total account value (cash + open positions, marked to market) from the participant's starting balance.
 
-The highest absolute P&L wins the Rolex Submariner Date. The winner will be contacted by **DM from the official Pod X account** to their verified X account to arrange delivery of the prize.
+The highest absolute P&L wins the Rolex Submariner Ref: 124060. The winner will be contacted by **DM from the official Pod X account** to their verified X account to arrange delivery of the prize.
 
 ## Rules summary
 
@@ -51,7 +51,7 @@ The highest absolute P&L wins the Rolex Submariner Date. The winner will be cont
 * One X account is linked to one wallet for the duration of the competition.
 * Paper testnet balances are non-withdrawable and non-transferable.
 * The testnet resets at the start — there is no carryover from prior testnet activity.
-* Late registrations are allowed throughout the competition but start with a 9,000 USD balance.
+* Late registrations are allowed throughout the competition but start with a $9,000 USD balance.
 
 ## Legal
 
