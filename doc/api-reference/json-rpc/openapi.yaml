@@ -120,7 +120,7 @@ paths:
                     quote_token_name: "USD"
                     market_type: "spot"
                     last_clearing_price: "0x6f05b59d3b200000"
-                    auction_interval: "500000"
+                    auction_interval: 500000
                     volume_24h: "0x2386f26fc10000"
                     high_24h: "0x1158e460913d00000"
                     low_24h: "0x6f05b59d3b200000"
@@ -131,7 +131,8 @@ paths:
                     lot_size: "0x1"
                     max_leverage: 1
                     oracle_price: null
-                    funding_rate_8h: null
+                    mark_price: null
+                    funding_rate: null
                     funding_index: null
                     funding_last_updated: null
                     open_interest: null
@@ -145,7 +146,7 @@ paths:
                     quote_token_name: "USD"
                     market_type: "perpetual"
                     last_clearing_price: "0x796e3ea3f8ab00000"
-                    auction_interval: "500000"
+                    auction_interval: 500000
                     volume_24h: "0x0"
                     high_24h: "0x0"
                     low_24h: "0x0"
@@ -156,7 +157,8 @@ paths:
                     lot_size: "0x1"
                     max_leverage: 20
                     oracle_price: "0x796e3ea3f8ab00000"
-                    funding_rate_8h: "0"
+                    mark_price: "0x796e3ea3f8ab00000"
+                    funding_rate: "0"
                     funding_index: "0"
                     funding_last_updated: 1704153600000000
                     open_interest: "0x0"
@@ -208,26 +210,31 @@ paths:
               example:
                 jsonrpc: "2.0"
                 result:
-                  clob_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                  orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
                   buys:
                     "5000000000000000000":
-                      volume: "1000000000000000000"
+                      volume: "0xde0b6b3a7640000"
                       minimum_expiry: 1704153600000000
                     "4900000000000000000":
-                      volume: "2000000000000000000"
+                      volume: "0x1bc16d674ec80000"
                       minimum_expiry: 1704153600000000
                   sells:
                     "5100000000000000000":
-                      volume: "1500000000000000000"
+                      volume: "0x14d1120d7b160000"
                       minimum_expiry: 1704153600000000
                     "5200000000000000000":
-                      volume: "2500000000000000000"
+                      volume: "0x22b1c8c1227a0000"
                       minimum_expiry: 1704153600000000
-                  grouping_precision: "1"
+                  clearing_price: "0x4563918244f40000"
+                  grouping_precision: "0x1"
                   timestamp: 1704153600000000
                   new_orders_count: 5
                   buys_count: 2
                   sells_count: 2
+                  oracle_price: null
+                  funding_rate: null
+                  funding_index: null
+                  funding_last_updated: null
                 id: 1
 
   /ob_getCandles:
@@ -255,10 +262,14 @@ paths:
                 params:
                   type: array
                   description: |
-                    Parameters:
-                    1. `orderbook_id` (bytes32): The 32-byte orderbook identifier
-                    2. `query` (object): Query parameters with resolution, time range, and limit
-                  example: 
+                    Positional parameters:
+                    1. `orderbook_id` (Bytes32): The 32-byte orderbook identifier
+                    2. `query` (CandlesQuery): Query parameters with resolution, time range, and limit
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/Bytes32'
+                      - $ref: '#/components/schemas/CandlesQuery'
+                  example:
                     - "0x0000000000000000000000000000000000000000000000000000000000000001"
                     - resolution: "1h"
                       from_ts: 1704067200000000
@@ -317,10 +328,14 @@ paths:
                 params:
                   type: array
                   description: |
-                    Parameters:
-                    1. `address` (address): The address to get orders for
-                    2. `query` (object): Query parameters with optional orderbook_id, limit, cursor, and status filter
-                  example: 
+                    Positional parameters:
+                    1. `address` (Address): The address to get orders for
+                    2. `query` (OrdersQuery): Query parameters with optional orderbook_id, limit, cursor, and status filter
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/Address'
+                      - $ref: '#/components/schemas/OrdersQuery'
+                  example:
                     - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
                     - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
                       limit: 10
@@ -346,7 +361,7 @@ paths:
                       next_cursor:
                         type: string
                         nullable: true
-                        description: Cursor for fetching the next page. Null if no more results.
+                        description: 'Cursor for fetching the next page (wire format `"{ts}:{nonce}:{order_id_hex}"`). Null if no more results.'
                   id: { type: integer }
               example:
                 jsonrpc: "2.0"
@@ -366,13 +381,13 @@ paths:
                       filled_base_amount: "0x6f05b59d3b20000"
                       filled_quote_amount: "0x22b1c8c1227a0000"
                       fee: "0x0"
-                      deadline: "1704153600000000"
-                      end: "1704240000000000"
+                      deadline: 1704153600000000
+                      end: 1704240000000000
                       effective_price: "0x4563918244f40000"
                       fills: []
                       direction: "buy"
                   total_count: 42
-                  next_cursor: "1704153600000000:42"
+                  next_cursor: "1704153600000000:42:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                 id: 1
 
   /ob_getPositions:
@@ -451,6 +466,10 @@ paths:
                       take_profit: null
                   total_unrealized_pnl: "0"
                   total_realized_pnl: "0"
+                  perps_equity: "0"
+                  account_value: "0x21e19e0c9bab2400000"
+                  cash: "0"
+                  withdrawable_cash: "0x0"
                 id: 1
 
   /ob_getFills:
@@ -480,9 +499,13 @@ paths:
                 params:
                   type: array
                   description: |
-                    Parameters:
-                    1. `address` (address): The address to get fills for
-                    2. `query` (object): Query parameters with required from_ts and optional to_ts, orderbook_id, and limit
+                    Positional parameters:
+                    1. `address` (Address): The address to get fills for
+                    2. `query` (FillsQuery): Query parameters with required from_ts and optional to_ts, orderbook_id, and limit
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/Address'
+                      - $ref: '#/components/schemas/FillsQuery'
                   example:
                     - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
                     - from_ts: 1704067200000000
@@ -507,7 +530,7 @@ paths:
                     - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
                       base_token: "0x0000000000000000000000000000000000000001"
                       quote_token: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
-                      tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                      order_id: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                       order_type: "limit"
                       initial_size: "1000000000000000000"
                       fee: "0"
@@ -516,6 +539,208 @@ paths:
                       timestamp: 1704153600000000
                       price: "5000000000000000000"
                 id: 1
+
+  /ob_getTriggers:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Account Triggers
+      operationId: ob_getTriggers
+      description: |
+        Retrieves the armed TP/SL trigger orders owned by an address, with cursor-based pagination.
+
+        Triggers are conditional perp orders: when the pair's mark price crosses `trigger_price`
+        in the direction implied by `trigger_type` and the sign of `size`, the engine emits a
+        synthetic order (surfaced through `ob_getOrders` with `kind = triggered`). Triggers
+        themselves have no fill history, so this response is leaner than `ob_getOrders`.
+
+        Triggers are returned sorted by `(orderbook_id, order_id)`. Use `next_cursor` from the
+        response to fetch subsequent pages.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getTriggers" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Positional parameters:
+                    1. `address` (Address): The address to get triggers for
+                    2. `query` (TriggersQuery): Optional filters — `orderbook_id`, `limit` (clamped to `[1, 200]`), and `cursor`
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/Address'
+                      - $ref: '#/components/schemas/TriggersQuery'
+                  example:
+                    - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                    - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
+                      limit: 50
+      responses:
+        '200':
+          description: Object containing the triggers array, total count, and pagination cursor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/GetTriggersResponse' }
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  triggers:
+                    - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
+                      order_id: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+                      tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                      bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                      nonce: 7
+                      size: "-10000000000000000"
+                      limit_price: "0x115ad84a8ad03c00000"
+                      trigger_price: "0x120a871cc0020a00000"
+                      trigger_type: "take_profit"
+                      grouping: "position"
+                      reduce_only: true
+                      ioc: false
+                      deadline: "1704153600000000"
+                      end: "1704240000000000"
+                  total_count: 1
+                  next_cursor: null
+                id: 1
+
+  /ob_getRankedPositions:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Ranked Positions (Leaderboard)
+      operationId: ob_getRankedPositions
+      description: |
+        Returns accounts ranked by combined realized + unrealized PnL
+        (`total_realized_pnl + total_unrealized_pnl`) descending, paginated by `offset`/`limit`.
+
+        Because the unrealized component moves with mark prices, the ordering can shift between
+        calls even without trades. When an `address` is supplied, the response also includes that
+        account's own positions and rank (`queried`), independent of the returned page.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getRankedPositions" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Positional parameters (all optional):
+                    1. `limit` (integer, nullable): Page size
+                    2. `offset` (integer, nullable): Number of ranked accounts to skip
+                    3. `address` (Address, nullable): When supplied, also return this account's positions and rank in `queried`
+                  items:
+                    oneOf:
+                      - type: integer
+                        nullable: true
+                      - $ref: '#/components/schemas/Address'
+                  example: [10, 0, "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"]
+      responses:
+        '200':
+          description: Ranked window of accounts plus the total count and optional queried account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/GetRankedPositionsResponse' }
+                  id: { type: integer }
+
+  /ob_getOraclePrices:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Oracle & Mark Prices
+      operationId: ob_getOraclePrices
+      description: |
+        Returns the latest oracle and mark prices recorded for perp orderbooks by the indexer.
+
+        Pass an `orderbook_id` to fetch a single orderbook, or omit it for every perp orderbook.
+        Numeric fields are `0` and `as_of` is epoch until the orderbook has run a perp batch.
+        Funding state is not included here — call `ob_getFundingRates` for that.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getOraclePrices" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Positional parameters:
+                    1. `orderbook_id` (Bytes32, optional): Restrict to a single orderbook; omit for all perp orderbooks
+                  items: { $ref: '#/components/schemas/Bytes32' }
+                  example: ["0x0000000000000000000000000000000000000000000000000000000000000007"]
+      responses:
+        '200':
+          description: Array of oracle/mark price objects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: array
+                    items: { $ref: '#/components/schemas/OraclePrice' }
+                  id: { type: integer }
+
+  /ob_getFundingRates:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Funding Rates
+      operationId: ob_getFundingRates
+      description: |
+        Returns the latest funding state for perp orderbooks, with the mark and oracle prices
+        included for context.
+
+        Pass an `orderbook_id` to fetch a single orderbook, or omit it for every perp orderbook.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getFundingRates" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Positional parameters:
+                    1. `orderbook_id` (Bytes32, optional): Restrict to a single orderbook; omit for all perp orderbooks
+                  items: { $ref: '#/components/schemas/Bytes32' }
+                  example: ["0x0000000000000000000000000000000000000000000000000000000000000007"]
+      responses:
+        '200':
+          description: Array of funding rate objects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: array
+                    items: { $ref: '#/components/schemas/FundingRate' }
+                  id: { type: integer }
 
   # ==========================================
   # GROUP 2: ETHEREUM COMPATIBLE (eth_)
@@ -1279,8 +1504,8 @@ components:
     # ==========================================
     Side:
       type: string
-      enum: ["Buy", "Sell"]
-      description: Order side - Buy (bid) or Sell (ask)
+      enum: [buy, sell]
+      description: Order side — `buy` (bid) or `sell` (ask). For perps, prefer `direction` (see `OrderDirection`) for the position-effect label.
 
     OrderStatus:
       type: string
@@ -1303,18 +1528,37 @@ components:
       enum: ["1m", "5m", "15m", "1h", "4h", "1d"]
       description: Time interval for OHLCV candles
 
+    TriggerType:
+      type: string
+      enum: [take_profit, stop_loss]
+      description: |
+        Type of a TP/SL trigger order on a perp market:
+        - `take_profit`: fires when the mark price moves favorably across `trigger_price`
+        - `stop_loss`: fires when the mark price moves adversely across `trigger_price`
+
+        Also set on a synthetic order (`kind = triggered`) that a fired trigger produced.
+
+    TriggerGrouping:
+      type: string
+      enum: [none, position]
+      description: |
+        Whether a trigger (and any synthetic order it produces) is bound to the bidder's position on the pair:
+        - `none`: standalone — the trigger is removed only by a user cancel, TTL expiry, or its own fire; any synthetic order it produced survives independently
+        - `position`: position-bound — the venue removes the armed trigger *and* any resting synthetic order it produced once the bidder's position on the pair reaches size 0
+
+        Omitted from an `Order` response when it is the default `none`.
+
     # ==========================================
     # DOMAIN OBJECTS
     # ==========================================
     OrderKind:
       type: string
-      enum: [user_signed, liquidation, adl, backstop_transfer]
+      enum: [user_signed, liquidation, triggered]
       description: |
         Origin of the order:
-        - `user_signed`: a normal user-submitted order
-        - `liquidation`: synthesized by the engine when liquidating a perp position
-        - `adl`: synthesized for auto-deleveraging when equity goes negative
-        - `backstop_transfer`: synthesized when the portfolio is transferred to the backstop vault
+        - `user_signed`: a normal user-submitted order (every order placed via the `submitOrder` contract call)
+        - `liquidation`: synthesized by the engine, per (user, pair), when an account falls below maintenance margin
+        - `triggered`: the synthetic order emitted deterministically by validators when an armed TP/SL trigger crosses its threshold against the pair's mark price. Carries `trigger_type` and `grouping` inherited from the parent trigger.
 
     OrderDirection:
       type: string
@@ -1401,10 +1645,10 @@ components:
           $ref: '#/components/schemas/HexUint256'
           description: Accumulated trading fee. Currently always zero.
         deadline:
-          $ref: '#/components/schemas/TimestampString'
+          $ref: '#/components/schemas/Timestamp'
           description: Timestamp by which order must be included in the orderbook (microseconds)
         end:
-          $ref: '#/components/schemas/TimestampString'
+          $ref: '#/components/schemas/Timestamp'
           description: Timestamp when order expires (microseconds)
         effective_price:
           $ref: '#/components/schemas/HexUint256'
@@ -1423,7 +1667,14 @@ components:
           nullable: true
         direction:
           $ref: '#/components/schemas/OrderDirection'
-          description: Composite direction label (set for spot, and for perps once fills land or for liquidation/ADL orders).
+          description: Composite direction label (set for spot, and for perps once fills land or for liquidation orders).
+          nullable: true
+        grouping:
+          $ref: '#/components/schemas/TriggerGrouping'
+          description: Trigger-grouping mode inherited from the parent trigger. Omitted when it is the default `none`.
+        trigger_type:
+          $ref: '#/components/schemas/TriggerType'
+          description: Trigger type (`take_profit` / `stop_loss`) inherited from the parent `TriggerOrder` when this order is the synthetic produced by a fired trigger (`kind = triggered`). Omitted for every other order.
           nullable: true
 
     Candle:
@@ -1484,10 +1735,10 @@ components:
           $ref: '#/components/schemas/HexUint256'
           description: Last auction clearing price (quote/base with 1e18 scale)
         auction_interval:
-          type: string
-          pattern: "^[0-9]+$"
-          description: Length of a matching round. Serialized as a decimal string because the value is a `u128` on the wire.
-          example: "500000"
+          type: integer
+          format: int64
+          description: Length of a matching round, in microseconds.
+          example: 500000
         volume_24h: 
           $ref: '#/components/schemas/HexUint256'
           description: 24-hour trading volume
@@ -1524,12 +1775,18 @@ components:
             Perp markets only. Latest Pyth oracle price as a hex-encoded
             unsigned 256-bit integer (1e18-scaled), used as the mark for funding
             and liquidation. `null` for spot markets.
-        funding_rate_8h:
+        mark_price:
           type: string
           nullable: true
           description: |
-            Perp markets only. Per-8-hour funding rate as a signed decimal
-            string (1e18-scaled, may be negative). `null` for spot markets.
+            Perp markets only. True mark price (oracle-anchored) as a hex-encoded
+            unsigned 256-bit integer (1e18-scaled). `null` for spot markets.
+        funding_rate:
+          type: string
+          nullable: true
+          description: |
+            Perp markets only. Per-`funding_window` funding rate as a signed
+            decimal string (1e18-scaled, may be negative). `null` for spot markets.
         funding_index:
           type: string
           nullable: true
@@ -1557,9 +1814,9 @@ components:
       type: object
       description: Aggregated order volume at a specific price level
       properties:
-        volume: 
-          $ref: '#/components/schemas/DecimalUint256'
-          description: Total volume available at this price level
+        volume:
+          $ref: '#/components/schemas/HexUint256'
+          description: Total volume available at this price level (1e18, hex-encoded)
         minimum_expiry: 
           type: integer
           description: Minimum expiry timestamp (microseconds) for orders at this price level
@@ -1568,11 +1825,11 @@ components:
       type: object
       description: |
         Current state of an orderbook with aggregated buy/sell levels.
-        Uses `clob_id` (same as orderbook_id); websocket subscriptions use `clob_ids` for consistency.
+        The response field is `orderbook_id`; `clob_id` is accepted as an input alias when deserializing.
       properties:
-        clob_id: 
+        orderbook_id:
           $ref: '#/components/schemas/Bytes32'
-          description: Orderbook identifier (synonym for orderbook_id)
+          description: Orderbook identifier. Also accepts `clob_id` as an alias on input.
         buys: 
           type: object
           additionalProperties: { $ref: '#/components/schemas/TickSnapshot' }
@@ -1585,8 +1842,8 @@ components:
           $ref: '#/components/schemas/HexUint256'
           description: Current/last clearing price
         grouping_precision:
-          type: string
-          description: Price grouping precision used for aggregation
+          $ref: '#/components/schemas/HexUint256'
+          description: Price grouping precision used for aggregation (1e18, hex-encoded)
         timestamp: 
           type: integer
           description: Snapshot timestamp in microseconds
@@ -1599,6 +1856,23 @@ components:
         sells_count:
           type: integer
           description: Total number of sell orders in the orderbook (regardless of depth parameter)
+        oracle_price:
+          type: string
+          nullable: true
+          description: Perp orderbooks only. Pyth oracle price from the most recent perp solution's `priceProof` (1e18, hex-encoded). `null` for spot orderbooks.
+        funding_rate:
+          type: string
+          nullable: true
+          description: Perp orderbooks only. Funding rate computed for this batch (per-`funding_window`, signed 1e18 decimal string). `null` for spot orderbooks.
+        funding_index:
+          type: string
+          nullable: true
+          description: Perp orderbooks only. Cumulative per-unit-size funding accumulator after this batch (signed 1e18 decimal string). `null` for spot orderbooks.
+        funding_last_updated:
+          type: integer
+          format: int64
+          nullable: true
+          description: Perp orderbooks only. Microsecond timestamp of the batch that produced the funding update. `null` for spot orderbooks.
 
     PodAttestation:
       type: object
@@ -1748,9 +2022,12 @@ components:
         cursor:
           type: string
           description: Pagination cursor from previous response
-        status: 
+        status:
           $ref: '#/components/schemas/OrderStatus'
           description: Filter orders by status
+        with_fills:
+          type: boolean
+          description: When true, include each order's per-batch partial `fills` array in the response. Defaults to false.
 
     FillsQuery:
       type: object
@@ -1770,6 +2047,20 @@ components:
           type: integer
           description: Maximum number of fills to return (max 500). Defaults to 500.
 
+    TriggersQuery:
+      type: object
+      description: Query parameters for ob_getTriggers (address is passed as first param). All fields optional — an empty object returns every armed trigger owned by the address, capped at the server-side limit.
+      properties:
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Optional filter by orderbook; omit for all orderbooks.
+        limit:
+          type: integer
+          description: Maximum number of triggers to return. Clamped to `[1, 200]`.
+        cursor:
+          type: string
+          description: 'Pagination cursor — pass `next_cursor` from the previous response. Wire format `"{orderbook_id}:{order_id}"`.'
+
     FillResponse:
       type: object
       description: A single trade fill from a batch auction settlement
@@ -1783,9 +2074,9 @@ components:
         quote_token:
           $ref: '#/components/schemas/Address'
           description: Quote token contract address
-        tx_hash:
+        order_id:
           $ref: '#/components/schemas/Bytes32'
-          description: Transaction hash of the order that was filled
+          description: Identifier of the order that was filled
         order_type:
           type: string
           enum: [limit, market]
@@ -1817,6 +2108,137 @@ components:
           type: array
           items: { $ref: '#/components/schemas/FillResponse' }
           description: List of fills ordered by timestamp descending
+
+    TriggerOrderResponse:
+      type: object
+      description: An armed TP/SL trigger order, as returned by `ob_getTriggers`.
+      properties:
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+        order_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Identifier of the trigger (and of the synthetic order it produces when it fires).
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+          description: Hash of the `submitTrigger` transaction that armed this trigger.
+        bidder:
+          $ref: '#/components/schemas/Address'
+        nonce:
+          type: integer
+          format: int64
+        size:
+          type: string
+          description: Signed size of the synthetic order produced when the trigger fires (decimal int256). Positive = buy/long, negative = sell/short.
+        limit_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Limit price of the synthetic order produced when the trigger fires (1e18).
+        trigger_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Mark-price threshold that arms the trigger (1e18).
+        trigger_type:
+          $ref: '#/components/schemas/TriggerType'
+        grouping:
+          $ref: '#/components/schemas/TriggerGrouping'
+        reduce_only:
+          type: boolean
+        ioc:
+          type: boolean
+          description: Immediate-or-cancel — any unfilled remainder of the fired order is canceled at end of batch.
+        deadline:
+          $ref: '#/components/schemas/Timestamp'
+        end:
+          $ref: '#/components/schemas/Timestamp'
+          description: TTL expiry — the trigger is swept once `end < batch_deadline` (microseconds).
+
+    GetTriggersResponse:
+      type: object
+      description: Paginated result of `ob_getTriggers`.
+      properties:
+        triggers:
+          type: array
+          items: { $ref: '#/components/schemas/TriggerOrderResponse' }
+        total_count:
+          type: integer
+          description: Count of triggers matching `(address, orderbook_id)` *before* pagination.
+        next_cursor:
+          type: string
+          nullable: true
+          description: 'Pass back as `query.cursor` to fetch the next page. Wire format `"{orderbook_id}:{order_id}"`. Null if no more results.'
+
+    OraclePrice:
+      type: object
+      description: Latest oracle and mark prices recorded for a perp orderbook by the indexer.
+      properties:
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+        oracle_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Latest Pyth oracle price (1e18). `0` until the orderbook has run a perp batch.
+        mark_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Most recent non-zero clearing price (1e18). `0` until the orderbook has run a perp batch.
+        as_of:
+          $ref: '#/components/schemas/Timestamp'
+          description: Deadline of the batch that produced this row (microseconds). Epoch until the orderbook has run a perp batch.
+
+    FundingRate:
+      type: object
+      description: Funding state for a perp orderbook, with the latest mark and oracle prices for context. Returned by `ob_getFundingRates`.
+      properties:
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+        funding_rate:
+          type: string
+          description: Per-`funding_window` funding rate (signed decimal int256, 1e18; may be negative).
+        funding_index:
+          type: string
+          description: Cumulative per-unit-size funding accumulator (signed decimal int256, 1e18; may be negative).
+        mark_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Most recent mark price for the pair (1e18).
+        oracle_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Latest Pyth oracle price (1e18).
+        as_of:
+          $ref: '#/components/schemas/Timestamp'
+          description: Deadline of the batch that produced this funding update (microseconds). Epoch until the orderbook has run a perp batch.
+
+    RankedPosition:
+      type: object
+      description: One account's full positions snapshot, as an entry in `GetRankedPositionsResponse.ranked`.
+      properties:
+        account:
+          $ref: '#/components/schemas/Address'
+        positions:
+          $ref: '#/components/schemas/PositionsResponse'
+
+    RankedAccount:
+      type: object
+      description: An account's positions plus its zero-based rank (0 = top) in the full combined-PnL ordering.
+      properties:
+        account:
+          $ref: '#/components/schemas/Address'
+        rank:
+          type: integer
+          description: Zero-based rank in the full ordering (0 = top), independent of the returned page.
+        positions:
+          $ref: '#/components/schemas/PositionsResponse'
+
+    GetRankedPositionsResponse:
+      type: object
+      description: Paginated leaderboard of accounts ordered by combined realized + unrealized PnL descending.
+      properties:
+        ranked:
+          type: array
+          items: { $ref: '#/components/schemas/RankedPosition' }
+          description: The requested `[offset, offset + limit)` window, ordered by combined PnL descending.
+        total:
+          type: integer
+          description: Full count of ranked accounts before pagination.
+        queried:
+          $ref: '#/components/schemas/RankedAccount'
+          nullable: true
+          description: Populated only when the request supplies an `address` — that account's positions and rank. Null if no address was given, or the account has no PnL-bearing state.
 
     SubscriptionParams:
       type: object
@@ -1952,4 +2374,16 @@ components:
         total_realized_pnl:
           type: string
           description: |
-            Lifetime portfolio-wide spot realized PnL plus per-position realized PnL across currently-open perps. Closed perps' lifetime realized PnL is not retained (signed, 1e18 USD).
+            Lifetime portfolio-wide spot realized PnL plus the account-level perp realized-PnL counter. Both are cumulative across the account's history — closing a perp does not zero its contribution (signed, 1e18 USD).
+        perps_equity:
+          type: string
+          description: Cash adjusted for unsettled funding plus unrealized PnL across all open perp positions. Excludes spot holdings (signed, 1e18 USD).
+        account_value:
+          type: string
+          description: '`perps_equity` plus the mark value of all spot holdings (signed, 1e18 USD).'
+        cash:
+          type: string
+          description: Deposited collateral adjusted for unsettled funding. Signed — can be negative if the account is underwater (1e18 USD).
+        withdrawable_cash:
+          $ref: '#/components/schemas/HexUint256'
+          description: Free margin — `cash` minus the initial margin reserved by open positions (1e18 USD).
