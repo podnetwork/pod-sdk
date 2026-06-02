@@ -51,7 +51,6 @@ The highest absolute P&L wins the Rolex Submariner Ref: 124060. The winner will 
 * One X account is linked to one wallet for the duration of the competition.
 * Paper testnet balances are non-withdrawable and non-transferable.
 * The testnet resets at the start — there is no carryover from prior testnet activity.
-* Late registrations are allowed throughout the competition but start with a $9,000 USD balance.
 
 ## Legal
 
