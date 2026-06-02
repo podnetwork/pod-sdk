@@ -4,8 +4,8 @@ A three-week trading competition hosted at [**test.pod.network**](https://test.p
 
 |                | |
 | -------------- | --------------------------------  |
-| **Starts**     | Wednesday, June 3, 2026, 2PM CET  |
-| **Ends**       | Wednesday, June 24, 2026, 2PM CET |
+| **Starts**     | Wednesday, June 3, 2026,  12PM UTC|
+| **Ends**       | Wednesday, June 24, 2026, 12PM UTC|
 | **Site**       | [test.pod.network](https://test.pod.network)|
 | **Prize**      | Rolex Submariner Ref: 124060      |
 | **Registration** | Open to anyone meeting the eligibility criteria below |
@@ -31,9 +31,9 @@ Every registered participant gets paper testnet USD to trade with. The starting 
 
 | Participant                                                         | Starting balance |
 | ------------------------------------------------------------------- | ---------------- |
-| Registered before the start, deposited on the waitlist              | **$10,500 USD**   |
-| Registered before the start, no waitlist deposit                    | **$10,000 USD**   |
-| Registered after the competition has started                        | **$ 9,000 USD**   |
+| Registered and deposited on the waitlist                            | **$10,500 USD**  |
+| Registered but no waitlist deposit                                  | **$10,000 USD**  |
+
 
 {% hint style="info" %}
 **Paper money only.** Competition balances cannot be withdrawn from the network or transferred between accounts. They exist purely for the duration of the competition.
