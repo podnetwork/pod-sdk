@@ -11,14 +11,14 @@ Each perp market maintains a **mark price** - a smoothed reference price derived
 It is recomputed every batch:
 
 ```
-price_diff_ema = clamp(ema(clearing_or_mid − oracle_price, 3 min), 0, max_premium)
+price_diff_ema = clamp(ema(clearing_or_mid − oracle_price, 3 min), 0, oracle_price × max_premium)
 mark_price     = clamp(oracle_price + price_diff_ema, last_mark_price, mark_clamp_pct × last_mark_price)
 ```
 
 - `clamp(x, center, half_width)` - clips `x` to `[center − half_width, center + half_width]`.
 - `clearing_or_mid` - the batch's uniform clearing price if it matched, otherwise the order book mid price.
 - `ema(·, 3 min)` - a 3-minute exponential moving average of the gap between the book price and the oracle.
-- `max_premium` - a per-market bound; `price_diff_ema` is clamped to ±`max_premium` so mark cannot drift arbitrarily far from the oracle.
+- `max_premium` - a per-market bound; `price_diff_ema` is clamped to `oracle_price × max_premium` so mark cannot drift arbitrarily far from the oracle.
 - `mark_clamp_pct` - a per-market bound limiting how far `mark_price` can move from the previous batch's mark price in a single batch, expressed as a fraction of `last_mark_price`.
 
 ## Funding
