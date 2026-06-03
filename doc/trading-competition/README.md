@@ -18,7 +18,7 @@ A three-week trading competition hosted at [**test.pod.network**](https://test.p
 
 To register, your X (Twitter) account must satisfy at least one of:
 
-* A verified X account, **or**
+* X premium account, **or**
 * More than 100 followers
 
 One person may register **one account only**. Any sybil behavior (multiple registrations by the same person, coordinated accounts, etc.) will be disqualified.
