@@ -6,6 +6,7 @@
 
 * [Place a spot order](guides/place-a-spot-order.md)
 * [Place a perpetual order](guides/place-a-perpetual-order.md)
+* [Submit a batch order](guides/submit-a-batch-order.md)
 * [Read market data](guides/read-market-data.md)
 * [Bridge to Pod](guides/bridge-to-pod.md)
 * [Bridge from Pod](guides/bridge-from-pod.md)
@@ -27,6 +28,7 @@
           kind: openapi
           spec: pod-docs
     ```
+* [JSON-RPC Errors](json-rpc-errors.md)
 * [Precompiles](applications-precompiles/README.md)
   * [Orderbook](applications-precompiles/orderbook.md)
   * [Optimistic Auctions](applications-precompiles/wip-optimistic-auctions.md)
