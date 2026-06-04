@@ -34,7 +34,7 @@ funding_rate = clamp(
     interest_rate
       + saturate((impact_bid − oracle_price) / oracle_price)
       − saturate((oracle_price − impact_ask) / oracle_price),
-    0,
+    −max_funding_rate,
     max_funding_rate,
 )
 ```
@@ -50,11 +50,11 @@ When the perp trades at a premium (`impact_bid` above the oracle) the first `sat
 
 ### Per-position payment
 
-Every batch, each open position settles funding into cash:
+Every batch, each open position settles funding into cash. Because `interest_rate` and `max_funding_rate` are expressed per `funding_window` (8 hours by default), the payment is prorated to the actual time elapsed since the last batch:
 
 ```
-funding_payment = funding_rate × oracle_price × position.size
+funding_payment = funding_rate × oracle_price × position.size × (elapsed / funding_window)
 realized_pnl   −= funding_payment
 ```
 
-`position.size` is signed (long positive, short negative), so a positive `funding_rate` charges longs and credits shorts, and vice versa. After settlement, the position's unrealized PnL is pure price drift: `(mark − entry) × size`.
+`position.size` is signed (long positive, short negative), so a positive `funding_rate` charges longs and credits shorts, and vice versa. A position held for exactly one `funding_window` pays `funding_rate × oracle_price × position.size` in total. After settlement, the position's unrealized PnL is pure price drift: `(mark − entry) × size`.
