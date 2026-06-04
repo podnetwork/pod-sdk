@@ -27,6 +27,7 @@
           kind: openapi
           spec: pod-docs
     ```
+* [JSON-RPC Errors](json-rpc-errors.md)
 * [Precompiles](applications-precompiles/README.md)
   * [Orderbook](applications-precompiles/orderbook.md)
   * [Optimistic Auctions](applications-precompiles/wip-optimistic-auctions.md)
