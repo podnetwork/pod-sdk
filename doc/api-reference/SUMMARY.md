@@ -6,6 +6,7 @@
 
 * [Place a spot order](guides/place-a-spot-order.md)
 * [Place a perpetual order](guides/place-a-perpetual-order.md)
+* [Submit a batch order](guides/submit-a-batch-order.md)
 * [Read market data](guides/read-market-data.md)
 * [Bridge to Pod](guides/bridge-to-pod.md)
 * [Bridge from Pod](guides/bridge-from-pod.md)

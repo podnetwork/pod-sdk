@@ -28,6 +28,10 @@ deadline = ceil((now + LAG) / auction_interval) * auction_interval
 See [Batch Deadline](../../protocol/orderbook.md#batch-deadline) in the protocol reference for the full discussion of `deadline` semantics and the trade-offs around `LAG`.
 {% endhint %}
 
+### Batch envelope
+
+`submitBatch` packs several single-intent calls (1–64) into a single signed transaction that lands atomically in one auction tick. Each entry in `inner` is the full ABI-encoded calldata of a single-intent function (`submitOrder`, `cancel`, `update`, `submitTrigger`, `deposit`, …) — encoded exactly as a standalone call, including its 4-byte selector. Every sub-intent **must carry the same `deadline`** (the uniform-deadline invariant), and nested batches are rejected. For the full rules and a worked example, see [Submit a batch order](../guides/submit-a-batch-order.md).
+
 ### Solidity interface (ABI)
 
 ```solidity
@@ -178,5 +182,22 @@ contract Orderbook {
         uint256 amount,
         uint128 deadline
     ) public {}
+
+    // --- Batch envelope ---
+
+    /**
+     * @notice Carries multiple single-intent calls in one signed transaction.
+     * @dev Each `inner[i]` is the full ABI-encoded calldata of one of the other
+     *      single-intent functions on this contract — `submitOrder`, `cancel`,
+     *      `update`, `submitTrigger`, `cancelTrigger`, `updateTrigger`,
+     *      `deposit`, or `withdraw`. The whole envelope is atomic: it lands in a
+     *      single auction tick, so every sub-intent must carry the **same**
+     *      `deadline`. Constraints (enforced at validation):
+     *      - 1 to 64 sub-intents (the cap is configurable by the operator).
+     *      - All sub-intents share one `deadline` (uniform-deadline invariant).
+     *      - Nested batches are rejected — `inner[i]` may not itself be a `submitBatch`.
+     * @param inner The ABI-encoded calldata of each sub-intent, in order.
+     */
+    function submitBatch(bytes[] calldata inner) public {}
 }
 ```
