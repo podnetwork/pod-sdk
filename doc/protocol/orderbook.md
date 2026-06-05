@@ -36,6 +36,8 @@ At the end of each batch interval, the matching engine runs a double auction usi
 
 All matched orders execute at the same uniform price. No participant gets a better or worse price based on when their order arrived within the batch.
 
+Market orders do not influence the clearing price — only limit orders at the margin determine it. If the marginal matched order on one side is a market order, the clearing price equals the limit price from the other side alone. If no limit orders were matched at all, the previous batch's clearing price carries over.
+
 ### Batch Deadline
 
 The `deadline` parameter in `submitOrder` specifies the latest batch the user wants their order included in. The order can be included in any batch up to and including the deadline batch — so pushing `deadline` further into the future widens the window of batches the order can land in, it does not delay execution.
