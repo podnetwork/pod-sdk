@@ -26,7 +26,7 @@ View transactions and accounts
 | --------------- | ------------------------------------------------------------ |
 | Name            | `pod`                                                        |
 | RPC             | `https://rpc.podtestnet.dev`                                 |
-| Chain ID        | `1293`                                                       |
+| Chain ID        | `129301`                                                       |
 | Explorer        | `https://explorer.v1.pod.network`                            |
 | Currency Symbol | `USD`                                                        |
 | EVM Version     | `Prague` (Ethereum block 22,431,084, Released May 7th, 2025) |
