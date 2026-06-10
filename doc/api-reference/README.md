@@ -13,7 +13,7 @@ const balance = await provider.getBalance("0xYourAddress");
 {% card title="Fund your wallet" href="https://faucet.dev.pod.network" %}
 Get testnet tokens from the faucet
 {% endcard %}
-{% card title="Explorer" href="https://explorer.v1.pod.network" %}
+{% card title="Explorer" href="https://explorer.pod.network" %}
 View transactions and accounts
 {% endcard %}
 {% endcards %}
@@ -27,7 +27,7 @@ View transactions and accounts
 | Name            | `pod`                                                        |
 | RPC             | `https://rpc.podtestnet.dev`                                 |
 | Chain ID        | `129301`                                                       |
-| Explorer        | `https://explorer.v1.pod.network`                            |
+| Explorer        | `https://explorer.pod.network`                            |
 | Currency Symbol | `USD`                                                        |
 | EVM Version     | `Prague` (Ethereum block 22,431,084, Released May 7th, 2025) |
 {% endtab %}
