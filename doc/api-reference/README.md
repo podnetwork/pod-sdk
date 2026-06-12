@@ -42,7 +42,9 @@ View transactions and accounts
 ## Next Steps
 
 {% hint style="info" %}
-**Transaction hashes as identifiers.** Pod uses the **transaction hash** — the value returned by `eth_sendRawTransaction` when the transaction was submitted — as the canonical identifier for the entity that transaction created. Anywhere a later call needs to reference that entity, pass its creating tx hash. For example, the orderbook precompile's `cancel(orderbookId, canceledOrder, …)` and `update(orderbookId, updatedOrder, …)` both take the `submitOrder` tx hash as the order id, and `ob_getOrders` exposes the same value as `tx_hash`.
+**Transaction hashes as identifiers.** Pod often uses the **transaction hash** — the value returned by `eth_sendRawTransaction` when the transaction was submitted — as the identifier for the entity that transaction created. For example, a bridge withdrawal's claim proof is fetched by the withdrawal tx hash, and account recovery references its target transaction by tx hash.
+
+**Exception — orderbook orders.** A resting order is identified by a computed `order_id = keccak256(abi.encode(signer, nonce, sequence))`, **not** its `submitOrder` tx hash. The orderbook precompile's `cancel(orderbookId, canceledOrder, …)`, `update(orderbookId, updatedOrder, …)`, and `getOrders(orderbookId, orderIds)` all take this `order_id`; `ob_getOrders` returns it as `order_id` (and the originating tx hash separately as `tx_hash`). See the [Orderbook precompile](applications-precompiles/orderbook.md) for details.
 {% endhint %}
 
 Pod supports standard Ethereum RPC methods under the `eth_` namespace, with a few differences due to Pod's blockless architecture. Pod also introduces additional namespaces for protocol-specific and orderbook functionality:

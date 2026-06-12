@@ -2,7 +2,7 @@
 
 The **Orderbook precompile** is the on-chain execution surface for native markets — both **spot** and **perpetual**. The same contract, calls, and balances are shared across both market types; a market's behavior is determined by the `MarketType` set at creation.
 
-Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds**, **opening leveraged perpetual positions**, and **reading balances and order state**.
+Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds**, **opening leveraged perpetual positions**, **arming take-profit / stop-loss triggers**, and **reading balances and order state**.
 
 {% hint style="info" %}
 **Orderbook precompile address:** `0x50d0000000000000000000000000000000000002`
@@ -13,7 +13,13 @@ Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds
 {% endhint %}
 
 {% hint style="info" %}
-**Orders are identified by the `submitOrder` tx hash.** Wherever a call references an existing order — `cancel(canceledOrder, …)`, `update(updatedOrder, …)`, the batch `getOrders(txHashes, …)` read — pass the **transaction hash returned by `eth_sendRawTransaction`** when the order was originally submitted. The same value is echoed as `tx_hash` on `ob_getOrders`. See [Transaction hashes as identifiers](../README.md) in the API reference index for the general rule.
+**Orders are identified by a computed `order_id`, not the tx hash.** A resting order is keyed by
+
+```text
+order_id = keccak256(abi.encode(address signer, uint64 nonce, uint32 sequence))
+```
+
+where `signer` is the order owner, `nonce` is the `submitOrder` transaction's nonce, and `sequence` is the intent's position inside a `submitBatch` envelope (`0` for a standalone `submitOrder`). Wherever a call references an existing order — `cancel(canceledOrder, …)`, `update(updatedOrder, …)`, and the `getOrders(orderIds, …)` read — pass this `order_id`. You can compute it yourself with the formula above, or read it back from `ob_getOrders`, which returns it as `order_id` (the originating `submitOrder` tx hash is exposed separately as `tx_hash`).
 {% endhint %}
 
 {% hint style="warning" %}
@@ -45,6 +51,16 @@ contract Orderbook {
     enum Side { Buy, Sell }
     enum OrderType { Limit, Market }
     enum MarketType { Spot, Perp }
+
+    // Trigger kind for a TP/SL trigger (perp markets only).
+    enum TriggerType { TakeProfit, StopLoss }
+
+    // Whether a trigger is bound to the bidder's position on the pair.
+    // None: standalone — removed only by a user cancel, TTL expiry, or its own fire.
+    // Position: the venue cancels the armed trigger (and any resting synthetic order
+    //           it already produced) at the end of the batch in which the bidder's
+    //           position on the pair reaches size 0.
+    enum TriggerGrouping { None, Position }
 
     // --- Events ---
 
@@ -84,8 +100,9 @@ contract Orderbook {
     /**
      * @notice Cancels an existing open order.
      * @param orderbookId The unique identifier of the market the order belongs to.
-     * @param canceledOrder The unique identifier/`tx_hash` of the original `submitOrder` transaction
-     *        (also exposed as `tx_hash` on `ob_getOrders`).
+     * @param canceledOrder The `order_id` of the order to cancel — the computed
+     *        `keccak256(abi.encode(signer, nonce, sequence))`, also returned as `order_id` by
+     *        `ob_getOrders`. This is NOT the `submitOrder` tx hash.
      * @param deadline The Unix timestamp after which this cancellation request is invalid in microseconds. Must be a multiple of the market's `auction_interval`.
      */
     function cancel(
@@ -97,8 +114,9 @@ contract Orderbook {
     /**
      * @notice Updates an existing open order.
      * @param orderbookId The unique identifier of the market the order belongs to.
-     * @param updatedOrder The unique identifier/`tx_hash` of the original `submitOrder` transaction
-     *        (also exposed as `tx_hash` on `ob_getOrders`).
+     * @param updatedOrder The `order_id` of the order to update — the computed
+     *        `keccak256(abi.encode(signer, nonce, sequence))`, also returned as `order_id` by
+     *        `ob_getOrders`. This is NOT the `submitOrder` tx hash.
      * @param newSize The new size for the order.
      * @param newPrice The new price for the order.
      * @param token The token used to cover any additional collateral required by the update.
@@ -116,12 +134,22 @@ contract Orderbook {
     // --- Data Retrieval ---
 
     /**
-     * @notice Retrieves the deposited balance of a token for a specific account.
-     * @param token The address of the ERC20 token to check.
+     * @notice Token balance for an account, as a signed integer.
+     * @param token The address of the token to check.
      * @param account The address of the account to check.
-     * @return The current balance of the token held by the account within the exchange.
+     * @return Native USD: cash adjusted for unsettled funding (negative if the account is underwater).
+     *         Other tokens: the raw spot balance.
      */
-    function balanceOf(address token, address account) public view returns (uint256) {}
+    function balanceOf(address token, address account) public view returns (int256) {}
+
+    /**
+     * @notice Withdrawable balance for an account.
+     * @param token The address of the token to check.
+     * @param account The address of the account to check.
+     * @return Native USD: perps equity minus reserved initial margin (never negative).
+     *         Other tokens: the raw spot balance (no margin deducted).
+     */
+    function withdrawableBalance(address token, address account) public view returns (uint256) {}
 
     /**
      * @notice Retrieves the deposited balance of the caller for a specific token.
@@ -129,14 +157,14 @@ contract Orderbook {
      * @return The current balance of the token held by the caller within the exchange.
      * @deprecated Use balanceOf(address token, address account) instead.
      */
-    function getBalance(address token) public view returns (uint256) {}
+    function getBalance(address token) public view returns (int256) {}
 
     /**
-     * @notice Batches retrieval of order details by their transaction hashes.
+     * @notice Batched retrieval of order details by their order ids.
      * @param orderbookId The identifier of the market.
-     * @param txHashes An array of transaction hashes representing the orders to fetch.
+     * @param orderIds An array of `order_id`s representing the orders to fetch.
      * @return An array of order structs containing:
-     * - hash: The unique order identifier.
+     * - orderId: The unique order identifier (`keccak256(abi.encode(signer, nonce, sequence))`).
      * - side: The order side (Buy/Sell).
      * - status: The current status (e.g., Open, Filled, Canceled).
      * - remainingBase: The amount of base asset left to fill.
@@ -148,7 +176,7 @@ contract Orderbook {
      */
     function getOrders(
         bytes32 orderbookId,
-        bytes32[] calldata txHashes
+        bytes32[] calldata orderIds
     ) public view returns (
         (bytes32, Side, uint16, uint256, uint256, uint128, uint128, uint256, uint256)[] memory
     ) {}
@@ -180,6 +208,82 @@ contract Orderbook {
         address token,
         address recipient,
         uint256 amount,
+        uint128 deadline
+    ) public {}
+
+    // --- TP/SL triggers (perp markets only) ---
+
+    /**
+     * @notice Arms a take-profit / stop-loss trigger on a perp market.
+     * @dev The trigger rests on the venue until it fires, is cancelled, or its TTL
+     *      expires. It fires when the pair's mark price crosses `triggerPrice` in the
+     *      direction implied by the order side (sign of `size`) and `triggerType`:
+     *
+     *        | Side | Type       | Fires when             |
+     *        |------|------------|------------------------|
+     *        | Buy  | TakeProfit | mark price <= trigger  |
+     *        | Buy  | StopLoss   | mark price >= trigger  |
+     *        | Sell | TakeProfit | mark price >= trigger  |
+     *        | Sell | StopLoss   | mark price <= trigger  |
+     *
+     *      On firing the venue emits a synthetic limit order (price `limitPrice`,
+     *      size `size`) that is admitted into the matching batch like any other order.
+     * @param orderbookId The unique identifier of the perp market.
+     * @param size The signed base amount of the order produced when the trigger fires.
+     *        Positive (+) for Buy/long, negative (-) for Sell/short.
+     * @param limitPrice The limit price of the synthetic order produced when the trigger fires.
+     * @param triggerPrice The mark-price threshold that fires the trigger.
+     * @param triggerType TakeProfit or StopLoss.
+     * @param grouping Whether the trigger is bound to the bidder's position on the pair (see TriggerGrouping).
+     * @param deadline The latest batch this intent may be included in, in microseconds. Must be a multiple of the market's `auction_interval`.
+     * @param ttl The "Time To Live" duration in microseconds; how long the armed trigger remains active.
+     * @param reduceOnly If true, the synthetic order will only reduce an existing position.
+     * @param ioc If true, the synthetic order is Immediate-Or-Cancel: any unmatched portion is cancelled at the end of the batch it fires in.
+     */
+    function submitTrigger(
+        bytes32 orderbookId,
+        int256 size,
+        uint256 limitPrice,
+        uint256 triggerPrice,
+        TriggerType triggerType,
+        TriggerGrouping grouping,
+        uint128 deadline,
+        uint128 ttl,
+        bool reduceOnly,
+        bool ioc
+    ) public {}
+
+    /**
+     * @notice Cancels an armed trigger.
+     * @param orderbookId The unique identifier of the market the trigger belongs to.
+     * @param triggerOrder The `order_id` of the trigger to cancel — the computed
+     *        `keccak256(abi.encode(signer, nonce, sequence))`, also returned as `order_id`
+     *        by `ob_getTriggers`. This is NOT the `submitTrigger` tx hash.
+     * @param deadline The latest batch this intent may be included in, in microseconds. Must be a multiple of the market's `auction_interval`.
+     */
+    function cancelTrigger(
+        bytes32 orderbookId,
+        bytes32 triggerOrder,
+        uint128 deadline
+    ) public {}
+
+    /**
+     * @notice Updates an armed trigger. The `grouping` mode is immutable and cannot be changed.
+     * @param orderbookId The unique identifier of the market the trigger belongs to.
+     * @param triggerOrder The `order_id` of the trigger to update — the computed
+     *        `keccak256(abi.encode(signer, nonce, sequence))`, also returned as `order_id`
+     *        by `ob_getTriggers`. This is NOT the `submitTrigger` tx hash.
+     * @param newSize The new signed base amount of the order produced when the trigger fires.
+     * @param newLimitPrice The new limit price of the synthetic order.
+     * @param newTriggerPrice The new mark-price threshold that fires the trigger.
+     * @param deadline The latest batch this intent may be included in, in microseconds. Must be a multiple of the market's `auction_interval`.
+     */
+    function updateTrigger(
+        bytes32 orderbookId,
+        bytes32 triggerOrder,
+        int256 newSize,
+        uint256 newLimitPrice,
+        uint256 newTriggerPrice,
         uint128 deadline
     ) public {}
 
