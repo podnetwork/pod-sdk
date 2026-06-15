@@ -1278,16 +1278,35 @@ paths:
       summary: Subscribe to Events (WebSocket)
       operationId: eth_subscribe
       description: |
-        Creates a subscription to receive real-time updates over WebSocket.
-        
-        **Pod-specific subscriptions:**
-        - `pod_orderbook` - Receive orderbook snapshots on each mutation
-        - `pod_orders` - Receive order updates for specified orderbooks
-        
+        Creates a subscription to receive real-time updates over WebSocket. Updates are pushed
+        after each auction settlement for the subscribed orderbook(s).
+
+        **Subscription types:**
+        - `pod_orderbook` — each notification is a single `OrderbookSnapshot` for the orderbook
+          (the same shape `ob_getOrderbook` returns).
+        - `pod_orders` — each notification is an **array of `OrderUpdate`** describing what changed
+          to orders this settlement: new/invalid orders, expirations, cancellations, and fills.
+
         Subscriptions follow the standard Ethereum `eth_subscribe` pattern:
-        1. Subscribe with `eth_subscribe` → receive subscription ID
-        2. Receive updates via `eth_subscription` notifications
-        3. Cancel with `eth_unsubscribe`
+        1. Subscribe with `eth_subscribe` → receive a subscription ID.
+        2. Receive updates as `eth_subscription` notifications (see the notification shape below).
+        3. Cancel with `eth_unsubscribe`, passing the subscription ID.
+
+        **Notification format.** Updates arrive as JSON-RPC notifications, not responses:
+        ```json
+        {
+          "jsonrpc": "2.0",
+          "method": "eth_subscription",
+          "params": { "subscription": "0x<id>", "result": <payload> }
+        }
+        ```
+        For `pod_orderbook`, `result` is an `OrderbookSnapshot`; for `pod_orders`, `result` is an
+        array of `OrderUpdate`.
+
+        > **Note:** `pod_orders` is **not yet filtered by bidder** — a subscription receives order
+        > updates for *every* account on the subscribed orderbook(s), so clients tracking a single
+        > wallet must filter the stream client-side by the order/fill `bidder`. A server-side
+        > `bidder` filter is planned.
       requestBody:
         content:
           application/json:
@@ -1302,19 +1321,116 @@ paths:
                   type: array
                   description: |
                     Parameters:
-                    1. `subscription_type` (string): Type of subscription (`pod_orderbook` or `pod_orders`)
-                    2. `options` (object): Subscription options. Use `clob_ids` (array of bytes32) to filter by orderbook; empty array = all orderbooks. Use `depth` for max price levels in orderbook snapshots.
+                    1. `subscription_type` (string): `pod_orderbook` or `pod_orders`
+                    2. `options` (SubscriptionParams): Filter/format options. `clob_ids` (array of
+                       bytes32) restricts to those orderbooks (empty/omitted = all); `depth` caps the
+                       price levels in `pod_orderbook` snapshots.
+                  items:
+                    oneOf:
+                      - type: string
+                        enum: [pod_orderbook, pod_orders]
+                      - $ref: '#/components/schemas/SubscriptionParams'
                   example: ["pod_orderbook", { clob_ids: ["0x0000000000000000000000000000000000000000000000000000000000000001"], depth: 50 }]
       responses:
         '200':
-          description: Subscription ID for tracking and unsubscribing
+          description: |
+            Messages received on the subscription. The immediate reply to `eth_subscribe` is the
+            subscription ID; every subsequent message is an `eth_subscription` notification whose
+            `params.result` carries the streamed payload — an `OrderbookSnapshot` for
+            `pod_orderbook`, or an array of `OrderUpdate` for `pod_orders`.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - title: Subscription confirmation (immediate reply)
+                    type: object
+                    properties:
+                      jsonrpc: { type: string }
+                      result: { type: string, description: "Subscription ID" }
+                      id: { type: integer }
+                  - $ref: '#/components/schemas/EthSubscriptionMessage'
+              examples:
+                confirmation:
+                  summary: Immediate reply with the subscription ID
+                  value: { jsonrpc: "2.0", result: "0x9ce59a13059e417087c02d3236a0b1cc", id: 1 }
+                pod_orders_notification:
+                  summary: A streamed pod_orders notification (array of OrderUpdate)
+                  value:
+                    jsonrpc: "2.0"
+                    method: "eth_subscription"
+                    params:
+                      subscription: "0x9ce59a13059e417087c02d3236a0b1cc"
+                      result:
+                        - type: "new"
+                          orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                          market_type: "spot"
+                          kind: "user_signed"
+                          order_id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
+                          tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                          bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                          nonce: 42
+                          order_type: "limit"
+                          status: "active"
+                          side: "buy"
+                          price: "0x4563918244f40000"
+                          initial_size: "1000000000000000000"
+                          filled_base_amount: "0x0"
+                          filled_quote_amount: "0x0"
+                          fee: "0x0"
+                          deadline: 1704153600000000
+                          end: 1704240000000000
+                          effective_price: "0x0"
+                          fills: []
+                          direction: "buy"
+                        - type: "fill"
+                          orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                          order_id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
+                          tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                          bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                          status: "filled"
+                          base_amount: "0x6f05b59d3b20000"
+                          quote_amount: "0x22b1c8c1227a0000"
+                          filled_base_amount: "0x6f05b59d3b20000"
+                          filled_quote_amount: "0x22b1c8c1227a0000"
+                          effective_price: "0x4563918244f40000"
+                          fee: "0x0"
+
+  /eth_unsubscribe:
+    post:
+      tags: [Ethereum Interface (eth_)]
+      summary: Cancel a Subscription (WebSocket)
+      operationId: eth_unsubscribe
+      description: |
+        Cancels an active subscription created with `eth_subscribe`. Pass the subscription ID
+        returned by the original `eth_subscribe` call. Returns `true` if a matching subscription
+        was found and removed.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "eth_unsubscribe" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `subscription_id` (string): The ID returned by `eth_subscribe`
+                  items: { type: string }
+                  example: ["0x9ce59a13059e417087c02d3236a0b1cc"]
+      responses:
+        '200':
+          description: Whether the subscription was found and cancelled
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   jsonrpc: { type: string }
-                  result: { type: string, description: "Subscription ID" }
+                  result: { type: boolean }
                   id: { type: integer }
 
   # ==========================================
@@ -2367,15 +2483,113 @@ components:
 
     SubscriptionParams:
       type: object
-      description: Parameters for WebSocket subscriptions
+      description: |
+        Options object (second `eth_subscribe` param) for `pod_orderbook` / `pod_orders`.
+        All fields are optional.
       properties:
-        depth: 
+        depth:
           type: integer
-          description: Maximum price levels to include in orderbook snapshots
-        clob_ids: 
+          description: '`pod_orderbook` only: maximum price levels per side to include in snapshots. Omit for all levels.'
+        clob_ids:
           type: array
           items: { $ref: '#/components/schemas/Bytes32' }
-          description: List of orderbook (clob) IDs to subscribe to
+          description: Orderbook (clob) IDs to restrict the subscription to. Empty or omitted = all orderbooks.
+      # Note: a per-bidder filter for `pod_orders` is not yet supported — see the
+      # eth_subscribe description. Clients must filter the stream by bidder client-side.
+
+    EthSubscriptionMessage:
+      type: object
+      description: |
+        An asynchronous `eth_subscription` notification pushed over the WebSocket after
+        `eth_subscribe`. The `params.result` payload depends on the subscription type:
+        `OrderbookSnapshot` for `pod_orderbook`, or an array of `OrderUpdate` for `pod_orders`.
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        method:
+          type: string
+          enum: [eth_subscription]
+        params:
+          type: object
+          properties:
+            subscription:
+              type: string
+              description: The subscription ID this message belongs to.
+            result:
+              description: The streamed payload — shape determined by the subscription type.
+              oneOf:
+                - $ref: '#/components/schemas/OrderbookSnapshot'
+                - type: array
+                  items: { $ref: '#/components/schemas/OrderUpdate' }
+
+    OrderUpdate:
+      type: object
+      description: |
+        A single change to an order, pushed in the `pod_orders` notification array. It is a
+        `type`-tagged union: the `type` field selects the variant and the remaining fields depend
+        on it.
+        - `new` / `invalid`: the full `Order` fields are inlined alongside `type` (an `invalid`
+          order was rejected at execution and never entered the book; the reason is on its
+          `status`).
+        - `expired` / `canceled`: only `type` and `order_id` are present.
+        - `fill`: the `OrderFillUpdate` fields are inlined alongside `type`.
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [new, invalid, expired, canceled, fill]
+          description: Discriminator selecting the variant.
+        order_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Present for `expired` and `canceled` — the affected order id.
+      # `new`/`invalid` additionally carry every `Order` field; `fill` carries every
+      # `OrderFillUpdate` field (both inlined next to `type`).
+
+    OrderFillUpdate:
+      type: object
+      description: A fill applied to a resting order in a settlement round, as carried by the `fill` variant of `OrderUpdate`.
+      properties:
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+        order_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Identifier of the filled order.
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+          description: Hash of the transaction that created the filled order.
+        bidder:
+          $ref: '#/components/schemas/Address'
+          description: Owner of the filled order. Use this to attribute the fill client-side.
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+          description: Order status after this fill (`filled` or `active` if partially filled).
+        base_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Base tokens filled in this round (1e18).
+        quote_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Quote tokens filled in this round (1e18).
+        filled_base_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Cumulative base filled across all rounds (1e18).
+        filled_quote_amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Cumulative quote filled across all rounds (1e18).
+        effective_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Effective fill price so far (filled_quote / filled_base, 1e18).
+        fee:
+          $ref: '#/components/schemas/HexUint256'
+          description: Cumulative fee for the order (1e18). Currently always zero.
+        position_before:
+          type: string
+          nullable: true
+          description: Perp only — signed position (1e18) before the first fill on this order.
+        position_after:
+          type: string
+          nullable: true
+          description: Perp only — signed position (1e18) after this fill.
 
     PerpPositionSide:
       type: string
