@@ -1303,10 +1303,13 @@ paths:
         For `pod_orderbook`, `result` is an `OrderbookSnapshot`; for `pod_orders`, `result` is an
         array of `OrderUpdate`.
 
-        > **Note:** `pod_orders` is **not yet filtered by bidder** — a subscription receives order
-        > updates for *every* account on the subscribed orderbook(s), so clients tracking a single
-        > wallet must filter the stream client-side by the order/fill `bidder`. A server-side
-        > `bidder` filter is planned.
+        **Filtering.** Both subscription types accept `clob_ids` to restrict the stream to specific
+        orderbooks (empty/omitted = all). `pod_orders` additionally accepts `bidder`: when set, the
+        server delivers only the updates owned by that account — new/invalid orders, fills,
+        expirations, and cancellations are all filtered — so a wallet tracking a single account no
+        longer needs to filter the stream client-side. `depth` applies to `pod_orderbook` snapshots
+        only. Which option applies to which subscription type is summarised in
+        `SubscriptionParams`.
       requestBody:
         content:
           application/json:
@@ -1322,15 +1325,34 @@ paths:
                   description: |
                     Parameters:
                     1. `subscription_type` (string): `pod_orderbook` or `pod_orders`
-                    2. `options` (SubscriptionParams): Filter/format options. `clob_ids` (array of
-                       bytes32) restricts to those orderbooks (empty/omitted = all); `depth` caps the
-                       price levels in `pod_orderbook` snapshots.
+                    2. `options` (SubscriptionParams): filter/format options; all fields optional.
+                       Which fields take effect depends on the subscription type:
+                       - `clob_ids` (array of bytes32) — **both types**: restrict to those
+                         orderbooks (empty/omitted = all orderbooks).
+                       - `depth` (integer) — **`pod_orderbook` only**: cap the price levels per side
+                         in each snapshot (omit for all levels). Ignored for `pod_orders`.
+                       - `bidder` (address) — **`pod_orders` only**: stream only updates owned by
+                         this bidder (omit for every bidder's updates). Ignored for `pod_orderbook`.
                   items:
                     oneOf:
                       - type: string
                         enum: [pod_orderbook, pod_orders]
                       - $ref: '#/components/schemas/SubscriptionParams'
-                  example: ["pod_orderbook", { clob_ids: ["0x0000000000000000000000000000000000000000000000000000000000000001"], depth: 50 }]
+            examples:
+              pod_orderbook:
+                summary: pod_orderbook with a depth cap, restricted to one orderbook
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_orderbook", { clob_ids: ["0x0000000000000000000000000000000000000000000000000000000000000001"], depth: 50 }]
+              pod_orders_by_bidder:
+                summary: pod_orders filtered to a single bidder across all orderbooks
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_orders", { bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28" }]
       responses:
         '200':
           description: |
@@ -2484,8 +2506,11 @@ components:
     SubscriptionParams:
       type: object
       description: |
-        Options object (second `eth_subscribe` param) for `pod_orderbook` / `pod_orders`.
-        All fields are optional.
+        Options object (second `eth_subscribe` param) for `pod_orderbook` / `pod_orders`. All
+        fields are optional, and which ones take effect depends on the subscription type:
+        - `clob_ids` — both `pod_orderbook` and `pod_orders`.
+        - `depth` — `pod_orderbook` only (ignored for `pod_orders`).
+        - `bidder` — `pod_orders` only (ignored for `pod_orderbook`).
       properties:
         depth:
           type: integer
@@ -2493,9 +2518,10 @@ components:
         clob_ids:
           type: array
           items: { $ref: '#/components/schemas/Bytes32' }
-          description: Orderbook (clob) IDs to restrict the subscription to. Empty or omitted = all orderbooks.
-      # Note: a per-bidder filter for `pod_orders` is not yet supported — see the
-      # eth_subscribe description. Clients must filter the stream by bidder client-side.
+          description: 'Both types: orderbook (clob) IDs to restrict the subscription to. Empty or omitted = all orderbooks.'
+        bidder:
+          $ref: '#/components/schemas/Address'
+          description: '`pod_orders` only: when set, stream only the updates owned by this bidder — new/invalid orders, fills, expirations, and cancellations are all filtered. Omit to receive every bidder''s updates.'
 
     EthSubscriptionMessage:
       type: object
