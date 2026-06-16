@@ -1285,7 +1285,8 @@ paths:
         - `pod_orderbook` — each notification is a single `OrderbookSnapshot` for the orderbook
           (the same shape `ob_getOrderbook` returns).
         - `pod_orders` — each notification is an **array of `OrderUpdate`** describing what changed
-          to orders this settlement: new/invalid orders, expirations, cancellations, and fills.
+          to orders this settlement: new/invalid orders, expirations, cancellations, modifications,
+          and fills.
 
         Subscriptions follow the standard Ethereum `eth_subscribe` pattern:
         1. Subscribe with `eth_subscribe` → receive a subscription ID.
@@ -2559,16 +2560,24 @@ components:
           order was rejected at execution and never entered the book; the reason is on its
           `status`).
         - `expired` / `canceled`: only `type` and `order_id` are present.
+        - `modified`: a resting order's price and/or size was changed in place by an `update`
+          intent — `type`, `order_id`, and the new `new_price` / `new_size` are present.
         - `fill`: the `OrderFillUpdate` fields are inlined alongside `type`.
       required: [type]
       properties:
         type:
           type: string
-          enum: [new, invalid, expired, canceled, fill]
+          enum: [new, invalid, expired, canceled, modified, fill]
           description: Discriminator selecting the variant.
         order_id:
           $ref: '#/components/schemas/Bytes32'
-          description: Present for `expired` and `canceled` — the affected order id.
+          description: Present for `expired`, `canceled`, and `modified` — the affected order id.
+        new_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: '`modified` only: the order''s price after the change (1e18).'
+        new_size:
+          $ref: '#/components/schemas/HexUint256'
+          description: '`modified` only: the order''s remaining base size after the change (1e18, unsigned magnitude — side is unchanged from the original `new`).'
       # `new`/`invalid` additionally carry every `Order` field; `fill` carries every
       # `OrderFillUpdate` field (both inlined next to `type`).
 
