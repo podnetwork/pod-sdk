@@ -370,6 +370,7 @@ paths:
                     - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
                       market_type: "spot"
                       kind: "user_signed"
+                      order_id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
                       tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                       bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
                       nonce: 42
@@ -538,6 +539,71 @@ paths:
                       quote_amount: "2500000000000000000"
                       timestamp: 1704153600000000
                       price: "5000000000000000000"
+                id: 1
+
+  /ob_getBackstopTransfers:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Account Backstop Transfers
+      operationId: ob_getBackstopTransfers
+      description: |
+        Retrieves the backstop transfers for a specific address, with cursor-based pagination.
+
+        A backstop transfer is recorded when a perp position is swept to the backstop during
+        liquidation: the position's remaining size and cash are moved off the account. Each entry
+        captures the swept size, cash, the mark price at the sweep, and the account equity at that
+        moment.
+
+        Results are returned in descending order by timestamp (most recent first). Use `next_cursor`
+        from the response to fetch subsequent pages.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getBackstopTransfers" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Positional parameters:
+                    1. `address` (Address): The address to get backstop transfers for
+                    2. `query` (BackstopTransfersQuery): Optional filters — `orderbook_id`, `limit` (clamped to `[1, 200]`), and `cursor`
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/Address'
+                      - $ref: '#/components/schemas/BackstopTransfersQuery'
+                  example:
+                    - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                    - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
+                      limit: 50
+      responses:
+        '200':
+          description: Object containing the backstop transfers array, total count, and pagination cursor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/GetBackstopTransfersResponse' }
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  transfers:
+                    - user: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                      orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
+                      size: "-10000000000000000"
+                      cash: "-5000000000000000000"
+                      mark_price: "0x130ee8e7179044a0000"
+                      equity: "-1000000000000000000"
+                      timestamp: 1704153600000000
+                  total_count: 1
+                  next_cursor: null
                 id: 1
 
   /ob_getTriggers:
@@ -1609,9 +1675,12 @@ components:
           $ref: '#/components/schemas/MarketType'
         kind:
           $ref: '#/components/schemas/OrderKind'
+        order_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: 'Computed order identifier `keccak256(abi.encode(signer, nonce, sequence))` — the id orders, cancels, and updates are keyed by.'
         tx_hash:
           $ref: '#/components/schemas/Bytes32'
-          description: Transaction hash that created this order
+          description: Transaction hash that created this order. Zero for engine-generated orders (liquidations, fired-trigger synthetics).
         bidder:
           $ref: '#/components/schemas/Address'
           description: Address of the order creator
@@ -2061,6 +2130,20 @@ components:
           type: string
           description: 'Pagination cursor — pass `next_cursor` from the previous response. Wire format `"{orderbook_id}:{order_id}"`.'
 
+    BackstopTransfersQuery:
+      type: object
+      description: Query parameters for ob_getBackstopTransfers (address is passed as first param). All fields optional.
+      properties:
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Optional filter by orderbook; omit for all orderbooks.
+        limit:
+          type: integer
+          description: Maximum number of transfers to return. Clamped to `[1, 200]`.
+        cursor:
+          type: string
+          description: 'Pagination cursor — pass `next_cursor` from the previous response. Wire format `"{ts}:{id}"`.'
+
     FillResponse:
       type: object
       description: A single trade fill from a batch auction settlement
@@ -2164,6 +2247,48 @@ components:
           type: string
           nullable: true
           description: 'Pass back as `query.cursor` to fetch the next page. Wire format `"{orderbook_id}:{order_id}"`. Null if no more results.'
+
+    BackstopTransferResponse:
+      type: object
+      description: A perp position swept to the backstop during liquidation, as returned by `ob_getBackstopTransfers`.
+      properties:
+        user:
+          $ref: '#/components/schemas/Address'
+          description: Account whose position was swept.
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: The orderbook the swept position belonged to. Omitted when not recorded.
+        size:
+          type: string
+          description: Signed position size moved to the backstop (decimal int256, 1e18). Positive = long, negative = short.
+        cash:
+          type: string
+          description: Signed cash moved with the position (decimal int256, 1e18).
+        mark_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Mark price at the sweep (1e18); hex-encoded.
+        equity:
+          type: string
+          description: Account equity at the moment of the sweep (decimal int256, 1e18).
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+          description: Timestamp of the batch that produced the sweep, in microseconds.
+
+    GetBackstopTransfersResponse:
+      type: object
+      description: Paginated result of `ob_getBackstopTransfers`.
+      properties:
+        transfers:
+          type: array
+          items: { $ref: '#/components/schemas/BackstopTransferResponse' }
+          description: List of backstop transfers ordered by timestamp descending.
+        total_count:
+          type: integer
+          description: Count of transfers matching `(address, orderbook_id)` *before* pagination.
+        next_cursor:
+          type: string
+          nullable: true
+          description: 'Pass back as `query.cursor` to fetch the next page. Wire format `"{ts}:{id}"`. Null if no more results.'
 
     OraclePrice:
       type: object
