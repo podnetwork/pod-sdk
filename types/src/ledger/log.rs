@@ -91,9 +91,9 @@ impl VerifiableLog {
             certified: self.pod_metadata.receipt.clone(),
         })
     }
-    pub fn confirmation_time(&self) -> Timestamp {
-        let num_attestations = self.pod_metadata.attestations.len();
-        self.pod_metadata.attestations[num_attestations / 2].timestamp
+    pub fn confirmation_time(&self) -> Option<Timestamp> {
+        let attestations = &self.pod_metadata.attestations;
+        attestations.get(attestations.len() / 2).map(|a| a.timestamp)
     }
 
     pub fn generate_proof(&self) -> Option<MerkleProof> {
