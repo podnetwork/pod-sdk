@@ -7,12 +7,15 @@ import { createPublicClient, createWalletClient, defineChain, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts";
 import {
   accountMetrics, formatAmount, formatPrice, parseAmount, previewOrder, toNumber,
-  type Address, type Bar, type MarketId, type Order, type Resolution,
+  type Address, type Bar, type Hash, type MarketId, type Order, type Resolution,
 } from "@pod-network/trade-sdk";
 import {
   useMarkets, useMarket, useCandles, useOrderbook, useOpenOrders, useOrdersPage, useLivePositions,
 } from "@pod-network/trade-sdk/react";
-import { buildSubmitOrder, buildCancelOrder, sendRawTransaction } from "@pod-network/trade-sdk/write";
+import {
+  buildSubmitOrder, buildCancelOrder, buildUpdateOrder, sendRawTransaction, waitForReceipt, type PodTxRequest,
+} from "@pod-network/trade-sdk/write";
+import "./assets/app.css";
 
 // --- demo wallet: a viem local-key account, LOCAL DEVNET ONLY (public test key).
 // Same sendTransaction-style interface a real wallet (Privy/MetaMask) exposes.
@@ -30,12 +33,22 @@ const publicClient = createPublicClient({ chain: podDevnet, transport: http() })
 
 // Prepare + sign with the wallet (wallet-specific), then let the SDK broadcast:
 // sendRawTransaction preserves & decodes the CLOB revert reason that a
-// high-level send would drop.
-async function submit(tx: { to: Address; data: `0x${string}`; value: bigint; type: "eip1559"; gas: bigint; maxPriorityFeePerGas: bigint }): Promise<string> {
+// high-level send would drop. Returns the tx hash once the node ACCEPTS it.
+async function submit(tx: PodTxRequest): Promise<Hash> {
   const maxFeePerGas = await publicClient.getGasPrice();
   const prepared = await wallet.prepareTransactionRequest({ ...tx, account, chain: podDevnet, maxFeePerGas });
   const serialized = await wallet.signTransaction(prepared as never);
   return sendRawTransaction(RPC_URL, serialized);
+}
+
+// Send → wait for the receipt. `update` keeps the toast in its loading state
+// from "submitted" until the receipt confirms (or the tx reverts on-chain).
+async function submitConfirm(tx: PodTxRequest, update: (m: string) => void): Promise<string> {
+  const hash = await submit(tx);
+  update(`submitted ${hash.slice(0, 10)}… · confirming`);
+  const receipt = await waitForReceipt(RPC_URL, hash);
+  if (receipt.status === "reverted") throw new Error(`reverted on-chain (${hash.slice(0, 10)}…)`);
+  return `confirmed ${hash.slice(0, 10)}…`;
 }
 
 // --- tiny toast: a module pub/sub + one <Toaster/>. notify() shows a pending
@@ -50,46 +63,39 @@ function setToast(t: Toast) {
   toastSubs.forEach((f) => f());
   if (t.kind !== "pending") setTimeout(() => { toasts = toasts.filter((x) => x.id !== t.id); toastSubs.forEach((f) => f()); }, 5000);
 }
-async function notify(msg: string, run: () => Promise<string>) {
+// `run` reports its own progress via `update` (kept in the loading/pending
+// state) and resolves to the final success message.
+async function notify(msg: string, run: (update: (m: string) => void) => Promise<string>) {
   const id = ++toastSeq;
-  setToast({ id, msg, kind: "pending" });
-  try { const h = await run(); setToast({ id, msg: `sent ${h.slice(0, 10)}…`, kind: "ok" }); }
+  const update = (m: string) => setToast({ id, msg: m, kind: "pending" });
+  update(msg);
+  try { setToast({ id, msg: await run(update), kind: "ok" }); }
   catch (e) { setToast({ id, msg: (e as { shortMessage?: string }).shortMessage ?? (e as Error).message, kind: "err" }); }
 }
 function Toaster() {
   const items = useSyncExternalStore((f) => { toastSubs.add(f); return () => { toastSubs.delete(f); }; }, () => toasts);
-  const color = (k: Toast["kind"]) => (k === "pending" ? "#2c5cff" : k === "ok" ? "#3fb273" : "#e5575b");
   return (
-    <div style={{ position: "fixed", right: 16, bottom: 16, display: "flex", flexDirection: "column", gap: 8, maxWidth: 340 }}>
+    <div className="toaster">
       {items.map((t) => (
-        <div key={t.id} style={{ background: "#1d2027", borderLeft: `3px solid ${color(t.kind)}`, border: `1px solid ${color(t.kind)}`, borderRadius: 6, padding: "8px 12px", color: "#e6e8ec", fontSize: 12, boxShadow: "0 4px 16px rgba(0,0,0,0.4)", wordBreak: "break-word" }}>
+        <div key={t.id} className={`toast toast--${t.kind}`}>
           {t.kind === "pending" ? "⏳ " : t.kind === "ok" ? "✓ " : "✕ "}{t.msg}
         </div>
       ))}
     </div>
   );
 }
-const demoAddress = account.address;
+const ACCOUNT = account.address as Address; // the demo's fixed wallet address
 
-const box: React.CSSProperties = {
-  border: "1px solid #23262e", borderRadius: 6, padding: 10, background: "#14161b",
-};
 // Amounts/USD/sizes: fixed decimals (no trailing-zero trimming → stable columns).
 const fmt = (v: bigint | undefined, p = 2) => (v === undefined ? "—" : formatAmount(v, 18, p, { trim: false }));
 // Prices: decimals derived from the market tick (fallback 0.01 → 2dp).
 const DEFAULT_TICK = 10_000_000_000_000_000n;
 const px = (v: bigint | undefined, tick?: bigint) => (v === undefined ? "—" : formatPrice(v, tick ?? DEFAULT_TICK));
+// Signed amount + the up/down/flat class that colors it.
+const signed = (v: bigint | undefined, p = 2) =>
+  v === undefined ? "—" : (v < 0n ? "-" : "") + formatAmount(v < 0n ? -v : v, 18, p, { trim: false });
+const pnlCls = (v?: bigint) => (v === undefined ? "flat" : v < 0n ? "down" : "up");
 
-// The demo's embedded wallet address — fixed (not user-chosen).
-const ACCOUNT = demoAddress as Address;
-
-const inputStyle: React.CSSProperties = {
-  background: "#14161b", color: "#d7dae0", border: "1px solid #23262e", borderRadius: 6, padding: "6px 8px",
-};
-const tab = (active: boolean, color = "#2c5cff"): React.CSSProperties => ({
-  flex: 1, background: active ? color : "#1d2027", color: active ? "#fff" : "#9aa0ab",
-  border: "1px solid #23262e", borderRadius: 4, padding: "5px 8px", cursor: "pointer",
-});
 // Label a market even when only WS dynamics are loaded (no static name yet).
 const marketLabel = (m: { id: string; name?: string; type?: string }) =>
   m.name ? `${m.name}${m.type ? ` (${m.type})` : ""}` : `${m.id.slice(0, 10)}…`;
@@ -106,21 +112,21 @@ export function App() {
   const selected = id || preferred || "";
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16, display: "grid", gap: 12 }}>
-      <header style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <strong style={{ fontSize: 15 }}>pod trade SDK</strong>
-        <select value={selected} onChange={(e) => setId(e.target.value as MarketId)} style={inputStyle}>
+    <div className="app">
+      <header className="header">
+        <strong className="header__title">pod trade SDK</strong>
+        <select className="input" value={selected} onChange={(e) => setId(e.target.value as MarketId)}>
           {!markets && <option>loading markets…</option>}
           {markets?.map((m) => <option key={m.id} value={m.id}>{marketLabel(m)}</option>)}
         </select>
-        <span style={{ marginLeft: "auto", color: "#7c828d", fontSize: 11 }}>demo wallet</span>
-        <code style={{ color: "#9aa0ab", fontVariantNumeric: "tabular-nums" }}>{ACCOUNT}</code>
+        <span className="header__addr">demo wallet</span>
+        <code className="addr">{ACCOUNT}</code>
       </header>
 
       <AccountSummary account={ACCOUNT} />
       {selected && <Stats id={selected as MarketId} />}
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 240px 260px", gap: 12, alignItems: "stretch" }}>
+      <div className="main-grid">
         {selected && <Chart id={selected as MarketId} />}
         {selected && <OrderbookView id={selected as MarketId} />}
         {selected && <TradingPanel id={selected as MarketId} account={ACCOUNT} />}
@@ -132,11 +138,7 @@ export function App() {
   );
 }
 
-const signed = (v: bigint | undefined, p = 2) =>
-  v === undefined ? "—" : (v < 0n ? "-" : "") + formatAmount(v < 0n ? -v : v, 18, p, { trim: false });
-const pnlColor = (v?: bigint) => (v === undefined ? "#9aa0ab" : v < 0n ? "#e5575b" : "#3fb273");
-
-interface Card { label: string; value: string; sub?: string; color?: string }
+interface Card { label: string; value: string; sub?: string; cls?: string }
 
 // Account summary cards (top row). Financial logic comes from accountMetrics.
 function AccountSummary({ account }: { account: Address }) {
@@ -149,17 +151,17 @@ function AccountSummary({ account }: { account: Address }) {
     { label: "perps equity", value: fmt(snap?.perpsEquity, 2), sub: m && `eff. lev ${m.effectiveLeverage.toFixed(2)}x` },
     { label: "cash", value: fmt(snap?.cash, 2) },
     { label: "withdrawable", value: fmt(snap?.withdrawableCash, 2) },
-    { label: "total P&L", value: signed(m?.totalPnl), sub: pctStr(m?.totalPnlPct), color: pnlColor(m?.totalPnl) },
-    { label: "unrealized P&L", value: signed(snap?.totalUnrealizedPnl), sub: pctStr(m?.unrealizedPnlPct), color: pnlColor(snap?.totalUnrealizedPnl) },
-    { label: "realized P&L", value: signed(snap?.totalRealizedPnl), color: pnlColor(snap?.totalRealizedPnl) },
+    { label: "total P&L", value: signed(m?.totalPnl), sub: pctStr(m?.totalPnlPct), cls: pnlCls(m?.totalPnl) },
+    { label: "unrealized P&L", value: signed(snap?.totalUnrealizedPnl), sub: pctStr(m?.unrealizedPnlPct), cls: pnlCls(snap?.totalUnrealizedPnl) },
+    { label: "realized P&L", value: signed(snap?.totalRealizedPnl), cls: pnlCls(snap?.totalRealizedPnl) },
   ];
   return (
-    <div style={{ ...box, display: "flex", flexWrap: "wrap", gap: 18 }}>
+    <div className="panel row-wrap">
       {cards.map((c) => (
         <div key={c.label}>
-          <div style={{ color: "#7c828d", fontSize: 11 }}>{c.label}</div>
-          <div style={{ fontVariantNumeric: "tabular-nums", color: c.color ?? "#d7dae0" }}>{c.value}</div>
-          {c.sub && <div style={{ fontVariantNumeric: "tabular-nums", color: c.color ?? "#7c828d", fontSize: 11 }}>{c.sub}</div>}
+          <div className="card__label">{c.label}</div>
+          <div className={`card__value ${c.cls ?? ""}`}>{c.value}</div>
+          {c.sub && <div className={`card__sub ${c.cls ?? ""}`}>{c.sub}</div>}
         </div>
       ))}
     </div>
@@ -172,12 +174,11 @@ function PositionsTable({ account }: { account: Address }) {
   const marketOf = (orderbookId?: string) => (orderbookId ? markets?.find((x) => x.id === orderbookId) : undefined);
   const nameOf = (orderbookId?: string) =>
     marketOf(orderbookId)?.name ?? (orderbookId ? `${orderbookId.slice(0, 8)}…` : "—");
-  if (!snap) return <div style={{ color: "#7c828d" }}>…</div>;
-  if (snap.positions.length === 0) return <div style={{ color: "#7c828d" }}>no open positions</div>;
+  if (!snap) return <div className="empty">…</div>;
+  if (snap.positions.length === 0) return <div className="empty">no open positions</div>;
   return (
-    // table-layout: fixed → columns keep their width when numbers change size (no jitter)
-    <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
-      <thead style={{ color: "#7c828d", textAlign: "left" }}>
+    <table className="tbl">
+      <thead>
         <tr>
           <th>market</th><th>kind</th><th>size</th><th>entry</th><th>mark</th><th>notional</th>
           <th>margin</th><th>liq</th><th>funding</th><th>uPnL</th><th>rPnL</th>
@@ -187,21 +188,21 @@ function PositionsTable({ account }: { account: Address }) {
         {snap.positions.map((p, i) => {
           const t = marketOf(p.orderbookId)?.tickPrecision;
           return (
-          <tr key={i} style={{ borderTop: "1px solid #1d2027" }}>
-            <td>{nameOf(p.orderbookId)}</td>
-            <td>{p.kind}{p.kind === "perp" ? ` ${p.side} ${p.leverage.toFixed(1)}x` : ""}</td>
-            <td>{signed(p.kind === "perp" ? p.size : p.balance)}</td>
-            <td>{p.kind === "perp" ? px(p.entryPrice, t) : fmt(p.costBasis)}</td>
-            <td>{px(p.markPrice, t)}</td>
-            <td>{p.kind === "perp" ? fmt(p.notional) : "—"}</td>
-            <td>{p.kind === "perp" ? fmt(p.margin) : "—"}</td>
-            <td>{p.kind === "perp" ? px(p.liquidationPrice, t) : "—"}</td>
-            <td style={{ color: p.kind === "perp" ? pnlColor(p.fundingAccrued) : "#9aa0ab" }}>
-              {p.kind === "perp" ? signed(p.fundingAccrued, 4) : "—"}
-            </td>
-            <td style={{ color: pnlColor(p.unrealizedPnl) }}>{signed(p.unrealizedPnl)}</td>
-            <td style={{ color: pnlColor(p.realizedPnl) }}>{signed(p.realizedPnl)}</td>
-          </tr>
+            <tr key={i}>
+              <td>{nameOf(p.orderbookId)}</td>
+              <td>{p.kind}{p.kind === "perp" ? ` ${p.side} ${p.leverage.toFixed(1)}x` : ""}</td>
+              <td>{signed(p.kind === "perp" ? p.size : p.balance)}</td>
+              <td>{p.kind === "perp" ? px(p.entryPrice, t) : fmt(p.costBasis)}</td>
+              <td>{px(p.markPrice, t)}</td>
+              <td>{p.kind === "perp" ? fmt(p.notional) : "—"}</td>
+              <td>{p.kind === "perp" ? fmt(p.margin) : "—"}</td>
+              <td>{p.kind === "perp" ? px(p.liquidationPrice, t) : "—"}</td>
+              <td className={p.kind === "perp" ? pnlCls(p.fundingAccrued) : "flat"}>
+                {p.kind === "perp" ? signed(p.fundingAccrued, 4) : "—"}
+              </td>
+              <td className={pnlCls(p.unrealizedPnl)}>{signed(p.unrealizedPnl)}</td>
+              <td className={pnlCls(p.realizedPnl)}>{signed(p.realizedPnl)}</td>
+            </tr>
           );
         })}
       </tbody>
@@ -225,11 +226,11 @@ function Stats({ id }: { id: MarketId }) {
     ["open int.", fmt(m?.openInterest)],
   ];
   return (
-    <div style={{ ...box, display: "flex", flexWrap: "wrap", gap: 18 }}>
+    <div className="panel row-wrap">
       {cells.map(([k, v]) => (
         <div key={k}>
-          <div style={{ color: "#7c828d", fontSize: 11 }}>{k}</div>
-          <div style={{ fontVariantNumeric: "tabular-nums" }}>{v}</div>
+          <div className="card__label">{k}</div>
+          <div className="num">{v}</div>
         </div>
       ))}
     </div>
@@ -276,43 +277,33 @@ function Chart({ id }: { id: MarketId }) {
   }, [bars]);
 
   return (
-    <div style={{ ...box, display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+    <div className="panel chart">
+      <div className="chart__bar">
         {RESOLUTIONS.map((r) => (
-          <button
-            key={r}
-            onClick={() => setRes(r)}
-            style={{
-              background: r === res ? "#2c5cff" : "#1d2027",
-              color: r === res ? "#fff" : "#9aa0ab",
-              border: "1px solid #23262e", borderRadius: 4, padding: "3px 8px", cursor: "pointer",
-            }}
-          >
+          <button key={r} className={`chart__res${r === res ? " is-active" : ""}`} onClick={() => setRes(r)}>
             {r}
           </button>
         ))}
       </div>
-      <div ref={elRef} style={{ flex: 1, minHeight: 0 }} />
+      <div ref={elRef} className="chart__canvas" />
     </div>
   );
 }
 
 const OB_ROWS = 10; // levels shown per side — fixed, so the panel height never changes
-const OB_ROW_H = 18;
 
 type Lvl = { price: bigint; volume: bigint; total: bigint } | undefined;
-const obCols: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", fontVariantNumeric: "tabular-nums" };
 
 function OrderbookView({ id }: { id: MarketId }) {
   const ob = useOrderbook(id, { depth: OB_ROWS });
   const t = useMarket(id)?.tickPrecision;
-  const row = (l: Lvl, color: string, key: string) => (
-    <div key={key} style={{ ...obCols, height: OB_ROW_H, lineHeight: `${OB_ROW_H}px` }}>
+  const row = (l: Lvl, side: "ask" | "bid", key: string) => (
+    <div key={key} className="ob-cols ob-row">
       {l ? (
         <>
-          <span style={{ color }}>{px(l.price, t)}</span>
-          <span style={{ textAlign: "right", color: "#9aa0ab" }}>{fmt(l.volume, 2)}</span>
-          <span style={{ textAlign: "right", color: "#6b7280" }}>{fmt(l.total, 2)}</span>
+          <span className={side === "ask" ? "ob-ask" : "ob-bid"}>{px(l.price, t)}</span>
+          <span className="ob-size">{fmt(l.volume, 2)}</span>
+          <span className="ob-total">{fmt(l.total, 2)}</span>
         </>
       ) : <span>&nbsp;</span>}
     </div>
@@ -324,18 +315,18 @@ function OrderbookView({ id }: { id: MarketId }) {
   const askSlots: Lvl[] = [...Array(OB_ROWS - asks.length).fill(undefined), ...asks.slice().reverse()];
   const bidSlots: Lvl[] = [...bids, ...Array(OB_ROWS - bids.length).fill(undefined)];
   return (
-    <div style={box}>
-      <div style={{ ...obCols, color: "#7c828d", fontSize: 11, marginBottom: 4 }}>
-        <span>price</span><span style={{ textAlign: "right" }}>size</span><span style={{ textAlign: "right" }}>total</span>
+    <div className="panel">
+      <div className="ob-cols ob-head">
+        <span>price</span><span className="ob-size">size</span><span className="ob-total">total</span>
       </div>
-      {askSlots.map((l, i) => row(l, "#e5575b", `a${i}`))}
-      <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #23262e", borderBottom: "1px solid #23262e", margin: "4px 0", padding: "3px 0", fontSize: 11, color: "#9aa0ab", fontVariantNumeric: "tabular-nums" }}>
+      {askSlots.map((l, i) => row(l, "ask", `a${i}`))}
+      <div className="ob-mid">
         <span>mid {ob?.mid !== undefined ? px(ob.mid, t) : "—"}</span>
-        <span style={{ color: "#7c828d" }}>
+        <span className="muted">
           spread {ob?.spread !== undefined ? px(ob.spread, t) : "—"}{ob?.spreadPct !== undefined ? ` (${ob.spreadPct.toFixed(3)}%)` : ""}
         </span>
       </div>
-      {bidSlots.map((l, i) => row(l, "#3fb273", `b${i}`))}
+      {bidSlots.map((l, i) => row(l, "bid", `b${i}`))}
     </div>
   );
 }
@@ -349,7 +340,7 @@ function TradingPanel({ id, account }: { id: MarketId; account: Address }) {
   const [limitPrice, setLimitPrice] = useState("");
   const [notionalUsd, setNotionalUsd] = useState(0);
 
-  if (!market || !snap) return <div style={box}>trade — loading market & account…</div>;
+  if (!market || !snap) return <div className="panel">trade — loading market & account…</div>;
 
   const mid = ob?.mid;
   // Limit uses the typed price; market uses mid (falls back to mark/clearing).
@@ -382,78 +373,61 @@ function TradingPanel({ id, account }: { id: MarketId; account: Address }) {
       auctionIntervalUs: market.auctionIntervalMs * 1000,
       size: preview.size < 0n ? -preview.size : preview.size,
     });
-    notify(`${side === "long" ? "Buy" : "Sell"} ${market.name} ($${effUsd.toFixed(0)})`, () => submit(tx));
+    notify(`${side === "long" ? "Buy" : "Sell"} ${market.name} ($${effUsd.toFixed(0)})`, (u) => submitConfirm(tx, u));
   };
 
   return (
-    <div style={box}>
-      <div style={{ color: "#7c828d", fontSize: 11, marginBottom: 8 }}>trade {market.name}</div>
-      <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
-        <button style={tab(side === "long", "#3fb273")} onClick={() => setSide("long")}>long</button>
-        <button style={tab(side === "short", "#e5575b")} onClick={() => setSide("short")}>short</button>
+    <div className="panel">
+      <div className="tp__label">trade {market.name}</div>
+      <div className="tp__sides">
+        <button className={`tab tab--long${side === "long" ? " is-active" : ""}`} onClick={() => setSide("long")}>long</button>
+        <button className={`tab tab--short${side === "short" ? " is-active" : ""}`} onClick={() => setSide("short")}>short</button>
       </div>
-      <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-        <button style={tab(type === "market")} onClick={() => setType("market")}>market</button>
-        <button style={tab(type === "limit")} onClick={() => setType("limit")}>limit</button>
+      <div className="tabs">
+        <button className={`tab${type === "market" ? " is-active" : ""}`} onClick={() => setType("market")}>market</button>
+        <button className={`tab${type === "limit" ? " is-active" : ""}`} onClick={() => setType("limit")}>limit</button>
       </div>
       {type === "limit" && (
-        <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+        <div className="tp__limit">
           <input
+            className="input"
+            style={{ flex: 1, minWidth: 0 }}
             placeholder="limit price"
             value={limitPrice}
             onChange={(e) => setLimitPrice(e.target.value.trim())}
-            style={{ ...inputStyle, flex: 1, minWidth: 0 }}
           />
           <button
+            className="tab tab--auto"
             disabled={mid === undefined}
             onClick={() => mid !== undefined && setLimitPrice(formatPrice(mid, market.tickPrecision))}
-            style={tab(false)}
             title="set to mid price"
           >
             mid
           </button>
         </div>
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#7c828d" }}>
+      <div className="tp__notional">
         <span>notional</span>
         <span>
           ${effUsd.toFixed(0)} / ${maxUsd.toFixed(0)}{" "}
-          <button
-            onClick={() => setNotionalUsd(maxUsd)}
-            style={{ background: "transparent", border: "none", color: "#2c5cff", cursor: "pointer", fontSize: 11, padding: 0 }}
-            title="set to max"
-          >
-            max
-          </button>
+          <button className="link-btn" onClick={() => setNotionalUsd(maxUsd)} title="set to max">max</button>
         </span>
       </div>
       <input
+        className="tp__slider"
         type="range" min={0} max={Math.max(1, Math.floor(maxUsd))} step={Math.max(1, maxUsd / 200)}
         value={effUsd}
         onChange={(e) => setNotionalUsd(Number(e.target.value))}
-        style={{ width: "100%", marginBottom: 8 }}
       />
-      <div style={{ display: "grid", gap: 4, marginBottom: 10 }}>
+      <div className="tp__rows">
         {rows.map(([k, v]) => (
-          <div key={k} style={{ display: "flex", justifyContent: "space-between", fontVariantNumeric: "tabular-nums" }}>
-            <span style={{ color: "#7c828d" }}>{k}</span><span>{v}</span>
-          </div>
+          <div key={k}><span className="muted">{k}</span><span>{v}</span></div>
         ))}
       </div>
-      <button
-        disabled={disabled}
-        onClick={send}
-        style={{
-          width: "100%", padding: 8, borderRadius: 6, border: "none",
-          cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1,
-          background: side === "long" ? "#3fb273" : "#e5575b", color: "#fff",
-        }}
-      >
+      <button className={`submit-btn submit-btn--${side}`} disabled={disabled} onClick={send}>
         {side === "long" ? "Buy / Long" : "Sell / Short"} ({type})
       </button>
-      {!preview.sufficientMargin && effUsd > 0 && (
-        <div style={{ color: "#e5575b", fontSize: 11, marginTop: 4 }}>insufficient margin</div>
-      )}
+      {!preview.sufficientMargin && effUsd > 0 && <div className="tp__warn">insufficient margin</div>}
     </div>
   );
 }
@@ -461,6 +435,9 @@ function TradingPanel({ id, account }: { id: MarketId; account: Address }) {
 function OrderRows({ orders, empty }: { orders: Order[]; empty: string }) {
   const markets = useMarkets();
   const [busy, setBusy] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null); // order id in edit mode
+  const [draftPrice, setDraftPrice] = useState("");
+  const [draftSize, setDraftSize] = useState("");
   // Resolve the market by orderbookId (REST orders) or by token pair (WS orders).
   const marketOf = (o: Order) => {
     if (o.orderbookId) { const m = markets?.find((x) => x.id === o.orderbookId); if (m) return m; }
@@ -475,40 +452,73 @@ function OrderRows({ orders, empty }: { orders: Order[]; empty: string }) {
     const m = marketOf(o);
     if (!m) return;
     setBusy(o.id);
-    // order history is a REST snapshot that won't refresh on its own, so the
-    // toast is the only visible signal that a cancel landed.
-    await notify(`Cancel ${m.name} order`, () => submit(buildCancelOrder(m.id, o.id, { auctionIntervalUs: m.auctionIntervalMs * 1000 })));
+    await notify(`Cancel ${m.name} order`, (u) => submitConfirm(buildCancelOrder(m.id, o.id, { auctionIntervalUs: m.auctionIntervalMs * 1000 }), u));
     setBusy(null);
   };
-  if (!orders.length) return <div style={{ color: "#7c828d" }}>{empty}</div>;
+  const startEdit = (o: Order) => {
+    const m = marketOf(o);
+    setEditing(o.id);
+    setDraftPrice(m ? formatPrice(o.price, m.tickPrecision) : formatAmount(o.price, 18, 4));
+    setDraftSize(formatAmount(o.initialSize < 0n ? -o.initialSize : o.initialSize, 18, 4));
+  };
+  // Amend price/size in place via the CLOB's native `update` (keeps the order id);
+  // the open-orders stream patches the row live, history via the live overlay.
+  const applyEdit = async (o: Order) => {
+    const m = marketOf(o);
+    if (!m) return;
+    setBusy(o.id);
+    const tx = buildUpdateOrder({
+      orderbookId: m.id,
+      orderId: o.id,
+      price: parseAmount(draftPrice),
+      size: parseAmount(draftSize),
+      token: m.quote.address, // engine derives side/token from the resting order
+      tickPrecision: m.tickPrecision,
+      auctionIntervalUs: m.auctionIntervalMs * 1000,
+    });
+    await notify(`Edit ${m.name} order`, (u) => submitConfirm(tx, u));
+    setBusy(null);
+    setEditing(null);
+  };
+  if (!orders.length) return <div className="empty">{empty}</div>;
   return (
-    <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
-      <thead style={{ color: "#7c828d", textAlign: "left" }}>
+    <table className="tbl">
+      <thead>
         <tr><th>market</th><th>side</th><th>type</th><th>price</th><th>size</th><th>filled</th><th>status</th><th></th></tr>
       </thead>
       <tbody>
-        {orders.map((o) => (
-          <tr key={o.id} style={{ borderTop: "1px solid #1d2027" }}>
-            <td>{assetOf(o)}</td>
-            <td style={{ color: o.side === "buy" ? "#3fb273" : "#e5575b" }}>{o.side}</td>
-            <td>{o.orderType}</td>
-            <td>{px(o.price, marketOf(o)?.tickPrecision)}</td>
-            <td>{fmt(o.initialSize < 0n ? -o.initialSize : o.initialSize, 2)}</td>
-            <td>{fmt(o.filledBase, 2)}</td>
-            <td>{o.status}</td>
-            <td style={{ textAlign: "right" }}>
-              {o.status === "active" && (
-                <button
-                  disabled={busy === o.id}
-                  onClick={() => cancel(o)}
-                  style={{ background: "transparent", color: "#e5575b", border: "1px solid #3a2326", borderRadius: 4, padding: "1px 6px", cursor: busy === o.id ? "wait" : "pointer", fontSize: 11 }}
-                >
-                  cancel
-                </button>
-              )}
-            </td>
-          </tr>
-        ))}
+        {orders.map((o) => {
+          const isEditing = editing === o.id;
+          const tick = marketOf(o)?.tickPrecision;
+          return (
+            <tr key={o.id}>
+              <td>{assetOf(o)}</td>
+              <td className={o.side === "buy" ? "up" : "down"}>{o.side}</td>
+              <td>{o.orderType}</td>
+              <td>{isEditing
+                ? <input className="input cell-input" value={draftPrice} onChange={(e) => setDraftPrice(e.target.value.trim())} />
+                : px(o.price, tick)}</td>
+              <td>{isEditing
+                ? <input className="input cell-input" value={draftSize} onChange={(e) => setDraftSize(e.target.value.trim())} />
+                : fmt(o.initialSize < 0n ? -o.initialSize : o.initialSize, 2)}</td>
+              <td>{fmt(o.filledBase, 2)}</td>
+              <td>{o.status}</td>
+              <td style={{ textAlign: "right" }}>
+                {o.status === "active" && (isEditing ? (
+                  <>
+                    <button className="link-btn" disabled={busy === o.id} onClick={() => applyEdit(o)}>save</button>{" "}
+                    <button className="link-btn" onClick={() => setEditing(null)}>✕</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="link-btn" disabled={busy === o.id} onClick={() => startEdit(o)}>edit</button>{" "}
+                    <button className="cancel-btn" disabled={busy === o.id} onClick={() => cancel(o)}>cancel</button>
+                  </>
+                ))}
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -517,15 +527,11 @@ function OrderRows({ orders, empty }: { orders: Order[]; empty: string }) {
 function Pager({ page, hasPrev, hasNext, prev, next, note }: {
   page: number; hasPrev: boolean; hasNext: boolean; prev: () => void; next: () => void; note?: string;
 }) {
-  const btn = (on: boolean): React.CSSProperties => ({
-    background: "#1d2027", color: on ? "#d7dae0" : "#4a4f59",
-    border: "1px solid #23262e", borderRadius: 4, padding: "3px 10px", cursor: on ? "pointer" : "not-allowed",
-  });
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, color: "#7c828d", fontSize: 12 }}>
-      <button style={btn(hasPrev)} disabled={!hasPrev} onClick={prev}>‹ prev</button>
+    <div className="pager">
+      <button disabled={!hasPrev} onClick={prev}>‹ prev</button>
       <span>page {page + 1}{note ? ` · ${note}` : ""}</span>
-      <button style={btn(hasNext)} disabled={!hasNext} onClick={next}>next ›</button>
+      <button disabled={!hasNext} onClick={next}>next ›</button>
     </div>
   );
 }
@@ -556,10 +562,10 @@ function BottomTabs({ account }: { account: Address }) {
   const [activeTab, setActiveTab] = useState<"positions" | "open" | "history">("positions");
   const tabs = [["positions", "Positions"], ["open", "Open Orders"], ["history", "Order History"]] as const;
   return (
-    <div style={box}>
-      <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+    <div className="panel">
+      <div className="tabs">
         {tabs.map(([k, label]) => (
-          <button key={k} style={tab(activeTab === k)} onClick={() => setActiveTab(k)}>{label}</button>
+          <button key={k} className={`tab${activeTab === k ? " is-active" : ""}`} onClick={() => setActiveTab(k)}>{label}</button>
         ))}
       </div>
       <div style={{ display: activeTab === "positions" ? "block" : "none" }}><PositionsTable account={account} /></div>

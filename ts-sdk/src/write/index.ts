@@ -15,6 +15,7 @@ export const CLOB_ADDRESS: Address = "0x50d0000000000000000000000000000000000002
 const CLOB_ABI = parseAbi([
   "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
   "function cancel(bytes32 orderbookId, bytes32 canceledOrder, uint128 deadline)",
+  "function update(bytes32 orderbookId, bytes32 updatedOrder, uint256 newSize, uint256 newPrice, address token, uint128 deadline)",
 ]);
 
 /** ~10 years in microseconds — default far-future expiry for resting orders. */
@@ -167,6 +168,96 @@ export async function sendRawTransaction(
     throw new PodTxRevertError(reason, json.error.data);
   }
   return json.result!;
+}
+
+export interface UpdateOrderParams {
+  orderbookId: MarketId;
+  /** The resting order's id (`Order.id`) — modified in place, keeps the same id. */
+  orderId: Hash;
+  /** New price, 1e18-scaled. Floored to `tickPrecision` when given. */
+  price: bigint;
+  /**
+   * New size MAGNITUDE, 1e18-scaled. The side is unchanged — the engine reuses
+   * the resting order's side — so the sign is ignored. Must be non-zero.
+   */
+  size: bigint;
+  /**
+   * Collateral/quote token. The engine derives the real side & token from the
+   * resting order, so this is effectively informational; pass `market.quote.address`
+   * (the native USD address for perps).
+   */
+  token: Address;
+  tickPrecision?: bigint;
+  auctionIntervalUs?: number;
+  deadline?: number; // ms; default far future
+}
+
+/**
+ * Amend a resting order's price and/or size in place via the CLOB's native
+ * `update` (no cancel+resubmit, so the order keeps its id and queue identity).
+ * Aligns price to the tick and deadline to the auction interval, like
+ * {@link buildSubmitOrder}.
+ */
+export function buildUpdateOrder(p: UpdateOrderParams): PodTxRequest {
+  const nowUs = BigInt(Date.now()) * 1000n;
+  const price = p.tickPrecision ? alignPrice(p.price, p.tickPrecision) : p.price;
+  const size = p.size < 0n ? -p.size : p.size; // contract takes an unsigned magnitude
+  const interval = p.auctionIntervalUs ? BigInt(p.auctionIntervalUs) : 0n;
+  const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), interval);
+  const data = encodeFunctionData({
+    abi: CLOB_ABI,
+    functionName: "update",
+    args: [p.orderbookId, p.orderId, size, price, p.token, deadline],
+  }) as Hex;
+  return { to: CLOB_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
+}
+
+/** A mined transaction receipt (the fields a consumer typically needs). */
+export interface TxReceipt {
+  /** `success` when the tx executed (status `0x1`); `reverted` on `0x0`. */
+  status: "success" | "reverted";
+  transactionHash: Hash;
+  blockNumber: bigint;
+  gasUsed: bigint;
+}
+
+/**
+ * Poll `eth_getTransactionReceipt` until the tx is mined, then report whether it
+ * executed or reverted. A hash from {@link sendRawTransaction} only means the
+ * node accepted the tx into its pool — it is NOT yet confirmed. Await this to
+ * know the on-chain outcome. Throws on timeout. Like the rest of this module
+ * it's transport-only (raw JSON-RPC), so it needs no viem client.
+ */
+export async function waitForReceipt(
+  rpcUrl: string,
+  hash: Hash,
+  opts?: { fetch?: typeof fetch; timeoutMs?: number; pollMs?: number },
+): Promise<TxReceipt> {
+  const doFetch = opts?.fetch ?? fetch;
+  const timeoutMs = opts?.timeoutMs ?? 30_000;
+  const pollMs = opts?.pollMs ?? 250;
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const res = await doFetch(rpcUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionReceipt", params: [hash] }),
+    });
+    const json = (await res.json()) as {
+      result?: { status: string; transactionHash: Hash; blockNumber: string; gasUsed: string } | null;
+    };
+    const r = json.result;
+    if (r) {
+      return {
+        status: r.status === "0x1" ? "success" : "reverted",
+        transactionHash: r.transactionHash,
+        blockNumber: BigInt(r.blockNumber),
+        gasUsed: BigInt(r.gasUsed),
+      };
+    }
+    if (Date.now() > deadline) throw new Error(`timed out waiting for receipt ${hash}`);
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
 }
 
 /**

@@ -161,10 +161,17 @@ export function useOpenOrders(
  * Each page is a `rest.orders` call keyed by the server's `next_cursor`, so
  * pages are stable under head insertions (no gaps/duplication). Prev re-fetches
  * the prior page's cursor (settled history is immutable / cacheable).
+ *
+ * Cursors only decide *which window* of orders is shown; the per-order live
+ * state (status, fills) is overlaid from the `pod_orders` stream so a row
+ * updates in place — e.g. an order cancelled while it's on screen flips to
+ * `canceled` without a refetch. Settled orders below the live window are
+ * immutable, so missing them from the overlay is harmless.
  */
-export function useOrdersPage(account: Address, opts?: { limit?: number }): OrdersPage {
+export function useOrdersPage(account: Address, opts?: { limit?: number; liveWindow?: number }): OrdersPage {
   const client = usePodClient();
   const limit = opts?.limit ?? 25;
+  const liveWindow = opts?.liveWindow ?? 500;
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [page, setPage] = useState(0);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -182,8 +189,23 @@ export function useOrdersPage(account: Address, opts?: { limit?: number }): Orde
     return () => { alive = false; };
   }, [client, account, cursor, limit]);
 
+  // Live overlay: patch the mutable fields of any displayed order that the
+  // pod_orders stream has a newer state for (matched by id). Identity/static
+  // fields stay from the stable REST page.
+  const live = useResource(useMemo(() => client.orders(account, { limit: liveWindow }), [client, account, liveWindow]));
+  const merged = useMemo(() => {
+    if (!live?.length) return orders;
+    const byId = new Map(live.map((o) => [o.id, o]));
+    return orders.map((o) => {
+      const l = byId.get(o.id);
+      // price/initialSize too — a native `update` amends the resting order in
+      // place (same id), so the displayed row must reflect the new price/size.
+      return l ? { ...o, status: l.status, price: l.price, initialSize: l.initialSize, filledBase: l.filledBase, filledQuote: l.filledQuote, fee: l.fee, effectivePrice: l.effectivePrice, fills: l.fills } : o;
+    });
+  }, [orders, live]);
+
   return {
-    orders, page, loading,
+    orders: merged, page, loading,
     hasPrev: page > 0,
     hasNext: nextCursor != null,
     next: () => {
