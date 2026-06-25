@@ -70,6 +70,11 @@ body {
 }
 .cancel-btn:disabled { cursor: wait; }
 .cell-input { width: 100%; padding: 2px 4px; font-size: 12px; }
+/* armed TP/SL rows: dimmer + a left accent so they read as attached to a market */
+.trigger-row { color: var(--muted); }
+.trigger-row td:first-child { border-left: 2px solid var(--accent); padding-left: 4px; }
+.tpsl { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; display: grid; gap: 6px; }
+.tpsl__label { color: var(--muted-2); font-size: 11px; }
 
 /* chart */
 .chart { display: flex; flex-direction: column; }

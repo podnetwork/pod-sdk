@@ -44,6 +44,8 @@ export class CandleSeries implements SeriesResource<Bar> {
   private lastTickUs = 0;
   private tickSub: Subscription | undefined;
   private alive = false;
+  private subRetries = 0;
+  private retryTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     private readonly ctx: SyncContext,
@@ -80,6 +82,7 @@ export class CandleSeries implements SeriesResource<Bar> {
       return () => {
         this.alive = false;
         offOpen();
+        if (this.retryTimer) clearTimeout(this.retryTimer);
         this.tickSub?.unsubscribe();
         this.tickSub = undefined;
         this.handle = undefined;
@@ -159,6 +162,7 @@ export class CandleSeries implements SeriesResource<Bar> {
   }
 
   private onTick(result: unknown): void {
+    this.subRetries = 0; // live ticks flowing → subscription is healthy
     const ticks = Array.isArray(result) ? result : [result];
     const bucketMs = this.resSecs * 1000;
     let maxUs = this.lastTickUs;
@@ -198,13 +202,25 @@ export class CandleSeries implements SeriesResource<Bar> {
     this.rebuild();
   }
 
-  /** `since` was rejected (down too long) — re-seed from REST, then resubscribe live. */
+  /**
+   * Subscription rejected — re-seed from REST, then resubscribe. Backed off (and
+   * capped) so a server that keeps rejecting can't spin this into a tight loop;
+   * after a couple of failures we drop `since` (the likely culprit). Reset once
+   * live ticks flow (`onTick`).
+   */
   private onSubError(): void {
-    void this.loadWindow(this.window).then(() => {
-      this.lastTickUs = this.watermarkUs;
-      this.tickSub?.update({ since: this.watermarkUs || undefined });
-      this.tickSub?.resubscribe();
-    });
+    if (!this.alive) return;
+    this.subRetries++;
+    const delay = Math.min(30_000, 500 * 2 ** (this.subRetries - 1));
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = setTimeout(() => {
+      void this.loadWindow(this.window).then(() => {
+        if (!this.alive) return;
+        this.lastTickUs = this.watermarkUs;
+        this.tickSub?.update({ since: this.subRetries > 2 ? undefined : (this.watermarkUs || undefined) });
+        this.tickSub?.resubscribe();
+      });
+    }, delay);
   }
 
   private rebuild(): void {

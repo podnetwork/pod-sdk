@@ -9,7 +9,7 @@
 
 import type { Market, PositionsSnapshot } from "../types/public.js";
 import { div, imRate, mul } from "../codec/fixed.js";
-import { toNumber } from "../codec/units.js";
+import { toNumber, WAD } from "../codec/units.js";
 
 export interface OrderPreviewInput {
   side: "long" | "short";
@@ -39,7 +39,9 @@ export function previewOrder(
   market: Market,
   input: OrderPreviewInput,
 ): OrderPreview {
-  const im = imRate(market.maxLeverage);
+  // Spot has no leverage: the order locks the full notional in cash (im = 1.0).
+  // Perps use the market's initial-margin rate (1 / max_leverage).
+  const im = market.type === "spot" ? WAD : imRate(market.maxLeverage);
   const availableMargin = snap.withdrawableCash;
   const marginRequired = mul(input.notional, im);
   const maxNotional = im > 0n ? div(availableMargin, im) : 0n;

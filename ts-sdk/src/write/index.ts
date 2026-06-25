@@ -16,6 +16,10 @@ const CLOB_ABI = parseAbi([
   "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
   "function cancel(bytes32 orderbookId, bytes32 canceledOrder, uint128 deadline)",
   "function update(bytes32 orderbookId, bytes32 updatedOrder, uint256 newSize, uint256 newPrice, address token, uint128 deadline)",
+  // TriggerType { TakeProfit=0, StopLoss=1 } ; TriggerGrouping { None=0, Position=1 }
+  "function submitTrigger(bytes32 orderbookId, int256 size, uint256 limitPrice, uint256 triggerPrice, uint8 triggerType, uint8 grouping, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
+  "function cancelTrigger(bytes32 orderbookId, bytes32 triggerOrder, uint128 deadline)",
+  "function updateTrigger(bytes32 orderbookId, bytes32 triggerOrder, int256 newSize, uint256 newLimitPrice, uint256 newTriggerPrice, uint128 deadline)",
 ]);
 
 /** ~10 years in microseconds — default far-future expiry for resting orders. */
@@ -208,6 +212,115 @@ export function buildUpdateOrder(p: UpdateOrderParams): PodTxRequest {
     abi: CLOB_ABI,
     functionName: "update",
     args: [p.orderbookId, p.orderId, size, price, p.token, deadline],
+  }) as Hex;
+  return { to: CLOB_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
+}
+
+// --- TP/SL triggers (perp-only) ---------------------------------------------
+//
+// A trigger is an *armed* limit order: when the pair's mark price crosses
+// `triggerPrice` in the direction implied by `triggerType` and the sign of the
+// size, the venue emits a regular limit order. To attach a TP/SL to a position,
+// the trigger's side is the CLOSING side (opposite the position), `reduceOnly`,
+// and `grouping: "position"` so it's auto-cancelled when the position closes.
+//
+// Direction matrix (is_buy = size > 0):
+//   buy  + take_profit → fires when mark <= triggerPrice
+//   buy  + stop_loss   → fires when mark >= triggerPrice
+//   sell + take_profit → fires when mark >= triggerPrice
+//   sell + stop_loss   → fires when mark <= triggerPrice
+
+/** Triggers expire at most this long after their deadline (CLOB TRIGGER_MAX_TTL). */
+const TRIGGER_TTL_US = 29n * 24n * 3600n * 1_000_000n; // 29d, just under the 30d cap
+
+export interface SubmitTriggerParams {
+  orderbookId: MarketId;
+  /** Side of the order that fires: buy → +size, sell → −size. */
+  side: "buy" | "sell";
+  size: bigint; // magnitude, 1e18-scaled (sign applied from `side`)
+  triggerType: "take_profit" | "stop_loss";
+  /** Mark-price level that arms the fire, 1e18-scaled. Floored to the tick. */
+  triggerPrice: bigint;
+  /** Limit price of the fired order; defaults to `triggerPrice`. Floored to the tick. */
+  limitPrice?: bigint;
+  /** "position" (default) auto-cancels with the position; "none" is standalone. */
+  grouping?: "none" | "position";
+  reduceOnly?: boolean; // default true
+  ioc?: boolean;
+  tickPrecision?: bigint;
+  auctionIntervalUs?: number;
+  deadline?: number; // ms; default far future
+  /** Armed lifetime as a duration in ms (capped at ~30d by the CLOB); default 29d. */
+  ttlMs?: number;
+}
+
+export function buildSubmitTrigger(p: SubmitTriggerParams): PodTxRequest {
+  const nowUs = BigInt(Date.now()) * 1000n;
+  const signedSize = p.side === "sell" ? -p.size : p.size;
+  const align = (v: bigint) => (p.tickPrecision ? alignPrice(v, p.tickPrecision) : v);
+  const triggerPrice = align(p.triggerPrice);
+  const limitPrice = align(p.limitPrice ?? p.triggerPrice);
+  const interval = p.auctionIntervalUs ? BigInt(p.auctionIntervalUs) : 0n;
+  const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), interval);
+  // ttl as a RELATIVE duration (< deadline ⇒ the CLOB reads it relative to the deadline).
+  const ttl = p.ttlMs !== undefined ? BigInt(Math.trunc(p.ttlMs)) * 1000n : TRIGGER_TTL_US;
+  const data = encodeFunctionData({
+    abi: CLOB_ABI,
+    functionName: "submitTrigger",
+    args: [
+      p.orderbookId,
+      signedSize,
+      limitPrice,
+      triggerPrice,
+      p.triggerType === "stop_loss" ? 1 : 0, // TriggerType
+      (p.grouping ?? "position") === "position" ? 1 : 0, // TriggerGrouping
+      deadline,
+      ttl,
+      p.reduceOnly ?? true,
+      p.ioc ?? false,
+    ],
+  }) as Hex;
+  return { to: CLOB_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
+}
+
+export function buildCancelTrigger(
+  orderbookId: MarketId,
+  triggerOrderId: Hash,
+  opts?: { deadline?: number; auctionIntervalUs?: number },
+): PodTxRequest {
+  const nowUs = BigInt(Date.now()) * 1000n;
+  const interval = opts?.auctionIntervalUs ? BigInt(opts.auctionIntervalUs) : 0n;
+  const deadline = alignDeadline(us(opts?.deadline, nowUs + FAR_US), interval);
+  const data = encodeFunctionData({
+    abi: CLOB_ABI,
+    functionName: "cancelTrigger",
+    args: [orderbookId, triggerOrderId, deadline],
+  }) as Hex;
+  return { to: CLOB_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
+}
+
+export interface UpdateTriggerParams {
+  orderbookId: MarketId;
+  triggerOrderId: Hash;
+  side: "buy" | "sell"; // sign of newSize; grouping can't change via update
+  size: bigint; // magnitude
+  triggerPrice: bigint;
+  limitPrice?: bigint;
+  tickPrecision?: bigint;
+  auctionIntervalUs?: number;
+  deadline?: number;
+}
+
+export function buildUpdateTrigger(p: UpdateTriggerParams): PodTxRequest {
+  const nowUs = BigInt(Date.now()) * 1000n;
+  const signedSize = p.side === "sell" ? -p.size : p.size;
+  const align = (v: bigint) => (p.tickPrecision ? alignPrice(v, p.tickPrecision) : v);
+  const interval = p.auctionIntervalUs ? BigInt(p.auctionIntervalUs) : 0n;
+  const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), interval);
+  const data = encodeFunctionData({
+    abi: CLOB_ABI,
+    functionName: "updateTrigger",
+    args: [p.orderbookId, p.triggerOrderId, signedSize, align(p.limitPrice ?? p.triggerPrice), align(p.triggerPrice), deadline],
   }) as Hex;
   return { to: CLOB_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
 }

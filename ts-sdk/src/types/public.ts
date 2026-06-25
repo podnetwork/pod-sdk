@@ -15,7 +15,7 @@ export interface TimeRange {
   to?: number;
 }
 
-export type MarketType = "spot" | "perpetual";
+export type MarketType = "spot" | "perp";
 export type OrderSide = "buy" | "sell";
 export type OrderType = "limit" | "market";
 export type OrderStatus =

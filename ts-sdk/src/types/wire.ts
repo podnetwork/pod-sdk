@@ -20,7 +20,7 @@ export interface WireMarketStatic {
   quote_token_symbol: string;
   base_token_name: string;
   quote_token_name: string;
-  market_type: "spot" | "perpetual";
+  market_type: "spot" | "perp";
   auction_interval_us: number;
   maker_fee: WireDecimal;
   taker_fee: WireDecimal;
@@ -90,7 +90,7 @@ export interface WirePartialFill {
 
 export interface WireOrder {
   orderbook_id?: Hex; // REST only; WS raw Order carries `pair` instead
-  market_type?: "spot" | "perpetual"; // REST only
+  market_type?: "spot" | "perp"; // REST only
   kind: string;
   order_id: Hex;
   tx_hash: Hex;

@@ -25,6 +25,8 @@ export class OrderHistory implements SeriesResource<Order> {
   private alive = false;
   private _hasMore = true;
   private _loading = false;
+  private subRetries = 0;
+  private retryTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     private readonly ctx: SyncContext,
@@ -39,6 +41,7 @@ export class OrderHistory implements SeriesResource<Order> {
       return () => {
         this.alive = false;
         offOpen();
+        if (this.retryTimer) clearTimeout(this.retryTimer);
         this.sub?.unsubscribe();
         this.sub = undefined;
         this.handle = undefined;
@@ -108,16 +111,28 @@ export class OrderHistory implements SeriesResource<Order> {
     });
   }
 
-  /** `since` rejected (down too long) — re-seed then resubscribe with a fresh watermark. */
+  /**
+   * Subscription rejected — re-seed then resubscribe. Backed off (and capped),
+   * so a server that keeps rejecting can't spin this into a tight re-seed /
+   * resubscribe loop. After a couple of failures we drop `since` (the likely
+   * culprit) and just stream live. Reset once live data flows (`onUpdates`).
+   */
   private onSubError(): void {
-    void this.fetchFirstPage().then((ok) => {
-      if (!ok) return;
-      this.sub?.update({ since: this.watermarkUs });
-      this.sub?.resubscribe();
-    });
+    if (!this.alive) return;
+    this.subRetries++;
+    const delay = Math.min(30_000, 500 * 2 ** (this.subRetries - 1));
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = setTimeout(() => {
+      void this.fetchFirstPage().then((ok) => {
+        if (!ok || !this.alive) return;
+        this.sub?.update({ since: this.subRetries > 2 ? undefined : this.watermarkUs });
+        this.sub?.resubscribe();
+      });
+    }, delay);
   }
 
   private onUpdates(result: unknown): void {
+    this.subRetries = 0; // live data flowing → subscription is healthy
     const updates = (Array.isArray(result) ? result : [result]) as WireOrderUpdate[];
     for (const u of updates) this.applyUpdate(u);
     this.rebuild();

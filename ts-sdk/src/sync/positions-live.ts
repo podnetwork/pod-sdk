@@ -41,7 +41,11 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
     const market = p.orderbookId ? byId.get(p.orderbookId) : undefined;
 
     if (p.kind === "perp") {
-      const mark = market?.markPrice ?? p.markPrice; // server-banded mark from pod_markets
+      // Server-banded mark from pod_markets. Before a market's first trade the
+      // mark is unseeded (0) — fall back to the entry price so uPnL is 0 rather
+      // than a spurious −entry·size that would wrongly zero withdrawable cash.
+      const liveMark = market?.markPrice && market.markPrice > 0n ? market.markPrice : p.markPrice;
+      const mark = liveMark > 0n ? liveMark : p.entryPrice;
       const upnl = mulFloor(mark - p.entryPrice, p.size); // pure price drift (signed)
       const sizeQuote = mul(absB(p.size), mark); // = notional
       const imr = imRate(market?.maxLeverage ?? 0);
