@@ -9,7 +9,31 @@
 
 import type { Market, PositionsSnapshot } from "../types/public.js";
 import { div, imRate, mul } from "../codec/fixed.js";
-import { toNumber, WAD } from "../codec/units.js";
+import { parseAmount, toNumber, WAD } from "../codec/units.js";
+
+export interface ReturnPriceInput {
+  entryPrice: bigint; // 1e18
+  /** Position leverage (notional / initial margin). */
+  leverage: number;
+  side: "long" | "short";
+  /** Target return on initial margin, signed: +20 = 20% gain, −10 = 10% loss. */
+  returnPct: number;
+}
+
+/**
+ * Mark price at which a perp position reaches `returnPct` return **on its
+ * initial margin** (not a raw price move). Since margin = notional / leverage,
+ * return-on-margin = price-move% × leverage, so the price move needed is
+ * `returnPct / (100·leverage)` — e.g. +20% on a 10x long needs only a +2% move.
+ * Used to turn a TP "gain %" / SL "loss %" into a trigger price.
+ */
+export function priceForReturn(p: ReturnPriceInput): bigint {
+  if (p.leverage <= 0 || p.entryPrice <= 0n) return p.entryPrice;
+  const move = p.returnPct / (100 * p.leverage); // fractional price move
+  const dir = p.side === "long" ? 1 : -1; // longs profit up, shorts profit down
+  const human = toNumber(p.entryPrice) * (1 + dir * move);
+  return human > 0 ? parseAmount(human.toFixed(8)) : 0n;
+}
 
 export interface OrderPreviewInput {
   side: "long" | "short";

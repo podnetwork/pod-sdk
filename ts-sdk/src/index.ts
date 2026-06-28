@@ -23,7 +23,10 @@ export {
   accountMetrics, type AccountMetrics,
   perpPositionTotals, type PerpPositionTotals,
 } from "./sync/account-metrics.js";
-export { previewOrder, type OrderPreview, type OrderPreviewInput } from "./sync/order-preview.js";
+export {
+  previewOrder, type OrderPreview, type OrderPreviewInput,
+  priceForReturn, type ReturnPriceInput,
+} from "./sync/order-preview.js";
 export type { SeriesResource } from "./sync/candles.js";
 export { CandleSeries } from "./sync/candles.js";
 export { OrderHistory } from "./sync/orders.js";
