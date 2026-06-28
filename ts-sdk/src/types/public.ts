@@ -78,6 +78,9 @@ export interface OrderbookLevel {
   price: bigint;
   volume: bigint; // size resting at this level
   total: bigint; // cumulative size from the best price through this level
+  /** `total` as a 0..1 fraction of this side's full depth (deepest level → 1).
+   * Use directly as a depth-bar width. */
+  depth: number;
 }
 
 export interface Orderbook {

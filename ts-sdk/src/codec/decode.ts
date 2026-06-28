@@ -114,7 +114,11 @@ export function decodeOrderbook(w: WireOrderbook): Orderbook {
       .sort((a, b) => (ascending ? (a.price < b.price ? -1 : a.price > b.price ? 1 : 0)
         : (b.price < a.price ? -1 : b.price > a.price ? 1 : 0)));
     let cum = 0n;
-    return sorted.map((l) => { cum += l.volume; return { price: l.price, volume: l.volume, total: cum }; });
+    const withTotal = sorted.map((l) => { cum += l.volume; return { price: l.price, volume: l.volume, total: cum }; });
+    // `depth` = cumulative size as a 0..1 fraction of this side's total (the
+    // deepest level → 1). Ready to use as a depth-bar width; no app-side scaling.
+    const sideMax = cum;
+    return withTotal.map((l) => ({ ...l, depth: sideMax > 0n ? Number(l.total) / Number(sideMax) : 0 }));
   };
   const bids = levels(Object.entries(w.buys), false);
   const asks = levels(Object.entries(w.sells), true);
