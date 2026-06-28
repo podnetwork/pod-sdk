@@ -19,7 +19,10 @@ export type {
 export type { Resource } from "./stores/resource.js";
 export { combineResources, derivedResource } from "./stores/resource.js";
 export { enrichPositions } from "./sync/positions-live.js";
-export { accountMetrics, type AccountMetrics } from "./sync/account-metrics.js";
+export {
+  accountMetrics, type AccountMetrics,
+  perpPositionTotals, type PerpPositionTotals,
+} from "./sync/account-metrics.js";
 export { previewOrder, type OrderPreview, type OrderPreviewInput } from "./sync/order-preview.js";
 export type { SeriesResource } from "./sync/candles.js";
 export { CandleSeries } from "./sync/candles.js";

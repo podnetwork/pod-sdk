@@ -440,6 +440,48 @@ export function buildOrderWithTriggers(p: OrderWithTriggersParams): PodTxRequest
   return legs.length === 1 ? order : buildSubmitBatch(legs);
 }
 
+export interface ClosePositionParams {
+  orderbookId: MarketId;
+  /** The position's current side (long → close with a sell; short → buy). */
+  side: "long" | "short";
+  /** Position size magnitude to close (1e18). */
+  size: bigint;
+  /** Current mark price (1e18) — the protective price is derived from it. */
+  price: bigint;
+  /** Slippage bound in basis points for the market close. Default 500 (5%). */
+  slippageBps?: number;
+  tickPrecision?: bigint;
+  auctionIntervalUs?: number;
+  deadline?: number; // ms; pass a shared value when batching closes
+}
+
+/**
+ * Close (flatten) a perp position: a reduce-only **market** order on the
+ * opposite side for the full size. A market order's `price` is a slippage
+ * bound, so it's set to mark ∓ `slippageBps` (sell accepts lower, buy pays
+ * higher) to guarantee it crosses and fills. `reduceOnly` guarantees it only
+ * shrinks the position, never flips it. Batch several with
+ * {@link buildSubmitBatch} (shared `deadline`) to close everything in one tx.
+ */
+export function buildClosePosition(p: ClosePositionParams): PodTxRequest {
+  const closeSide = p.side === "long" ? "sell" : "buy";
+  const bps = BigInt(p.slippageBps ?? 500);
+  const SCALE = 10_000n;
+  const mult = closeSide === "buy" ? SCALE + bps : SCALE - bps;
+  const price = (p.price * mult) / SCALE; // protective bound; tick-aligned in build
+  return buildSubmitOrder({
+    orderbookId: p.orderbookId,
+    side: closeSide,
+    orderType: "market",
+    price,
+    size: p.size < 0n ? -p.size : p.size,
+    reduceOnly: true,
+    tickPrecision: p.tickPrecision,
+    auctionIntervalUs: p.auctionIntervalUs,
+    deadline: p.deadline,
+  });
+}
+
 /** A mined transaction receipt (the fields a consumer typically needs). */
 export interface TxReceipt {
   /** `success` when the tx executed (status `0x1`); `reverted` on `0x0`. */

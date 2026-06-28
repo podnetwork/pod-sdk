@@ -7,7 +7,7 @@
 //   *_pct             = component / net_deposits     (return on capital)
 //   effective leverage = Σ perp notional / perps_equity
 
-import type { PositionsSnapshot } from "../types/public.js";
+import type { Position, PositionsSnapshot } from "../types/public.js";
 import { toNumber } from "../codec/units.js";
 
 export interface AccountMetrics {
@@ -22,6 +22,32 @@ export interface AccountMetrics {
   perpNotional: bigint;
   /** Σ perp notional / perps_equity. */
   effectiveLeverage: number;
+}
+
+/** Column totals for a perp positions table (sums over perp positions only). */
+export interface PerpPositionTotals {
+  count: number;
+  notional: bigint;
+  margin: bigint;
+  fundingAccrued: bigint;
+  unrealizedPnl: bigint;
+  realizedPnl: bigint;
+}
+
+export function perpPositionTotals(positions: Position[]): PerpPositionTotals {
+  const t: PerpPositionTotals = {
+    count: 0, notional: 0n, margin: 0n, fundingAccrued: 0n, unrealizedPnl: 0n, realizedPnl: 0n,
+  };
+  for (const p of positions) {
+    if (p.kind !== "perp") continue;
+    t.count++;
+    t.notional += p.notional;
+    t.margin += p.margin;
+    t.fundingAccrued += p.fundingAccrued;
+    t.unrealizedPnl += p.unrealizedPnl;
+    t.realizedPnl += p.realizedPnl;
+  }
+  return t;
 }
 
 export function accountMetrics(s: PositionsSnapshot): AccountMetrics {
