@@ -12,8 +12,8 @@ import type { Resource } from "../stores/resource.js";
 import type { CandleSeries } from "../sync/candles.js";
 import type { OrderHistory } from "../sync/orders.js";
 import type {
-  Address, Bar, Market, MarketId, Order, Orderbook, OrdersQuery,
-  PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery,
+  Address, Balances, Bar, LeaderboardEntry, LeaderboardPage, Market, MarketId, Order, Orderbook,
+  OrdersQuery, PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery,
 } from "../types/public.js";
 
 const PodClientContext = createContext<PodTradeClient | null>(null);
@@ -215,6 +215,65 @@ export function useOrdersPage(account: Address, opts?: { limit?: number; liveWin
     },
     prev: () => setPage((p) => Math.max(0, p - 1)),
   };
+}
+
+export interface LeaderboardView {
+  entries: LeaderboardEntry[];
+  total: number;
+  page: number;
+  pageCount: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+  loading: boolean;
+  error: Error | undefined;
+  next: () => void;
+  prev: () => void;
+  refresh: () => void;
+}
+
+/**
+ * Leaderboard with offset pagination over REST (`/clob/leaderboard`).
+ * One-shot per page (not a stream); `refresh()` re-fetches the current page.
+ */
+export function useLeaderboard(opts?: { pageSize?: number }): LeaderboardView {
+  const client = usePodClient();
+  const pageSize = opts?.pageSize ?? 10;
+  const [page, setPage] = useState(0);
+  const [data, setData] = useState<LeaderboardPage>({ entries: [], total: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | undefined>(undefined);
+  const [reload, setReload] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    client.leaderboard({ limit: pageSize, offset: page * pageSize })
+      .then((p) => { if (alive) { setData(p); setError(undefined); } })
+      .catch((e) => { if (alive) { setData({ entries: [], total: 0 }); setError(e as Error); } })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [client, page, pageSize, reload]);
+
+  const pageCount = Math.max(1, Math.ceil(data.total / pageSize));
+  return {
+    entries: data.entries,
+    total: data.total,
+    page,
+    pageCount,
+    hasPrev: page > 0,
+    hasNext: page + 1 < pageCount,
+    loading,
+    error,
+    next: () => setPage((p) => (p + 1 < pageCount ? p + 1 : p)),
+    prev: () => setPage((p) => Math.max(0, p - 1)),
+    refresh: () => setReload((r) => r + 1),
+  };
+}
+
+/** Live spot holdings + native cash (REST-seeded, refreshed on account ticks). */
+export function useBalances(account: Address): Balances | undefined {
+  const client = usePodClient();
+  return useResource(useMemo(() => client.balances(account), [client, account]));
 }
 
 export function usePositions(account: Address): PositionsSnapshot | undefined {

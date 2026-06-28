@@ -3,17 +3,17 @@
 // ms in, decoded (bigint / ms) out.
 
 import type {
-  Address, BackstopTransfer, Bar, CandleQuery, Market, MarketId, Order,
-  Orderbook, PositionsSnapshot, Resolution, Status, Trigger,
+  Address, BackstopTransfer, Balances, Bar, CandleQuery, LeaderboardPage, LeaderboardQuery,
+  Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status, Trigger,
 } from "../types/public.js";
 import type {
-  WireBackstopPage, WireCandlesEnvelope, WireMarketStatic, WireMarketStatsPage,
-  WireOrderbook, WireOrdersPage, WirePositionsSnapshot, WireStatus,
+  WireBackstopPage, WireBalances, WireCandlesEnvelope, WireLeaderboard, WireMarketStatic,
+  WireMarketStatsPage, WireOrderbook, WireOrdersPage, WirePositionsSnapshot, WireStatus,
   WireTriggersPage,
 } from "../types/wire.js";
 import {
-  decodeBackstopTransfer, decodeCandle, decodeMarketDynamics, decodeMarketStatic,
-  decodeOrder, decodeOrderbook, decodePositions, decodeStatus, decodeTrigger,
+  decodeBackstopTransfer, decodeBalances, decodeCandle, decodeLeaderboard, decodeMarketDynamics,
+  decodeMarketStatic, decodeOrder, decodeOrderbook, decodePositions, decodeStatus, decodeTrigger,
 } from "../codec/decode.js";
 import { msToSecs, usToMs } from "../codec/units.js";
 
@@ -174,8 +174,23 @@ export class PodRestClient {
     return decodeOrderbook(await this.get<WireOrderbook>(`/clob/orderbook/${id}`));
   }
 
+  /** Perp positions + account aggregates (spot holdings are at `/clob/balances`). */
   async positions(account: Address): Promise<PositionsSnapshot> {
     return decodePositions(await this.get<WirePositionsSnapshot>(`/clob/positions/${account}`));
+  }
+
+  /** Spot holdings + native cash. */
+  async balances(account: Address): Promise<Balances> {
+    return decodeBalances(await this.get<WireBalances>(`/clob/balances/${account}`));
+  }
+
+  /** Accounts ranked by net PnL (realized + unrealized), descending. Paginate
+   * with `{ limit, offset }`; ranks are 1-based over the full ordering. */
+  async leaderboard(q?: LeaderboardQuery): Promise<LeaderboardPage> {
+    const w = await this.get<WireLeaderboard>("/clob/leaderboard", {
+      limit: q?.limit, offset: q?.offset, address: q?.account,
+    });
+    return decodeLeaderboard(w, q?.offset ?? 0);
   }
 
   async triggers(account: Address, q?: TriggersQueryRest): Promise<TriggersPage> {

@@ -1,12 +1,12 @@
 import type {
-  Address, BackstopTransfer, Market, MarketId, PositionsSnapshot, Resolution,
-  Status, TimeRange, Trigger, TriggersQuery, OrdersQuery,
+  Address, BackstopTransfer, Balances, LeaderboardPage, LeaderboardQuery, Market, MarketId,
+  PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery, OrdersQuery,
 } from "./types/public.js";
 import { PodRestClient } from "./transport/rest.js";
 import { PodWsClient, type WebSocketCtor } from "./transport/ws.js";
 import { BaseResource, combineResources, derivedResource, type Resource } from "./stores/resource.js";
 import {
-  marketsSource, orderbookSource, positionsSource, statusSource, triggersSource,
+  balancesSource, marketsSource, orderbookSource, positionsSource, statusSource, triggersSource,
   type SyncContext,
 } from "./sync/sources.js";
 import { CandleSeries } from "./sync/candles.js";
@@ -113,6 +113,19 @@ export class PodTradeClient {
     return this.memo(`triggers:${account}`, () =>
       new BaseResource(triggersSource(this.ctx, account)),
     );
+  }
+
+  /** Live spot holdings + native cash. */
+  balances(account: Address): Resource<Balances> {
+    return this.memo(`balances:${account}`, () =>
+      new BaseResource(balancesSource(this.ctx, account)),
+    );
+  }
+
+  /** Leaderboard (ranked accounts by net PnL). One-shot REST; paginate via
+   * `{ limit, offset }`. Not a stream — call again to refresh. */
+  leaderboard(query?: LeaderboardQuery): Promise<LeaderboardPage> {
+    return this.rest.leaderboard(query);
   }
 
   backstopTransfers(account: Address): Resource<BackstopTransfer[]> {

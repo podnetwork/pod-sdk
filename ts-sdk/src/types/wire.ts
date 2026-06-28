@@ -189,6 +189,42 @@ export interface WirePositionsSnapshot {
   withdrawable_cash: WireDecimal;
 }
 
+export interface WireSpotHolding {
+  orderbook_id: Hex;
+  base_symbol: string;
+  quote_symbol: string;
+  balance: WireDecimal;
+  free_balance: WireDecimal;
+  locked_balance: WireDecimal;
+  cost_basis: WireDecimal;
+  mark_price: WireDecimal;
+  unrealized_pnl: WireDecimal;
+  realized_pnl: WireDecimal;
+}
+
+export interface WireBalances {
+  balances: WireSpotHolding[];
+  cash: WireDecimal;
+  withdrawable_cash: WireDecimal;
+  net_deposits: WireDecimal;
+}
+
+/** `/clob/leaderboard` (and RPC ob_getRankedPositions) share this shape. Only
+ * the aggregate PnL fields of each account's positions block are read. */
+export interface WireRankedAccount {
+  account: Hex;
+  positions: {
+    total_unrealized_pnl: WireDecimal;
+    total_realized_pnl: WireDecimal;
+    account_value: WireDecimal;
+  };
+}
+
+export interface WireLeaderboard {
+  ranked: WireRankedAccount[];
+  total: number;
+}
+
 export interface WireTrigger {
   orderbook_id: Hex;
   order_id: Hex;

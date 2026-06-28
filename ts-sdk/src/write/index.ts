@@ -20,6 +20,7 @@ const CLOB_ABI = parseAbi([
   "function submitTrigger(bytes32 orderbookId, int256 size, uint256 limitPrice, uint256 triggerPrice, uint8 triggerType, uint8 grouping, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
   "function cancelTrigger(bytes32 orderbookId, bytes32 triggerOrder, uint128 deadline)",
   "function updateTrigger(bytes32 orderbookId, bytes32 triggerOrder, int256 newSize, uint256 newLimitPrice, uint256 newTriggerPrice, uint128 deadline)",
+  "function submitBatch(bytes[] inner)",
 ]);
 
 /** ~10 years in microseconds — default far-future expiry for resting orders. */
@@ -323,6 +324,120 @@ export function buildUpdateTrigger(p: UpdateTriggerParams): PodTxRequest {
     args: [p.orderbookId, p.triggerOrderId, signedSize, align(p.limitPrice ?? p.triggerPrice), align(p.triggerPrice), deadline],
   }) as Hex;
   return { to: CLOB_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
+}
+
+// --- batching (submitBatch) -------------------------------------------------
+//
+// `submitBatch(bytes[] inner)` carries several single-intent calls in ONE signed
+// tx. Each `inner[i]` is the ABI-encoded calldata of an existing intent
+// (submitOrder, submitTrigger, cancel, …); its `sequence` (the index in `inner`)
+// feeds `OrderId::new(signer, nonce, sequence)`. The CLOB requires every
+// deadline-bearing leg to share ONE deadline — build the legs with the same
+// `deadline` (see `buildOrderWithTriggers`, which does this for you).
+
+/** ~10 years in ms — default far-future deadline shared by batched legs. */
+const FAR_MS = 10 * 365 * 24 * 3600 * 1000;
+
+/** Scale a 1e18 size by a 0..1 fraction (e.g. close 50% of a position). */
+function scaleSize(size: bigint, fraction: number): bigint {
+  const f = Math.max(0, Math.min(1, fraction));
+  return (size * BigInt(Math.round(f * 1_000_000))) / 1_000_000n;
+}
+
+/** Wrap already-built legs into one `submitBatch` tx. Pass leg requests (their
+ * `data` is used) or raw calldata. Legs must share a deadline (the CLOB enforces
+ * it). Gas scales with the leg count. */
+export function buildSubmitBatch(
+  legs: Array<PodTxRequest | Hex>,
+  opts?: { gas?: bigint },
+): PodTxRequest {
+  const inner = legs.map((l) => (typeof l === "string" ? l : l.data));
+  const data = encodeFunctionData({
+    abi: CLOB_ABI,
+    functionName: "submitBatch",
+    args: [inner],
+  }) as Hex;
+  return {
+    to: CLOB_ADDRESS,
+    data,
+    value: 0n,
+    type: "eip1559",
+    maxPriorityFeePerGas: 0n,
+    gas: opts?.gas ?? BigInt(Math.max(1, inner.length)) * 1_000_000n,
+  };
+}
+
+export interface OrderTrigger {
+  /** Mark-price level that arms the fire (1e18). Floored to the tick. */
+  triggerPrice: bigint;
+  /** Fired limit price; defaults to `triggerPrice`. Floored to the tick. */
+  limitPrice?: bigint;
+  /** Fraction of the entry size to close, 0..1 (default 1 = whole position). */
+  sizeFraction?: number;
+}
+
+export interface OrderWithTriggersParams {
+  orderbookId: MarketId;
+  /** Entry side: buy → long, sell → short. */
+  side: "buy" | "sell";
+  orderType: "limit" | "market";
+  price: bigint; // entry price, 1e18
+  size: bigint; // entry size magnitude, 1e18
+  takeProfit?: OrderTrigger;
+  stopLoss?: OrderTrigger;
+  tickPrecision?: bigint;
+  auctionIntervalUs?: number;
+  reduceOnly?: boolean; // entry reduceOnly (rare); triggers are always reduceOnly
+  ioc?: boolean;
+  deadline?: number; // ms; shared by every leg (default far future)
+  orderTtl?: number; // ms
+  triggerTtlMs?: number; // ms; armed lifetime (capped ~30d)
+}
+
+/**
+ * Build ONE transaction that places an entry order and arms its TP/SL together.
+ * With either trigger present it batches `submitOrder` + `submitTrigger`(s) via
+ * `submitBatch` under a shared deadline; with neither it's a plain `submitOrder`.
+ *
+ * Triggers close the entry position: opposite side, `reduceOnly`,
+ * `grouping: "position"` (so a partial fill — and the eventual close — keep the
+ * triggers consistent), size = entry size × `sizeFraction`.
+ */
+export function buildOrderWithTriggers(p: OrderWithTriggersParams): PodTxRequest {
+  const deadline = p.deadline ?? Date.now() + FAR_MS;
+  const order = buildSubmitOrder({
+    orderbookId: p.orderbookId,
+    side: p.side,
+    orderType: p.orderType,
+    price: p.price,
+    size: p.size,
+    tickPrecision: p.tickPrecision,
+    auctionIntervalUs: p.auctionIntervalUs,
+    reduceOnly: p.reduceOnly,
+    ioc: p.ioc,
+    deadline,
+    ttl: p.orderTtl,
+  });
+  const closeSide: "buy" | "sell" = p.side === "buy" ? "sell" : "buy";
+  const trigLeg = (t: OrderTrigger, triggerType: "take_profit" | "stop_loss") =>
+    buildSubmitTrigger({
+      orderbookId: p.orderbookId,
+      side: closeSide,
+      size: scaleSize(p.size, t.sizeFraction ?? 1),
+      triggerType,
+      triggerPrice: t.triggerPrice,
+      limitPrice: t.limitPrice,
+      grouping: "position",
+      reduceOnly: true,
+      tickPrecision: p.tickPrecision,
+      auctionIntervalUs: p.auctionIntervalUs,
+      deadline,
+      ttlMs: p.triggerTtlMs,
+    });
+  const legs: PodTxRequest[] = [order];
+  if (p.takeProfit) legs.push(trigLeg(p.takeProfit, "take_profit"));
+  if (p.stopLoss) legs.push(trigLeg(p.stopLoss, "stop_loss"));
+  return legs.length === 1 ? order : buildSubmitBatch(legs);
 }
 
 /** A mined transaction receipt (the fields a consumer typically needs). */

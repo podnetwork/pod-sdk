@@ -12,7 +12,7 @@
 //    REST re-seed via `onError` when `since` is too old (down too long).
 
 import type {
-  Address, Market, MarketId, Orderbook, PositionsSnapshot, Status, Trigger,
+  Address, Balances, Market, MarketId, Orderbook, PositionsSnapshot, Status, Trigger,
 } from "../types/public.js";
 import type {
   WireMarketDynamics, WireOrderbook, WirePositionsPush, WireTriggersPush,
@@ -59,9 +59,14 @@ export function marketsSource(
     // reshuffles as dynamics arrive (markets not yet in the static list sort last).
     const orderIndex = new Map<string, number>();
     const publish = () => h.set(
-      [...byId.values()].sort((a, b) =>
-        (orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER)
-        || a.id.localeCompare(b.id)),
+      [...byId.values()]
+        // pod_markets dynamics can arrive (and create an entry) before the static
+        // /clob/markets seed — those lack base/quote/name. Don't expose a market
+        // until its static config has merged in; the dynamics stay buffered.
+        .filter((m) => m.base !== undefined)
+        .sort((a, b) =>
+          (orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+          || a.id.localeCompare(b.id)),
     );
     const mergePatch = (patch: Partial<Market> & { id: string }) => {
       const existing = byId.get(patch.id);
@@ -139,6 +144,34 @@ export function positionsSource(
       if (alive) h.set(decodePositions((result as WirePositionsPush).data));
     });
     return () => { alive = false; if (timer) clearInterval(timer); sub.unsubscribe(); };
+  };
+}
+
+export function balancesSource(
+  { rest, ws, positionResyncMs }: SyncContext,
+  account: Address,
+): ResourceSource<Balances> {
+  return (h) => {
+    let alive = true;
+    // No dedicated balances stream — seed over REST, re-poll periodically, and
+    // re-fetch (debounced) whenever the account is touched on pod_positions, so
+    // a spot fill / deposit reflects promptly without spamming a fetch per tick.
+    const seed = () => rest.balances(account).then((b) => { if (alive) h.set(b); }).catch((e) => { if (!h.current()) h.fail(e as Error); });
+    seed();
+    const offOpen = onConnected(ws, seed);
+    const timer = positionResyncMs > 0 ? setInterval(seed, positionResyncMs) : undefined;
+    let debounce: ReturnType<typeof setTimeout> | undefined;
+    const sub = ws.subscribe("pod_positions", { account, since: 0 }, () => {
+      if (!alive || debounce) return;
+      debounce = setTimeout(() => { debounce = undefined; seed(); }, 500);
+    });
+    return () => {
+      alive = false;
+      offOpen();
+      if (timer) clearInterval(timer);
+      if (debounce) clearTimeout(debounce);
+      sub.unsubscribe();
+    };
   };
 }
 

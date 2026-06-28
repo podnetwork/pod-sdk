@@ -211,6 +211,56 @@ export interface Status {
   solutionNow: number;
 }
 
+/** A spot token holding (`/clob/balances`). Like SpotPosition but identified by
+ * market + symbols rather than token address. */
+export interface SpotHolding {
+  orderbookId: MarketId;
+  baseSymbol: string;
+  quoteSymbol: string;
+  balance: bigint; // free + locked
+  freeBalance: bigint;
+  lockedBalance: bigint;
+  costBasis: bigint;
+  markPrice: bigint;
+  unrealizedPnl: bigint;
+  realizedPnl: bigint;
+}
+
+/** Spot holdings + native cash for an account (`/clob/balances`). Perp positions
+ * and their aggregates live in {@link PositionsSnapshot}. */
+export interface Balances {
+  holdings: SpotHolding[];
+  cash: bigint;
+  withdrawableCash: bigint;
+  netDeposits: bigint;
+}
+
+/** One ranked account from the leaderboard (`/clob/leaderboard`). */
+export interface LeaderboardEntry {
+  rank: number; // 1-based position in the full ordering
+  account: Address;
+  accountValue: bigint;
+  unrealizedPnl: bigint;
+  realizedPnl: bigint;
+  /** Net PnL = unrealized + realized — the key the board is ranked by. */
+  pnl: bigint;
+  /** pnl / (accountValue − unrealized) × 100; 0 when the basis is dust. */
+  pnlPercent: number;
+}
+
+export interface LeaderboardPage {
+  entries: LeaderboardEntry[];
+  /** Full count of ranked accounts (before paging) — for page math. */
+  total: number;
+}
+
+export interface LeaderboardQuery {
+  limit?: number;
+  offset?: number;
+  /** When set, the response also locates this account's own rank. */
+  account?: Address;
+}
+
 // --- query / paging types ---
 
 export interface CandleQuery {

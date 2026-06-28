@@ -2,14 +2,14 @@
 // representations are normalized into bigint + millisecond numbers.
 
 import type {
-  Bar, BackstopTransfer, Market, Order, Orderbook, PartialFill,
-  PerpPosition, Position, PositionsSnapshot, SpotPosition, Status,
-  Trigger, MarketType, OrderDirection, OrderKind, OrderStatus, TriggerType,
+  Bar, BackstopTransfer, Balances, LeaderboardEntry, LeaderboardPage, Market, Order,
+  Orderbook, PartialFill, PerpPosition, Position, PositionsSnapshot, SpotHolding,
+  SpotPosition, Status, Trigger, MarketType, OrderDirection, OrderKind, OrderStatus, TriggerType,
 } from "../types/public.js";
 import type {
-  WireBackstopTransfer, WireCandle, WireMarketDynamics, WireMarketStatic,
-  WireOrder, WireOrderbook, WirePartialFill, WirePerpPosition, WirePosition,
-  WirePositionsSnapshot, WireSpotPosition, WireStatus, WireTrigger,
+  WireBackstopTransfer, WireBalances, WireCandle, WireLeaderboard, WireMarketDynamics,
+  WireMarketStatic, WireOrder, WireOrderbook, WirePartialFill, WirePerpPosition, WirePosition,
+  WirePositionsSnapshot, WireSpotHolding, WireSpotPosition, WireStatus, WireTrigger,
 } from "../types/wire.js";
 import { dec, decOpt, toNumber, usToMs, usToMsOpt } from "./units.js";
 
@@ -191,6 +191,55 @@ export function decodePositions(w: WirePositionsSnapshot): PositionsSnapshot {
     cash: dec(w.cash),
     withdrawableCash: dec(w.withdrawable_cash),
   };
+}
+
+export function decodeSpotHolding(w: WireSpotHolding): SpotHolding {
+  return {
+    orderbookId: w.orderbook_id,
+    baseSymbol: w.base_symbol,
+    quoteSymbol: w.quote_symbol,
+    balance: dec(w.balance),
+    freeBalance: dec(w.free_balance),
+    lockedBalance: dec(w.locked_balance),
+    costBasis: dec(w.cost_basis),
+    markPrice: dec(w.mark_price),
+    unrealizedPnl: dec(w.unrealized_pnl),
+    realizedPnl: dec(w.realized_pnl),
+  };
+}
+
+export function decodeBalances(w: WireBalances): Balances {
+  return {
+    holdings: w.balances.map(decodeSpotHolding),
+    cash: dec(w.cash),
+    withdrawableCash: dec(w.withdrawable_cash),
+    netDeposits: dec(w.net_deposits),
+  };
+}
+
+/** Decode a ranked-accounts page (REST `/clob/leaderboard`). `offset` makes the
+ * ranks 1-based over the full ordering. PnL = unrealized + realized (the rank
+ * key); `%` is suppressed to 0 when the basis (accountValue − unrealized) is dust. */
+export function decodeLeaderboard(w: WireLeaderboard, offset = 0): LeaderboardPage {
+  const entries: LeaderboardEntry[] = (w.ranked ?? []).map((r, i) => {
+    const unrealizedPnl = dec(r.positions.total_unrealized_pnl);
+    const realizedPnl = dec(r.positions.total_realized_pnl);
+    const accountValue = dec(r.positions.account_value);
+    const pnl = unrealizedPnl + realizedPnl;
+    const basis = accountValue - unrealizedPnl;
+    const absAv = accountValue < 0n ? -accountValue : accountValue;
+    const safe = basis > 0n && absAv > 0n && basis * 1000n >= absAv * 5n; // basis ≥ 0.5% of |av|
+    return {
+      rank: offset + i + 1,
+      account: r.account,
+      accountValue,
+      unrealizedPnl,
+      realizedPnl,
+      pnl,
+      pnlPercent: safe ? (Number(pnl) / Number(basis)) * 100 : 0,
+    };
+  });
+  return { entries, total: w.total ?? 0 };
 }
 
 export function decodeTrigger(w: WireTrigger): Trigger {
