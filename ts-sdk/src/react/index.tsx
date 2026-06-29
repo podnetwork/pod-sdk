@@ -108,6 +108,8 @@ export function useOrders(account: Address, query?: OrdersQuery): Order[] | unde
 export interface OrdersPage {
   orders: Order[];
   page: number;
+  /** Total order count across all pages (from the server), for page/badge math. */
+  total: number;
   hasPrev: boolean;
   hasNext: boolean;
   loading: boolean;
@@ -176,6 +178,7 @@ export function useOrdersPage(account: Address, opts?: { limit?: number; liveWin
   const [page, setPage] = useState(0);
   const [orders, setOrders] = useState<Order[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const cursor = cursors[page] ?? undefined;
@@ -183,7 +186,7 @@ export function useOrdersPage(account: Address, opts?: { limit?: number; liveWin
     let alive = true;
     setLoading(true);
     client.rest.orders(account, { cursor, limit })
-      .then((res) => { if (alive) { setOrders(res.orders); setNextCursor(res.nextCursor); } })
+      .then((res) => { if (alive) { setOrders(res.orders); setNextCursor(res.nextCursor); setTotal(res.totalCount); } })
       .catch(() => { if (alive) { setOrders([]); setNextCursor(null); } })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
@@ -205,7 +208,7 @@ export function useOrdersPage(account: Address, opts?: { limit?: number; liveWin
   }, [orders, live]);
 
   return {
-    orders: merged, page, loading,
+    orders: merged, page, total, loading,
     hasPrev: page > 0,
     hasNext: nextCursor != null,
     next: () => {

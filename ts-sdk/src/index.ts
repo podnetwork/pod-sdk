@@ -26,6 +26,7 @@ export {
 export {
   previewOrder, type OrderPreview, type OrderPreviewInput,
   priceForReturn, type ReturnPriceInput,
+  closestTriggers,
 } from "./sync/order-preview.js";
 export type { SeriesResource } from "./sync/candles.js";
 export { CandleSeries } from "./sync/candles.js";

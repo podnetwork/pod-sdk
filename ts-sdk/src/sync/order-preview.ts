@@ -7,7 +7,7 @@
 //   max_notional     = available_margin / initial_margin_rate (≈ available · max_leverage)
 //   implied_leverage = (Σ current perp notional + notional) / perps_equity
 
-import type { Market, PositionsSnapshot } from "../types/public.js";
+import type { Market, PositionsSnapshot, Trigger } from "../types/public.js";
 import { div, imRate, mul } from "../codec/fixed.js";
 import { parseAmount, toNumber, WAD } from "../codec/units.js";
 
@@ -33,6 +33,29 @@ export function priceForReturn(p: ReturnPriceInput): bigint {
   const dir = p.side === "long" ? 1 : -1; // longs profit up, shorts profit down
   const human = toNumber(p.entryPrice) * (1 + dir * move);
   return human > 0 ? parseAmount(human.toFixed(8)) : 0n;
+}
+
+/**
+ * The TP and SL triggers nearest the mark for a position — i.e. the ones that
+ * would fire first. "Nearest" depends on the side: a long's TPs sit above the
+ * mark (nearest = lowest price) and its SLs below (nearest = highest); a short
+ * is mirrored. Pass the position's triggers (already filtered to its market).
+ */
+export function closestTriggers(
+  side: "long" | "short",
+  triggers: Trigger[],
+): { takeProfit?: Trigger; stopLoss?: Trigger } {
+  const pick = (list: Trigger[], wantLowest: boolean): Trigger | undefined =>
+    list.reduce<Trigger | undefined>((best, t) => {
+      if (!best) return t;
+      return (wantLowest ? t.triggerPrice < best.triggerPrice : t.triggerPrice > best.triggerPrice) ? t : best;
+    }, undefined);
+  const tps = triggers.filter((t) => t.triggerType === "take_profit");
+  const sls = triggers.filter((t) => t.triggerType === "stop_loss");
+  return {
+    takeProfit: pick(tps, side === "long"), // long TP nearest = lowest; short = highest
+    stopLoss: pick(sls, side === "short"), // long SL nearest = highest; short = lowest
+  };
 }
 
 export interface OrderPreviewInput {
