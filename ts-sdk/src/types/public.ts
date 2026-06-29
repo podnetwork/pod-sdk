@@ -214,6 +214,52 @@ export interface Status {
   solutionNow: number;
 }
 
+// --- explorer (`/tx/{hash}`) ---
+
+export interface TxAttestation {
+  validator_address: string;
+  sequence_number: number;
+  batch_index?: number;
+  timestamp: number; // microseconds
+  signature: string;
+}
+
+/** Pre-decoded calldata: `{contract, function, args}` plus curation
+ * (order_id, submitBatch sub-intents, ERC20 symbol …). */
+export interface TxDecoded {
+  contract: string;
+  function: string;
+  args: Record<string, unknown>;
+  order_id?: string;
+  [k: string]: unknown;
+}
+
+/** Flat explorer view of a transaction. Hex fields are raw RPC encodings —
+ * format them at the edge. Extra fields are tolerated (index signature). */
+export interface TxExplorer {
+  hash: string;
+  type: string;
+  nonce: string;
+  from: string;
+  to: string | null;
+  value: string;
+  gas: string;
+  gasUsed: string;
+  status: string; // "0x1" success, "0x0" reverted
+  input: string;
+  logs: unknown[];
+  decoded?: TxDecoded | null;
+  attestations: TxAttestation[];
+  committee_epoch?: number;
+  chainId?: string;
+  maxFeePerGas?: string;
+  effectiveGasPrice?: string;
+  blockNumber?: string;
+  transactionIndex?: string;
+  contractAddress?: string | null;
+  [k: string]: unknown;
+}
+
 /** A spot token holding (`/clob/balances`). Like SpotPosition but identified by
  * market + symbols rather than token address. */
 export interface SpotHolding {

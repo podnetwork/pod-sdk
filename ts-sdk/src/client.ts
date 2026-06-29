@@ -1,6 +1,6 @@
 import type {
   Address, BackstopTransfer, Balances, LeaderboardPage, LeaderboardQuery, Market, MarketId,
-  PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery, OrdersQuery,
+  PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery, TxExplorer, OrdersQuery,
 } from "./types/public.js";
 import { PodRestClient } from "./transport/rest.js";
 import { PodWsClient, type WebSocketCtor } from "./transport/ws.js";
@@ -126,6 +126,11 @@ export class PodTradeClient {
    * `{ limit, offset }`. Not a stream — call again to refresh. */
   leaderboard(query?: LeaderboardQuery): Promise<LeaderboardPage> {
     return this.rest.leaderboard(query);
+  }
+
+  /** Explorer view of a transaction by hash. One-shot. */
+  transaction(hash: string): Promise<TxExplorer> {
+    return this.rest.transaction(hash);
   }
 
   backstopTransfers(account: Address): Resource<BackstopTransfer[]> {

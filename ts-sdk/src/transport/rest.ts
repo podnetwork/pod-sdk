@@ -4,7 +4,7 @@
 
 import type {
   Address, BackstopTransfer, Balances, Bar, CandleQuery, LeaderboardPage, LeaderboardQuery,
-  Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status, Trigger,
+  Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status, Trigger, TxExplorer,
 } from "../types/public.js";
 import type {
   WireBackstopPage, WireBalances, WireCandlesEnvelope, WireLeaderboard, WireMarketStatic,
@@ -182,6 +182,12 @@ export class PodRestClient {
   /** Spot holdings + native cash. */
   async balances(account: Address): Promise<Balances> {
     return decodeBalances(await this.get<WireBalances>(`/clob/balances/${account}`));
+  }
+
+  /** Flat explorer view of a transaction (fields, receipt, logs, attestations,
+   * decoded calldata). Returned as-is (hex fields raw). */
+  async transaction(hash: string): Promise<TxExplorer> {
+    return this.get<TxExplorer>(`/tx/${hash}`);
   }
 
   /** Accounts ranked by net PnL (realized + unrealized), descending. Paginate

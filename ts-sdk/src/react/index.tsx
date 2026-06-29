@@ -13,7 +13,7 @@ import type { CandleSeries } from "../sync/candles.js";
 import type { OrderHistory } from "../sync/orders.js";
 import type {
   Address, Balances, Bar, LeaderboardEntry, LeaderboardPage, Market, MarketId, Order, Orderbook,
-  OrdersQuery, PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery,
+  OrdersQuery, PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery, TxExplorer,
 } from "../types/public.js";
 
 const PodClientContext = createContext<PodTradeClient | null>(null);
@@ -274,6 +274,22 @@ export function useLeaderboard(opts?: { pageSize?: number }): LeaderboardView {
 export function useBalances(account: Address): Balances | undefined {
   const client = usePodClient();
   return useResource(useMemo(() => client.balances(account), [client, account]));
+}
+
+/** One-shot explorer fetch of a transaction by hash (re-fetches when hash changes). */
+export function useTransaction(hash: string): { tx?: TxExplorer; loading: boolean; error?: Error } {
+  const client = usePodClient();
+  const [s, setS] = useState<{ tx?: TxExplorer; loading: boolean; error?: Error }>({ loading: true });
+  useEffect(() => {
+    if (!hash) { setS({ loading: false }); return; }
+    let alive = true;
+    setS({ loading: true });
+    client.transaction(hash)
+      .then((tx) => { if (alive) setS({ tx, loading: false }); })
+      .catch((e) => { if (alive) setS({ error: e as Error, loading: false }); });
+    return () => { alive = false; };
+  }, [client, hash]);
+  return s;
 }
 
 export function usePositions(account: Address): PositionsSnapshot | undefined {
