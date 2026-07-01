@@ -32,6 +32,9 @@ export type { SeriesResource } from "./sync/candles.js";
 export { CandleSeries } from "./sync/candles.js";
 export { OrderHistory } from "./sync/orders.js";
 
+// Framework-agnostic TradingView Charting Library datafeed (no React needed).
+export { createPodDatafeed } from "./datafeed.js";
+
 // Public data types
 export * from "./types/public.js";
 
