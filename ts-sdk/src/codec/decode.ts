@@ -97,6 +97,7 @@ export function decodeOrder(w: WireOrder): Order {
     effectivePrice: decOpt(w.effective_price),
     deadlineMs: usToMs(w.deadline),
     endMs: usToMs(w.end),
+    includedMs: usToMsOpt(w.included_batch),
     fills: (w.fills ?? []).map(decodePartialFill),
     reduceOnly: w.reduce_only,
     ioc: w.ioc,

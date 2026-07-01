@@ -105,6 +105,7 @@ export interface WireOrder {
   fee: WireDecimal;
   deadline: number | string; // micros
   end: number | string; // micros
+  included_batch?: number | string; // micros; batch-inclusion time (REST order history)
   effective_price?: WireDecimal | null;
   fills?: WirePartialFill[];
   /** Present on WS stream orders (raw engine Order) instead of orderbook_id. */

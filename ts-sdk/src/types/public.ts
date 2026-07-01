@@ -133,6 +133,8 @@ export interface Order {
   effectivePrice?: bigint;
   deadlineMs: number;
   endMs: number;
+  /** Batch-inclusion time (ms) — when the order entered the book. REST history only. */
+  includedMs?: number;
   fills: PartialFill[];
   // perpetual-only
   reduceOnly?: boolean;
