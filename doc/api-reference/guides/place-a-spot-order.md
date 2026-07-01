@@ -58,7 +58,7 @@ console.log("Order tx:", tx.hash);
 use alloy::providers::ProviderBuilder;
 use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
-use alloy::primitives::{U256, I256, FixedBytes};
+use alloy::primitives::{Address, U256, I256, FixedBytes};
 
 sol! {
     #[sol(rpc)]
