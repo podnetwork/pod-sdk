@@ -1,17 +1,13 @@
 {
   "name": "@pod-network/trade-sdk",
   "version": "0.0.0",
-  "description": "Read/stream TypeScript SDK for the pod trading indexer: cacheable REST seeds + one multiplexed WebSocket, kept in memory, with React bindings.",
+  "description": "Read/stream TypeScript SDK for the pod trading indexer: cacheable REST seeds + one multiplexed WebSocket, kept in memory. Framework-agnostic.",
   "type": "module",
   "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./react": {
-      "types": "./dist/react/index.d.ts",
-      "import": "./dist/react/index.js"
     },
     "./write": {
       "types": "./dist/write/index.d.ts",
@@ -26,14 +22,7 @@
   "dependencies": {
     "viem": "^2.21.0"
   },
-  "peerDependencies": {
-    "react": ">=18"
-  },
-  "peerDependenciesMeta": {
-    "react": { "optional": true }
-  },
   "devDependencies": {
-    "@types/react": "^18.3.0",
     "typescript": "^5.5.0"
   },
   "license": "MIT"
