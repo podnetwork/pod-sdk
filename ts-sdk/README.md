@@ -2,8 +2,8 @@
 
 Read/stream market-data SDK for the pod trading indexer. It seeds initial values
 from the cacheable REST API, then keeps everything live over **one multiplexed
-WebSocket**, holds it in memory, and exposes it through a tiny `Resource`
-abstraction with first-class React bindings. No polling.
+WebSocket**, holds it in memory, and exposes it through a tiny, framework-agnostic
+`Resource` abstraction. No polling.
 
 > **Scope:** read/stream only. Order submission (nonce management, recovery) is a
 > separate library — see `doc/ts-sdk-design.md`.
@@ -30,19 +30,18 @@ const off = markets.subscribe(() => console.log(markets.get()));
 await markets.ready();
 ```
 
-## React
+## Framework bindings
 
-```tsx
-import { PodTradeProvider, useMarkets, useCandles, useOrderbook } from "@pod-network/trade-sdk/react";
+The SDK ships no framework bindings — every resource is a `{ get(), subscribe(cb) }`
+store, so it drops straight into React's `useSyncExternalStore`, Vue's
+`shallowRef`, Svelte stores, etc.
 
-<PodTradeProvider client={client}>
-  <App />
-</PodTradeProvider>
-
-function Ticker({ id }) {
-  const ob = useOrderbook(id, { depth: 20 }); // never refetches on render; updates on WS push
-  return <div>{ob?.clearingPrice?.toString()}</div>;
-}
+```ts
+// React, in one line — no provider, no library hook needed:
+const ob = useSyncExternalStore(
+  (cb) => client.orderbook(id, { depth: 20 }).subscribe(cb),
+  () => client.orderbook(id, { depth: 20 }).get(),
+);
 ```
 
 ## API surface
@@ -53,10 +52,8 @@ function Ticker({ id }) {
   `.orderbook(id,{depth})`, `.positions(account)`, `.triggers(account)`,
   `.backstopTransfers(account)`, `.candles(id, resolution, range)` (a
   `SeriesResource` with `setWindow`/`loadOlder`), `.orders(account, query)`.
-- **React:** `useResource(resource)` (the one real hook) + typed sugar
-  (`useMarkets`, `useMarket`, `useOrderbook`, `useCandles`, `useOrders`,
-  `usePositions`, `useTriggers`, `useStatus`) + `createPodDatafeed(client)` for
-  the TradingView Charting Library.
+- **Charting:** `createPodDatafeed(client)` returns an `IDatafeedChartApi`-shaped
+  object for the TradingView Charting Library (framework-agnostic, no React).
 
 All monetary values are `bigint` (1e18-scaled; use `formatAmount`/`toNumber`/
 `parseAmount`); all timestamps are millisecond `number`s.
@@ -72,14 +69,8 @@ All monetary values are `bigint` (1e18-scaled; use `formatAmount`/`toNumber`/
   re-requests them. The forming bar is built in memory from the `pod_candles`
   tick stream, so the hot edge costs zero extra requests.
 
-## Build & example
+## Build
 
 ```bash
 npm install && npm run build      # build the package to dist/
-cd examples/minimal && npm install && npm run dev   # run the demo app
 ```
-
-The example (`examples/minimal`) is a single-page app — market selector,
-TradingView (lightweight-charts) chart, order book, market stats, order history
-— wired entirely through the hooks. Configure it with `VITE_POD_REST_URL` /
-`VITE_POD_WS_URL`.

@@ -2,9 +2,9 @@
 // backed by the SDK's CandleSeries. Typed loosely so the SDK takes no
 // dependency on the (private) charting library types.
 
-import type { PodTradeClient } from "../client.js";
-import type { Bar, MarketId, Resolution } from "../types/public.js";
-import { toNumber } from "../codec/units.js";
+import type { PodTradeClient } from "./client.js";
+import type { Bar, MarketId, Resolution } from "./types/public.js";
+import { toNumber } from "./codec/units.js";
 
 const TV_TO_RESOLUTION: Record<string, Resolution> = {
   "1": "1m", "5": "5m", "15": "15m", "30": "30m",
