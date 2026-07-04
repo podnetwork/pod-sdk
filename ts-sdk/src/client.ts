@@ -16,6 +16,8 @@ import { enrichPositions } from "./sync/positions-live.js";
 export interface PodTradeClientOptions {
   restUrl: string;
   wsUrl: string;
+  /** Node JSON-RPC HTTP endpoint — needed only for tx features (e.g. mint). */
+  rpcUrl?: string;
   fetch?: typeof fetch;
   WebSocket?: WebSocketCtor;
   reconnect?: { maxDelayMs?: number; idleTimeoutMs?: number };
@@ -32,8 +34,12 @@ export class PodTradeClient {
   readonly ws: PodWsClient;
   private readonly ctx: SyncContext;
   private readonly cache = new Map<string, Destroyable & object>();
+  private readonly rpcUrl?: string;
+  private readonly fetchFn?: typeof fetch;
 
   constructor(opts: PodTradeClientOptions) {
+    this.rpcUrl = opts.rpcUrl;
+    this.fetchFn = opts.fetch;
     this.rest = new PodRestClient({ restUrl: opts.restUrl, fetch: opts.fetch });
     this.ws = new PodWsClient({
       wsUrl: opts.wsUrl,
@@ -50,6 +56,46 @@ export class PodTradeClient {
   }
 
   connect(): void { this.ws.connect(); }
+
+  /**
+   * Re-seed an account's cached resources (positions, balances — and anything
+   * derived from them) from REST. For out-of-band mutations the streams don't
+   * announce; stream-covered state needs no manual refresh.
+   */
+  refresh(account: Address): void {
+    for (const key of [`positions:${account}`, `balances:${account}`]) {
+      const r = this.cache.get(key);
+      if (r instanceof BaseResource) r.refresh();
+    }
+  }
+
+  /**
+   * Faucet mint (test environments where the node sets `minting_allowed`):
+   * credit `to` — by default straight into the CLOB — wait for the receipt,
+   * then refresh the account's cached resources, since a mint emits no account
+   * tick and would otherwise only appear on the next periodic resync. Mint txs
+   * are gas-exempt and signer-irrelevant (signed by a one-shot throwaway key
+   * inside the SDK), so no wallet or delegation is needed. Requires `rpcUrl`
+   * in the client options; the /write entry is loaded on demand.
+   */
+  async mint(
+    to: Address,
+    tokens: Array<{ token?: Address; amount: bigint }>,
+    opts?: { depositToClob?: boolean; onSubmitted?: (hash: string) => void },
+  ): Promise<{ transactionHash: string }> {
+    if (!this.rpcUrl) throw new Error("PodTradeClient.mint requires `rpcUrl` in the client options");
+    const { mint } = await import("./write/index.js");
+    const receipt = await mint({
+      rpcUrl: this.rpcUrl,
+      to,
+      tokens,
+      depositToClob: opts?.depositToClob,
+      onSubmitted: opts?.onSubmitted,
+      fetch: this.fetchFn,
+    });
+    this.refresh(to);
+    return receipt;
+  }
 
   close(): void {
     for (const r of this.cache.values()) r.destroy();

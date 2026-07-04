@@ -3,10 +3,15 @@
 // + broadcasts the returned request with whatever wallet it has
 // (walletClient.sendTransaction / eth_sendTransaction / Privy).
 //
-// Uses viem only as an ABI/keccak encoder (not for signing), and lives in this
-// separate `/write` entry so read-only consumers never bundle it.
+// Two deliberate exceptions hold keys, both scoped to this `/write` entry so
+// read-only consumers never bundle signing code:
+//  - `mint` (below): the faucet is gas-exempt and signer-irrelevant, so it
+//    signs with a one-shot throwaway key.
+//  - `createDelegatedWallet` (./delegation.js): custody of the ephemeral
+//    trading key, closed over — see the invariant there.
 
 import { decodeAbiParameters, encodeAbiParameters, encodeFunctionData, keccak256, parseAbi } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Address, Hash, Hex, MarketId } from "../types/public.js";
 
 /** The CLOB precompile (chain id 1293 / 0x50d). */
@@ -530,6 +535,73 @@ export async function waitForReceipt(
   }
 }
 
+// --- mint faucet (test environments — node/src/mint.rs) ----------------------
+//
+// Anyone may mint tokens to any address when the node's `minting_allowed` flag
+// is set (and its mint-admin list is empty). Mint txs are gas-exempt and the
+// signer is irrelevant — only the recipient matters — so this signs with a
+// fresh throwaway key per call; no wallet, no funds, no delegation needed.
+
+/** The Mint contract (`node/src/mint.rs`). */
+export const MINT_ADDRESS: Address = "0x00000000000000000000000000000000000fFFFf";
+/** The native USD (cash) token — `trading/src/constants.rs` NATIVE_ADDRESS. */
+export const NATIVE_USD_ADDRESS: Address = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+
+const MINT_ABI = parseAbi([
+  "function mint(address to, (address token, uint256 amount)[] tokens, bool depositToClob)",
+]);
+
+export interface MintParams {
+  rpcUrl: string;
+  /** Chain id for the tx; fetched via `eth_chainId` when omitted. */
+  chainId?: number;
+  to: Address;
+  /** 1e18-scaled amounts; `token` defaults to the native USD (cash) token. */
+  tokens: Array<{ token?: Address; amount: bigint }>;
+  /** Deposit into the CLOB balance (default) instead of crediting the EOA. */
+  depositToClob?: boolean;
+  /** Called with the tx hash once the node accepts it (before confirmation). */
+  onSubmitted?: (hash: Hash) => void;
+  fetch?: typeof fetch;
+}
+
+/** Mint tokens to `to` and wait for the receipt. Throws {@link PodTxRevertError}
+ * on rejection (e.g. "Minting is disabled") and Error on on-chain revert. */
+export async function mint(p: MintParams): Promise<TxReceipt> {
+  const doFetch = p.fetch ?? fetch;
+  const rpc = async (method: string): Promise<string> => {
+    const res = await doFetch(p.rpcUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: [] }),
+    });
+    const json = (await res.json()) as { result?: string; error?: { message?: string } };
+    if (json.error || json.result === undefined) throw new Error(json.error?.message ?? `${method} failed`);
+    return json.result;
+  };
+  const chainId = p.chainId ?? Number(await rpc("eth_chainId"));
+  const maxFeePerGas = BigInt(await rpc("eth_gasPrice"));
+  const signer = privateKeyToAccount(generatePrivateKey());
+  const data = encodeFunctionData({
+    abi: MINT_ABI,
+    functionName: "mint",
+    args: [
+      p.to,
+      p.tokens.map((t) => ({ token: t.token ?? NATIVE_USD_ADDRESS, amount: t.amount })),
+      p.depositToClob ?? true,
+    ],
+  });
+  const serialized = await signer.signTransaction({
+    to: MINT_ADDRESS, data, value: 0n, chainId, type: "eip1559",
+    maxFeePerGas, maxPriorityFeePerGas: 0n, gas: 1_000_000n, nonce: 0,
+  });
+  const hash = await sendRawTransaction(p.rpcUrl, serialized, { fetch: doFetch });
+  p.onSubmitted?.(hash);
+  const receipt = await waitForReceipt(p.rpcUrl, hash, { fetch: doFetch });
+  if (receipt.status === "reverted") throw new Error(`mint reverted on-chain (${hash.slice(0, 10)}…)`);
+  return receipt;
+}
+
 /**
  * Deterministic order id: `keccak256(abi.encode(signer, nonce, sequence))`,
  * matching the engine (`trading/src/lib.rs`). `sequence` is the 0-based index
@@ -545,3 +617,8 @@ export function deriveOrderId(signer: Address, nonce: number, sequence = 0): Has
     ),
   ) as Hash;
 }
+
+export {
+  createDelegatedWallet, delegationTypedData,
+  type CreateDelegatedWalletParams, type DelegatedWallet, type DelegationTypedData,
+} from "./delegation.js";
