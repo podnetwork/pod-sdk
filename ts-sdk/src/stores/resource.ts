@@ -6,6 +6,8 @@ export interface Resource<T> {
   get(): T | undefined;
   subscribe(listener: () => void): () => void;
   ready(): Promise<T>;
+  /** Restart the source for a fresh seed (optional — see BaseResource). */
+  refresh?(): void;
   readonly error?: Error;
 }
 
@@ -63,6 +65,18 @@ export class BaseResource<T> implements Resource<T> {
   /** Force teardown (used by the client on close). */
   destroy(): void {
     this.stop();
+  }
+
+  /**
+   * Tear down and restart the source, forcing a fresh seed while keeping
+   * subscribers and the current value (no flicker — the old snapshot stays
+   * until the new seed lands). No-op when the resource isn't running. For
+   * out-of-band mutations the streams don't announce (e.g. a faucet mint).
+   */
+  refresh(): void {
+    if (!this.started) return;
+    this.stop();
+    this.ensureStarted();
   }
 
   private ensureStarted(): void {
