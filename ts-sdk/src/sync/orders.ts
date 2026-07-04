@@ -6,7 +6,7 @@
 // orders) and refresh `since` from its watermark; the WS auto-resubscribes, and
 // if `since` is too old (down too long) `onError` re-seeds and resubscribes.
 
-import type { Address, Order, OrderStatus, OrdersQuery } from "../types/public.js";
+import type { Address, MarketId, Order, OrderStatus, OrdersQuery } from "../types/public.js";
 import type { WireOrderUpdate } from "../types/wire.js";
 import { dec } from "../codec/units.js";
 import { decodeOrder } from "../codec/decode.js";
@@ -32,6 +32,8 @@ export class OrderHistory implements SeriesResource<Order> {
     private readonly ctx: SyncContext,
     private readonly account: Address,
     private readonly query: OrdersQuery = {},
+    /** Maps a WS order's token pair to its orderbook id (see rebuild). */
+    private readonly resolveOrderbookId?: (pair: { base: Address; quote: Address }) => MarketId | undefined,
   ) {
     this.base = new BaseResource<Order[]>((h) => {
       this.handle = h;
@@ -181,6 +183,14 @@ export class OrderHistory implements SeriesResource<Order> {
 
   private rebuild(): void {
     if (!this.handle) return;
+    // WS stream orders carry a token `pair` instead of orderbook_id — resolve
+    // it here so consumers can always filter by market. Retried every rebuild,
+    // so orders that streamed in before the markets list loaded still resolve.
+    if (this.resolveOrderbookId) {
+      for (const o of this.byId.values()) {
+        if (o.orderbookId === undefined && o.pair) o.orderbookId = this.resolveOrderbookId(o.pair);
+      }
+    }
     let arr = [...this.byId.values()];
     if (this.query.status) arr = arr.filter((o) => o.status === this.query.status);
     if (this.query.orderbookId) arr = arr.filter((o) => o.orderbookId === this.query.orderbookId);
