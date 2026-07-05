@@ -5,8 +5,10 @@
 //  - Current-state channels (markets/positions/triggers) subscribe with
 //    `since: 0`, so every (re)subscribe yields a fresh immediate snapshot — no
 //    staleness possible, nothing to re-seed.
-//  - REST-seeded channels (markets static, orderbook) re-seed on every
-//    (re)connect via `onConnected`, so state is refreshed after any downtime.
+//  - REST-seeded channels (markets static, orderbook, balances) seed
+//    immediately — the fetch doesn't need the socket, so first data isn't
+//    held behind the WS handshake — and re-seed on every (re)connect via
+//    `seedNowAndOnReconnect`, so state is refreshed after any downtime.
 //  - The WS client auto-resubscribes live subs on reconnect; tick-log channels
 //    that use `since` (candles/orders) advance/refresh it and fall back to a
 //    REST re-seed via `onError` when `since` is too old (down too long).
@@ -31,12 +33,45 @@ export interface SyncContext {
   positionResyncMs: number;
   /** Periodic REST re-poll (ms) of market 24h stats; 0 disables. */
   marketResyncMs: number;
+  /** Optional persistence for the static markets list (see marketsSource). */
+  marketsCache?: MarketsCache;
 }
 
-/** Run `fn` on every successful connection (now if already open, and on each reconnect). */
-export function onConnected(ws: PodWsClient, fn: () => void): () => void {
+/**
+ * Host-supplied persistence (e.g. localStorage-backed) for the static markets
+ * list, so market-keyed UI can mount immediately on a repeat visit instead of
+ * waiting a REST round trip. Only the static `/clob/markets` config is stored —
+ * never prices/stats, which always arrive live. Implementations may throw
+ * (storage denied, quota); callers ignore failures.
+ */
+export interface MarketsCache {
+  get(): string | null;
+  set(value: string): void;
+}
+
+// Static-list serialization for MarketsCache. Version is embedded in the
+// payload: a mismatch after an SDK format change just falls back to a cold
+// start. bigints round-trip as "<digits>n" strings.
+const MARKETS_CACHE_VERSION = 1;
+const serializeMarkets = (markets: Market[]): string =>
+  JSON.stringify({ v: MARKETS_CACHE_VERSION, markets }, (_k, v: unknown) => (typeof v === "bigint" ? `${v}n` : v));
+const parseCachedMarkets = (raw: string | null): Market[] | undefined => {
+  if (!raw) return undefined;
+  const data = JSON.parse(raw, (_k, v: unknown) =>
+    typeof v === "string" && /^-?\d+n$/.test(v) ? BigInt(v.slice(0, -1)) : v) as { v: number; markets: Market[] };
+  return data?.v === MARKETS_CACHE_VERSION ? data.markets : undefined;
+};
+
+/**
+ * Seed now — a REST fetch needs no socket, so don't hold first data behind the
+ * WS handshake — and re-seed on every (re)connect so state refreshes after any
+ * downtime. On a cold start the connect completes shortly after the immediate
+ * seed and triggers one extra seed; that duplicate is what guarantees a seed
+ * at/after the moment the WS subscription goes live, exactly as before.
+ */
+export function seedNowAndOnReconnect(ws: PodWsClient, fn: () => void): () => void {
   const off = ws.on("open", fn);
-  if (ws.state === "open") fn();
+  fn();
   return off;
 }
 
@@ -44,13 +79,13 @@ export function statusSource({ rest, ws }: SyncContext): ResourceSource<Status> 
   return (h) => {
     let alive = true;
     const seed = () => { rest.status().then((s) => { if (alive) h.set(s); }).catch((e) => h.fail(e)); };
-    const off = onConnected(ws, seed);
+    const off = seedNowAndOnReconnect(ws, seed);
     return () => { alive = false; off(); };
   };
 }
 
 export function marketsSource(
-  { rest, ws, marketResyncMs }: SyncContext,
+  { rest, ws, marketResyncMs, marketsCache }: SyncContext,
 ): ResourceSource<Market[]> {
   return (h) => {
     let alive = true;
@@ -73,10 +108,27 @@ export function marketsSource(
       byId.set(patch.id, existing ? { ...existing, ...patch } : (patch as Market));
     };
 
+    // Last session's static list (never dynamics — those stay live-only):
+    // seeded synchronously so market-keyed UI mounts without a round trip.
+    // The REST seed below overwrites it field-for-field when it lands.
+    const fromCache = new Set<MarketId>();
+    try {
+      const cached = marketsCache && parseCachedMarkets(marketsCache.get());
+      cached?.forEach((m, i) => { orderIndex.set(m.id, i); byId.set(m.id, m); fromCache.add(m.id); });
+      if (byId.size) publish();
+    } catch { /* absent/corrupt cache — plain cold start */ }
+
     const seedStatic = () => rest.markets().then((markets) => {
       if (!alive) return;
+      // Fresh static truth: drop cache-seeded markets that no longer exist,
+      // so a delisting can't outlive the first seed. (Dynamics-only entries
+      // buffered from the WS stream are untouched, as before.)
+      const fresh = new Set(markets.map((m) => m.id));
+      for (const id of fromCache) if (!fresh.has(id)) { byId.delete(id); orderIndex.delete(id); }
+      fromCache.clear();
       markets.forEach((m, i) => { orderIndex.set(m.id, i); byId.set(m.id, { ...byId.get(m.id), ...m }); });
       publish();
+      try { marketsCache?.set(serializeMarkets(markets)); } catch { /* storage denied/full */ }
     }).catch((e) => { if (!byId.size) h.fail(e); });
 
     // 24h vol/high/low slide with time and only the REST stats reflect that
@@ -87,7 +139,7 @@ export function marketsSource(
       publish();
     }).catch(() => { /* live dynamics also arrive on the stream */ });
 
-    const offOpen = onConnected(ws, () => { void seedStatic(); void seedStats(); });
+    const offOpen = seedNowAndOnReconnect(ws, () => { void seedStatic(); void seedStats(); });
     const timer = marketResyncMs > 0 ? setInterval(seedStats, marketResyncMs) : undefined;
 
     // Live clearing/mark/funding between polls.
@@ -117,7 +169,7 @@ export function orderbookSource(
         if (alive && (!cur || cur.timeMs <= ob.timeMs)) h.set(ob);
       }).catch((e) => { if (!h.current()) h.fail(e); });
     };
-    const offOpen = onConnected(ws, seed);
+    const offOpen = seedNowAndOnReconnect(ws, seed);
     const sub = ws.subscribe("pod_orderbook", { clobIds: [id], depth }, (result) => {
       const ob = decodeOrderbook(result as WireOrderbook);
       const cur = h.current();
@@ -157,8 +209,7 @@ export function balancesSource(
     // re-fetch (debounced) whenever the account is touched on pod_positions, so
     // a spot fill / deposit reflects promptly without spamming a fetch per tick.
     const seed = () => rest.balances(account).then((b) => { if (alive) h.set(b); }).catch((e) => { if (!h.current()) h.fail(e as Error); });
-    seed();
-    const offOpen = onConnected(ws, seed);
+    const offOpen = seedNowAndOnReconnect(ws, seed);
     const timer = positionResyncMs > 0 ? setInterval(seed, positionResyncMs) : undefined;
     let debounce: ReturnType<typeof setTimeout> | undefined;
     const sub = ws.subscribe("pod_positions", { account, since: 0 }, () => {

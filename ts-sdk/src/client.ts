@@ -7,7 +7,7 @@ import { PodWsClient, type WebSocketCtor } from "./transport/ws.js";
 import { BaseResource, combineResources, derivedResource, type Resource } from "./stores/resource.js";
 import {
   balancesSource, marketsSource, orderbookSource, positionsSource, statusSource, triggersSource,
-  type SyncContext,
+  type MarketsCache, type SyncContext,
 } from "./sync/sources.js";
 import { CandleSeries } from "./sync/candles.js";
 import { OrderHistory } from "./sync/orders.js";
@@ -25,6 +25,12 @@ export interface PodTradeClientOptions {
   positionResyncMs?: number;
   /** Periodic REST re-poll of market 24h stats (ms). Default 30_000; 0 disables. */
   marketResyncMs?: number;
+  /**
+   * Optional persistence for the static markets list (localStorage-backed in a
+   * browser), so market-keyed UI mounts instantly on repeat visits. Key it per
+   * backend environment — the list differs between them.
+   */
+  marketsCache?: MarketsCache;
 }
 
 interface Destroyable { destroy(): void }
@@ -52,6 +58,7 @@ export class PodTradeClient {
       ws: this.ws,
       positionResyncMs: opts.positionResyncMs ?? 60_000,
       marketResyncMs: opts.marketResyncMs ?? 30_000,
+      marketsCache: opts.marketsCache,
     };
   }
 
