@@ -22,7 +22,9 @@ export type OrderStatus =
   | "pending" | "active" | "filled" | "expired"
   | "canceled" | "margin_canceled" | "invalid";
 export type OrderKind =
-  | "user_signed" | "liquidation" | "triggered" | "adl" | "adl_counterparty";
+  | "user_signed" | "liquidation" | "triggered" | "adl" | "adl_counterparty"
+  /** A backstop transfer merged into the order feed as a synthetic terminal row. */
+  | "backstop_transfer";
 export type TriggerType = "take_profit" | "stop_loss";
 export type OrderDirection =
   | "buy" | "sell"

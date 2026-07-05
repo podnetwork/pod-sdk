@@ -58,14 +58,17 @@ export class PodTradeClient {
   connect(): void { this.ws.connect(); }
 
   /**
-   * Re-seed an account's cached resources (positions, balances — and anything
-   * derived from them) from REST. For out-of-band mutations the streams don't
-   * announce; stream-covered state needs no manual refresh.
+   * Re-seed an account's cached resources (positions, balances, triggers —
+   * and anything derived from them). For out-of-band mutations the streams
+   * don't announce (e.g. a mint, or a trigger update — `pod_triggers` only
+   * pushes on ticks with order activity); stream-covered state needs no
+   * manual refresh. Address-case-insensitive: resources may have been created
+   * under a checksummed address while callers pass the wire's lowercase form.
    */
   refresh(account: Address): void {
-    for (const key of [`positions:${account}`, `balances:${account}`]) {
-      const r = this.cache.get(key);
-      if (r instanceof BaseResource) r.refresh();
+    const want = new Set(["positions", "balances", "triggers"].map((k) => `${k}:${account.toLowerCase()}`));
+    for (const [key, r] of this.cache) {
+      if (want.has(key.toLowerCase()) && r instanceof BaseResource) r.refresh();
     }
   }
 

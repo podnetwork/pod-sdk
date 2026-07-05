@@ -445,6 +445,18 @@ export function buildOrderWithTriggers(p: OrderWithTriggersParams): PodTxRequest
   return legs.length === 1 ? order : buildSubmitBatch(legs);
 }
 
+/**
+ * Protective bound for a market order: the worst price it may fill at. A CLOB
+ * market order's `price` IS its slippage bound, so submit at the reference
+ * price padded by `slippageBps` (buy pays up to +bps, sell accepts down to
+ * −bps) — tight enough to protect, loose enough to actually cross.
+ */
+export function protectivePrice(price: bigint, side: "buy" | "sell", slippageBps: number): bigint {
+  const bps = BigInt(Math.trunc(slippageBps));
+  const SCALE = 10_000n;
+  return (price * (side === "buy" ? SCALE + bps : SCALE - bps)) / SCALE;
+}
+
 export interface ClosePositionParams {
   orderbookId: MarketId;
   /** The position's current side (long → close with a sell; short → buy). */
@@ -470,10 +482,7 @@ export interface ClosePositionParams {
  */
 export function buildClosePosition(p: ClosePositionParams): PodTxRequest {
   const closeSide = p.side === "long" ? "sell" : "buy";
-  const bps = BigInt(p.slippageBps ?? 500);
-  const SCALE = 10_000n;
-  const mult = closeSide === "buy" ? SCALE + bps : SCALE - bps;
-  const price = (p.price * mult) / SCALE; // protective bound; tick-aligned in build
+  const price = protectivePrice(p.price, closeSide, p.slippageBps ?? 500); // tick-aligned in build
   return buildSubmitOrder({
     orderbookId: p.orderbookId,
     side: closeSide,

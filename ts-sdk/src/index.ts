@@ -25,6 +25,7 @@ export {
 } from "./sync/account-metrics.js";
 export {
   previewOrder, type OrderPreview, type OrderPreviewInput,
+  closePreview, type ClosePreview,
   priceForReturn, type ReturnPriceInput,
   closestTriggers,
 } from "./sync/order-preview.js";

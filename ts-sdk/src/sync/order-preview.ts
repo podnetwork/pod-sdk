@@ -7,7 +7,7 @@
 //   max_notional     = available_margin / initial_margin_rate (≈ available · max_leverage)
 //   implied_leverage = (Σ current perp notional + notional) / perps_equity
 
-import type { Market, PositionsSnapshot, Trigger } from "../types/public.js";
+import type { Market, PerpPosition, PositionsSnapshot, Trigger } from "../types/public.js";
 import { div, imRate, mul } from "../codec/fixed.js";
 import { parseAmount, toNumber, WAD } from "../codec/units.js";
 
@@ -64,6 +64,9 @@ export interface OrderPreviewInput {
   price: bigint;
   /** 1e18-scaled USD notional the user wants to open. */
   notional: bigint;
+  /** Picks the fee rate for `estimatedFee`: market → taker, limit → maker.
+   * Default market. (A crossing limit really pays taker — an estimate.) */
+  orderType?: "limit" | "market";
 }
 
 export interface OrderPreview {
@@ -79,6 +82,8 @@ export interface OrderPreview {
   impliedLeverage: number;
   /** Whether free margin covers the required margin. */
   sufficientMargin: boolean;
+  /** Estimated fee = notional · fee rate (taker for market, maker for limit). */
+  estimatedFee: bigint;
 }
 
 export function previewOrder(
@@ -111,5 +116,37 @@ export function previewOrder(
     maxNotional,
     impliedLeverage,
     sufficientMargin: marginRequired <= availableMargin,
+    estimatedFee: mul(input.notional, input.orderType === "limit" ? market.makerFee : market.takerFee),
+  };
+}
+
+export interface ClosePreview {
+  /** PnL realized by closing `size` at `price` (funding and fees not included). */
+  expectedPnl: bigint;
+  /** USD notional of the closed size at `price`. */
+  notional: bigint;
+  /** Estimated fee = notional · `feeRate` (0 when no rate given). */
+  fee: bigint;
+}
+
+/**
+ * Expected result of closing `size` (magnitude) of a position at `price`:
+ * long → (price − entry)·size, short → (entry − price)·size. Pass the intended
+ * exit price — the limit price, or the protective bound for a market close —
+ * and the market's fee rate (taker for a market close) for the fee estimate.
+ */
+export function closePreview(
+  position: PerpPosition,
+  input: { size: bigint; price: bigint; feeRate?: bigint },
+): ClosePreview {
+  const size = input.size < 0n ? -input.size : input.size;
+  const move = position.side === "long"
+    ? input.price - position.entryPrice
+    : position.entryPrice - input.price;
+  const notional = (input.price * size) / WAD;
+  return {
+    expectedPnl: (move * size) / WAD,
+    notional,
+    fee: mul(notional, input.feeRate ?? 0n),
   };
 }
