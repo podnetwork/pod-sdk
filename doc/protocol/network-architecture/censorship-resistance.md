@@ -18,7 +18,7 @@ Transactions confirm within one network round trip (2 delta). For a detailed com
 
 For time-sensitive applications (e.g. an auction with a deadline), censorship resistance needs a stronger guarantee: not just that a transaction will eventually be included, but that it will be included *before a specific time*.
 
-Pod provides this through [past perfection](timestamping.md#past-perfection). When an application subscribes to a time of interest, the full node returns a past perfect set once that time has been reached. If a transaction was submitted sufficiently before the time of interest (delta before the deadline, where delta is the network delay between the client and the slowest honest validator), it is guaranteed to be in the past perfect set. Validators cannot selectively exclude timely transactions from the set.
+Pod provides this through [past perfection](timestamping.md#past-perfection). When an application waits on a time of interest (via `pod_waitPastPerfectTime`), the full node unblocks the call once that time has been reached, and the application can then read the past perfect set - the transactions finalized before it. If a transaction was submitted sufficiently before the time of interest (delta before the deadline, where delta is the network delay between the client and the slowest honest validator), it is guaranteed to be in the past perfect set. Validators cannot selectively exclude timely transactions from the set.
 
 [Optimistic auctions](../optimistic-auctions.md) are a concrete application of this property: bids submitted before the auction deadline are guaranteed to be in the finalized bid set, preventing bid suppression.
 

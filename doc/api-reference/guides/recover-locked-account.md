@@ -22,7 +22,8 @@ const abi = ["function recover(bytes32 txHash, uint64 nonce) public"];
 const recovery = new ethers.Contract(RECOVERY, abi, wallet);
 
 // 1. Get the recovery target for the locked account
-const { txHash: targetTxHash, nonce } = await provider.send("pod_getRecoveryTargetTx", [wallet.address]);
+// (the response is `{ hash, nonce }`; it is `null` if the account is not locked)
+const { hash: targetTxHash, nonce } = await provider.send("pod_getRecoveryTargetTx", [wallet.address]);
 
 // 2. Call the recovery precompile
 const tx = await recovery.recover(targetTxHash, nonce);
@@ -54,13 +55,14 @@ let recovery = Recovery::new(
 );
 
 // 1. Get the recovery target for the locked account
+// (the response is `{ hash, nonce }`; it is `null` if the account is not locked)
 let target: TargetTx = provider
     .raw_request("pod_getRecoveryTargetTx".into(), vec![account_address])
     .await?;
 
 // 2. Call the recovery precompile
 let receipt = recovery
-    .recover(target.tx_hash, target.nonce)
+    .recover(target.hash, target.nonce)
     .send()
     .await?
     .watch()

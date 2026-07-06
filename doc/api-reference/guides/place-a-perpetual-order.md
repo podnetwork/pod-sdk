@@ -2,7 +2,7 @@
 
 This guide walks through opening a leveraged perpetual position on one of Pod's perp markets. For background, see [Perpetuals](https://docs.v2.pod.network/documentation/markets/perpetuals) and [Market Configurations](../market-configurations.md) for the live perp market list.
 
-Perpetual markets are quoted in **USD** and use cross-margin: a single USD deposit serves as collateral for all open perp positions on the account. `size` is the order quantity in **base-asset units** and is signed — positive opens a long, negative opens a short. Margin is computed by the market from `|size| × price / maxLeverage`.
+Perpetual markets are quoted in **USD** and use cross-margin: a single USD deposit serves as collateral for all open perp positions on the account. `size` is the order quantity in **base-asset units** and is signed — positive opens a long, negative opens a short. Margin is computed by the market from `|size| × markPrice / maxLeverage` (the mark price, not the order's limit price), adjusted by the mark-to-limit difference.
 
 See the [Orderbook precompile reference](../applications-precompiles/orderbook.md) for the timestamp unit, deadline-alignment, and TTL rules that apply to every call below.
 
@@ -21,7 +21,7 @@ const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
-  "function deposit(address token, address recipient, uint256 amount, uint128 deadline)",
+  "function deposit(address token, address recipient, uint256 amount, uint128 deadline) payable",
   "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
 ];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
@@ -31,9 +31,10 @@ const USD = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const nvdaPerpId = "0x0000000000000000000000000000000000000000000000000000000000000007"; // NVDA-USD perp (max 20x)
 const now = BigInt(Date.now()) * 1000n; // microseconds
 
-// 1. Deposit USD margin
+// 1. Deposit USD margin.
+// USD is the native token, so the deposit must carry the amount as tx.value.
 const margin = ethers.parseEther("1000"); // 1,000 USD
-await (await orderbook.deposit(USD, wallet.address, margin, now + 60_000_000n)).wait();
+await (await orderbook.deposit(USD, wallet.address, margin, now + 60_000_000n, { value: margin })).wait();
 
 // 2. Open a long on NVDA-USD: 5 NVDA at $140 limit
 const size = ethers.parseEther("5");          // +5 NVDA long (negative = short)
@@ -89,10 +90,12 @@ let now_us = std::time::SystemTime::now()
     .as_micros() as u128;
 let one_e18 = U256::from(10).pow(U256::from(18));
 
-// 1. Deposit USD margin
+// 1. Deposit USD margin.
+// USD is the native token, so the deposit must carry the amount as tx.value.
 let margin = U256::from(1000) * one_e18;
 orderbook
     .deposit(pusd, signer.address(), margin, now_us + 60_000_000)
+    .value(margin)
     .send().await?.watch().await?;
 
 // 2. Open a long on NVDA-USD: 5 NVDA at $140 limit
@@ -115,7 +118,7 @@ println!("Perp order tx: {:?}", tx.tx_hash());
 
 ## Closing a position
 
-Submit an opposite-sided order with `reduceOnly = true`. Reduce-only orders can only decrease your existing exposure — they will be rejected if matching them would flip your position direction or open a new one.
+Submit an opposite-sided order with `reduceOnly = true`. Reduce-only orders can only decrease your existing exposure — an order larger than your position is clamped at match time to fill at most your current position size (it never flips your direction), and a reduce-only order is rejected at submission if you have no open position on the pair or the order is on the same side as your position.
 
 {% hint style="info" %}
 **Market leverage.** Each perp market has a fixed `maxLeverage` set at creation (20x on every testnet perp). It determines the margin required per position — there's no per-order leverage to set.

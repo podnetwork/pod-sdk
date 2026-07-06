@@ -10,11 +10,11 @@ Pod supports two kinds of markets: native markets and external markets.
 
 ## Native Markets
 
-Native markets are accessed through the Market precompile. Users deposit funds into the market contract and trade against a central limit order book (CLOB) with batch auction matching. Balances are unified across all native markets - a single deposit can be used for both spot and perpetual trading.
+Native markets are accessed through the [Orderbook precompile](orderbook.md). Users deposit funds into the orderbook contract and trade against a central limit order book (CLOB) with batch auction matching. Balances are unified across all native markets - a single deposit can be used for both spot and perpetual trading.
 
 ### Batch Settlement
 
-Native markets settle in periodic batches. The batch duration is configurable per market and is expected to be 100-200ms. Within each batch, operations are processed in a fixed sequence:
+Native markets settle in periodic batches. The batch duration is a single global setting shared by every market, currently 500ms. Within each batch, operations are processed in a fixed sequence:
 
 1. **Deposits** - all deposit operations are processed first, ensuring funds are available before any trading activity.
 2. **Order updates and cancellations** - modifications and cancellations are applied, updating the order book state.

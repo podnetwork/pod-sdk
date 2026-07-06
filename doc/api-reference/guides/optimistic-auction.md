@@ -40,8 +40,9 @@ use pod_sdk::{
 };
 use std::time::{Duration, SystemTime};
 
+let private_key = pod_sdk::SigningKey::from_slice(&hex::decode(PRIVATE_KEY)?)?;
 let provider = PodProviderBuilder::with_recommended_settings()
-    .with_private_key(PRIVATE_KEY.parse()?)
+    .with_private_key(private_key)
     .on_url("wss://rpc.podtestnet.dev")
     .await?;
 

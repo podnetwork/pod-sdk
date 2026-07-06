@@ -16,7 +16,7 @@ For background on the auction mechanism, see [Optimistic Auctions](https://docs.
 
 4. **Block construction** - The builder sorts bids by priority fee and includes them in the L2 block. The TEE attestation proves the builder used the verified bid set and followed the ordering rules.
 
-A working implementation is available at [`examples/optimism-tx-auction`](https://github.com/nicblockchain/optimism-tx-auction).
+A working implementation is available at [`examples/optimism-tx-auction`](https://github.com/podnetwork/pod-sdk/tree/main/examples/optimism-tx-auction).
 
 ## References
 

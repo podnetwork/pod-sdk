@@ -189,7 +189,7 @@ paths:
                   description: |
                     Parameters:
                     1. `orderbook_id` (bytes32): The 32-byte orderbook identifier
-                    2. `depth` (integer, optional): Maximum number of price levels to return for each side. If omitted, all available price levels are returned.
+                    2. `depth` (integer, optional): Maximum number of price levels to return for each side. The served snapshot retains at most 10 price levels per side, so at most 10 levels are returned regardless of `depth`. If omitted, all retained levels (up to 10 per side) are returned.
                   items:
                     oneOf:
                       - $ref: '#/components/schemas/Bytes32'
@@ -1207,7 +1207,10 @@ paths:
         Estimates the gas required for a transaction.
         
         **Pod-specific behavior:** If the transaction already specifies a gas value, returns that value.
-        Otherwise, returns `21000` (standard transaction gas).
+        Otherwise, the estimate routes through Pod's per-contract gas dispatch using the caller-supplied `from`:
+        fee-exempt (contract, selector, signer) tuples — e.g. the solver's `submitSolutions` and the relayer's
+        bridge calls — return `0`, a CLOB `submitBatch` returns `21000 × <number of sub-intents>`, and all other
+        transactions return the flat `21000`.
       requestBody:
         content:
           application/json:
@@ -1509,13 +1512,25 @@ paths:
                   type: array
                   description: |
                     Parameters:
-                    1. `from_sequence` (integer, nullable): Starting sequence number. None = start from 0
-                    2. `to_sequence` (integer, nullable): Ending sequence number. None = up to latest
-                  items: { type: integer, nullable: true }
-                  example: [0, 1000]
+                    1. `ranges` (array of `[from, to]` pairs): Sequence-number ranges to fetch. Each range is a two-element array `[from, to]`; e.g. `[[0, 1000]]` fetches sequence numbers 0 through 1000.
+                    2. `binary` (boolean, optional): When `true`, the result is the compact binary encoding, returned as an object `{ "data": "<base64>" }`. When `false` or omitted, the result is a plain JSON array of vote batch objects.
+                  items:
+                    oneOf:
+                      - type: array
+                        description: Array of [from, to] sequence-number pairs
+                        items:
+                          type: array
+                          items: { type: integer }
+                          minItems: 2
+                          maxItems: 2
+                      - type: boolean
+                        description: Request the compact base64 binary encoding
+                  example: [[[0, 1000]]]
       responses:
         '200':
-          description: Array of vote batch objects
+          description: |
+            Array of vote batch objects, or — when `binary` is `true` — an object
+            `{ "data": "<base64>" }` carrying the compact binary encoding.
           content:
             application/json:
               schema:
@@ -1523,8 +1538,14 @@ paths:
                 properties:
                   jsonrpc: { type: string }
                   result:
-                    type: array
-                    items: { type: object }
+                    oneOf:
+                      - type: array
+                        items: { type: object }
+                      - type: object
+                        properties:
+                          data:
+                            type: string
+                            description: Base64-encoded compact binary vote batches
                   id: { type: integer }
 
 
@@ -1568,9 +1589,12 @@ paths:
               example:
                 jsonrpc: "2.0"
                 result:
-                  signatures: "0x..."
+                  # Byte arrays serialize as JSON arrays of integers, not hex strings.
+                  # `proof` = proof-type byte 0x00 followed by the concatenated 65-byte signatures (truncated here).
+                  proof: [0, 154, 42, 17, 96, 203, 11, 250]
                   committee_epoch: 42
-                  proof: "0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"
+                  # `aux_tx_suffix` = the 32 bytes of the requested tx hash (truncated here).
+                  aux_tx_suffix: [247, 78, 7, 255, 128, 220, 84, 199]
                 id: 1
         '400':
           description: Receipt not found or insufficient attestations
@@ -1666,19 +1690,25 @@ components:
 
     BridgeClaimProof:
       type: object
-      description: Proof data for claiming bridged assets on an external chain via the bridge contract's `claim` function.
-      required: [signatures, committee_epoch, proof]
+      description: |
+        Proof data for claiming bridged assets on an external chain via the bridge contract's `claim` function.
+        Note that the byte-array fields serialize as JSON arrays of integers (one per byte), not 0x-prefixed hex strings.
+      required: [proof, committee_epoch, aux_tx_suffix]
       properties:
-        signatures:
-          $ref: '#/components/schemas/HexBytes'
-          description: Aggregated 65-byte ECDSA signatures (r, s, v) from validators, concatenated
+        proof:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 255 }
+          description: |
+            Proof bytes as a JSON array of integers: a proof-type prefix byte (`0x00` = certificate)
+            followed by the validators' concatenated 65-byte ECDSA signatures (r, s, v)
         committee_epoch:
           type: integer
           format: uint64
           description: Committee epoch for signature verification
-        proof:
-          $ref: '#/components/schemas/Bytes32'
-          description: Transaction hash (proof data for the claim)
+        aux_tx_suffix:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 255 }
+          description: The 32 bytes of the requested transaction hash, as a JSON array of integers
 
     HexUint256:
       type: string
@@ -1713,8 +1743,14 @@ components:
       description: Order side — `buy` (bid) or `sell` (ask). For perps, prefer `direction` (see `OrderDirection`) for the position-effect label.
 
     OrderStatus:
-      type: string
-      enum: ["pending", "active", "filled", "expired", "canceled"]
+      oneOf:
+        - type: string
+          enum: ["pending", "active", "filled", "expired", "canceled", "margin_canceled"]
+        - type: object
+          properties:
+            invalid:
+              type: string
+              description: Human-readable reject reason
       description: |
         Current status of an order:
         - `pending`: Order submitted but not yet included in orderbook
@@ -1722,6 +1758,12 @@ components:
         - `filled`: Order completely filled
         - `expired`: Order expired (TTL exceeded)
         - `canceled`: Order was canceled by user
+        - `margin_canceled`: Resting order removed by the engine because the owner's margin capacity was exhausted
+        - `invalid`: Engine rejected the order during solution execution; serialized as an object `{"invalid": "<reason>"}` carrying the reject reason
+
+        Note: the `status` filter of `ob_getOrders` accepts the bare strings
+        `pending` / `active` / `filled` / `expired` / `canceled` / `invalid`
+        (`invalid` matches regardless of reason; `margin_canceled` is not accepted as a filter).
 
     MarketType:
       type: string
@@ -1730,7 +1772,7 @@ components:
 
     CandleResolution:
       type: string
-      enum: ["1m", "5m", "15m", "1h", "4h", "1d"]
+      enum: ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w", "1M"]
       description: Time interval for OHLCV candles
 
     TriggerType:
@@ -1858,6 +1900,9 @@ components:
         end:
           $ref: '#/components/schemas/Timestamp'
           description: Timestamp when order expires (microseconds)
+        included_batch:
+          $ref: '#/components/schemas/Timestamp'
+          description: Deadline of the batch the solver first included this order in — the tick it entered the book, distinct from `deadline` (the signed target). Zero for engine-generated orders and pre-feature rows.
         effective_price:
           $ref: '#/components/schemas/HexUint256'
           description: Effective price the order has been filled at so far (filled_quote / filled_base, 1e18)
@@ -1876,6 +1921,10 @@ components:
         direction:
           $ref: '#/components/schemas/OrderDirection'
           description: Composite direction label (set for spot, and for perps once fills land or for liquidation orders).
+          nullable: true
+        realized_pnl:
+          type: string
+          description: Perp only. Aggregate realized PnL (signed, 1e18 scale) across this order's fills — price drift minus funding on every slice it closed. Omitted on spot markets.
           nullable: true
         grouping:
           $ref: '#/components/schemas/TriggerGrouping'
@@ -1904,9 +1953,12 @@ components:
         low: 
           $ref: '#/components/schemas/HexUint256'
           description: Lowest price (quote/base with 1e18 scale)
-        volume: 
+        volume:
           $ref: '#/components/schemas/HexUint256'
-          description: Total volume traded during this candle period
+          description: Base volume traded during this candle period (1e18 scale, one-sided)
+        quote_volume:
+          $ref: '#/components/schemas/HexUint256'
+          description: Quote (USD) notional traded during this candle period (1e18 scale, one-sided). Cannot be derived from `volume` since each tick clears at its own price.
 
     Market:
       type: object
@@ -1939,9 +1991,10 @@ components:
           description: Full name of the quote token
         market_type: 
           $ref: '#/components/schemas/MarketType'
-        last_clearing_price: 
+        last_clearing_price:
           $ref: '#/components/schemas/HexUint256'
-          description: Last auction clearing price (quote/base with 1e18 scale)
+          nullable: true
+          description: Last auction clearing price (quote/base with 1e18 scale). `null` until the market's first fill.
         auction_interval:
           type: integer
           format: int64
@@ -1952,14 +2005,17 @@ components:
           description: 24-hour trading volume
         high_24h:
           $ref: '#/components/schemas/HexUint256'
-          description: 24-hour highest price
+          nullable: true
+          description: 24-hour highest price. `null` until the market has a completed candle (never traded); distinct from a real value of 0.
         low_24h:
           $ref: '#/components/schemas/HexUint256'
-          description: 24-hour lowest price
-        price_change_24h: 
+          nullable: true
+          description: 24-hour lowest price. `null` until the market has a completed candle (never traded); distinct from a real value of 0.
+        price_change_24h:
           type: integer
           format: int64
-          description: 24-hour price change (signed integer)
+          nullable: true
+          description: 24-hour price change (signed integer). `null` until the market has a completed candle (never traded); distinct from a real value of 0.
         tick_precision:
           $ref: '#/components/schemas/HexUint256'
           description: Minimum price tick size, hex-encoded with `1e18` scale (e.g. `0xde0b6b3a7640000` = `1e18` = one whole tick).
@@ -2409,6 +2465,9 @@ components:
         equity:
           type: string
           description: Account equity at the moment of the sweep (decimal int256, 1e18).
+        realized_pnl:
+          type: string
+          description: Realized PnL crystallized by the forced close (decimal int256, 1e18). 0 on the terminal cash-sweep row and on pre-migration rows.
         timestamp:
           $ref: '#/components/schemas/Timestamp'
           description: Timestamp of the batch that produced the sweep, in microseconds.
@@ -2704,6 +2763,9 @@ components:
         funding_accrued:
           type: string
           description: '`(market.funding − position.entry_funding) × size` (signed, 1e18 USD).'
+        entry_funding:
+          type: string
+          description: Funding accumulator captured at entry (signed, 1e18). With the streamed `funding_index` and the market's funding window, a client can recompute `funding_accrued` live.
         liquidation_price:
           $ref: '#/components/schemas/HexUint256'
           description: Mark price at which this position would be liquidated against its own `margin` and the market's maintenance-margin rate. Funding ignored. 0 when position is empty.
@@ -2754,10 +2816,13 @@ components:
           description: Cash adjusted for unsettled funding plus unrealized PnL across all open perp positions. Excludes spot holdings (signed, 1e18 USD).
         account_value:
           type: string
-          description: '`perps_equity` plus the mark value of all spot holdings (signed, 1e18 USD).'
+          description: '`perps_equity` plus the mark value of all spot holdings, plus the quote escrowed in resting spot buy orders (signed, 1e18 USD).'
         cash:
           type: string
           description: Deposited collateral adjusted for unsettled funding. Signed — can be negative if the account is underwater (1e18 USD).
         withdrawable_cash:
           $ref: '#/components/schemas/HexUint256'
           description: Free margin — `cash` minus the initial margin reserved by open positions (1e18 USD).
+        net_deposits:
+          type: string
+          description: Net native collateral deposited minus withdrawn (signed, 1e18 USD). Negative once realized profit is withdrawn. Lifetime PnL is `account_value − net_deposits`.

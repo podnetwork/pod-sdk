@@ -17,7 +17,7 @@ You interact with Pod's precompiles the same way you would interact with any sma
 
 ### Reading State
 
-Query the deposited balance of a token in the orderbook contract using `eth_call`.
+Query an account's deposited balance of a token in the orderbook contract using `eth_call`.
 
 {% tabs %}
 {% tab title="JavaScript (ethers.js)" %}
@@ -27,11 +27,11 @@ import { ethers } from "ethers";
 const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
-const abi = ["function getBalance(address token) view returns (uint256)"];
+const abi = ["function balanceOf(address token, address account) view returns (int256)"];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, provider);
 
-const USDT = "0x0000000000000000000000000000000000000001";
-const balance = await orderbook.getBalance(USDT);
+const NVDAX = "0x0000000000000000000000000000000000000001"; // NVDAx (Tokenized NVIDIA)
+const balance = await orderbook.balanceOf(NVDAX, "0xYourAddress");
 console.log("Balance:", balance.toString());
 ```
 {% endtab %}
@@ -43,15 +43,16 @@ from web3 import Web3
 w3 = Web3(Web3.HTTPProvider("https://rpc.podtestnet.dev"))
 
 ORDERBOOK = "0x50d0000000000000000000000000000000000002"
-abi = [{"inputs": [{"name": "token", "type": "address"}],
-        "name": "getBalance",
-        "outputs": [{"name": "", "type": "uint256"}],
+abi = [{"inputs": [{"name": "token", "type": "address"},
+                   {"name": "account", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "", "type": "int256"}],
         "stateMutability": "view", "type": "function"}]
 
 orderbook = w3.eth.contract(address=ORDERBOOK, abi=abi)
 
-USDT = "0x0000000000000000000000000000000000000001"
-balance = orderbook.functions.getBalance(USDT).call()
+NVDAX = "0x0000000000000000000000000000000000000001"  # NVDAx (Tokenized NVIDIA)
+balance = orderbook.functions.balanceOf(NVDAX, "0xYourAddress").call()
 print("Balance:", balance)
 ```
 {% endtab %}
@@ -63,7 +64,7 @@ use alloy::{providers::ProviderBuilder, sol};
 sol! {
     #[sol(rpc)]
     contract Orderbook {
-        function getBalance(address token) public view returns (uint256);
+        function balanceOf(address token, address account) public view returns (int256);
     }
 }
 
@@ -77,8 +78,9 @@ async fn main() -> eyre::Result<()> {
         &provider,
     );
 
-    let usdt: Address = "0x0000000000000000000000000000000000000001".parse()?;
-    let balance = orderbook.getBalance(usdt).call().await?;
+    let nvdax: Address = "0x0000000000000000000000000000000000000001".parse()?; // NVDAx (Tokenized NVIDIA)
+    let account: Address = "0xYourAddress".parse()?;
+    let balance = orderbook.balanceOf(nvdax, account).call().await?;
     println!("Balance: {}", balance._0);
 
     Ok(())

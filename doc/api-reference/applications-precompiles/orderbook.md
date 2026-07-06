@@ -29,7 +29,7 @@ where `signer` is the order owner, `nonce` is the `submitOrder` transaction's no
 deadline = ceil((now + LAG) / auction_interval) * auction_interval
 ```
 
-`LAG` is the headroom you add to `now` so the intent reaches enough validators before its target batch. It is capped at **10 minutes**; aim for **at least 1 minute** under normal conditions, smaller when you want to target a specific upcoming batch.
+`LAG` is the headroom you add to `now` so the intent reaches enough validators before its target batch. Aim for **at least 1 minute** under normal conditions, smaller when you want to target a specific upcoming batch.
 
 See [Batch Deadline](../../protocol/orderbook.md#batch-deadline) in the protocol reference for the full discussion of `deadline` semantics and the trade-offs around `LAG`.
 {% endhint %}
@@ -119,7 +119,9 @@ contract Orderbook {
      *        `ob_getOrders`. This is NOT the `submitOrder` tx hash.
      * @param newSize The new size for the order.
      * @param newPrice The new price for the order.
-     * @param token The token used to cover any additional collateral required by the update.
+     * @param token Currently unused — the engine ignores this parameter. Spot updates lock any
+     *        additional collateral in the resting order's own token (base for sells, quote for
+     *        buys); perp updates draw on native cross-margin.
      * @param deadline The Unix timestamp after which this update is invalid in microseconds. Must be a multiple of the market's `auction_interval`.
      */
     function update(
