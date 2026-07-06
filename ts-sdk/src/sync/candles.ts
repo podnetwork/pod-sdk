@@ -2,6 +2,14 @@
 // canonical pages (so settled pages are byte-identical across clients and the
 // server flags them immutable) and builds the forming bar in memory by folding
 // the pod_candles tick stream. No polling of the hot edge.
+//
+// Every REST request this class makes is a fully-elapsed window, so every
+// response is `immutable` and browser/CDN-cacheable: full canonical pages
+// forever, and the trailing page clamped to the last closed bucket (its URL
+// rotates once per bucket close). The forming bucket never comes from REST —
+// the tick subscription replays it from the bucket boundary; for buckets
+// longer than the server's tick-replay ring, the forming bar is first seeded
+// from settled 1h bars (also cacheable) and ticks fold on top.
 
 import type { Bar, MarketId, Resolution, TimeRange } from "../types/public.js";
 import type { WireCandleTick } from "../types/wire.js";
@@ -25,6 +33,13 @@ export interface SeriesResource<Item> {
 const bmax = (a: bigint, b: bigint) => (a > b ? a : b);
 const bmin = (a: bigint, b: bigint) => (a < b ? a : b);
 
+// pod_candles `since` replays from a bounded server-side tick ring (~16k
+// batches ≈ 2.3h at a 500ms cadence). An hour of ticks fits comfortably, so
+// resolutions up to 1h replay their whole forming bucket; coarser buckets
+// can't, and seed their forming bar from settled 1h bars instead.
+const REPLAY_SAFE_SECS = 3_600;
+const SEED_RESOLUTION: Resolution = "1h";
+
 export class CandleSeries implements SeriesResource<Bar> {
   private readonly base: BaseResource<Bar[]>;
   private handle: ResourceHandle<Bar[]> | undefined;
@@ -40,7 +55,6 @@ export class CandleSeries implements SeriesResource<Bar> {
   private maxPage: number | undefined;
   private _loading = false;
   private _hasMore = true;
-  private watermarkUs = 0; // newest indexer solution time seen (micros), for `since`
   private lastTickUs = 0;
   private tickSub: Subscription | undefined;
   private alive = false;
@@ -62,16 +76,21 @@ export class CandleSeries implements SeriesResource<Bar> {
     this.base = new BaseResource<Bar[]>((h) => {
       this.handle = h;
       this.alive = true;
-      // Load the initial window first so we capture the indexer watermark, then
-      // subscribe with `since` — the server replays ticks after it then streams
-      // live (no gap), and the fold dedups by bucket. `since` is advanced as
-      // ticks arrive (so reconnects replay minimally) and falls back to a REST
-      // re-seed via onError when it is too old (down too long).
-      void this.loadWindow(this.window).then(() => {
+      // Load the initial window, then subscribe from the forming bucket's
+      // boundary — the server replays the ticks inside it then streams live
+      // (no gap), so the forming bar is complete from its first trade. Never
+      // anchor `since` on a REST response watermark: settled responses are
+      // immutable and may come from the HTTP cache with a stale solutionNow.
+      // `since` advances as ticks arrive (so reconnects replay minimally) and
+      // falls back to a REST re-seed via onError when it is too old.
+      void this.loadWindow(this.window).then(async () => {
         if (!this.alive) return;
+        const sinceUs = await this.prepareLiveEdge();
+        if (!this.alive) return;
+        this.lastTickUs = sinceUs;
         this.tickSub = this.ctx.ws.subscribe(
           "pod_candles",
-          { clobIds: [this.id], since: this.watermarkUs || undefined },
+          { clobIds: [this.id], since: sinceUs },
           (r) => this.onTick(r),
           () => this.onSubError(),
         );
@@ -136,9 +155,24 @@ export class CandleSeries implements SeriesResource<Bar> {
     this._loading = true;
     this.rebuild(); // surface loading state
     try {
+      // The trailing page's window is clamped to the last closed bucket: the
+      // server returns only closed bars either way, so the content is
+      // identical — but a fully-elapsed window is served `immutable`
+      // (browser/CDN-cacheable; its URL rotates once per bucket close), while
+      // a `to` in the future would be `no-store` on every open. The forming
+      // bucket comes from the tick subscription (see prepareLiveEdge).
+      const lastClosedMs = Math.floor(Date.now() / 1000 / this.resSecs) * this.resSecs * 1000;
       await Promise.all(pageIndices.map(async (p) => {
         const fromMs = p * this.pageSpanSecs * 1000;
-        const toMs = (p + 1) * this.pageSpanSecs * 1000;
+        const toMs = Math.min((p + 1) * this.pageSpanSecs * 1000, lastClosedMs);
+        if (toMs <= fromMs) {
+          // Page holds nothing but the forming bucket (it just started) —
+          // nothing closed to fetch yet; keep bookkeeping consistent.
+          this.pages.set(p, this.pages.get(p) ?? []);
+          this.minPage = this.minPage === undefined ? p : Math.min(this.minPage, p);
+          this.maxPage = this.maxPage === undefined ? p : Math.max(this.maxPage, p);
+          return;
+        }
         try {
           const page = await this.ctx.rest.candles(this.id, {
             resolution: this.resolution,
@@ -147,7 +181,6 @@ export class CandleSeries implements SeriesResource<Bar> {
             limit: this.pageBuckets,
           });
           this.pages.set(p, page.bars);
-          this.watermarkUs = Math.max(this.watermarkUs, page.solutionNow * 1000);
           this.minPage = this.minPage === undefined ? p : Math.min(this.minPage, p);
           this.maxPage = this.maxPage === undefined ? p : Math.max(this.maxPage, p);
           if (page.bars.length === 0 && this.minPage === p) this._hasMore = false;
@@ -161,6 +194,53 @@ export class CandleSeries implements SeriesResource<Bar> {
     }
   }
 
+  /**
+   * Decide the tick subscription's `since` watermark (µs), and — for buckets
+   * longer than the replay ring — seed the forming bar from settled finer
+   * bars first: REST never returns the forming bucket and the ring can't
+   * replay a whole 4h/1d/1W/1M of ticks, so without the seed those bars would
+   * only reflect trades since page load. Seed requests are fully-elapsed
+   * windows, so they're `immutable` and cacheable like everything else.
+   * Returns `bucketBoundaryUs - 1` (`since` replays strictly-greater
+   * deadlines, and a batch can land exactly on the boundary).
+   */
+  private async prepareLiveEdge(): Promise<number> {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const bucketStart = Math.floor(nowSecs / this.resSecs) * this.resSecs;
+    if (this.resSecs <= REPLAY_SAFE_SECS) return bucketStart * 1_000_000 - 1;
+
+    const seedSecs = RESOLUTION_SECONDS[SEED_RESOLUTION];
+    const seedEnd = Math.floor(nowSecs / seedSecs) * seedSecs;
+    try {
+      // Chunked by the server's row cap; ≥2 chunks only for 1M (≤744 hours).
+      const bars: Bar[] = [];
+      for (let from = bucketStart; from < seedEnd; ) {
+        const to = Math.min(seedEnd, from + 500 * seedSecs);
+        const page = await this.ctx.rest.candles(this.id, {
+          resolution: SEED_RESOLUTION, from: from * 1000, to: to * 1000, limit: 500,
+        });
+        bars.push(...page.bars);
+        from = to;
+      }
+      if (bars.length && this.alive) {
+        bars.sort((a, b) => a.time - b.time);
+        const first = bars[0]!;
+        const last = bars[bars.length - 1]!;
+        this.live.set(bucketStart * 1000, {
+          time: bucketStart * 1000,
+          open: first.open,
+          high: bars.reduce((m, b) => bmax(m, b.high), first.high),
+          low: bars.reduce((m, b) => bmin(m, b.low), first.low),
+          close: last.close,
+          volume: bars.reduce((s, b) => s + b.volume, 0n),
+          quoteVolume: bars.reduce((s, b) => s + b.quoteVolume, 0n),
+        });
+        this.rebuild();
+      }
+    } catch { /* seed is best-effort — ticks still build the bar from here on */ }
+    return seedEnd * 1_000_000 - 1;
+  }
+
   private onTick(result: unknown): void {
     this.subRetries = 0; // live ticks flowing → subscription is healthy
     const ticks = Array.isArray(result) ? result : [result];
@@ -172,6 +252,10 @@ export class CandleSeries implements SeriesResource<Bar> {
       const tMs = usToMs(w.timestamp_us);
       const start = Math.floor(tMs / bucketMs) * bucketMs;
       const price = dec(w.price);
+      // Ticks arrive for every orderbook in the batch; price 0 means the
+      // market has never cleared (the indexer skips these rows too) — folding
+      // it would draw a $0 forming bar on never-traded markets.
+      if (price === 0n) continue;
       const vol = dec(w.volume);
       const quote = (vol * price) / WAD;
       const cur = this.live.get(start);
@@ -214,10 +298,17 @@ export class CandleSeries implements SeriesResource<Bar> {
     const delay = Math.min(30_000, 500 * 2 ** (this.subRetries - 1));
     if (this.retryTimer) clearTimeout(this.retryTimer);
     this.retryTimer = setTimeout(() => {
-      void this.loadWindow(this.window).then(() => {
+      void this.loadWindow(this.window).then(async () => {
         if (!this.alive) return;
-        this.lastTickUs = this.watermarkUs;
-        this.tickSub?.update({ since: this.subRetries > 2 ? undefined : (this.watermarkUs || undefined) });
+        // Re-anchor at the current bucket boundary (re-seeding the forming
+        // bar for coarse resolutions). If the server keeps rejecting, drop
+        // `since` and go live-only — the fresh seed keeps the forming bar
+        // right up to now, and ticks take it from there.
+        const anchorUs = await this.prepareLiveEdge();
+        if (!this.alive) return;
+        const sinceUs = this.subRetries > 2 ? undefined : anchorUs;
+        this.lastTickUs = sinceUs ?? 0;
+        this.tickSub?.update({ since: sinceUs });
         this.tickSub?.resubscribe();
       });
     }, delay);

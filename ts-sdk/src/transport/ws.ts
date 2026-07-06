@@ -210,6 +210,14 @@ export class PodWsClient {
         else this.emit("error", err);
         return;
       }
+      // Unsubscribed while the ack was in flight (removeSub had no subId to
+      // cancel yet): registering it now would resurrect a dead subscription
+      // that keeps pushing into its owner's stale state — tell the server to
+      // drop it instead.
+      if (!this.subs.has(sub)) {
+        this.send("eth_unsubscribe", [result]);
+        return;
+      }
       sub.subId = result;
       this.bySubId.set(result, sub);
     });
