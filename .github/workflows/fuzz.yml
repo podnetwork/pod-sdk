@@ -14,7 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: dtolnay/rust-toolchain@nightly
+      # Pinned nightly (matches the version the fuzz suite was developed
+      # against) so upstream nightly breakage can't fail CI.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-12-04
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -27,7 +31,7 @@ jobs:
         run: cargo binstall --no-confirm cargo-fuzz
 
       - name: Build fuzz targets
-        run: cargo +nightly fuzz build
+        run: cargo fuzz build
         working-directory: types
 
       # Short smoke run per target: catches regressions on shallow inputs.
@@ -35,8 +39,8 @@ jobs:
       - name: Smoke-run fuzz targets
         working-directory: types
         run: |
-          for target in $(cargo +nightly fuzz list); do
+          for target in $(cargo fuzz list); do
             echo "::group::${target}"
-            cargo +nightly fuzz run "$target" -- -max_total_time=15
+            cargo fuzz run "$target" -- -max_total_time=15
             echo "::endgroup::"
           done
