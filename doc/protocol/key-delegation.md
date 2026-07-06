@@ -52,4 +52,3 @@ The set of delegatable calls is fixed by the protocol — a delegation certifica
 * **Expiry.** A delegated intent is honored only while `validUntil >= deadline` of the intent. Expired or malformed certificates make the transaction invalid.
 * **No exfiltration.** A delegated `withdraw` or `deposit` can only move funds to the master, so a leaked delegate key can trade the master's balance but never steal it.
 * **No revocation.** There is no explicit revoke: a certificate stays valid until its `validUntil`. Keep `validUntil` short and rotate — to replace a delegate, stop using the old key and sign a new `DelegationAuth` for a new one.
-* **Gas.** Delegated calls are currently gas-exempt, so the delegate key does not need to be funded for gas.
