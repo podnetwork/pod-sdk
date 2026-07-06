@@ -38,6 +38,12 @@ See [Batch Deadline](../../protocol/orderbook.md#batch-deadline) in the protocol
 
 `submitBatch` packs several single-intent calls (1–64) into a single signed transaction that lands atomically in one auction tick. Each entry in `inner` is the full ABI-encoded calldata of a single-intent function (`submitOrder`, `cancel`, `update`, `submitTrigger`, `deposit`, …) — encoded exactly as a standalone call, including its 4-byte selector. Every sub-intent **must carry the same `deadline`** (the uniform-deadline invariant), and nested batches are rejected. For the full rules and a worked example, see [Submit a batch order](../guides/submit-a-batch-order.md).
 
+### Delegation envelope
+
+`delegated` lets a **delegate** key perform an orderbook call on behalf of a **master** account. The transaction is signed by the delegate; `signature` is the master's 65-byte `r ‖ s ‖ v` EIP-712 signature over `DelegationAuth { delegate, validUntil }` (domain `{ name: "pod delegation", version: "1", chainId }`), where `delegate` must equal the transaction's signer, and `inner` is the full ABI-encoded calldata of the wrapped call, including its 4-byte selector. The certificate is verified statelessly on every transaction — no registration, no on-chain state — and the intent is accepted only while `validUntil >= deadline` of the inner call (both in microseconds).
+
+The inner intent is **owned by the master** (balances, resting-order owner, cancel/update/withdraw target) while its `order_id` keys on the delegate (the tx signer); a delegated `deposit`/`withdraw` has its `recipient` overridden to the master. Any deadline-bearing call can be wrapped — single intents or a whole `submitBatch` — but `submitSolutions`, `createOrderBook`, and nested `delegated` are rejected. Delegated calls are gas-exempt. For the concept and security model see [Key Delegation](../../protocol/key-delegation.md) in the protocol reference; for a worked example see [Delegate a trading key](../guides/delegate-a-trading-key.md).
+
 ### Solidity interface (ABI)
 
 ```solidity
@@ -303,5 +309,35 @@ contract Orderbook {
      * @param inner The ABI-encoded calldata of each sub-intent, in order.
      */
     function submitBatch(bytes[] calldata inner) public {}
+
+    // --- Delegation envelope ---
+
+    /**
+     * @notice Performs an orderbook call on behalf of a master account. The
+     *         transaction is signed by the delegate; the master's authorization
+     *         travels inside the call and is verified on every transaction.
+     * @dev `signature` is the master's 65-byte `r‖s‖v` EIP-712 signature (v = 27/28)
+     *      over `DelegationAuth { address delegate; uint64 validUntil; }` with domain
+     *      `{ name: "pod delegation", version: "1", chainId }`, where `delegate` must
+     *      equal the transaction's signer. Constraints (enforced at validation):
+     *      - `validUntil` must be >= the inner call's `deadline` (both microseconds).
+     *      - `inner` must be a deadline-bearing call — a single intent or a
+     *        `submitBatch`. `submitSolutions`, `createOrderBook`, and nested
+     *        `delegated` are rejected; view functions cannot be wrapped.
+     *      - A delegated `deposit`/`withdraw` has its `recipient` overridden to `master`.
+     *      The inner intent is owned by `master` (balances, resting-order owner,
+     *      cancel/update/withdraw target), while its `order_id` keys on the delegate
+     *      (the tx signer). Delegated calls are gas-exempt.
+     * @param master The account the wrapped call is performed on behalf of.
+     * @param validUntil Expiry of the delegation certificate, in microseconds.
+     * @param signature The master's 65-byte EIP-712 signature authorizing the delegate.
+     * @param inner The full ABI-encoded calldata of the wrapped call, including its selector.
+     */
+    function delegated(
+        address master,
+        uint64 validUntil,
+        bytes calldata signature,
+        bytes calldata inner
+    ) public {}
 }
 ```

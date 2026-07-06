@@ -15,6 +15,7 @@
 
 * [Overview](markets-overview.md)
 * [Order Book](orderbook.md)
+* [Key Delegation](key-delegation.md)
 * [Perpetuals](perpetuals.md)
 * [Margin](margin.md)
 * [Optimistic Auctions](optimistic-auctions.md)
