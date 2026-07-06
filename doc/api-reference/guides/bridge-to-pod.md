@@ -20,11 +20,12 @@ const provider = new ethers.JsonRpcProvider("https://eth.llamarpc.com");
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 const BRIDGE = "ETHEREUM_BRIDGE_ADDRESS";
-const TOKEN = "TOKEN_ADDRESS"; // use 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for native token
+const TOKEN = "TOKEN_ADDRESS"; // must be an ERC-20 whitelisted on the bridge (there is no native-token deposit path)
 const amount = ethers.parseUnits("100", 6);
 const podRecipient = wallet.address;
 
-// Sign an EIP-2612 permit for gasless approval.
+// Sign an EIP-2612 permit for gasless approval. The bridge expects the permit
+// as exactly 97 tightly-packed bytes: deadline(32) || v(1) || r(32) || s(32).
 // If the token does not support permit, set permit to "0x" and
 // send a separate approval transaction:
 //   const token = new ethers.Contract(TOKEN, ["function approve(address,uint256)"], wallet);
@@ -65,11 +66,12 @@ let provider = ProviderBuilder::new()
     .on_http("https://eth.llamarpc.com".parse()?);
 
 let bridge_address = "ETHEREUM_BRIDGE_ADDRESS".parse()?;
-let token_address = "TOKEN_ADDRESS".parse()?; // use 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for native token
+let token_address = "TOKEN_ADDRESS".parse()?; // must be an ERC-20 whitelisted on the bridge (there is no native-token deposit path)
 let amount = U256::from(100_000_000u64); // e.g. 100 USDC
 let pod_recipient = signer.address();
 
-// Sign an EIP-2612 permit for gasless approval.
+// Sign an EIP-2612 permit for gasless approval. The bridge expects the permit
+// as exactly 97 tightly-packed bytes: deadline(32) || v(1) || r(32) || s(32).
 // If the token does not support permit, set permit to empty bytes and
 // send a separate approval transaction first.
 let permit = vec![];

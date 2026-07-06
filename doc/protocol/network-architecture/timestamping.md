@@ -11,7 +11,7 @@ Both timestamps, combined with the sequence numbers in each validator's temporal
 
 ## Past Perfection
 
-Applications can subscribe to a **time of interest** - for example, an auction deadline - using `pod_subscribe`. The time of interest is reached when a quorum (n - f) of validators have signed vote batches with timestamps beyond it. At that point, the full node returns a **past perfect set** associated with that timestamp.
+Applications can wait for a **time of interest** - for example, an auction deadline - using the blocking JSON-RPC method `pod_waitPastPerfectTime`. The time of interest is reached when a quorum (n - f) of validators have signed vote batches with timestamps beyond it. The call itself returns an empty result once that happens; the application then fetches the **past perfect set** associated with that timestamp - the transactions finalized before it - separately (e.g. via `eth_getLogs` or `pod_listTransactions`).
 
 The past perfect set provides four properties:
 
