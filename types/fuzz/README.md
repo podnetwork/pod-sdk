@@ -28,7 +28,7 @@ don't participate in normal workspace builds.
 | `receipt_serde` | `Receipt` serde + merkleization | JSON + bincode round-trips; all log proofs/multiproofs verify against the receipt root |
 | `timestamp_parse` | `Timestamp::from_hex_seconds_str` | arbitrary strings never panic; hex seconds round-trip exactly |
 | `pagination_cursor` | cursor base64 decode | arbitrary cursors handled gracefully; well-formed cursors round-trip |
-| `calldata_serde` | `CallData` hex/bytes serde | arbitrary input never panics; valid calldata round-trips; accessors consistent |
+| `calldata_serde` | `CallData` hex/bytes serde | arbitrary input never panics; sub-4-byte calldata rejected at every boundary; accessors exercised on every constructible value (incl. deserialized-from-garbage); valid calldata round-trips |
 | `log_filter_serde` | `LogFilter` JSON | arbitrary JSON never panics; accepted filters re-serialize idempotently |
 
 ## Bugs found so far
