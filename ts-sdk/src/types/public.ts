@@ -47,6 +47,17 @@ export interface Market {
   tickPrecision: bigint;
   lotSize: bigint;
   maxLeverage: number;
+  /**
+   * Resolved initial-margin fraction (1e18-scaled), `= 1e18 / maxLeverage`.
+   * Undefined against older nodes — derive from maxLeverage then.
+   */
+  initialMarginFraction?: bigint;
+  /**
+   * Resolved maintenance-margin fraction (1e18-scaled). Half the initial
+   * margin unless the market config overrides it. Undefined against older
+   * nodes — fall back to half the initial margin then.
+   */
+  maintenanceMarginFraction?: bigint;
   fundingWindowUs: number; // funding-accrual divisor (micros)
   makerFee: bigint;
   takerFee: bigint;

@@ -1976,6 +1976,20 @@ components:
           type: integer
           description: Maximum allowed leverage. Returned for both spot and perp markets, but only meaningful for perp.
           example: 10
+        initial_margin_fraction:
+          $ref: '#/components/schemas/HexUint256'
+          description: |
+            Resolved initial-margin fraction (1e18-scaled, hex-encoded),
+            `= 1e18 / max_leverage`. Returned for both spot and perp markets,
+            but only meaningful for perp. Absent on older nodes — derive from
+            `max_leverage` then.
+        maintenance_margin_fraction:
+          $ref: '#/components/schemas/HexUint256'
+          description: |
+            Resolved maintenance-margin fraction (1e18-scaled, hex-encoded).
+            Half the initial margin unless the market configuration overrides
+            it. Absent on older nodes — fall back to half the initial margin
+            then.
         oracle_price:
           type: string
           nullable: true

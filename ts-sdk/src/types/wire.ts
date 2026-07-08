@@ -27,6 +27,10 @@ export interface WireMarketStatic {
   tick_precision: WireDecimal; // 1e18-scaled price increment (decimal string)
   lot_size: WireDecimal;
   max_leverage: number;
+  /** Resolved initial-margin fraction (1e18-scaled). Absent on older nodes. */
+  initial_margin_fraction?: WireDecimal | null;
+  /** Resolved maintenance-margin fraction (1e18-scaled). Absent on older nodes. */
+  maintenance_margin_fraction?: WireDecimal | null;
   funding_window_us: number; // funding-accrual divisor (micros)
 }
 
