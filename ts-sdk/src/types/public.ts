@@ -48,16 +48,12 @@ export interface Market {
   lotSize: bigint;
   maxLeverage: number;
   /**
-   * Resolved initial-margin fraction (1e18-scaled), `= 1e18 / maxLeverage`.
-   * Undefined against older nodes — derive from maxLeverage then.
+   * Maintenance leverage multiplier, same convention as maxLeverage: the
+   * maintenance margin is `1e18 / maintenanceLeverage`. `2 × maxLeverage`
+   * unless the market config overrides it. Undefined against older nodes —
+   * fall back to half the initial margin then.
    */
-  initialMarginFraction?: bigint;
-  /**
-   * Resolved maintenance-margin fraction (1e18-scaled). Half the initial
-   * margin unless the market config overrides it. Undefined against older
-   * nodes — fall back to half the initial margin then.
-   */
-  maintenanceMarginFraction?: bigint;
+  maintenanceLeverage?: number;
   fundingWindowUs: number; // funding-accrual divisor (micros)
   makerFee: bigint;
   takerFee: bigint;
