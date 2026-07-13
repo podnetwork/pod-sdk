@@ -139,6 +139,13 @@ All three mean **nothing moved on either side**. The nonce is spent either way, 
 
 The inner intent is **owned by the master** (balances, resting-order owner, cancel/update target) while its `order_id` keys on the delegate (the tx signer). Any deadline-bearing call can be wrapped — single intents or a whole `submitBatch` — but `submitSolutions`, the market-lifecycle calls (`createMarket`, `disableMarket`, `settleMarket`), and nested `delegated` are rejected, and so is `transfer`, both directly and inside a wrapped `submitBatch` (see [Transfers between accounts](#transfers-between-accounts)). Delegated calls are gas-exempt. For the concept and security model see [Key Delegation](../../protocol/key-delegation.md) in the protocol reference; for a worked example see [Delegate a trading key](../guides/delegate-a-trading-key.md).
 
+### Gas
+
+Orderbook calls are charged a flat **21,000 gas** at Pod's fixed gas price of 1 gwei (see [Gas](../README.md#gas)), with two exceptions:
+
+* `submitBatch` costs 21,000 gas × the number of orders in the batch (minimum 1) — priced as if each inner order were submitted standalone.
+* `delegated` calls are gas-exempt.
+
 ### Solidity interface (ABI)
 
 ```solidity

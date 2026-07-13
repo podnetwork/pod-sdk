@@ -165,6 +165,10 @@ interface IPodBridge {
 **`callContract` and `reserveBalance` no longer route anything.** They are carried through from the bridged-chain event and re-emitted on `DepositApplied` so the two sides still reconcile, but the deposit is credited whole to the recipient's balance either way. There is no longer a second balance to split it against.
 {% endhint %}
 
+## Gas
+
+Bridge calls such as `withdraw` are charged a flat **21,000 gas** at Pod's fixed gas price of 1 gwei (see [Gas](../README.md#gas)). Deposits are credited by the network and cost the user nothing on Pod.
+
 ## Decimal Scaling
 
 All tokens on Pod carry 18 decimals, regardless of their decimals on the bridged chain (USDC is 6 there, 18 here). The bridge converts:

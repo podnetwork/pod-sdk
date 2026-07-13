@@ -10,6 +10,8 @@ Pod uses precompiles for enshrined applications and internal protocol operations
 | [Bridge](bridge.md) | `0x50d0000000000000000000000000000000000001` | Token bridging in and out of Pod — the only way value crosses the boundary |
 | [Recovery](recovery.md) | `0x50d0000000000000000000000000000000000003` | Recover a locked account by finalizing the target transaction chain |
 
+Each precompile's page lists its gas cost — see [Gas](../README.md#gas) for how gas pricing works on Pod.
+
 ## Interacting with Precompiles
 
 You interact with Pod's precompiles the same way you would interact with any smart contract on Ethereum  - by encoding function calls against a Solidity ABI and sending them via `eth_call` (reads) or `eth_sendRawTransaction` (writes).
