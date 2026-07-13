@@ -37,6 +37,10 @@ interface IPodBridge {
 }
 ```
 
+## Gas
+
+Bridge calls such as `withdraw` are charged a flat **21,000 gas** at Pod's fixed gas price of 1 gwei (see [Gas](../README.md#gas)). Deposits are credited by the network and cost the user nothing on Pod.
+
 ## Decimal Scaling
 
 All tokens on Pod are represented with 18 decimals, regardless of their decimals on the target chain (e.g. USDC has 6 decimals on Ethereum but 18 on Pod).
