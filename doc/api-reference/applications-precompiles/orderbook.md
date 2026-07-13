@@ -141,9 +141,9 @@ The inner intent is **owned by the master** (balances, resting-order owner, canc
 
 ### Gas
 
-Orderbook calls are charged a flat **21,000 gas** at Pod's fixed gas price of 1 gwei (see [Gas](../README.md#gas)), with two exceptions:
+Orderbook calls are charged a flat **21,000 gas** (see [Gas](../README.md#gas)), with two exceptions:
 
-* `submitBatch` costs 21,000 gas × the number of orders in the batch (minimum 1) — priced as if each inner order were submitted standalone.
+* `submitBatch` costs 21,000 gas × the number of orders in the batch (minimum 1) — charged as if each inner order were submitted standalone.
 * `delegated` calls are gas-exempt.
 
 ### Solidity interface (ABI)
