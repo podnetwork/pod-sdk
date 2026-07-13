@@ -40,4 +40,4 @@ interface IOptimisticAuction {
 
 ## Gas
 
-Calls to the optimistic auctions precompile are charged a flat **21,000 gas** (see [Gas](../README.md#gas)).
+A `submitBid` call is charged **25,000 gas** (see [Gas](../README.md#gas)).

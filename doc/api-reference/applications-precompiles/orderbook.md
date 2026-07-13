@@ -46,9 +46,16 @@ The inner intent is **owned by the master** (balances, resting-order owner, canc
 
 ### Gas
 
-Orderbook calls are charged a flat **21,000 gas** (see [Gas](../README.md#gas)), with two exceptions:
+Gas is charged per operation (see [Gas](../README.md#gas)):
 
-* `submitBatch` costs 21,000 gas × the number of orders in the batch (minimum 1) — charged as if each inner order were submitted standalone.
+| Operation                                 | Gas    |
+| ----------------------------------------- | ------ |
+| `submitOrder` / `submitTrigger`           | 40,000 |
+| `update` / `updateTrigger`                | 30,000 |
+| `cancel` / `cancelTrigger`                | 25,000 |
+| `deposit`, `withdraw`, and any other call | 21,000 |
+
+* `submitBatch` costs the sum of its inner intents' per-operation costs (minimum 21,000 gas) — charged as if each inner call were submitted standalone.
 * `delegated` calls are gas-exempt.
 
 ### Solidity interface (ABI)
