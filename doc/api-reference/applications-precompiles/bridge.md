@@ -39,7 +39,7 @@ interface IPodBridge {
 
 ## Gas
 
-Bridge calls such as `withdraw` are charged a flat **21,000 gas** at Pod's fixed gas price of 1 gwei (see [Gas](../README.md#gas)). Deposits are credited by the network and cost the user nothing on Pod.
+Bridge calls such as `withdraw` are charged a flat **21,000 gas** (see [Gas](../README.md#gas)). Deposits are credited by the network and cost the user nothing on Pod.
 
 ## Decimal Scaling
 

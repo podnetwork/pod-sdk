@@ -40,4 +40,4 @@ interface IOptimisticAuction {
 
 ## Gas
 
-Calls to the optimistic auctions precompile are charged a flat **21,000 gas** at Pod's fixed gas price of 1 gwei (see [Gas](../README.md#gas)).
+Calls to the optimistic auctions precompile are charged a flat **21,000 gas** (see [Gas](../README.md#gas)).
