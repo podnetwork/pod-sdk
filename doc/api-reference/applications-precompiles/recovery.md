@@ -26,4 +26,4 @@ The protocol will finalize the target transaction chain, recover your account st
 
 ## Gas
 
-A `recover` call is charged a flat **21,000 gas** (see [Gas](../README.md#gas)). Recovering an account whose funds have already moved through earlier recoveries is charged an additional 21,000 gas per intermediate account in the chain.
+A `recover` call is charged **100,000 gas** (see [Gas](../README.md#gas)). Recovering an account whose funds have already moved through earlier recoveries is charged an additional 21,000 gas per intermediate account in the chain.
