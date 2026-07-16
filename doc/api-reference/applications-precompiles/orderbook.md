@@ -61,12 +61,16 @@ contract Orderbook {
     // Trigger kind for a TP/SL trigger (perp markets only).
     enum TriggerType { TakeProfit, StopLoss }
 
-    // Whether a trigger is bound to the bidder's position on the pair.
+    // Exposure-association for a trigger.
     // None: standalone — removed only by a user cancel, TTL expiry, or its own fire.
-    // Position: the venue cancels the armed trigger (and any resting synthetic order
-    //           it already produced) at the end of the batch in which the bidder's
-    //           position on the pair reaches size 0.
-    enum TriggerGrouping { None, Position }
+    // Asset: binds the trigger to the asset the market type implies — on perp
+    //        markets the venue cancels the armed trigger (and any resting synthetic
+    //        order it already produced) at the end of the batch in which the
+    //        bidder's position on the pair reaches size 0; on spot markets it
+    //        cancels the armed trigger when the bidder's base-asset holdings hit 0.
+    //        (Renamed from `Position`; same ABI value — older nodes report it as
+    //        `position` in RPC responses.)
+    enum TriggerGrouping { None, Asset }
 
     // --- Events ---
 
@@ -240,7 +244,7 @@ contract Orderbook {
      * @param limitPrice The limit price of the synthetic order produced when the trigger fires.
      * @param triggerPrice The mark-price threshold that fires the trigger.
      * @param triggerType TakeProfit or StopLoss.
-     * @param grouping Whether the trigger is bound to the bidder's position on the pair (see TriggerGrouping).
+     * @param grouping Whether the trigger is bound to the bidder's exposure on the pair (see TriggerGrouping).
      * @param deadline The latest batch this intent may be included in, in microseconds. Must be a multiple of the market's `auction_interval`.
      * @param ttl The "Time To Live" duration in microseconds; how long the armed trigger remains active.
      * @param reduceOnly If true, the synthetic order will only reduce an existing position.

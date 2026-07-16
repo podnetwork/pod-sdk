@@ -669,7 +669,7 @@ paths:
                       limit_price: "0x115ad84a8ad03c00000"
                       trigger_price: "0x120a871cc0020a00000"
                       trigger_type: "take_profit"
-                      grouping: "position"
+                      grouping: "asset"
                       reduce_only: true
                       ioc: false
                       deadline: "1704153600000000"
@@ -1745,11 +1745,13 @@ components:
 
     TriggerGrouping:
       type: string
-      enum: [none, position]
+      enum: [none, asset, position]
       description: |
-        Whether a trigger (and any synthetic order it produces) is bound to the bidder's position on the pair:
+        Whether a trigger (and any synthetic order it produces) is bound to the bidder's exposure on the pair:
         - `none`: standalone — the trigger is removed only by a user cancel, TTL expiry, or its own fire; any synthetic order it produced survives independently
-        - `position`: position-bound — the venue removes the armed trigger *and* any resting synthetic order it produced once the bidder's position on the pair reaches size 0
+        - `asset`: exposure-bound — on perp markets the venue removes the armed trigger *and* any resting synthetic order it produced once the bidder's position on the pair reaches size 0; on spot markets, once the bidder's base-asset holdings reach 0
+
+        `asset` was formerly named `position` (same semantics, same ABI value); nodes running older builds still emit `position` and clients should treat the two as equivalent.
 
         Omitted from an `Order` response when it is the default `none`.
 
