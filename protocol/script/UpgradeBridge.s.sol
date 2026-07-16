@@ -10,12 +10,13 @@ import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.s
 
 contract UpgradeBridge is Script {
     /**
+     * @notice Code upgrade only: deploys a fresh implementation and swaps the
+     *         proxy to it, preserving all storage. Does NOT touch the version,
+     *         validator set, or merkle root — for a version upgrade (validator
+     *         rotation) use UpdateBridgeValidatorConfig.s.sol.
      * @param proxyAddr The TransparentUpgradeableProxy address.
-     * @param newMerkleRoot Merkle root covering all unprocessed claims from before the upgrade.
-     *        Compute off-chain from pending claim tx hashes using the OLD hash scheme.
-     *        Pass bytes32(0) if there are no pending claims.
      */
-    function run(address proxyAddr, bytes32 newMerkleRoot) external {
+    function run(address proxyAddr) external {
         Bridge bridge = Bridge(proxyAddr);
 
         // Read ProxyAdmin from ERC-1967 admin slot
@@ -39,8 +40,6 @@ contract UpgradeBridge is Script {
         // 2. Upgrade proxy to new implementation (no reinitializer needed — storage layout is identical)
         ProxyAdmin(proxyAdminAddr).upgradeAndCall(ITransparentUpgradeableProxy(proxyAddr), address(newImpl), "");
         console.log("Proxy upgraded");
-
-        console.log("Validator config updated");
 
         vm.stopBroadcast();
     }
