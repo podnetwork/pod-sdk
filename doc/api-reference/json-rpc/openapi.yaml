@@ -340,6 +340,7 @@ paths:
                     - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
                       limit: 10
                       status: "active"
+                      with_total: true
       responses:
         '200':
           description: Object containing orders array and pagination cursor
@@ -357,7 +358,7 @@ paths:
                         items: { $ref: '#/components/schemas/Order' }
                       total_count:
                         type: integer
-                        description: Total number of orders matching the query
+                        description: Total number of orders matching the query, regardless of pagination. Present only when the request set `with_total` (omitted otherwise, not null). Older nodes always return it.
                       next_cursor:
                         type: string
                         nullable: true
@@ -2238,6 +2239,9 @@ components:
         with_fills:
           type: boolean
           description: When true, include each order's per-batch partial `fills` array in the response. Defaults to false.
+        with_total:
+          type: boolean
+          description: When true, compute and return `total_count`. Defaults to false — the count walks every order the account ever placed (expensive for high-churn accounts), and cursor pagination does not need it. Nodes running builds predating this flag ignore it and always return `total_count`.
 
     FillsQuery:
       type: object
