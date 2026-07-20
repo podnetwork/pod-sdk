@@ -189,6 +189,9 @@ export interface PositionsSnapshot {
   accountValue: bigint;
   cash: bigint;
   withdrawableCash: bigint;
+  /** Σ maintenance-margin requirement at live notional (= Σ notional · im/2).
+   * Present on enriched snapshots (livePositions); absent on raw REST decodes. */
+  maintenanceMargin?: bigint;
 }
 
 export interface Trigger {

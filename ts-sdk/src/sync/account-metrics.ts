@@ -22,6 +22,10 @@ export interface AccountMetrics {
   perpNotional: bigint;
   /** Σ perp notional / perps_equity. */
   effectiveLeverage: number;
+  /** Σ maintenance margin; set when the snapshot is enriched (livePositions). */
+  maintenanceMargin?: bigint;
+  /** perps_equity − maintenance margin — distance to forced liquidation. */
+  liquidationBuffer?: bigint;
 }
 
 /** Column totals for a perp positions table (sums over perp positions only). */
@@ -67,5 +71,8 @@ export function accountMetrics(s: PositionsSnapshot): AccountMetrics {
     realizedPnlPct: pct(s.totalRealizedPnl),
     perpNotional,
     effectiveLeverage: s.perpsEquity > 0n ? toNumber(perpNotional) / toNumber(s.perpsEquity) : 0,
+    maintenanceMargin: s.maintenanceMargin,
+    liquidationBuffer:
+      s.maintenanceMargin !== undefined ? s.perpsEquity - s.maintenanceMargin : undefined,
   };
 }
