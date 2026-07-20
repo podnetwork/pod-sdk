@@ -39,6 +39,7 @@ tracing = "0.1.41"
 tokio = "1.47.1"
 
 [dev-dependencies]
+tokio = { version = "1.47.1", features = ["rt", "macros"] }
 tokio-test = "0.4.4"
 
 [package.metadata.cargo-shear]

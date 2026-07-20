@@ -27,6 +27,34 @@ use pod_types::{
 use alloy_primitives::{Address, U256};
 use pod_types::Timestamp;
 
+const PPT_INVALID_PARAMS_CODE: i64 = -32602;
+const PPT_TOO_FAR_MSG: &str = "Requested PPT is too far in the future";
+const PPT_MAX_RETRIES: u32 = 100;
+const PPT_RETRY_SLEEP_MILLIS: u64 = 100;
+
+/// `Ok(true)` = RPC succeeded; `Ok(false)` = retry; `Err` = stop with error.
+fn wait_ppt_step(
+    result: Result<String, TransportError>,
+    retries: u32,
+    max_retries: u32,
+) -> Result<bool, TransportError> {
+    match result {
+        Ok(_) => Ok(true),
+        Err(e)
+            if retries < max_retries && is_ppt_too_far_error(&e) =>
+        {
+            Ok(false)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+fn is_ppt_too_far_error(err: &TransportError) -> bool {
+    err.as_error_resp().is_some_and(|resp| {
+        resp.code == PPT_INVALID_PARAMS_CODE && resp.message == PPT_TOO_FAR_MSG
+    })
+}
+
 pub struct PodProviderBuilder<L, F>(ProviderBuilder<L, F, PodNetwork>);
 
 impl
@@ -200,12 +228,6 @@ impl PodProvider {
     }
 
     pub async fn wait_past_perfect_time(&self, timestamp: Timestamp) -> TransportResult<()> {
-        const INVALID_PARAMS_CODE: i64 = -32602;
-        const PPT_TOO_FAR_MSG: &str = "Requested PPT is too far in the future";
-        const MAX_RETRIES: u32 = 100;
-
-        const SLEEP_DURATION_MILLIS: u64 = 100;
-
         let mut retries = 0;
         loop {
             let result = self
@@ -213,19 +235,13 @@ impl PodProvider {
                 .request::<_, String>("pod_waitPastPerfectTime", (timestamp.as_micros() as u64,))
                 .await;
 
-            match &result {
-                Err(e)
-                    if retries < MAX_RETRIES
-                        && e.as_error_resp().is_some_and(|r| {
-                            r.code == INVALID_PARAMS_CODE && r.message == PPT_TOO_FAR_MSG
-                        }) =>
-                {
+            match wait_ppt_step(result, retries, PPT_MAX_RETRIES)? {
+                true => return Ok(()),
+                false => {
                     retries += 1;
-                    tokio::time::sleep(std::time::Duration::from_millis(SLEEP_DURATION_MILLIS))
+                    tokio::time::sleep(std::time::Duration::from_millis(PPT_RETRY_SLEEP_MILLIS))
                         .await;
-                    continue;
                 }
-                _ => return Ok(()),
             }
         }
     }
@@ -284,5 +300,122 @@ impl PodProvider {
         })?;
 
         Ok(Timestamp::from_micros(micros))
+    }
+}
+
+#[cfg(test)]
+mod wait_ppt_tests {
+    use std::borrow::Cow;
+
+    use super::*;
+    use alloy_json_rpc::ErrorPayload;
+    use alloy_transport::mock::Asserter;
+
+    fn ppt_too_far_error() -> ErrorPayload {
+        ErrorPayload {
+            code: PPT_INVALID_PARAMS_CODE,
+            message: Cow::Borrowed(PPT_TOO_FAR_MSG),
+            data: None,
+        }
+    }
+
+    fn mock_provider(asserter: Asserter) -> PodProvider {
+        let inner = ProviderBuilder::<_, _, PodNetwork>::default().connect_mocked_client(asserter);
+        PodProvider::new(inner)
+    }
+
+    #[test]
+    fn wait_ppt_step_ok_returns_success() {
+        assert!(matches!(
+            wait_ppt_step(Ok("settled".into()), 0, PPT_MAX_RETRIES),
+            Ok(true)
+        ));
+    }
+
+    #[test]
+    fn wait_ppt_step_retries_ppt_too_far_while_budget_remains() {
+        assert!(matches!(
+            wait_ppt_step(
+                Err(TransportError::err_resp(ppt_too_far_error())),
+                0,
+                PPT_MAX_RETRIES
+            ),
+            Ok(false)
+        ));
+    }
+
+    #[test]
+    fn wait_ppt_step_errors_when_retry_budget_exhausted() {
+        let err = TransportError::err_resp(ppt_too_far_error());
+        assert!(matches!(
+            wait_ppt_step(Err(err), PPT_MAX_RETRIES, PPT_MAX_RETRIES),
+            Err(_)
+        ));
+    }
+
+    #[test]
+    fn wait_ppt_step_propagates_unrelated_rpc_errors() {
+        let err = TransportError::err_resp(ErrorPayload {
+            code: -32000,
+            message: Cow::Borrowed("protocol validation failed"),
+            data: None,
+        });
+        assert!(matches!(wait_ppt_step(Err(err), 0, PPT_MAX_RETRIES), Err(_)));
+    }
+
+    #[test]
+    fn is_ppt_too_far_error_requires_matching_code_and_message() {
+        let matching = TransportError::err_resp(ppt_too_far_error());
+        assert!(is_ppt_too_far_error(&matching));
+
+        let wrong_message = TransportError::err_resp(ErrorPayload {
+            code: PPT_INVALID_PARAMS_CODE,
+            message: Cow::Borrowed("different message"),
+            data: None,
+        });
+        assert!(!is_ppt_too_far_error(&wrong_message));
+    }
+
+    #[tokio::test]
+    async fn wait_past_perfect_time_succeeds_immediately() {
+        let asserter = Asserter::new();
+        asserter.push_success(&"ok");
+        let provider = mock_provider(asserter);
+
+        provider
+            .wait_past_perfect_time(Timestamp::from_micros(1))
+            .await
+            .expect("success response should complete waiting");
+    }
+
+    #[tokio::test]
+    async fn wait_past_perfect_time_retries_then_succeeds() {
+        let asserter = Asserter::new();
+        asserter.push_failure(ppt_too_far_error());
+        asserter.push_success(&"ok");
+        let provider = mock_provider(asserter);
+
+        provider
+            .wait_past_perfect_time(Timestamp::from_micros(1))
+            .await
+            .expect("retryable PPT-too-far should eventually succeed");
+    }
+
+    #[tokio::test]
+    async fn wait_past_perfect_time_propagates_unrelated_rpc_errors() {
+        let asserter = Asserter::new();
+        asserter.push_failure(ErrorPayload {
+            code: -32000,
+            message: Cow::Borrowed("protocol validation failed"),
+            data: None,
+        });
+        let provider = mock_provider(asserter);
+
+        let err = provider
+            .wait_past_perfect_time(Timestamp::from_micros(1))
+            .await
+            .expect_err("unrelated RPC errors must not be swallowed");
+
+        assert!(err.as_error_resp().is_some_and(|resp| resp.code == -32000));
     }
 }
