@@ -32,6 +32,7 @@ export {
 } from "./sync/order-preview.js";
 export {
   estimateLiquidationPrice, type HypotheticalPosition,
+  previewPositionChange, type PositionChangeInput, type PositionChangePreview,
 } from "./sync/position-preview.js";
 export type { SeriesResource } from "./sync/candles.js";
 export { CandleSeries } from "./sync/candles.js";
