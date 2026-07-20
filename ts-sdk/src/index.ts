@@ -30,6 +30,9 @@ export {
   priceForReturn, type ReturnPriceInput,
   closestTriggers,
 } from "./sync/order-preview.js";
+export {
+  estimateLiquidationPrice, type HypotheticalPosition,
+} from "./sync/position-preview.js";
 export type { SeriesResource } from "./sync/candles.js";
 export { CandleSeries } from "./sync/candles.js";
 export { OrderHistory } from "./sync/orders.js";
