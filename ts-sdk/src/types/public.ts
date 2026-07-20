@@ -143,6 +143,9 @@ export interface Order {
   ioc?: boolean;
   direction?: OrderDirection;
   triggerType?: TriggerType;
+  /** Realized PnL from this order's fills (perp; present on PnL-realizing
+   * directions — reduce/close/flip/liquidation). */
+  realizedPnl?: bigint;
 }
 
 export type Position = SpotPosition | PerpPosition;

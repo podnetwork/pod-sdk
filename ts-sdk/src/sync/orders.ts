@@ -156,6 +156,7 @@ export class OrderHistory implements SeriesResource<Order> {
           e.fee = dec(u.fee);
           e.status = u.status as OrderStatus;
           if (u.effective_price != null) e.effectivePrice = dec(u.effective_price);
+          if (u.realized_pnl != null) e.realizedPnl = dec(u.realized_pnl);
           // Keep the per-fill breakdown live too. The push carries this fill's
           // base/quote delta but no timestamp — receipt time is close enough.
           const base = dec(u.base_amount);

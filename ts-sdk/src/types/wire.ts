@@ -117,6 +117,8 @@ export interface WireOrder {
   direction?: string;
   grouping?: WireDecimal;
   trigger_type?: string | null;
+  /** Perp only; present when the order's fills realized PnL (reduce/close/flip/liquidation). */
+  realized_pnl?: WireDecimal | null;
 }
 
 export interface WireOrdersPage {
@@ -286,6 +288,7 @@ export interface WireOrderFill {
   fee: WireDecimal;
   position_before?: WireDecimal | null;
   position_after?: WireDecimal | null;
+  realized_pnl?: WireDecimal | null;
 }
 
 export interface WirePositionsPush {
