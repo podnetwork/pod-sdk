@@ -33,6 +33,7 @@ export {
 export {
   estimateLiquidationPrice, type HypotheticalPosition,
   previewPositionChange, type PositionChangeInput, type PositionChangePreview,
+  cashForLiquidation, notionalForLiquidation,
 } from "./sync/position-preview.js";
 export type { SeriesResource } from "./sync/candles.js";
 export { CandleSeries } from "./sync/candles.js";

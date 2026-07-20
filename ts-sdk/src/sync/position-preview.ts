@@ -225,3 +225,66 @@ export function previewPositionChange(
   };
 }
 
+/**
+ * Cash to add to the account (positive — a deposit / margin top-up) or that
+ * could be removed (negative) so the EXISTING position on `market` has its
+ * liquidation price land exactly on `targetLiq`. Closed-form inverse of the
+ * trigger-price equation in cash. Powers "drag the liquidation line" on an
+ * open position. Returns undefined when there is no open position (or spot).
+ *
+ * Note: the venue has no margin-adjust transaction yet — this sizes the
+ * deposit such a flow would need, it does not build one.
+ */
+export function cashForLiquidation(
+  snap: PositionsSnapshot,
+  markets: Market[],
+  market: Market,
+  targetLiq: bigint,
+): bigint | undefined {
+  if (market.type !== "perp") return undefined;
+  const pos = snap.positions.find(
+    (p): p is PerpPosition => p.kind === "perp" && p.orderbookId === market.id && p.size !== 0n,
+  );
+  if (!pos) return undefined;
+  const { equityConst, mmrOthers } = liqTerms(snap, markets, market);
+  const mmr = imRate(market.maxLeverage) / 2n;
+  const denom = pos.size - mul(absB(pos.size), mmr);
+  // P = (S·E + mm_others − (equity_const + c)) / denom, solved for c.
+  return mul(pos.size, pos.entryPrice) + mmrOthers - equityConst - mul(targetLiq, denom);
+}
+
+/**
+ * Order notional whose post-fill liquidation price lands on `targetLiq` —
+ * sizing an order by dragging its draft liquidation line. Bisects
+ * previewPositionChange (the liq moves monotonically toward the fill price as
+ * notional grows: up for a long, down for a short). Returns undefined when the
+ * target is on the wrong side of the fill price or beyond `maxNotional`'s
+ * reach; a fresh open on an empty book still needs `price` (mark or limit).
+ */
+export function notionalForLiquidation(
+  snap: PositionsSnapshot,
+  markets: Market[],
+  market: Market,
+  input: { side: "long" | "short"; price: bigint; targetLiq: bigint; maxNotional?: bigint; feeRate?: bigint },
+): bigint | undefined {
+  if (market.type !== "perp" || input.price <= 0n || input.targetLiq <= 0n) return undefined;
+  const im = imRate(market.maxLeverage);
+  const hi0 = input.maxNotional ?? (im > 0n ? div(snap.withdrawableCash, im) : 0n);
+  if (hi0 <= 0n) return undefined;
+  const liqAt = (notional: bigint): bigint =>
+    previewPositionChange(snap, markets, market, { ...input, notional }).estLiquidationPrice;
+  // Longs liquidate below the fill price, shorts above; f(n) approaches the
+  // fill price monotonically from that side. dir·f is increasing in n once a
+  // position exists (0-sentinel = long safe-everywhere ≡ −∞ under dir).
+  const dir = input.side === "long" ? 1n : -1n;
+  const key = (liq: bigint): bigint => (liq === 0n && input.side === "long" ? -(2n ** 255n) : dir * liq);
+  const target = key(input.targetLiq);
+  if (key(liqAt(hi0)) < target) return undefined; // out of reach at max size
+  let lo = 0n, hi = hi0;
+  for (let i = 0; i < 64 && hi - lo > 1n; i++) {
+    const mid = (lo + hi) / 2n;
+    if (key(liqAt(mid)) < target) lo = mid;
+    else hi = mid;
+  }
+  return hi;
+}
