@@ -30,10 +30,15 @@ const abi = [
 const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 
 const nvdaPerpId = "0x0000000000000000000000000000000000000000000000000000000000000007"; // NVDA-USD perp
-const now = BigInt(Date.now()) * 1000n; // microseconds
+
+// Deadlines must be an exact multiple of the market's auction interval
+// (500 ms on every testnet market) or validators reject the intent.
+const AUCTION_INTERVAL = 500_000n; // microseconds
+const deadlineAfter = (lagUs: bigint): bigint =>
+  ((BigInt(Date.now()) * 1000n + lagUs + AUCTION_INTERVAL - 1n) / AUCTION_INTERVAL) * AUCTION_INTERVAL;
 
 // One shared deadline for the whole envelope — required by submitBatch.
-const deadline = now + 10_000_000n;
+const deadline = deadlineAfter(10_000_000n);
 const ttl = 60n * 1_000_000n;
 const size = ethers.parseEther("5"); // +5 NVDA long
 
@@ -99,13 +104,17 @@ let orderbook = Orderbook::new(
 );
 
 let nvda_perp_id = FixedBytes::left_padding_from(&[7]); // NVDA-USD perp
-let now_us = std::time::SystemTime::now()
-    .duration_since(std::time::UNIX_EPOCH)?
-    .as_micros() as u128;
 let one_e18 = U256::from(10).pow(U256::from(18));
 
+// Deadlines must be an exact multiple of the market's auction interval
+// (500 ms on every testnet market) or validators reject the intent.
+const AUCTION_INTERVAL_US: u128 = 500_000;
+let now_us = std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)?
+    .as_micros();
+
 // One shared deadline for the whole envelope — required by submitBatch.
-let deadline = now_us + 10_000_000;
+let deadline = (now_us + 10_000_000).div_ceil(AUCTION_INTERVAL_US) * AUCTION_INTERVAL_US;
 let ttl = 60 * 1_000_000;
 let size = I256::from_raw(U256::from(5) * one_e18); // +5 NVDA long
 

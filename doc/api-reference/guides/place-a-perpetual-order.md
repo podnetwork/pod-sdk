@@ -29,17 +29,22 @@ const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 // USD is Pod's native token — use the canonical native-token sentinel address
 const USD = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const nvdaPerpId = "0x0000000000000000000000000000000000000000000000000000000000000007"; // NVDA-USD perp (max 20x)
-const now = BigInt(Date.now()) * 1000n; // microseconds
+
+// Deadlines must be an exact multiple of the market's auction interval
+// (500 ms on every testnet market) or validators reject the intent.
+const AUCTION_INTERVAL = 500_000n; // microseconds
+const deadlineAfter = (lagUs: bigint): bigint =>
+  ((BigInt(Date.now()) * 1000n + lagUs + AUCTION_INTERVAL - 1n) / AUCTION_INTERVAL) * AUCTION_INTERVAL;
 
 // 1. Deposit USD margin
 const margin = ethers.parseEther("1000"); // 1,000 USD
-await (await orderbook.deposit(USD, wallet.address, margin, now + 60_000_000n)).wait();
+await (await orderbook.deposit(USD, wallet.address, margin, deadlineAfter(60_000_000n))).wait();
 
 // 2. Open a long on NVDA-USD: 5 NVDA at $140 limit
 const size = ethers.parseEther("5");          // +5 NVDA long (negative = short)
 const price = ethers.parseEther("140");       // limit price in USD
 const orderType = 0;                          // 0 = Limit
-const deadline = now + 10_000_000n;
+const deadline = deadlineAfter(10_000_000n); // include in batches within the next ~10 seconds
 const ttl = 60n * 1_000_000n;
 
 const tx = await orderbook.submitOrder(
@@ -84,21 +89,27 @@ let orderbook = Orderbook::new(
 // USD is Pod's native token — use the canonical native-token sentinel address
 let pusd: Address = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE".parse()?;
 let nvda_perp_id = FixedBytes::left_padding_from(&[7]); // NVDA-USD perp (max 20x)
+let one_e18 = U256::from(10).pow(U256::from(18));
+
+// Deadlines must be an exact multiple of the market's auction interval
+// (500 ms on every testnet market) or validators reject the intent.
+const AUCTION_INTERVAL_US: u128 = 500_000;
 let now_us = std::time::SystemTime::now()
     .duration_since(std::time::UNIX_EPOCH)?
-    .as_micros() as u128;
-let one_e18 = U256::from(10).pow(U256::from(18));
+    .as_micros();
+let deadline_after =
+    |lag_us: u128| (now_us + lag_us).div_ceil(AUCTION_INTERVAL_US) * AUCTION_INTERVAL_US;
 
 // 1. Deposit USD margin
 let margin = U256::from(1000) * one_e18;
 orderbook
-    .deposit(pusd, signer.address(), margin, now_us + 60_000_000)
+    .deposit(pusd, signer.address(), margin, deadline_after(60_000_000))
     .send().await?.watch().await?;
 
 // 2. Open a long on NVDA-USD: 5 NVDA at $140 limit
 let size = I256::from_raw(U256::from(5) * one_e18);   // +5 NVDA long
 let price = U256::from(140) * one_e18;                // limit price in USD
-let deadline = now_us + 10_000_000;
+let deadline = deadline_after(10_000_000); // include in batches within the next ~10 seconds
 let ttl = 60 * 1_000_000;
 
 let tx = orderbook

@@ -31,6 +31,8 @@ deadline = ceil((now + LAG) / auction_interval) * auction_interval
 
 `LAG` is the headroom you add to `now` so the intent reaches enough validators before its target batch. It is capped at **10 minutes**; aim for **at least 1 minute** under normal conditions, smaller when you want to target a specific upcoming batch.
 
+The alignment rule applies to **every deadline-bearing call** on this precompile — `deposit` and `withdraw` as much as orders, cancels, updates and triggers. All of them pass through the same validator check, so an unaligned deposit deadline is rejected just like an unaligned order deadline.
+
 See [Batch Deadline](../../protocol/orderbook.md#batch-deadline) in the protocol reference for the full discussion of `deadline` semantics and the trade-offs around `LAG`.
 {% endhint %}
 
