@@ -426,10 +426,30 @@ export function notionalForLiquidation(
   // fill price monotonically from that side. dir·f is increasing in n once a
   // position exists (0-sentinel = long safe-everywhere ≡ −∞ under dir).
   const dir = input.side === "long" ? 1n : -1n;
-  const key = (liq: bigint): bigint => (liq === 0n && input.side === "long" ? -(2n ** 255n) : dir * liq);
+  const NEG = -(2n ** 255n);
+  // 0-sentinel (no position / long safe-everywhere / short past-trigger) reads
+  // as −∞: on the branch we bisect it only appears where the resulting
+  // position is dust or gone — always "below" any real target.
+  const key = (liq: bigint): bigint => (liq === 0n ? NEG : dir * liq);
   const target = key(input.targetLiq);
+  // f(n) is monotone only where the post-fill position is on `input.side`:
+  // from 0 for opens/adds, from just past the exact close for flips (the
+  // reduce branch moves liquidation the other way and lands nowhere useful —
+  // a reduce has no liquidation of its own side to drag).
+  const pos0 = perpPositionOn(snap, market.id);
+  const sameSide = pos0 ? (pos0.size > 0n) === (input.side === "long") : true;
+  let lo = 0n;
+  if (!sameSide) {
+    lo = mul(absB(pos0!.size), input.price); // the exact-close notional
+  } else if (pos0) {
+    // An add moves liquidation only toward the fill price — a target at or
+    // behind the current line is unreachable by sizing.
+    const k0 = key(estimateLiquidationPrice(snap, markets, market, { size: pos0.size, entryPrice: pos0.entryPrice }));
+    if (k0 >= target) return undefined;
+  }
+  if (hi0 <= lo) return undefined;
   if (key(liqAt(hi0)) < target) return undefined; // out of reach at max size
-  let lo = 0n, hi = hi0;
+  let hi = hi0;
   for (let i = 0; i < 64 && hi - lo > 1n; i++) {
     const mid = (lo + hi) / 2n;
     if (key(liqAt(mid)) < target) lo = mid;
