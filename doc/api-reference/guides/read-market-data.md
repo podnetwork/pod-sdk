@@ -13,7 +13,7 @@ const markets = await provider.send("ob_getMarkets", []);
 
 ```javascript
 const orderbookId = "0x0000000000000000000000000000000000000000000000000000000000000001"; // NVDAx-USD spot
-const depth = 20; // price levels per side
+const depth = 10; // price levels per side (the served snapshot retains at most 10)
 
 const snapshot = await provider.send("ob_getOrderbook", [orderbookId, depth]);
 // Returns: { buys: { price: { volume, minimum_expiry } }, sells: { ... }, timestamp }
@@ -24,9 +24,12 @@ const snapshot = await provider.send("ob_getOrderbook", [orderbookId, depth]);
 ```javascript
 const candles = await provider.send("ob_getCandles", [
   orderbookId,
-  startTimestamp,  // microseconds
-  endTimestamp,    // microseconds
-  interval,        // candle interval
+  {
+    resolution: "1m", // "1m" | "5m" | "15m" | "30m" | "1h" | "4h" | "1d" | "1w" | "1M"
+    from_ts: startTimestamp, // microseconds
+    to_ts: endTimestamp,     // microseconds, optional
+    limit: 100,              // optional
+  },
 ]);
 ```
 
@@ -35,9 +38,11 @@ const candles = await provider.send("ob_getCandles", [
 ```javascript
 const orders = await provider.send("ob_getOrders", [
   walletAddress,
-  { clob_ids: [orderbookId] },
+  { orderbook_id: orderbookId },
 ]);
-// Returns: [{ hash, side, status, price, remainingBase, filledBase, filledQuote, ... }]
+// Returns: { orders: [{ order_id, tx_hash, side, status, price, initial_size,
+//                       filled_base_amount, filled_quote_amount, ... }],
+//            total_count, next_cursor }
 ```
 
 ## Get positions

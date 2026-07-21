@@ -15,7 +15,7 @@ Each market on Pod is created with a set of protocol-level parameters that gover
 | Quote Asset | The settlement currency (e.g. USDC) |
 | Market Type | `spot` or `perpetual` |
 | Tick Size | Minimum price increment (1e18) |
-| Solver | Public key of the solver responsible for settling batches |
+| Solver | Public key of the solver responsible for settling batches — a single global key shared by every market |
 
 ## Perpetual Parameters
 
@@ -25,7 +25,7 @@ Each market on Pod is created with a set of protocol-level parameters that gover
 | Initial Margin | Required margin to open a position. Derived: `1 / Max Leverage` |
 | Maintenance Margin | Margin floor below which the position becomes eligible for liquidation. Derived: `Initial Margin / 2` |
 | Interest Rate | Per-market funding constant, defaulting to 0.01% per 8 hours. See [Perpetuals → Funding](../protocol/perpetuals.md) |
-| Oracle | Price feed source (Pyth asset) |
+| Oracle | Price feed source, specified as `<source>/<asset>` (sources: `PythNetwork`, `PythPro`, `Hyperliquid`, `Nobi`) |
 
 ## Live Markets
 
@@ -40,7 +40,7 @@ All markets are quoted in USD (the native token, address `0xEeeeeEeeeEeEeeEeEeEe
 | Batch Interval | 500ms |
 | Initial Margin | `1 / Max Leverage` |
 | Maintenance Margin | `0.5 × Initial Margin` |
-| Backstop | `0.75 × Initial Margin` |
+| Backstop | `(2/3) × Maintenance Margin` (≈ `0.33 × Initial Margin`) |
 
 ### Spot Markets
 

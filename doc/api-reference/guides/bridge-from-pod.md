@@ -47,6 +47,8 @@ const withdrawTx = await podBridge.withdraw(POD_TOKEN, amount, ethRecipient, ETH
 const receipt = await withdrawTx.wait();
 
 // 2. Get claim proof
+// The response is { proof, committee_epoch, aux_tx_suffix }; the byte fields
+// (`proof`, `aux_tx_suffix`) arrive as JSON arrays of integers, not hex strings.
 const claimProof = await podProvider.send("pod_getBridgeClaimProof", [receipt.hash]);
 
 // 3. Claim on Ethereum
@@ -56,7 +58,9 @@ const ethBridge = new ethers.Contract(
   ethWallet
 );
 const claimTx = await ethBridge.claim(
-  ETH_TOKEN, amount, ethRecipient, claimProof.proof, claimProof.auxTxSuffix
+  ETH_TOKEN, amount, ethRecipient,
+  Uint8Array.from(claimProof.proof),
+  Uint8Array.from(claimProof.aux_tx_suffix)
 );
 await claimTx.wait();
 ```
@@ -113,12 +117,16 @@ let withdraw_receipt = pod_bridge
     .get_receipt().await?;
 
 // 2. Get claim proof
+// The response is { proof, committee_epoch, aux_tx_suffix }; the byte fields
+// (`proof`, `aux_tx_suffix`) arrive as JSON arrays of integers, not hex strings.
 let claim_proof: serde_json::Value = pod_provider
     .raw_request(
         "pod_getBridgeClaimProof".into(),
         vec![withdraw_receipt.transaction_hash],
     )
     .await?;
+let proof: Vec<u8> = serde_json::from_value(claim_proof["proof"].clone())?;
+let aux_tx_suffix: Vec<u8> = serde_json::from_value(claim_proof["aux_tx_suffix"].clone())?;
 
 // 3. Claim on Ethereum
 let eth_bridge = EthBridge::new(
@@ -130,8 +138,8 @@ eth_bridge
         eth_token,
         amount,
         eth_recipient,
-        claim_proof["proof"].as_str().unwrap().parse()?,
-        claim_proof["auxTxSuffix"].as_str().unwrap().parse()?,
+        proof.into(),
+        aux_tx_suffix.into(),
     )
     .send().await?
     .watch().await?;

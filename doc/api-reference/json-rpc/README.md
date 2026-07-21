@@ -18,11 +18,11 @@ Pod is not a blockchain and has no blocks. Most `eth_` methods work as expected,
 
 | RPC Method                | Ethereum                             | Pod                                                          |
 | ------------------------- | ------------------------------------ | ------------------------------------------------------------ |
-| **eth\_blockNumber**      | Returns the most recent block number | Returns the latest past perfection timestamp in microseconds |
+| **eth\_blockNumber**      | Returns the most recent block number | Returns the node's current wall-clock time as a Unix timestamp in seconds |
 | **eth\_getBlockByHash**   | Returns block information by hash    | Returns an empty block structure                             |
 | **eth\_getBlockByNumber** | Returns block information by number  | Returns an empty block structure                             |
 
-**Timestamps are in microseconds.** Pod uses microsecond-precision Unix timestamps wherever Ethereum uses block numbers - including `eth_blockNumber`, transaction deadlines, and TTLs.
+**Timestamps are in microseconds.** Pod uses microsecond-precision Unix timestamps for transaction deadlines and TTLs. Block-number-shaped values are different: `eth_blockNumber` and the `blockNumber` in receipts and block responses carry Unix timestamps in whole **seconds**.
 
 **Block-related fields are zeroed.** Since Pod has no blocks, EVM opcodes that reference block properties (`block.number`, `block.coinbase`, `block.difficulty`, `block.basefee`) return 0. `block.timestamp` returns the local validator's timestamp at execution time.
 
