@@ -1280,7 +1280,7 @@ paths:
       operationId: eth_subscribe
       description: |
         Creates a subscription to receive real-time updates over WebSocket. Updates are pushed
-        after each auction settlement for the subscribed orderbook(s).
+        after each auction settlement for the subscribed orderbook(s) / account.
 
         **Subscription types:**
         - `pod_orderbook` — each notification is a single `OrderbookSnapshot` for the orderbook
@@ -1288,6 +1288,20 @@ paths:
         - `pod_orders` — each notification is an **array of `OrderUpdate`** describing what changed
           to orders this settlement: new/invalid orders, expirations, cancellations, modifications,
           and fills.
+        - `pod_candles` — a per-tick candle hint (`CandleTick`) per cleared orderbook: clearing
+          price and volume at the batch deadline, for folding into the forming bar. Not a closed
+          OHLCV bar (see `ob_getCandles`).
+        - `pod_markets` — a `MarketDynamicEntry` per orderbook carrying live market statistics
+          (last clearing price, 24h volume/high/low, and perp mark/oracle/funding/open-interest).
+        - `pod_positions` — a `PositionsUpdate` (`{ account, data }`, where `data` matches
+          `ob_getPositions`) for the subscribed account, pushed when a settlement touches it.
+          **Requires** `account` (alias `bidder`).
+        - `pod_triggers` — a `TriggersUpdate` (the `ob_getTriggers` fields plus `account`) for the
+          subscribed account, pushed when a settlement touches it. **Requires** `account`.
+
+        `pod_orderbook`, `pod_orders`, and `pod_candles` are **delta** channels (they stream what
+        changed each tick). `pod_markets`, `pod_positions`, and `pod_triggers` are **state** channels
+        (each pushes a current snapshot). See `since` below for how each behaves on catch-up.
 
         Subscriptions follow the standard Ethereum `eth_subscribe` pattern:
         1. Subscribe with `eth_subscribe` → receive a subscription ID.
@@ -1302,16 +1316,22 @@ paths:
           "params": { "subscription": "0x<id>", "result": <payload> }
         }
         ```
-        For `pod_orderbook`, `result` is an `OrderbookSnapshot`; for `pod_orders`, `result` is an
-        array of `OrderUpdate`.
+        The `result` payload shape depends on the subscription type (see the list above).
 
-        **Filtering.** Both subscription types accept `clob_ids` to restrict the stream to specific
-        orderbooks (empty/omitted = all). `pod_orders` additionally accepts `bidder`: when set, the
-        server delivers only the updates owned by that account — new/invalid orders, fills,
-        expirations, and cancellations are all filtered — so a wallet tracking a single account no
-        longer needs to filter the stream client-side. `depth` applies to `pod_orderbook` snapshots
-        only. Which option applies to which subscription type is summarised in
-        `SubscriptionParams`.
+        **Filtering.** `pod_orderbook`, `pod_orders`, `pod_candles`, and `pod_markets` accept
+        `orderbook_ids` (alias `clob_ids`) to restrict the stream to specific orderbooks
+        (empty/omitted = all). `pod_orders` additionally accepts `bidder` to deliver only that
+        account's updates. `pod_positions` and `pod_triggers` are account-scoped and **require**
+        `account` (alias `bidder`); they ignore `orderbook_ids`. `depth` applies to `pod_orderbook`
+        snapshots only.
+
+        **Catch-up (`since`).** Optionally pass `since` (a solution time in **microseconds**) to
+        catch up with no gap or duplicate. Delta channels (`pod_orderbook`, `pod_orders`,
+        `pod_candles`) replay buffered ticks with deadline strictly greater than `since`; if `since`
+        predates the retained buffer the subscription is rejected (backfill via REST and
+        resubscribe). State channels (`pod_markets`, `pod_positions`, `pod_triggers`) emit one
+        current snapshot immediately, then stream live. Omitted = live-only. Which option applies to
+        which subscription type is summarised in `SubscriptionParams`.
       requestBody:
         content:
           application/json:
@@ -1326,19 +1346,25 @@ paths:
                   type: array
                   description: |
                     Parameters:
-                    1. `subscription_type` (string): `pod_orderbook` or `pod_orders`
-                    2. `options` (SubscriptionParams): filter/format options; all fields optional.
-                       Which fields take effect depends on the subscription type:
-                       - `clob_ids` (array of bytes32) — **both types**: restrict to those
-                         orderbooks (empty/omitted = all orderbooks).
+                    1. `subscription_type` (string): one of `pod_orderbook`, `pod_orders`,
+                       `pod_candles`, `pod_markets`, `pod_positions`, `pod_triggers`.
+                    2. `options` (SubscriptionParams): filter/format options; all fields optional
+                       except where a channel requires `account`. Which fields take effect depends on
+                       the subscription type:
+                       - `orderbook_ids` (alias `clob_ids`, array of bytes32) — `pod_orderbook`,
+                         `pod_orders`, `pod_candles`, `pod_markets`: restrict to those orderbooks
+                         (empty/omitted = all). Ignored by `pod_positions` / `pod_triggers`.
                        - `depth` (integer) — **`pod_orderbook` only**: cap the price levels per side
-                         in each snapshot (omit for all levels). Ignored for `pod_orders`.
-                       - `bidder` (address) — **`pod_orders` only**: stream only updates owned by
-                         this bidder (omit for every bidder's updates). Ignored for `pod_orderbook`.
+                         in each snapshot (omit for all levels).
+                       - `bidder` (alias `account`, address) — `pod_orders`: stream only that
+                         bidder's updates (omit for all). **Required** for `pod_positions` and
+                         `pod_triggers` (the account to stream).
+                       - `since` (integer, microseconds) — all channels: catch-up watermark (see the
+                         method description).
                   items:
                     oneOf:
                       - type: string
-                        enum: [pod_orderbook, pod_orders]
+                        enum: [pod_orderbook, pod_orders, pod_candles, pod_markets, pod_positions, pod_triggers]
                       - $ref: '#/components/schemas/SubscriptionParams'
             examples:
               pod_orderbook:
@@ -1355,13 +1381,41 @@ paths:
                   method: "eth_subscribe"
                   id: 1
                   params: ["pod_orders", { bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28" }]
+              pod_candles:
+                summary: pod_candles for one orderbook, replaying ticks since a watermark
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_candles", { orderbook_ids: ["0x0000000000000000000000000000000000000000000000000000000000000001"], since: 1704153600000000 }]
+              pod_markets:
+                summary: pod_markets live stats across all orderbooks
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_markets", {}]
+              pod_positions:
+                summary: pod_positions for one account (account required)
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_positions", { account: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28" }]
+              pod_triggers:
+                summary: pod_triggers for one account (account required)
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_triggers", { account: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28" }]
       responses:
         '200':
           description: |
             Messages received on the subscription. The immediate reply to `eth_subscribe` is the
             subscription ID; every subsequent message is an `eth_subscription` notification whose
-            `params.result` carries the streamed payload — an `OrderbookSnapshot` for
-            `pod_orderbook`, or an array of `OrderUpdate` for `pod_orders`.
+            `params.result` carries the streamed payload — its shape determined by the subscription
+            type (see the method description and `EthSubscriptionMessage`).
           content:
             application/json:
               schema:
@@ -1575,6 +1629,599 @@ paths:
                 id: 1
         '400':
           description: Receipt not found or insufficient attestations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  error:
+                    type: object
+                    properties:
+                      code: { type: integer }
+                      message: { type: string }
+                  id: { type: integer }
+
+  /pod_getAccountInfo:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Account Info
+      operationId: pod_getAccountInfo
+      description: |
+        Returns an account's finalized/expected nonces and last finalized transaction as this node
+        sees them. Public and unauthenticated diagnostic info. Returns null when the account has
+        never finalized a transaction.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getAccountInfo" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `account` (address): The account to look up.
+                  items: { $ref: '#/components/schemas/Address' }
+                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"]
+      responses:
+        '200':
+          description: Account nonce info, or null if the account has never finalized a tx
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    $ref: '#/components/schemas/AccountInfoResponse'
+                    nullable: true
+                  id: { type: integer }
+
+  /pod_getLastFinalizedNonce:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Last Finalized Nonce
+      operationId: pod_getLastFinalizedNonce
+      description: Returns the account's last finalized nonce, or null when the account has never finalized a tx.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getLastFinalizedNonce" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `account` (address): The account to look up.
+                  items: { $ref: '#/components/schemas/Address' }
+                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"]
+      responses:
+        '200':
+          description: The account's last finalized nonce, or null
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { type: integer, format: int64, nullable: true }
+                  id: { type: integer }
+
+  /pod_getTxStatus:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Transaction Status
+      operationId: pod_getTxStatus
+      description: |
+        Returns the full pipeline status of a transaction: `pending` (with live vote counts),
+        `finalized` (with execution result), or `not_found` for an unknown tx hash.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getTxStatus" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `tx_hash` (bytes32): The transaction hash to look up.
+                  items: { $ref: '#/components/schemas/Bytes32' }
+                  example: ["0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"]
+      responses:
+        '200':
+          description: Transaction status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/TxStatusResponse' }
+                  id: { type: integer }
+
+  /pod_getVotes:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Votes at a Nonce
+      operationId: pod_getVotes
+      description: |
+        Returns the votes observed for a given (account, nonce): the voter set per transaction hash
+        plus the BOT voters. Returns null when no votes are pending at that nonce (never seen, or
+        already finalized).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getVotes" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `account` (address): The account whose votes to inspect.
+                    2. `nonce` (integer): The nonce to inspect.
+                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", 42]
+      responses:
+        '200':
+          description: Votes at the (account, nonce), or null if none are pending
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    $ref: '#/components/schemas/AccountNonceVotesResponse'
+                    nullable: true
+                  id: { type: integer }
+
+  /pod_getTransactions:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Transactions by Hash
+      operationId: pod_getTransactions
+      description: |
+        Fetches full signed transactions by hash. The request hash list is capped server-side, and
+        the response is additionally truncated to the node's max response body size — a transaction
+        that does not fit is omitted (re-request whatever is missing). Each returned item is a signed
+        Pod transaction (EIP-1559 envelope plus signature); decode with the Pod SDK.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getTransactions" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `tx_hashes` (array of bytes32): Transaction hashes to fetch.
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Bytes32' }
+                  example: [["0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"]]
+      responses:
+        '200':
+          description: Array of signed transaction objects (possibly truncated to the body-size budget)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: array
+                    items: { type: object, description: A signed Pod transaction. }
+                  id: { type: integer }
+
+  /pod_listTransactions:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: List Transactions
+      operationId: pod_listTransactions
+      description: Lists signed transactions, optionally filtered by sender and/or recipient, up to an optional limit.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_listTransactions" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters (all optional, positional):
+                    1. `from_account` (address, nullable): filter by sender.
+                    2. `to_account` (address, nullable): filter by recipient.
+                    3. `limit` (integer, nullable): maximum number of transactions to return.
+                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", null, 100]
+      responses:
+        '200':
+          description: Array of signed transaction objects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: array
+                    items: { type: object, description: A signed Pod transaction. }
+                  id: { type: integer }
+
+  /pod_getRecoveryTargetTx:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Recovery Target Transaction
+      operationId: pod_getRecoveryTargetTx
+      description: Returns the transaction an account must recover past to make progress, or null if the account does not need recovery.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getRecoveryTargetTx" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `account` (address): The account to inspect.
+                  items: { $ref: '#/components/schemas/Address' }
+                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"]
+      responses:
+        '200':
+          description: The recovery target, or null if none
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    $ref: '#/components/schemas/TargetTx'
+                    nullable: true
+                  id: { type: integer }
+
+  /pod_getProcessedDeposits:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Processed Deposits
+      operationId: pod_getProcessedDeposits
+      description: |
+        Returns the bridge deposit replay-protection set (a `watermark` plus the processed ids at or
+        above it). The relayer queries this to drop already-processed deposits from a batch.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getProcessedDeposits" }
+                id: { type: integer, default: 1 }
+                params: { type: array, default: [] }
+      responses:
+        '200':
+          description: The processed-deposit set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/ProcessedDepositsResponse' }
+                  id: { type: integer }
+
+  /pod_getPrecompiles:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Precompiles
+      operationId: pod_getPrecompiles
+      description: Returns the list of enshrined precompile contracts (bridge, CLOB, recovery, ...) with their addresses and names.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getPrecompiles" }
+                id: { type: integer, default: 1 }
+                params: { type: array, default: [] }
+      responses:
+        '200':
+          description: Array of precompiles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: array
+                    items: { $ref: '#/components/schemas/Precompile' }
+                  id: { type: integer }
+
+  /pod_getPrecompileInfo:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Precompile Info
+      operationId: pod_getPrecompileInfo
+      description: Returns a single precompile's address, name, and callable interface.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getPrecompileInfo" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `address` (address): The precompile address.
+                  items: { $ref: '#/components/schemas/Address' }
+                  example: ["0x50d0000000000000000000000000000000000002"]
+      responses:
+        '200':
+          description: Precompile info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/PrecompileInfo' }
+                  id: { type: integer }
+
+  /pod_getSolverState:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Solver State
+      operationId: pod_getSolverState
+      description: |
+        Returns the solver node's current state: its address and public key, next finalized nonce,
+        last executed and last generated solution batches, and the votes seen for the next solution.
+        Only meaningful when queried against the solver node.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getSolverState" }
+                id: { type: integer, default: 1 }
+                params: { type: array, default: [] }
+      responses:
+        '200':
+          description: Solver state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/SolverStateResponse' }
+                  id: { type: integer }
+
+  /pod_getValidatorStatus:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Validator Status
+      operationId: pod_getValidatorStatus
+      description: |
+        Returns this node's own validator state: append-log sequence number, local past-perfect
+        time, last executed batch deadline, and derived next-solution deadline. Values reflect the
+        queried node's in-memory state, not a consensus view.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getValidatorStatus" }
+                id: { type: integer, default: 1 }
+                params: { type: array, default: [] }
+      responses:
+        '200':
+          description: Validator status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/ValidatorStatusResponse' }
+                  id: { type: integer }
+
+  /pod_getValidatorAccountStatus:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Validator Account Status
+      operationId: pod_getValidatorAccountStatus
+      description: |
+        Returns how a specific validator has voted with respect to a specific account: what it has
+        (or hasn't) voted at each pending nonce, as seen by this node. Returns null when the
+        validator address is not in the current committee.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getValidatorAccountStatus" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `validator` (address): The validator to inspect.
+                    2. `account` (address): The account to inspect.
+                  items: { $ref: '#/components/schemas/Address' }
+                  example: ["0x1111111111111111111111111111111111111111", "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"]
+      responses:
+        '200':
+          description: Validator's per-nonce vote state for the account, or null if the validator is not in the committee
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    $ref: '#/components/schemas/ValidatorAccountStatusResponse'
+                    nullable: true
+                  id: { type: integer }
+
+  /pod_getAccountDiagnostics:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Account Diagnostics
+      operationId: pod_getAccountDiagnostics
+      description: |
+        Returns a full diagnostic snapshot of a single account across all committee validators:
+        per-validator vote state, recovery status, CLOB pending-solution presence, and equivocation
+        detection — all in one call.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getAccountDiagnostics" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `account` (address): The account to diagnose.
+                  items: { $ref: '#/components/schemas/Address' }
+                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"]
+      responses:
+        '200':
+          description: Account diagnostics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/AccountDiagnosticsResponse' }
+                  id: { type: integer }
+
+  /pod_status:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Node Status
+      operationId: pod_status
+      description: |
+        Returns the operational status of the node. Currently exposes `read_only` — when true, the
+        node rejects `sendRawTransaction` submissions. Public and unauthenticated.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_status" }
+                id: { type: integer, default: 1 }
+                params: { type: array, default: [] }
+      responses:
+        '200':
+          description: Node status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/PodStatus' }
+                  id: { type: integer }
+
+  /pod_waitPastPerfectTime:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Wait Past Perfect Time
+      operationId: pod_waitPastPerfectTime
+      description: |
+        Long-poll that resolves once this node's past-perfect time (PPT) reaches the given
+        timestamp, then returns a null result. The target must be within ~500 ms of now; a target
+        too far in the future is rejected with an invalid-params error.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_waitPastPerfectTime" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `timestamp` (integer): Target past-perfect time, in microseconds since the Unix epoch.
+                  items: { $ref: '#/components/schemas/Timestamp' }
+                  example: [1704153600000000]
+      responses:
+        '200':
+          description: Resolves once PPT reaches the target; result is always null
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { nullable: true, description: Always null on success. }
+                  id: { type: integer }
+        '400':
+          description: Requested PPT is too far in the future, or the timestamp does not fit in a u64
           content:
             application/json:
               schema:
@@ -2513,29 +3160,46 @@ components:
     SubscriptionParams:
       type: object
       description: |
-        Options object (second `eth_subscribe` param) for `pod_orderbook` / `pod_orders`. All
-        fields are optional, and which ones take effect depends on the subscription type:
-        - `clob_ids` — both `pod_orderbook` and `pod_orders`.
-        - `depth` — `pod_orderbook` only (ignored for `pod_orders`).
-        - `bidder` — `pod_orders` only (ignored for `pod_orderbook`).
+        Options object (second `eth_subscribe` param). All fields are optional except that
+        `pod_positions` / `pod_triggers` require `account` (alias `bidder`). Which fields take
+        effect depends on the subscription type:
+        - `orderbook_ids` (alias `clob_ids`) — `pod_orderbook`, `pod_orders`, `pod_candles`,
+          `pod_markets`; ignored by `pod_positions` / `pod_triggers`.
+        - `depth` — `pod_orderbook` only.
+        - `bidder` (alias `account`) — optional for `pod_orders`; **required** for `pod_positions`
+          and `pod_triggers`.
+        - `since` — all channels (catch-up watermark, microseconds).
       properties:
         depth:
           type: integer
           description: '`pod_orderbook` only: maximum price levels per side to include in snapshots. Omit for all levels.'
+        orderbook_ids:
+          type: array
+          items: { $ref: '#/components/schemas/Bytes32' }
+          description: 'Orderbook (clob) IDs to restrict the subscription to (accepted alias: `clob_ids`). Empty or omitted = all orderbooks. Honored by `pod_orderbook`, `pod_orders`, `pod_candles`, `pod_markets`; ignored by the account-scoped channels.'
         clob_ids:
           type: array
           items: { $ref: '#/components/schemas/Bytes32' }
-          description: 'Both types: orderbook (clob) IDs to restrict the subscription to. Empty or omitted = all orderbooks.'
+          description: 'Accepted alias for `orderbook_ids`.'
         bidder:
           $ref: '#/components/schemas/Address'
-          description: '`pod_orders` only: when set, stream only the updates owned by this bidder — new/invalid orders, fills, expirations, and cancellations are all filtered. Omit to receive every bidder''s updates.'
+          description: 'Account filter (accepted alias: `account`). For `pod_orders`, when set, streams only this bidder''s updates (omit for all bidders). For `pod_positions` / `pod_triggers` this is **required** — the account whose positions / triggers to stream.'
+        since:
+          type: integer
+          format: int64
+          description: 'Catch-up watermark: a solution time in microseconds. Delta channels replay buffered ticks after it; state channels emit one current snapshot then stream live. Omit for live-only. If a delta channel''s `since` predates the retained buffer, the subscription is rejected.'
 
     EthSubscriptionMessage:
       type: object
       description: |
         An asynchronous `eth_subscription` notification pushed over the WebSocket after
         `eth_subscribe`. The `params.result` payload depends on the subscription type:
-        `OrderbookSnapshot` for `pod_orderbook`, or an array of `OrderUpdate` for `pod_orders`.
+        - `pod_orderbook` → an `OrderbookSnapshot`.
+        - `pod_orders` → an array of `OrderUpdate`.
+        - `pod_candles` → a `CandleTick`.
+        - `pod_markets` → a `MarketDynamicEntry`.
+        - `pod_positions` → a `PositionsUpdate`.
+        - `pod_triggers` → a `TriggersUpdate`.
       properties:
         jsonrpc:
           type: string
@@ -2555,6 +3219,10 @@ components:
                 - $ref: '#/components/schemas/OrderbookSnapshot'
                 - type: array
                   items: { $ref: '#/components/schemas/OrderUpdate' }
+                - $ref: '#/components/schemas/CandleTick'
+                - $ref: '#/components/schemas/MarketDynamicEntry'
+                - $ref: '#/components/schemas/PositionsUpdate'
+                - $ref: '#/components/schemas/TriggersUpdate'
 
     OrderUpdate:
       type: object
@@ -2767,3 +3435,504 @@ components:
         withdrawable_cash:
           $ref: '#/components/schemas/HexUint256'
           description: Free margin — `cash` minus the initial margin reserved by open positions (1e18 USD).
+        net_deposits:
+          type: string
+          description: Net native collateral deposited minus withdrawn (signed, 1e18 USD). Negative once realized profit is withdrawn; lifetime PnL is `account_value − net_deposits`.
+
+    # ==========================================
+    # Network & Consensus (pod_) RESPONSE TYPES
+    # ==========================================
+    Secp256k1PublicKey:
+      type: string
+      pattern: "^[0-9a-fA-F]{66}$"
+      description: A 33-byte compressed secp256k1 public key, lowercase hex, with **no** `0x` prefix (66 hex characters).
+      example: "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc"
+
+    VoterResponse:
+      type: object
+      description: A validator that cast a vote, resolved from the committee vote bitmap.
+      required: [validator_index, validator_address]
+      properties:
+        validator_index:
+          type: integer
+          description: Index of the validator within the committee.
+        validator_address:
+          $ref: '#/components/schemas/Address'
+
+    TxVotesResponse:
+      type: object
+      description: The set of validators that voted for one specific transaction hash at a given (account, nonce).
+      required: [tx_hash, voters]
+      properties:
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+        voters:
+          type: array
+          items: { $ref: '#/components/schemas/VoterResponse' }
+
+    AccountNonceVotesResponse:
+      type: object
+      description: Votes observed for a given (account, nonce), as tracked by this node's vote accounting. Returned by `pod_getVotes` and embedded in a pending `pod_getTxStatus`.
+      required: [account, nonce, txs, bot_voters, total_tx_votes, quorum]
+      properties:
+        account:
+          $ref: '#/components/schemas/Address'
+        nonce:
+          type: integer
+          format: int64
+        txs:
+          type: array
+          items: { $ref: '#/components/schemas/TxVotesResponse' }
+          description: Voter sets per transaction hash seen at this (account, nonce).
+        bot_voters:
+          type: array
+          items: { $ref: '#/components/schemas/VoterResponse' }
+          description: Validators that voted BOT (bottom / no-op) at this (account, nonce).
+        total_tx_votes:
+          type: integer
+          description: Distinct validators that voted for any tx (each counted once even when equivocating).
+        quorum:
+          type: integer
+          description: Votes required for a certificate (n − f).
+
+    ProcessedDepositsResponse:
+      type: object
+      description: |
+        The bridge deposit replay-protection set. Every deposit id strictly below `watermark` has
+        been processed; `above_watermark` lists the processed ids at or above it. The relayer uses
+        this to drop already-processed deposits from a batch before (re)submitting it.
+      required: [watermark, above_watermark]
+      properties:
+        watermark:
+          $ref: '#/components/schemas/HexUint256'
+        above_watermark:
+          type: array
+          items: { $ref: '#/components/schemas/HexUint256' }
+          description: Processed deposit ids `>= watermark`, sorted ascending.
+
+    TargetTx:
+      type: object
+      description: A transaction an account must recover past before it can make progress again.
+      required: [hash, nonce]
+      properties:
+        hash:
+          $ref: '#/components/schemas/Bytes32'
+        nonce:
+          type: integer
+          format: int64
+
+    AccountInfoResponse:
+      type: object
+      description: An account's finalized/expected nonces and last finalized tx, as this node sees them.
+      required: [next_finalized_nonce, expected_nonce, last_finalized_tx]
+      properties:
+        next_finalized_nonce:
+          type: integer
+          format: int64
+          description: The next nonce to finalize; every lower nonce is already finalized.
+        expected_nonce:
+          type: integer
+          format: int64
+          description: The next nonce the account is expected to submit.
+        last_finalized_tx:
+          $ref: '#/components/schemas/Bytes32'
+
+    Precompile:
+      type: object
+      description: An enshrined precompile contract (bridge, CLOB, recovery, ...).
+      required: [address, name]
+      properties:
+        address:
+          $ref: '#/components/schemas/Address'
+        name:
+          type: string
+
+    PrecompileInfo:
+      type: object
+      description: A precompile plus its callable interface. The `Precompile` fields (`address`, `name`) are flattened to the top level alongside `interface`.
+      required: [address, name, interface]
+      properties:
+        address:
+          $ref: '#/components/schemas/Address'
+        name:
+          type: string
+        interface:
+          type: string
+          description: The precompile's callable interface (human-readable descriptor).
+
+    SolverBatchInfo:
+      type: object
+      description: Identifies a solver solution batch by its auction deadline and transaction hash.
+      required: [deadline, tx_hash]
+      properties:
+        deadline:
+          $ref: '#/components/schemas/Timestamp'
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+
+    SolverStateResponse:
+      type: object
+      description: The solver node's current state. Only meaningful when queried against the solver node.
+      required: [solver_address, solver_pub_key, next_finalized_nonce, next_solution_votes]
+      properties:
+        solver_address:
+          $ref: '#/components/schemas/Address'
+        solver_pub_key:
+          $ref: '#/components/schemas/Secp256k1PublicKey'
+        next_finalized_nonce:
+          type: integer
+          format: int64
+        last_executed_batch:
+          $ref: '#/components/schemas/SolverBatchInfo'
+          nullable: true
+          description: The most recently executed solution batch, or null if none.
+        last_generated_batch:
+          $ref: '#/components/schemas/SolverBatchInfo'
+          nullable: true
+          description: The most recently generated (proposed) solution batch, or null if none.
+        next_solution_votes:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: integer }
+          description: 'Votes for the next solution: an object mapping each candidate solution tx hash (bytes32, hex string key) to the list of validator indices that voted for it.'
+
+    PodStatus:
+      type: object
+      description: Operational status of the node.
+      required: [read_only]
+      properties:
+        read_only:
+          type: boolean
+          description: When true, the node rejects `sendRawTransaction` submissions (both `eth_` and `pod_`).
+
+    ValidatorVoteKind:
+      type: object
+      description: |
+        A validator's vote at a single nonce. Tagged union on `kind`:
+        - `tx`: voted for a specific transaction hash — `tx_hash` is present.
+        - `bot`: cast a BOT (bottom / no-op) vote — only `kind` is present.
+        - `not_seen`: no vote observed from this validator at this nonce — only `kind` is present.
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [tx, bot, not_seen]
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+          description: Present only when `kind` is `tx`.
+
+    ValidatorNonceVote:
+      type: object
+      description: A single validator's vote at one pending nonce.
+      required: [nonce, vote]
+      properties:
+        nonce:
+          type: integer
+          format: int64
+        vote:
+          $ref: '#/components/schemas/ValidatorVoteKind'
+
+    ValidatorAccountStatusResponse:
+      type: object
+      description: How one validator has voted for one account across its pending nonces, as seen by this node.
+      required: [validator_index, validator_address, account, account_next_finalized_nonce, account_expected_nonce, quorum, pending_nonces]
+      properties:
+        validator_index:
+          type: integer
+        validator_address:
+          $ref: '#/components/schemas/Address'
+        account:
+          $ref: '#/components/schemas/Address'
+        account_next_finalized_nonce:
+          type: integer
+          format: int64
+          description: This node's `next_finalized_nonce` for the account (votes at lower nonces are already gone).
+        account_expected_nonce:
+          type: integer
+          format: int64
+          description: This node's `expected_nonce` for the account.
+        quorum:
+          type: integer
+          description: Votes required for a certificate (n − f).
+        pending_nonces:
+          type: array
+          items: { $ref: '#/components/schemas/ValidatorNonceVote' }
+          description: One entry per pending nonce in `[next_finalized_nonce, expected_nonce)`. Capped at 256 entries; if the gap is larger the oldest nonces are omitted.
+
+    FinalizedTxStatus:
+      type: object
+      description: Execution outcome of a finalized transaction. In `pod_getTxStatus` these fields are flattened alongside the `finalized` status tag.
+      required: [tx_hash, account, nonce, success, gas_used]
+      properties:
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+        account:
+          $ref: '#/components/schemas/Address'
+        nonce:
+          type: integer
+          format: int64
+        success:
+          type: boolean
+        gas_used:
+          type: integer
+          format: int64
+
+    PendingTxStatus:
+      type: object
+      description: In-flight status of a not-yet-finalized transaction. In `pod_getTxStatus` these fields are flattened alongside the `pending` status tag.
+      required: [tx_hash, account, nonce, account_next_finalized_nonce, account_expected_nonce, quorum, votes]
+      properties:
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+        account:
+          $ref: '#/components/schemas/Address'
+        nonce:
+          type: integer
+          format: int64
+        account_next_finalized_nonce:
+          type: integer
+          format: int64
+        account_expected_nonce:
+          type: integer
+          format: int64
+        quorum:
+          type: integer
+          description: Votes needed for a certificate (n − f).
+        votes:
+          $ref: '#/components/schemas/AccountNonceVotesResponse'
+
+    TxStatusResponse:
+      type: object
+      description: |
+        Full pipeline status of a transaction, returned by `pod_getTxStatus`. It is a `status`-tagged
+        union; the fields present depend on `status`:
+        - `not_found`: unknown to this node (no cached tx and no receipt) — only `status` is present.
+        - `pending`: in-flight — the `PendingTxStatus` fields are inlined alongside `status`.
+        - `finalized`: executed — the `FinalizedTxStatus` fields are inlined alongside `status`.
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [not_found, pending, finalized]
+          description: Discriminator selecting the variant.
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+          description: Present for `pending` and `finalized`.
+        account:
+          $ref: '#/components/schemas/Address'
+          description: Present for `pending` and `finalized`.
+        nonce:
+          type: integer
+          format: int64
+          description: Present for `pending` and `finalized`.
+        account_next_finalized_nonce:
+          type: integer
+          format: int64
+          description: '`pending` only.'
+        account_expected_nonce:
+          type: integer
+          format: int64
+          description: '`pending` only.'
+        quorum:
+          type: integer
+          description: '`pending` only: votes needed for a certificate (n − f).'
+        votes:
+          $ref: '#/components/schemas/AccountNonceVotesResponse'
+          description: '`pending` only: the votes observed at this (account, nonce).'
+        success:
+          type: boolean
+          description: '`finalized` only: whether execution succeeded.'
+        gas_used:
+          type: integer
+          format: int64
+          description: '`finalized` only.'
+
+    ValidatorStatusResponse:
+      type: object
+      description: |
+        This node's own in-memory validator state. `validator_index` / `validator_address` are
+        present on a validator node and null on a full node. Values reflect the queried node's local
+        state, not a consensus view.
+      required: [append_log_sequence, current_ppt, quorum, committee_size]
+      properties:
+        validator_index:
+          type: integer
+          nullable: true
+        validator_address:
+          $ref: '#/components/schemas/Address'
+          nullable: true
+        append_log_sequence:
+          type: integer
+          format: int64
+          description: The node's current append-log sequence number.
+        current_ppt:
+          $ref: '#/components/schemas/Timestamp'
+          description: This node's local past-perfect time (microseconds).
+        last_executed_batch:
+          $ref: '#/components/schemas/Timestamp'
+          nullable: true
+          description: Deadline of the last executed solution batch (microseconds), or null if none.
+        next_solution_deadline:
+          $ref: '#/components/schemas/Timestamp'
+          nullable: true
+          description: '`last_executed_batch + auction_interval`, or null if no batch has executed yet.'
+        quorum:
+          type: integer
+          description: Votes required for a certificate (n − f).
+        committee_size:
+          type: integer
+
+    ValidatorDiagnostics:
+      type: object
+      description: Per-validator vote state for a single account, as seen by the queried node. Part of `AccountDiagnosticsResponse`.
+      required: [validator_index, validator_address, current_vote, equivocating]
+      properties:
+        validator_index:
+          type: integer
+        validator_address:
+          $ref: '#/components/schemas/Address'
+        highest_attested_nonce:
+          type: integer
+          format: int64
+          nullable: true
+          description: Highest nonce in the current pending window where this validator has voted. Null when there are no pending nonces or the validator has not voted.
+        current_vote:
+          $ref: '#/components/schemas/ValidatorVoteKind'
+          description: Vote cast at the latest pending nonce (`expected_nonce − 1`); `not_seen` if none.
+        equivocating:
+          type: boolean
+          description: True if this validator voted for two different tx hashes at the same nonce.
+
+    AccountDiagnosticsResponse:
+      type: object
+      description: Full diagnostic snapshot of a single account across all committee validators, returned by `pod_getAccountDiagnostics`.
+      required: [account, next_finalized_nonce, expected_nonce, last_finalized_tx, is_locked, quorum, validators, needs_recovery, has_clob_order_pending_solution, equivocating]
+      properties:
+        account:
+          $ref: '#/components/schemas/Address'
+        next_finalized_nonce:
+          type: integer
+          format: int64
+        expected_nonce:
+          type: integer
+          format: int64
+        last_finalized_tx:
+          $ref: '#/components/schemas/Bytes32'
+        is_locked:
+          type: boolean
+          description: True when the account is locked (a tx is pending decision).
+        quorum:
+          type: integer
+          description: Votes required for a certificate (n − f).
+        validators:
+          type: array
+          items: { $ref: '#/components/schemas/ValidatorDiagnostics' }
+          description: Per-validator vote state.
+        needs_recovery:
+          type: boolean
+        recovery_target:
+          $ref: '#/components/schemas/TargetTx'
+          nullable: true
+          description: The tx the account needs to recover past, if any.
+        has_clob_order_pending_solution:
+          type: boolean
+          description: True if this account has at least one order in the CLOB's pending-solution window.
+        equivocating:
+          type: boolean
+          description: True if two competing tx hashes at the same nonce both reached the certificate threshold (n − 3f).
+
+    MarketDynamicEntry:
+      type: object
+      description: |
+        Live market statistics for one orderbook, streamed on the `pod_markets` subscription (one
+        object per orderbook). Optional fields are omitted (not null) when unset — e.g. perp-only
+        fields on a spot market, or stats with no data yet.
+      required: [orderbook_id, volume_24h]
+      properties:
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+        last_clearing_price:
+          type: string
+          description: Most recent clearing price (decimal, 1e18). Omitted if the market has not cleared.
+        volume_24h:
+          type: string
+          description: Rolling 24h traded volume (decimal, 1e18).
+        high_24h:
+          type: string
+          description: 24h high clearing price (decimal, 1e18). Omitted if unavailable.
+        low_24h:
+          type: string
+          description: 24h low clearing price (decimal, 1e18). Omitted if unavailable.
+        price_change_24h:
+          type: integer
+          format: int128
+          description: 24h price change (signed, 1e18), as a JSON number. Omitted if unavailable.
+        oracle_price:
+          type: string
+          description: 'Perp only: latest oracle price (decimal, 1e18).'
+        mark_price:
+          type: string
+          description: 'Perp only: current mark price (decimal, 1e18).'
+        funding_rate:
+          type: string
+          description: 'Perp only: current funding rate (decimal).'
+        funding_index:
+          type: string
+          description: 'Perp only: cumulative funding index (decimal).'
+        funding_last_updated_us:
+          type: integer
+          format: int64
+          description: 'Perp only: last funding update time (microseconds).'
+        open_interest:
+          type: string
+          description: 'Perp only: open interest (decimal, 1e18).'
+
+    CandleTick:
+      type: object
+      description: |
+        Per-tick candle hint streamed on the `pod_candles` subscription — one object per orderbook
+        cleared this settlement. It is not a closed OHLCV bar (use `ob_getCandles` for those); the
+        client folds it into the forming bar.
+      required: [orderbook, timestamp_us, price, volume]
+      properties:
+        orderbook:
+          $ref: '#/components/schemas/Bytes32'
+        timestamp_us:
+          type: integer
+          format: int64
+          description: Batch deadline (settlement time) in microseconds.
+        price:
+          type: string
+          description: Clearing price for this tick (decimal, 1e18).
+        volume:
+          type: string
+          description: Total volume cleared this tick (decimal, 1e18).
+
+    PositionsUpdate:
+      type: object
+      description: A `pod_positions` notification — the account's full positions snapshot, pushed for a settlement that touched the account.
+      required: [account, data]
+      properties:
+        account:
+          $ref: '#/components/schemas/Address'
+        data:
+          $ref: '#/components/schemas/PositionsResponse'
+
+    TriggersUpdate:
+      type: object
+      description: A `pod_triggers` notification — the account's armed TP/SL triggers, pushed for a settlement that touched the account. Carries the `GetTriggersResponse` fields inlined alongside `account`.
+      required: [account, triggers, total_count]
+      properties:
+        account:
+          $ref: '#/components/schemas/Address'
+        triggers:
+          type: array
+          items: { $ref: '#/components/schemas/TriggerOrderResponse' }
+        total_count:
+          type: integer
+          description: Count of triggers for the account before pagination.
+        next_cursor:
+          type: string
+          nullable: true
+          description: 'Pagination cursor, wire format `"{orderbook_id}:{order_id}"`. Null if no more results.'
