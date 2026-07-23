@@ -28,8 +28,8 @@ DEPLOY_OUTPUT=$(forge script ./script/DeployDepositWaitingList.s.sol:DeployDepos
   --private-key "$RELAYER_SECRET" \
   --broadcast \
   --slow \
-  --sig "run(address,address)" \
-  "$BRIDGE_ADDRESS" "$RELAYER_ADDRESS")
+  --sig "run(address,address,address)" \
+  "$BRIDGE_ADDRESS" "$BRIDGE_ADMIN_ADDRESS" "$RELAYER_ADDRESS")
 
 echo "$DEPLOY_OUTPUT"
 
