@@ -18,7 +18,7 @@ const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
   "function deposit(address token, address recipient, uint256 amount, uint128 deadline)",
-  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly)",
+  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
 ];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 
@@ -37,7 +37,7 @@ const orderType = 0;                         // 0 = Limit, 1 = Market
 const deadline = now + 10_000_000n;          // include in batches within next 10 seconds
 const ttl = 60n * 1_000_000n;               // order lives for 60 seconds
 
-const tx = await orderbook.submitOrder(orderbookId, size, price, orderType, deadline, ttl, false);
+const tx = await orderbook.submitOrder(orderbookId, size, price, orderType, deadline, ttl, false, false);
 console.log("Order tx:", tx.hash);
 ```
 {% endtab %}
@@ -56,7 +56,7 @@ sol! {
         enum OrderType { Limit, Market }
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
-            OrderType orderType, uint128 deadline, uint128 ttl, bool reduceOnly
+            OrderType orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc
         ) public;
     }
 }
@@ -90,7 +90,7 @@ let deadline = now_us + 10_000_000; // include in batches within next 10 seconds
 let ttl = 60 * 1_000_000; // order lives for 60 seconds
 
 let tx = orderbook
-    .submitOrder(orderbook_id, size, price, Orderbook::OrderType::Limit, deadline, ttl, false)
+    .submitOrder(orderbook_id, size, price, Orderbook::OrderType::Limit, deadline, ttl, false, false)
     .send().await?;
 println!("Order tx: {:?}", tx.tx_hash());
 ```

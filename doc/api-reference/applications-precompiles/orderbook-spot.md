@@ -53,6 +53,7 @@ contract Orderbook {
      * @param deadline The timestamp limit for this order to be included in a batch in microseconds.
      * @param ttl The "Time To Live" duration in microseconds; how long the order remains active in the book.
      * @param reduceOnly If true, this order will only reduce an existing position and not increase leverage.
+     * @param ioc "Immediate-Or-Cancel": if true, any portion of the order that does not match in its first batch is cancelled instead of resting in the book.
      */
     function submitOrder(
         bytes32 orderbookId,
@@ -61,7 +62,8 @@ contract Orderbook {
         OrderType orderType,
         uint128 deadline,
         uint128 ttl,
-        bool reduceOnly
+        bool reduceOnly,
+        bool ioc
     ) public {}
 
     /**
@@ -105,14 +107,6 @@ contract Orderbook {
      * @return The current balance of the token held by the account within the exchange.
      */
     function balanceOf(address token, address account) public view returns (uint256) {}
-
-    /**
-     * @notice Retrieves the deposited balance of the caller for a specific token.
-     * @param token The address of the ERC20 token to check.
-     * @return The current balance of the token held by the caller within the exchange.
-     * @deprecated Use balanceOf(address token, address account) instead.
-     */
-    function getBalance(address token) public view returns (uint256) {}
 
     /**
      * @notice Batches retrieval of order details by their transaction hashes.

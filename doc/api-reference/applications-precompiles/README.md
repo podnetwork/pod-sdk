@@ -27,11 +27,12 @@ import { ethers } from "ethers";
 const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
-const abi = ["function getBalance(address token) view returns (uint256)"];
+const abi = ["function balanceOf(address token, address account) view returns (uint256)"];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, provider);
 
 const USDT = "0x0000000000000000000000000000000000000001";
-const balance = await orderbook.getBalance(USDT);
+const ACCOUNT = "0xYourAddress";
+const balance = await orderbook.balanceOf(USDT, ACCOUNT);
 console.log("Balance:", balance.toString());
 ```
 {% endtab %}
@@ -43,15 +44,17 @@ from web3 import Web3
 w3 = Web3(Web3.HTTPProvider("https://rpc.v1.dev.pod.network"))
 
 ORDERBOOK = "0x50d0000000000000000000000000000000000002"
-abi = [{"inputs": [{"name": "token", "type": "address"}],
-        "name": "getBalance",
+abi = [{"inputs": [{"name": "token", "type": "address"},
+                   {"name": "account", "type": "address"}],
+        "name": "balanceOf",
         "outputs": [{"name": "", "type": "uint256"}],
         "stateMutability": "view", "type": "function"}]
 
 orderbook = w3.eth.contract(address=ORDERBOOK, abi=abi)
 
 USDT = "0x0000000000000000000000000000000000000001"
-balance = orderbook.functions.getBalance(USDT).call()
+ACCOUNT = "0xYourAddress"
+balance = orderbook.functions.balanceOf(USDT, ACCOUNT).call()
 print("Balance:", balance)
 ```
 {% endtab %}
@@ -63,7 +66,7 @@ use alloy::{providers::ProviderBuilder, sol};
 sol! {
     #[sol(rpc)]
     contract Orderbook {
-        function getBalance(address token) public view returns (uint256);
+        function balanceOf(address token, address account) public view returns (uint256);
     }
 }
 
@@ -78,7 +81,8 @@ async fn main() -> eyre::Result<()> {
     );
 
     let usdt: Address = "0x0000000000000000000000000000000000000001".parse()?;
-    let balance = orderbook.getBalance(usdt).call().await?;
+    let account: Address = "0xYourAddress".parse()?;
+    let balance = orderbook.balanceOf(usdt, account).call().await?;
     println!("Balance: {}", balance._0);
 
     Ok(())
@@ -103,7 +107,7 @@ const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
   `function submitOrder(
     bytes32 orderbookId, int256 size, uint256 price,
-    uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly
+    uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc
   )`
 ];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, signer);
@@ -116,7 +120,7 @@ const deadline = BigInt(Date.now()) * 1000n;    // now in microseconds
 const ttl = 60n * 1_000_000n;                  // 60 seconds in microseconds
 
 const tx = await orderbook.submitOrder(
-  orderbookId, size, price, orderType, deadline, ttl, false
+  orderbookId, size, price, orderType, deadline, ttl, false, false
 );
 console.log("Order tx:", tx.hash);
 ```
@@ -138,7 +142,8 @@ abi = [{"inputs": [
     {"name": "orderType", "type": "uint8"},
     {"name": "deadline", "type": "uint128"},
     {"name": "ttl", "type": "uint128"},
-    {"name": "reduceOnly", "type": "bool"}],
+    {"name": "reduceOnly", "type": "bool"},
+    {"name": "ioc", "type": "bool"}],
     "name": "submitOrder", "outputs": [],
     "stateMutability": "nonpayable", "type": "function"}]
 
@@ -152,6 +157,7 @@ tx = orderbook.functions.submitOrder(
     int(time.time() * 1_000_000),                # deadline in microseconds
     60 * 1_000_000,                              # ttl: 60 seconds
     False,                                       # reduce only
+    False,                                       # immediate-or-cancel
 ).build_transaction({
     "from": account.address,
     "nonce": w3.eth.get_transaction_count(account.address),
@@ -179,7 +185,7 @@ sol! {
         enum OrderType { Limit, Market }
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
-            OrderType orderType, uint128 deadline, uint128 ttl, bool reduceOnly
+            OrderType orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc
         ) public;
     }
 }
@@ -210,6 +216,7 @@ async fn main() -> eyre::Result<()> {
         now_us,                                   // deadline
         60 * 1_000_000,                          // ttl: 60 seconds
         false,                                    // reduce only
+        false,                                    // immediate-or-cancel
     ).send().await?;
 
     println!("Order tx: {:?}", tx.tx_hash());
