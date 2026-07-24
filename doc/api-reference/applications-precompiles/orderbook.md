@@ -19,7 +19,7 @@ Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds
 order_id = keccak256(abi.encode(address signer, uint64 nonce, uint32 sequence))
 ```
 
-where `signer` is the order owner, `nonce` is the `submitOrder` transaction's nonce, and `sequence` is the intent's position inside a `submitBatch` envelope (`0` for a standalone `submitOrder`). Wherever a call references an existing order — `cancel(canceledOrder, …)`, `update(updatedOrder, …)`, and the `getOrders(orderIds, …)` read — pass this `order_id`. You can compute it yourself with the formula above, or read it back from `ob_getOrders`, which returns it as `order_id` (the originating `submitOrder` tx hash is exposed separately as `tx_hash`).
+where `signer` is the order owner, `nonce` is the `submitOrder` transaction's nonce, and `sequence` is the intent's position inside a `submitBatch` envelope (`0` for a standalone `submitOrder`). Wherever a call references an existing order — `cancel(canceledOrder, …)` and `update(updatedOrder, …)` — pass this `order_id`. You can compute it yourself with the formula above, or read it back from `ob_getOrders`, which returns it as `order_id` (the originating `submitOrder` tx hash is exposed separately as `tx_hash`).
 {% endhint %}
 
 {% hint style="warning" %}
@@ -95,6 +95,21 @@ contract Orderbook {
         uint128 ttl,
         bool reduceOnly,
         bool ioc
+    ) public {}
+
+    /**
+     * @notice Legacy submitOrder without the `ioc` argument, kept for backward compatibility.
+     * @dev Behaves like the 8-arg overload with `ioc = false` (unmatched size rests on the book).
+     * @deprecated Use submitOrder(..., bool reduceOnly, bool ioc) instead.
+     */
+    function submitOrder(
+        bytes32 orderbookId,
+        int256 size,
+        uint256 price,
+        OrderType orderType,
+        uint128 deadline,
+        uint128 ttl,
+        bool reduceOnly
     ) public {}
 
     /**
