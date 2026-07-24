@@ -27,11 +27,12 @@ import { ethers } from "ethers";
 const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
-const abi = ["function getBalance(address token) view returns (uint256)"];
+const abi = ["function balanceOf(address token, address account) view returns (uint256)"];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, provider);
 
 const USDT = "0x0000000000000000000000000000000000000001";
-const balance = await orderbook.getBalance(USDT);
+const ACCOUNT = "0xYourAddress";
+const balance = await orderbook.balanceOf(USDT, ACCOUNT);
 console.log("Balance:", balance.toString());
 ```
 {% endtab %}
@@ -43,15 +44,17 @@ from web3 import Web3
 w3 = Web3(Web3.HTTPProvider("https://rpc.podtestnet.dev"))
 
 ORDERBOOK = "0x50d0000000000000000000000000000000000002"
-abi = [{"inputs": [{"name": "token", "type": "address"}],
-        "name": "getBalance",
+abi = [{"inputs": [{"name": "token", "type": "address"},
+                   {"name": "account", "type": "address"}],
+        "name": "balanceOf",
         "outputs": [{"name": "", "type": "uint256"}],
         "stateMutability": "view", "type": "function"}]
 
 orderbook = w3.eth.contract(address=ORDERBOOK, abi=abi)
 
 USDT = "0x0000000000000000000000000000000000000001"
-balance = orderbook.functions.getBalance(USDT).call()
+ACCOUNT = "0xYourAddress"
+balance = orderbook.functions.balanceOf(USDT, ACCOUNT).call()
 print("Balance:", balance)
 ```
 {% endtab %}
@@ -63,7 +66,7 @@ use alloy::{providers::ProviderBuilder, sol};
 sol! {
     #[sol(rpc)]
     contract Orderbook {
-        function getBalance(address token) public view returns (uint256);
+        function balanceOf(address token, address account) public view returns (uint256);
     }
 }
 
@@ -78,7 +81,8 @@ async fn main() -> eyre::Result<()> {
     );
 
     let usdt: Address = "0x0000000000000000000000000000000000000001".parse()?;
-    let balance = orderbook.getBalance(usdt).call().await?;
+    let account: Address = "0xYourAddress".parse()?;
+    let balance = orderbook.balanceOf(usdt, account).call().await?;
     println!("Balance: {}", balance._0);
 
     Ok(())

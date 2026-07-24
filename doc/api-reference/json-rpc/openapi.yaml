@@ -821,7 +821,7 @@ paths:
         Returns the native token balance for the specified address in the wallet.
         
         **Note:** This returns the wallet balance, which is distinct from the orderbook contract balance.
-        To query the balance deposited in the orderbook contract, call the `getBalance` function on the orderbook contract.
+        To query the balance deposited in the orderbook contract, call the `balanceOf` function on the orderbook contract.
         
         The `block_number` parameter is accepted for Ethereum compatibility but is ignored.
       requestBody:
@@ -1096,9 +1096,8 @@ paths:
         Executes a new message call immediately without creating a transaction on the blockchain.
         
         Use this method for read-only operations on the orderbook contract, such as:
-        - `getBalance(address token)` - Get deposited balance for a token
-        - `getOrders(bytes32 orderbookId, bytes32[] txHashes)` - Get order details by transaction hashes
-        
+        - `balanceOf(address token, address account)` - Get deposited balance for a token
+
         **Orderbook Contract Address:** `0x50d0000000000000000000000000000000000002`
       requestBody:
         content:
