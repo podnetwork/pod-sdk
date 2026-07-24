@@ -2,7 +2,7 @@
 
 The **Orderbook precompile** is the on-chain execution surface for native markets — both **spot** and **perpetual**. The same contract, calls, and balances are shared across both market types; a market's behavior is determined by the `MarketType` set at creation.
 
-Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds**, **opening leveraged perpetual positions**, **arming take-profit / stop-loss triggers**, and **reading balances and order state**.
+Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds**, **opening leveraged perpetual positions**, **arming take-profit / stop-loss triggers**, and **reading balances**. Order state and history are not read through the precompile — use the `ob_` JSON-RPC endpoints (`ob_getOrders`, `ob_getFills`, …) instead; see [Read market data](../guides/read-market-data.md).
 
 {% hint style="info" %}
 **Orderbook precompile address:** `0x50d0000000000000000000000000000000000002`
@@ -19,7 +19,7 @@ Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds
 order_id = keccak256(abi.encode(address signer, uint64 nonce, uint32 sequence))
 ```
 
-where `signer` is the order owner, `nonce` is the `submitOrder` transaction's nonce, and `sequence` is the intent's position inside a `submitBatch` envelope (`0` for a standalone `submitOrder`). Wherever a call references an existing order — `cancel(canceledOrder, …)`, `update(updatedOrder, …)`, and the `getOrders(orderIds, …)` read — pass this `order_id`. You can compute it yourself with the formula above, or read it back from `ob_getOrders`, which returns it as `order_id` (the originating `submitOrder` tx hash is exposed separately as `tx_hash`).
+where `signer` is the order owner, `nonce` is the `submitOrder` transaction's nonce, and `sequence` is the intent's position inside a `submitBatch` envelope (`0` for a standalone `submitOrder`). Wherever a call references an existing order — `cancel(canceledOrder, …)` and `update(updatedOrder, …)` — pass this `order_id`. You can compute it yourself with the formula above, or read it back from `ob_getOrders`, which returns it as `order_id` (the originating `submitOrder` tx hash is exposed separately as `tx_hash`).
 {% endhint %}
 
 {% hint style="warning" %}
@@ -158,28 +158,6 @@ contract Orderbook {
      * @deprecated Use balanceOf(address token, address account) instead.
      */
     function getBalance(address token) public view returns (int256) {}
-
-    /**
-     * @notice Batched retrieval of order details by their order ids.
-     * @param orderbookId The identifier of the market.
-     * @param orderIds An array of `order_id`s representing the orders to fetch.
-     * @return An array of order structs containing:
-     * - orderId: The unique order identifier (`keccak256(abi.encode(signer, nonce, sequence))`).
-     * - side: The order side (Buy/Sell).
-     * - status: The current status (e.g., Open, Filled, Canceled).
-     * - remainingBase: The amount of base asset left to fill.
-     * - price: The limit price.
-     * - startTs: Timestamp when the order was included in the orderbook.
-     * - endTs: Timestamp when the order expires.
-     * - filledBase: Amount of base asset already filled.
-     * - filledQuote: Amount of quote asset spent/received.
-     */
-    function getOrders(
-        bytes32 orderbookId,
-        bytes32[] calldata orderIds
-    ) public view returns (
-        (bytes32, Side, uint16, uint256, uint256, uint128, uint128, uint256, uint256)[] memory
-    ) {}
 
     // --- Fund Management ---
 

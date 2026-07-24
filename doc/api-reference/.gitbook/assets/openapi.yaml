@@ -1600,9 +1600,6 @@ paths:
 
         - `getBalance(address token)` - Get deposited balance for a token
 
-        - `getOrders(bytes32 orderbookId, bytes32[] txHashes)` - Get order
-        details by transaction hashes
-
 
         **Orderbook Contract Address:**
         `0x50d0000000000000000000000000000000000002`
@@ -1730,30 +1727,6 @@ paths:
                         key: 6R2nFEGb4xGg
                     key: XlJwFI7mJP9u
                 key: nbzs4eHBW7If
-              - object: block
-                type: list-item
-                isVoid: false
-                data: {}
-                nodes:
-                  - object: block
-                    type: paragraph
-                    isVoid: false
-                    data: {}
-                    nodes:
-                      - object: text
-                        leaves:
-                          - object: leaf
-                            text: getOrders(bytes32 orderbookId, bytes32[] txHashes)
-                            marks:
-                              - object: mark
-                                type: code
-                                data: {}
-                          - object: leaf
-                            text: ' - Get order details by transaction hashes'
-                            marks: []
-                        key: MXKTYZTqD6z1
-                    key: g0bZNpVaGpuM
-                key: 35iJh2oqJANL
             key: yf4VkJn4QElq
           - object: block
             type: paragraph
@@ -1785,9 +1758,8 @@ paths:
         transaction on the blockchain.</p><p>Use this method for read-only
         operations on the orderbook contract, such
         as:</p><ul><li><code>getBalance(address token)</code> - Get deposited
-        balance for a token</li><li><code>getOrders(bytes32 orderbookId,
-        bytes32[] txHashes)</code> - Get order details by transaction
-        hashes</li></ul><p><strong>Orderbook Contract Address:</strong>
+        balance for a token</li></ul><p><strong>Orderbook Contract
+        Address:</strong>
         <code>0x50d0000000000000000000000000000000000002</code></p>
   /eth_getTransactionReceipt:
     post:
