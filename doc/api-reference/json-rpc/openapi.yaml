@@ -750,8 +750,7 @@ paths:
         
         Use this method for read-only operations on the orderbook contract, such as:
         - `balanceOf(address token, address account)` - Get deposited balance for a token
-        - `getOrders(bytes32 orderbookId, bytes32[] txHashes)` - Get order details by transaction hashes
-        
+
         **Orderbook Contract Address:** `0x50d0000000000000000000000000000000000002`
       requestBody:
         content:
