@@ -98,21 +98,6 @@ contract Orderbook {
     ) public {}
 
     /**
-     * @notice Legacy submitOrder without the `ioc` argument, kept for backward compatibility.
-     * @dev Behaves like the 8-arg overload with `ioc = false` (unmatched size rests on the book).
-     * @deprecated Use submitOrder(..., bool reduceOnly, bool ioc) instead.
-     */
-    function submitOrder(
-        bytes32 orderbookId,
-        int256 size,
-        uint256 price,
-        OrderType orderType,
-        uint128 deadline,
-        uint128 ttl,
-        bool reduceOnly
-    ) public {}
-
-    /**
      * @notice Cancels an existing open order.
      * @param orderbookId The unique identifier of the market the order belongs to.
      * @param canceledOrder The `order_id` of the order to cancel — the computed
