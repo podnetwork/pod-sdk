@@ -72,16 +72,6 @@ contract Orderbook {
     //        `position` in RPC responses.)
     enum TriggerGrouping { None, Asset }
 
-    // --- Events ---
-
-    event SolutionExecuted(
-        bytes32 indexed orderbookId,
-        uint128 deadline,
-        uint256 clearingPrice,
-        uint256 totalVolume,
-        uint256 newOrdersCount
-    );
-
     // --- Order Management ---
 
     /**
