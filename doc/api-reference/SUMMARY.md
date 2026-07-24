@@ -4,7 +4,10 @@
 
 ## Guides
 
-* [Place an order](guides/place-an-order.md)
+* [Place a spot order](guides/place-a-spot-order.md)
+* [Place a perpetual order](guides/place-a-perpetual-order.md)
+* [Submit a batch order](guides/submit-a-batch-order.md)
+* [Delegate a trading key](guides/delegate-a-trading-key.md)
 * [Read market data](guides/read-market-data.md)
 * [Bridge to Pod](guides/bridge-to-pod.md)
 * [Bridge from Pod](guides/bridge-from-pod.md)
@@ -13,6 +16,7 @@
 
 ## References
 
+* [Market Configurations](market-configurations.md)
 * [JSON-RPC](json-rpc/README.md)
   * ```yaml
     props:
@@ -25,8 +29,9 @@
           kind: openapi
           spec: pod-docs
     ```
+* [JSON-RPC Errors](json-rpc-errors.md)
 * [Precompiles](applications-precompiles/README.md)
-  * [Orderbook Spot](applications-precompiles/orderbook-spot.md)
+  * [Orderbook](applications-precompiles/orderbook.md)
   * [Optimistic Auctions](applications-precompiles/wip-optimistic-auctions.md)
   * [Bridge](applications-precompiles/bridge.md)
   * [Recovery](applications-precompiles/recovery.md)

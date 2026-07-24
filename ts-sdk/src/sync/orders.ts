@@ -1,0 +1,205 @@
+// OrderHistory: a SeriesResource<Order> seeded from the warm first page, kept
+// live by the pod_orders stream (bidder-filtered, `since`-resumed, all update
+// variants incl. `modified`), and paged backwards by cursor for deep history.
+//
+// Reconnect: on every (re)connect we re-seed the first page (authoritative open
+// orders) and refresh `since` from its watermark; the WS auto-resubscribes, and
+// if `since` is too old (down too long) `onError` re-seeds and resubscribes.
+
+import type { Address, MarketId, Order, OrderStatus, OrdersQuery } from "../types/public.js";
+import type { WireOrderUpdate } from "../types/wire.js";
+import { dec, WAD } from "../codec/units.js";
+import { decodeOrder } from "../codec/decode.js";
+import { BaseResource, type ResourceHandle } from "../stores/resource.js";
+import type { Subscription } from "../transport/ws.js";
+import type { SeriesResource } from "./candles.js";
+import type { SyncContext } from "./sources.js";
+
+export class OrderHistory implements SeriesResource<Order> {
+  private readonly base: BaseResource<Order[]>;
+  private handle: ResourceHandle<Order[]> | undefined;
+  private readonly byId = new Map<string, Order>();
+  private nextCursor: string | null = null;
+  private sub: Subscription | undefined;
+  private watermarkUs = 0;
+  private alive = false;
+  private _hasMore = true;
+  private _loading = false;
+  private subRetries = 0;
+  private retryTimer?: ReturnType<typeof setTimeout>;
+
+  constructor(
+    private readonly ctx: SyncContext,
+    private readonly account: Address,
+    private readonly query: OrdersQuery = {},
+    /** Maps a WS order's token pair to its orderbook id (see rebuild). */
+    private readonly resolveOrderbookId?: (pair: { base: Address; quote: Address }) => MarketId | undefined,
+  ) {
+    this.base = new BaseResource<Order[]>((h) => {
+      this.handle = h;
+      this.alive = true;
+      const offOpen = this.ctx.ws.on("open", () => { if (this.alive) this.seed(); });
+      this.seed(); // initial paint (REST is independent of the socket being open)
+      return () => {
+        this.alive = false;
+        offOpen();
+        if (this.retryTimer) clearTimeout(this.retryTimer);
+        this.sub?.unsubscribe();
+        this.sub = undefined;
+        this.handle = undefined;
+      };
+    });
+  }
+
+  get(): Order[] | undefined { return this.base.get(); }
+  subscribe(listener: () => void): () => void { return this.base.subscribe(listener); }
+  ready(): Promise<Order[]> { return this.base.ready(); }
+  get error(): Error | undefined { return this.base.error; }
+  hasMore(): boolean { return this._hasMore; }
+  loading(): boolean { return this._loading; }
+  destroy(): void { this.base.destroy(); }
+
+  setWindow(): void { /* order history pages by cursor, not by time window */ }
+
+  async loadOlder(): Promise<void> {
+    if (!this.handle || !this.nextCursor || this._loading) return;
+    this._loading = true;
+    this.rebuild();
+    try {
+      const page = await this.ctx.rest.orders(this.account, {
+        cursor: this.nextCursor,
+        limit: this.query.limit ?? 100,
+      });
+      for (const o of page.orders) if (!this.byId.has(o.id)) this.byId.set(o.id, o);
+      this.nextCursor = page.nextCursor;
+      this._hasMore = page.nextCursor !== null;
+    } finally {
+      this._loading = false;
+      this.rebuild();
+    }
+  }
+
+  // --- internals ---
+
+  private async fetchFirstPage(): Promise<boolean> {
+    try {
+      const page = await this.ctx.rest.orders(this.account, { limit: this.query.limit ?? 100 });
+      if (!this.alive) return false;
+      for (const o of page.orders) this.byId.set(o.id, o);
+      this.nextCursor = page.nextCursor;
+      this._hasMore = page.nextCursor !== null;
+      this.watermarkUs = page.solutionNow * 1000;
+      this.rebuild();
+      return true;
+    } catch (e) {
+      if (this.byId.size === 0) this.handle?.fail(e as Error);
+      return false;
+    }
+  }
+
+  private seed(): void {
+    void this.fetchFirstPage().then((ok) => {
+      if (!ok || !this.alive) return;
+      if (!this.sub) {
+        this.sub = this.ctx.ws.subscribe(
+          "pod_orders",
+          { account: this.account, since: this.watermarkUs },
+          (r) => this.onUpdates(r),
+          () => this.onSubError(),
+        );
+      } else {
+        this.sub.update({ since: this.watermarkUs }); // refresh for the next reconnect
+      }
+    });
+  }
+
+  /**
+   * Subscription rejected — re-seed then resubscribe. Backed off (and capped),
+   * so a server that keeps rejecting can't spin this into a tight re-seed /
+   * resubscribe loop. After a couple of failures we drop `since` (the likely
+   * culprit) and just stream live. Reset once live data flows (`onUpdates`).
+   */
+  private onSubError(): void {
+    if (!this.alive) return;
+    this.subRetries++;
+    const delay = Math.min(30_000, 500 * 2 ** (this.subRetries - 1));
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = setTimeout(() => {
+      void this.fetchFirstPage().then((ok) => {
+        if (!ok || !this.alive) return;
+        this.sub?.update({ since: this.subRetries > 2 ? undefined : this.watermarkUs });
+        this.sub?.resubscribe();
+      });
+    }, delay);
+  }
+
+  private onUpdates(result: unknown): void {
+    this.subRetries = 0; // live data flowing → subscription is healthy
+    const updates = (Array.isArray(result) ? result : [result]) as WireOrderUpdate[];
+    for (const u of updates) this.applyUpdate(u);
+    this.rebuild();
+  }
+
+  private applyUpdate(u: WireOrderUpdate): void {
+    switch (u.type) {
+      case "new":
+      case "invalid": {
+        const o = decodeOrder(u);
+        this.byId.set(o.id, o);
+        break;
+      }
+      case "fill": {
+        const e = this.byId.get(u.order_id);
+        if (e) {
+          e.filledBase = dec(u.filled_base_amount);
+          e.filledQuote = dec(u.filled_quote_amount);
+          e.fee = dec(u.fee);
+          e.status = u.status as OrderStatus;
+          if (u.effective_price != null) e.effectivePrice = dec(u.effective_price);
+          // Keep the per-fill breakdown live too. The push carries this fill's
+          // base/quote delta but no timestamp — receipt time is close enough.
+          const base = dec(u.base_amount);
+          const quote = dec(u.quote_amount);
+          e.fills = [...e.fills, { base, quote, price: base > 0n ? (quote * WAD) / base : 0n, time: Date.now() }];
+        }
+        break;
+      }
+      case "modified": {
+        const e = this.byId.get(u.order_id);
+        if (e) {
+          e.price = dec(u.new_price);
+          const sign = e.initialSize < 0n ? -1n : 1n;
+          e.initialSize = sign * dec(u.new_size); // new_size is an unsigned magnitude
+        }
+        break;
+      }
+      case "expired": {
+        const e = this.byId.get(u.order_id);
+        if (e) e.status = "expired";
+        break;
+      }
+      case "canceled": {
+        const e = this.byId.get(u.order_id);
+        if (e) e.status = "canceled";
+        break;
+      }
+    }
+  }
+
+  private rebuild(): void {
+    if (!this.handle) return;
+    // WS stream orders carry a token `pair` instead of orderbook_id — resolve
+    // it here so consumers can always filter by market. Retried every rebuild,
+    // so orders that streamed in before the markets list loaded still resolve.
+    if (this.resolveOrderbookId) {
+      for (const o of this.byId.values()) {
+        if (o.orderbookId === undefined && o.pair) o.orderbookId = this.resolveOrderbookId(o.pair);
+      }
+    }
+    let arr = [...this.byId.values()];
+    if (this.query.status) arr = arr.filter((o) => o.status === this.query.status);
+    if (this.query.orderbookId) arr = arr.filter((o) => o.orderbookId === this.query.orderbookId);
+    arr.sort((a, b) => b.deadlineMs - a.deadlineMs || b.nonce - a.nonce);
+    this.handle.set(arr);
+  }
+}

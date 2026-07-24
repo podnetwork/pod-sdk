@@ -22,7 +22,7 @@ use tokio::{task::JoinHandle, time::timeout};
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Address of the auction contract on pod
-    #[arg(long, default_value = "0xedd0670497e00ded712a398563ea938a29dd28c7")]
+    #[arg(long, default_value = "0x50d0000000000000000000000000000000000004")]
     contract_address: Address,
 
     /// RPC URL for the Pod network

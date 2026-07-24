@@ -4,7 +4,7 @@ The optimistic auctions precompile is a minimal auction contract for intents. Bi
 
 For background on how optimistic auctions work, see [Optimistic Auctions](https://docs.v2.pod.network/documentation/markets/optimistic-auctions).
 
-**Precompile address:** `0xeDD0670497E00ded712a398563Ea938A29dD28c7`
+**Precompile address:** `0x50d0000000000000000000000000000000000004`
 
 ## Interface
 

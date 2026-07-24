@@ -11,10 +11,10 @@ A bid is a transaction to the `submitBid` function on the precompile. Each bid s
 ```typescript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
+const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
-const AUCTION = "0xeDD0670497E00ded712a398563Ea938A29dD28c7";
+const AUCTION = "0x50d0000000000000000000000000000000000004";
 const abi = [
   "function submitBid(uint256 auction_id, uint64 deadline, uint256 value, bytes data)",
   "event BidSubmitted(uint256 indexed auction_id, address indexed bidder, uint64 indexed deadline, uint256 value, bytes data)",
@@ -42,12 +42,12 @@ use std::time::{Duration, SystemTime};
 
 let provider = PodProviderBuilder::with_recommended_settings()
     .with_private_key(PRIVATE_KEY.parse()?)
-    .on_url("wss://rpc.v2.pod.network")
+    .on_url("wss://rpc.podtestnet.dev")
     .await?;
 
 let auction = AuctionClient::new(
     provider,
-    "0xeDD0670497E00ded712a398563Ea938A29dD28c7".parse()?,
+    "0x50d0000000000000000000000000000000000004".parse()?,
 );
 
 let auction_id = U256::from(1);

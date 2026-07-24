@@ -15,14 +15,14 @@ See [Bridge to Pod](https://docs.v2.pod.network/guides-references/guides/bridge-
 
 ### Deposit and Call
 
-The Ethereum bridge contract supports depositing tokens and calling a whitelisted contract on Pod in a single transaction. This is useful for bridging tokens and immediately depositing them into the orderbook without a separate step.
+The Ethereum bridge contract supports depositing tokens and calling a whitelisted contract on Pod in a single transaction. This is useful for bridging tokens and immediately depositing them into the market contract without a separate step.
 
 When calling `deposit` on the Ethereum contract, the `callContract` and `reserveBalance` parameters control this behavior:
 
-- **`callContract`**: Address of a whitelisted contract on Pod to call with the bridged funds (e.g. the orderbook contract). Set to `address(0)` for a normal deposit.
+- **`callContract`**: Address of a whitelisted contract on Pod to call with the bridged funds (e.g. the market contract). Set to `address(0)` for a normal deposit.
 - **`reserveBalance`**: Amount (in the Ethereum token's units) to keep in the user's EOA on Pod. The remainder is forwarded to `callContract` via `deposit(token, amount, to)`.
 
-For example, to bridge 1000 USDC and deposit 900 USDC into the orderbook while keeping 100 USDC in your account, set `amount = 1000e6`, `reserveBalance = 100e6`, and `callContract` to the orderbook address.
+For example, to bridge 1000 USDC and deposit 900 USDC into the market contract while keeping 100 USDC in your account, set `amount = 1000e6`, `reserveBalance = 100e6`, and `callContract` to the market contract address.
 
 The `callContract` must be whitelisted by the bridge admin via `setCallContractWhitelist`. If `callContract` is `address(0)`, `reserveBalance` must be `0`.
 

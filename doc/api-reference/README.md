@@ -5,35 +5,47 @@ Pod provides an Ethereum-like interface, so developers can use existing toolchai
 ```javascript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.v1.dev.pod.network");
+const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 const balance = await provider.getBalance("0xYourAddress");
 ```
 
-{% columns %}
-{% column %}
-[**Fund your wallet**](https://faucet.dev.pod.network)
-{% endcolumn %}
-{% column %}
-[**Explorer**](https://explorer.v1.pod.network)
-{% endcolumn %}
-{% endcolumns %}
+{% cards %}
+{% card title="Fund your wallet" href="https://faucet.dev.pod.network" %}
+Get testnet tokens from the faucet
+{% endcard %}
+{% card title="Explorer" href="https://explorer.pod.network" %}
+View transactions and accounts
+{% endcard %}
+{% endcards %}
 
-## Devnet Configuration
+## Network Configuration
 
+{% tabs %}
+{% tab title="Testnet" %}
 | Property        | Value                                                        |
 | --------------- | ------------------------------------------------------------ |
 | Name            | `pod`                                                        |
-| RPC             | `https://rpc.v1.dev.pod.network`                             |
-| Chain ID        | `1293`                                                       |
-| Explorer        | `https://explorer.v1.pod.network`                            |
-| Currency Symbol | `pUSD`                                                       |
+| RPC             | `https://rpc.podtestnet.dev`                                 |
+| Chain ID        | `129301`                                                       |
+| Explorer        | `https://explorer.pod.network`                            |
+| Currency Symbol | `USD`                                                        |
 | EVM Version     | `Prague` (Ethereum block 22,431,084, Released May 7th, 2025) |
+{% endtab %}
 
-{% hint style="warning" %}
-We expect the devnet to have breaking changes or be reset (pruned completely) at any time.
+{% tab title="Mainnet" %}
+{% hint style="info" %}
+**Mainnet is not live yet.** Network details will be published here once mainnet launches.
 {% endhint %}
+{% endtab %}
+{% endtabs %}
 
 ## Next Steps
+
+{% hint style="info" %}
+**Transaction hashes as identifiers.** Pod often uses the **transaction hash** — the value returned by `eth_sendRawTransaction` when the transaction was submitted — as the identifier for the entity that transaction created. For example, a bridge withdrawal's claim proof is fetched by the withdrawal tx hash, and account recovery references its target transaction by tx hash.
+
+**Exception — orderbook orders.** A resting order is identified by a computed `order_id = keccak256(abi.encode(signer, nonce, sequence))`, **not** its `submitOrder` tx hash. The orderbook precompile's `cancel(orderbookId, canceledOrder, …)`, `update(orderbookId, updatedOrder, …)`, and `getOrders(orderbookId, orderIds)` all take this `order_id`; `ob_getOrders` returns it as `order_id` (and the originating tx hash separately as `tx_hash`). See the [Orderbook precompile](applications-precompiles/orderbook.md) for details.
+{% endhint %}
 
 Pod supports standard Ethereum RPC methods under the `eth_` namespace, with a few differences due to Pod's blockless architecture. Pod also introduces additional namespaces for protocol-specific and orderbook functionality:
 
