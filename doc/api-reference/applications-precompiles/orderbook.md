@@ -151,36 +151,6 @@ contract Orderbook {
      */
     function withdrawableBalance(address token, address account) public view returns (uint256) {}
 
-    /**
-     * @notice Retrieves the deposited balance of the caller for a specific token.
-     * @param token The address of the ERC20 token to check.
-     * @return The current balance of the token held by the caller within the exchange.
-     * @deprecated Use balanceOf(address token, address account) instead.
-     */
-    function getBalance(address token) public view returns (int256) {}
-
-    /**
-     * @notice Batched retrieval of order details by their order ids.
-     * @param orderbookId The identifier of the market.
-     * @param orderIds An array of `order_id`s representing the orders to fetch.
-     * @return An array of order structs containing:
-     * - orderId: The unique order identifier (`keccak256(abi.encode(signer, nonce, sequence))`).
-     * - side: The order side (Buy/Sell).
-     * - status: The current status (e.g., Open, Filled, Canceled).
-     * - remainingBase: The amount of base asset left to fill.
-     * - price: The limit price.
-     * - startTs: Timestamp when the order was included in the orderbook.
-     * - endTs: Timestamp when the order expires.
-     * - filledBase: Amount of base asset already filled.
-     * - filledQuote: Amount of quote asset spent/received.
-     */
-    function getOrders(
-        bytes32 orderbookId,
-        bytes32[] calldata orderIds
-    ) public view returns (
-        (bytes32, Side, uint16, uint256, uint256, uint128, uint128, uint256, uint256)[] memory
-    ) {}
-
     // --- Fund Management ---
 
     /**
