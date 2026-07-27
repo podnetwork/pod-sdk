@@ -7,7 +7,10 @@ This guide walks through bridging ERC20 tokens from Pod to Ethereum. For backgro
 All tokens on Pod are represented with 18 decimals, regardless of their decimals on Ethereum. When calling `withdraw` on the Pod bridge precompile, the `amount` must be specified in the **Ethereum token's units**. For example, to bridge 1 USDC (6 decimals on Ethereum), pass `1000000` (1e6), not `1000000000000000000` (1e18).
 
 {% hint style="warning" %}
-When bridging the native token, **set `tx.value` to `0`**. The bridge deducts the balance internally — do not send value with the transaction.
+**Setting `tx.value` depends on the token:**
+
+- **Native token** (`0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`): the coin is sent with the transaction, so set `tx.value` to the `amount` **scaled up to Pod's 18 decimals**. For example, bridging 1 USDC uses `amount = 1000000` (1e6) and `tx.value = 1000000000000000000` (1e18). A native withdraw is rejected unless `tx.value` equals the scaled amount — this keeps gas accounting correct (`native >= tx.value + gas`), so you cannot bridge your whole balance and leave nothing to pay for gas.
+- **ERC20 tokens**: set `tx.value` to `0`. The balance is deducted internally.
 {% endhint %}
 
 ## Steps
@@ -30,20 +33,27 @@ const ethWallet = new ethers.Wallet(PRIVATE_KEY, ethProvider);
 
 const POD_BRIDGE = "0x50d0000000000000000000000000000000000001";
 const ETH_BRIDGE = "ETHEREUM_BRIDGE_ADDRESS";
-const POD_TOKEN = "POD_TOKEN_ADDRESS"; // use 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for native token
+const NATIVE_TOKEN = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+const POD_TOKEN = "POD_TOKEN_ADDRESS"; // use NATIVE_TOKEN for the native token
 const ETH_TOKEN = "ETH_TOKEN_ADDRESS";
-const amount = ethers.parseUnits("100", 6); // amount in Ethereum token units (e.g. 6 decimals for USDC)
+const ETH_DECIMALS = 6; // token's decimals on Ethereum (e.g. 6 for USDC)
+const amount = ethers.parseUnits("100", ETH_DECIMALS); // amount in Ethereum token units
 const ethRecipient = ethWallet.address;
 const ETH_CHAIN_ID = 1; // Ethereum mainnet chain ID
 
-// 1. Withdraw on Pod bridge precompile
-// IMPORTANT: tx.value must be 0, even for native token withdrawals
+// 1. Withdraw on Pod bridge precompile.
+// For the native token, tx.value must equal the amount scaled to Pod's 18
+// decimals; for ERC20 tokens it must be 0.
+const value =
+  POD_TOKEN.toLowerCase() === NATIVE_TOKEN.toLowerCase()
+    ? amount * 10n ** BigInt(18 - ETH_DECIMALS)
+    : 0n;
 const podBridge = new ethers.Contract(
   POD_BRIDGE,
   ["function withdraw(address token, uint256 amount, address to, uint256 chainId) returns (bytes32)"],
   podWallet
 );
-const withdrawTx = await podBridge.withdraw(POD_TOKEN, amount, ethRecipient, ETH_CHAIN_ID, { value: 0 });
+const withdrawTx = await podBridge.withdraw(POD_TOKEN, amount, ethRecipient, ETH_CHAIN_ID, { value });
 const receipt = await withdrawTx.wait();
 
 // 2. Get claim proof
@@ -95,20 +105,29 @@ let eth_provider = ProviderBuilder::new()
     .wallet(signer.clone())
     .on_http("https://eth.llamarpc.com".parse()?);
 
-let pod_token = "POD_TOKEN_ADDRESS".parse()?; // use 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for native token
+let native_token = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE".parse()?;
+let pod_token = "POD_TOKEN_ADDRESS".parse()?; // use native_token for the native token
 let eth_token = "ETH_TOKEN_ADDRESS".parse()?;
-let amount = U256::from(100_000_000u64); // amount in Ethereum token units (e.g. 100 USDC = 100 * 1e6)
+let eth_decimals = 6u32; // token's decimals on Ethereum (e.g. 6 for USDC)
+let amount = U256::from(100_000_000u64); // amount in Ethereum token units (100 USDC = 100 * 1e6)
 let eth_recipient = signer.address();
 let eth_chain_id = U256::from(1u64); // Ethereum mainnet chain ID
 
-// 1. Withdraw on Pod bridge precompile
-// IMPORTANT: tx.value must be 0, even for native token withdrawals
+// 1. Withdraw on Pod bridge precompile.
+// For the native token, tx.value must equal the amount scaled to Pod's 18
+// decimals; for ERC20 tokens it must be 0.
+let value = if pod_token == native_token {
+    amount * U256::from(10u64).pow(U256::from(18 - eth_decimals))
+} else {
+    U256::ZERO
+};
 let pod_bridge = PodBridge::new(
     "0x50d0000000000000000000000000000000000001".parse()?,
     &pod_provider,
 );
 let withdraw_receipt = pod_bridge
     .withdraw(pod_token, amount, eth_recipient, eth_chain_id)
+    .value(value)
     .send().await?
     .get_receipt().await?;
 

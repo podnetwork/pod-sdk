@@ -41,7 +41,7 @@ See [Bridge from Pod](https://docs.v2.pod.network/guides-references/guides/bridg
 All tokens on Pod are represented with 18 decimals internally, regardless of their decimals on the source chain (e.g. USDC has 6 decimals on Ethereum but 18 on Pod). The bridge handles the conversion automatically:
 
 - **Ethereum → Pod**: The bridge scales amounts up to 18 decimals when crediting balances on Pod.
-- **Pod → Ethereum**: When calling `withdraw` on the Pod bridge precompile, the `amount` must be specified in the target chain token's native units (e.g. 1e6 for 1 USDC), not in Pod's 18-decimal representation. The Withdraw event also emits amounts in the target chain's decimals.
+- **Pod → Ethereum**: When calling `withdraw` on the Pod bridge precompile, the `amount` must be specified in the target chain token's native units (e.g. 1e6 for 1 USDC), not in Pod's 18-decimal representation. The Withdraw event also emits amounts in the target chain's decimals. For the **native token**, the coin is moved with the transaction, so `tx.value` must equal that `amount` scaled **up** to Pod's 18 decimals (ERC20 withdrawals send no value). Because the withdraw is then subject to the usual `native >= tx.value + gas` check, you cannot bridge your entire balance and leave nothing to pay for gas.
 
 ## Network Upgrades
 
