@@ -31,17 +31,22 @@ const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 // USD is the native token; NVDAx is the synthetic Nvidia base
 const USD = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const orderbookId = "0x0000000000000000000000000000000000000000000000000000000000000001"; // NVDAx-USD spot
-const now = BigInt(Date.now()) * 1000n; // microseconds
+
+// Deadlines must be an exact multiple of the market's auction interval
+// (500 ms on every testnet market) or validators reject the intent.
+const AUCTION_INTERVAL = 500_000n; // microseconds
+const deadlineAfter = (lagUs: bigint): bigint =>
+  ((BigInt(Date.now()) * 1000n + lagUs + AUCTION_INTERVAL - 1n) / AUCTION_INTERVAL) * AUCTION_INTERVAL;
 
 // 1. Deposit USD (the quote token) into the orderbook
 const depositAmount = ethers.parseEther("1000");
-await (await orderbook.deposit(USD, wallet.address, depositAmount, now + 60_000_000n)).wait();
+await (await orderbook.deposit(USD, wallet.address, depositAmount, deadlineAfter(60_000_000n))).wait();
 
 // 2. Submit a buy limit order: 1 NVDAx at 200 USD
 const size = ethers.parseEther("1");         // buy 1 NVDAx (positive = buy)
 const price = ethers.parseEther("200");      // limit price in USD
 const orderType = 0;                         // 0 = Limit, 1 = Market
-const deadline = now + 10_000_000n;          // include in batches within next 10 seconds
+const deadline = deadlineAfter(10_000_000n); // include in batches within the next ~10 seconds
 const ttl = 60n * 1_000_000n;               // order lives for 60 seconds
 
 const tx = await orderbook.submitOrder(
@@ -86,21 +91,27 @@ let orderbook = Orderbook::new(
 // USD is the native token; NVDAx is the synthetic Nvidia base
 let pusd: Address = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE".parse()?;
 let orderbook_id = FixedBytes::left_padding_from(&[1]); // NVDAx-USD spot
+
+// Deadlines must be an exact multiple of the market's auction interval
+// (500 ms on every testnet market) or validators reject the intent.
+const AUCTION_INTERVAL_US: u128 = 500_000;
 let now_us = std::time::SystemTime::now()
     .duration_since(std::time::UNIX_EPOCH)?
-    .as_micros() as u128;
+    .as_micros();
+let deadline_after =
+    |lag_us: u128| (now_us + lag_us).div_ceil(AUCTION_INTERVAL_US) * AUCTION_INTERVAL_US;
 
 // 1. Deposit USD (the quote token) into the orderbook
 let one_e18 = U256::from(10).pow(U256::from(18));
 let deposit_amount = U256::from(1000) * one_e18;
 orderbook
-    .deposit(pusd, signer.address(), deposit_amount, now_us + 60_000_000)
+    .deposit(pusd, signer.address(), deposit_amount, deadline_after(60_000_000))
     .send().await?.watch().await?;
 
 // 2. Submit a buy limit order: 1 NVDAx at 200 USD
 let size = I256::from_raw(one_e18); // buy 1 NVDAx
 let price = U256::from(200) * one_e18; // limit price in USD
-let deadline = now_us + 10_000_000; // include in batches within next 10 seconds
+let deadline = deadline_after(10_000_000); // include in batches within the next ~10 seconds
 let ttl = 60 * 1_000_000; // order lives for 60 seconds
 
 let tx = orderbook
