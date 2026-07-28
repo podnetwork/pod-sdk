@@ -13,20 +13,78 @@ pub enum TimestampError {
 }
 
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Serialize,
-    Deserialize,
-    std::hash::Hash,
-    Default,
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, std::hash::Hash, Default,
 )]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Timestamp(u128);
+
+/// `Deserialize` is hand-written, not derived, so a `Timestamp` still decodes
+/// when the deserializer buffers fields before handing them over.
+/// `#[serde(flatten)]`, `#[serde(untagged)]` and internally-tagged enums all
+/// route every field through serde's `Content` type, which has no `u128` variant
+/// and rejects the derived newtype impl outright with "u128 is not supported" —
+/// the failure that broke the `pod_getVoteBatches` `Plain` pull.
+///
+/// Only human-readable formats take the new path: `deserialize_any` accepts the
+/// integer the buffer actually holds (JSON numbers arrive as `u64`), plus a
+/// decimal string so a producer that switches to string-encoded micros stays
+/// readable. Binary formats are not self-describing — `deserialize_any` is
+/// unsupported there — so they keep the derived behaviour exactly, byte for
+/// byte, which is what keeps existing bincode payloads and MessagePack snapshots
+/// loadable.
+impl<'de> Deserialize<'de> for Timestamp {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            return deserializer.deserialize_any(TimestampVisitor);
+        }
+        deserializer.deserialize_newtype_struct("Timestamp", TimestampVisitor)
+    }
+}
+
+struct TimestampVisitor;
+
+impl<'de> serde::de::Visitor<'de> for TimestampVisitor {
+    type Value = Timestamp;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("microseconds since the Unix epoch, as an integer or a decimal string")
+    }
+
+    /// The binary path: mirrors the derived newtype impl.
+    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Timestamp, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        u128::deserialize(deserializer).map(Timestamp)
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Timestamp, E> {
+        Ok(Timestamp(u128::from(v)))
+    }
+
+    fn visit_u128<E>(self, v: u128) -> Result<Timestamp, E> {
+        Ok(Timestamp(v))
+    }
+
+    fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Timestamp, E> {
+        u128::try_from(v)
+            .map(Timestamp)
+            .map_err(|_| E::custom(format!("negative timestamp: {v}")))
+    }
+
+    fn visit_i128<E: serde::de::Error>(self, v: i128) -> Result<Timestamp, E> {
+        u128::try_from(v)
+            .map(Timestamp)
+            .map_err(|_| E::custom(format!("negative timestamp: {v}")))
+    }
+
+    fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Timestamp, E> {
+        v.parse().map(Timestamp).map_err(E::custom)
+    }
+}
 
 impl Timestamp {
     pub const MAX: Timestamp = Timestamp(u128::MAX);
@@ -154,5 +212,92 @@ impl MockClock {
 impl Clock for MockClock {
     fn now(&self) -> Timestamp {
         self.time
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const MICROS: u128 = 1_718_900_000_000_000;
+
+    /// A `Timestamp` nested behind `#[serde(flatten)]` inside an internally
+    /// tagged enum — the shape that buffers every field through serde's
+    /// `Content` and used to fail with "u128 is not supported".
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Inner {
+        a: u32,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[serde(tag = "type", rename_all = "lowercase")]
+    enum Buffered {
+        V {
+            #[serde(flatten)]
+            inner: Inner,
+            ts: Timestamp,
+        },
+    }
+
+    #[test]
+    fn json_round_trips_plain_and_through_a_buffering_deserializer() {
+        // Plain: unchanged from the derived impl — a bare number.
+        let json = serde_json::to_string(&Timestamp::from_micros(MICROS)).unwrap();
+        assert_eq!(json, MICROS.to_string());
+        assert_eq!(
+            serde_json::from_str::<Timestamp>(&json)
+                .unwrap()
+                .as_micros(),
+            MICROS
+        );
+
+        // Buffered: flatten + internally tagged. The wire bytes are the same
+        // bare number; only decoding was broken before.
+        let value = Buffered::V {
+            inner: Inner { a: 1 },
+            ts: Timestamp::from_micros(MICROS),
+        };
+        let json = serde_json::to_string(&value).unwrap();
+        assert!(
+            json.contains(&format!(r#""ts":{MICROS}"#)),
+            "unchanged encoding: {json}"
+        );
+        assert_eq!(serde_json::from_str::<Buffered>(&json).unwrap(), value);
+    }
+
+    /// Micros as a decimal string decode too, so a producer that switches to
+    /// string-encoded timestamps stays readable.
+    #[test]
+    fn json_accepts_micros_as_a_decimal_string() {
+        let ts: Timestamp = serde_json::from_str(&format!(r#""{MICROS}""#)).unwrap();
+        assert_eq!(ts.as_micros(), MICROS);
+    }
+
+    #[test]
+    fn json_rejects_a_negative_timestamp() {
+        assert!(serde_json::from_str::<Timestamp>("-1").is_err());
+    }
+
+    /// Binary formats are not self-describing, so they keep the derived
+    /// behaviour: same bytes in, same value out. This is what keeps existing
+    /// bincode payloads (and MessagePack snapshots) loadable.
+    #[test]
+    fn bincode_round_trips_unchanged() {
+        let cfg = bincode::config::standard();
+        let ts = Timestamp::from_micros(MICROS);
+        let bytes = bincode::serde::encode_to_vec(ts, cfg).unwrap();
+        let (decoded, _): (Timestamp, _) = bincode::serde::decode_from_slice(&bytes, cfg).unwrap();
+        assert_eq!(decoded, ts);
+
+        // Nested in a struct, which is how attestations carry it.
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct Carrier {
+            ts: Timestamp,
+            other: u64,
+        }
+        let carrier = Carrier { ts, other: 7 };
+        let bytes = bincode::serde::encode_to_vec(&carrier, cfg).unwrap();
+        let (decoded, _): (Carrier, _) = bincode::serde::decode_from_slice(&bytes, cfg).unwrap();
+        assert_eq!(decoded, carrier);
     }
 }
