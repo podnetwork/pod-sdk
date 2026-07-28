@@ -92,8 +92,8 @@ impl VerifiableLog {
         })
     }
     pub fn confirmation_time(&self) -> Timestamp {
-        let num_attestations = self.pod_metadata.attestations.len();
-        self.pod_metadata.attestations[num_attestations / 2].timestamp
+        let sorted = self.sort_attestations_by_timestamp();
+        sorted[sorted.len() / 2].timestamp
     }
 
     pub fn generate_proof(&self) -> Option<MerkleProof> {
