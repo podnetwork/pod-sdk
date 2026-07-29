@@ -3901,6 +3901,7 @@ dependencies = [
  "pod-examples-solidity",
  "pod-types",
  "serde",
+ "serde_json",
  "tokio",
  "tokio-test",
  "tracing",
