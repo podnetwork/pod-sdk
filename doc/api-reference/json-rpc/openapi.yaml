@@ -1287,6 +1287,11 @@ paths:
         - `pod_orders` — each notification is an **array of `OrderUpdate`** describing what changed
           to orders this settlement: new/invalid orders, expirations, cancellations, modifications,
           and fills.
+        - `pod_orders_v2` — the same information as `pod_orders` in a smaller, extensible frame: one
+          `OrdersFrameV2` per orderbook per batch, which names the batch and the orderbook once,
+          publishes each order created in that batch once, and expresses everything else as events
+          referencing it. Prefer this for new integrations; `pod_orders` is unchanged and stays
+          supported.
         - `pod_candles` — a per-tick candle hint (`CandleTick`) per cleared orderbook: clearing
           price and volume at the batch deadline, for folding into the forming bar. Not a closed
           OHLCV bar (see `ob_getCandles`).
@@ -1298,8 +1303,8 @@ paths:
         - `pod_triggers` — a `TriggersUpdate` (the `ob_getTriggers` fields plus `account`) for the
           subscribed account, pushed when a settlement touches it. **Requires** `account`.
 
-        `pod_orderbook`, `pod_orders`, and `pod_candles` are **delta** channels (they stream what
-        changed each tick). `pod_markets`, `pod_positions`, and `pod_triggers` are **state** channels
+        `pod_orderbook`, `pod_orders`, `pod_orders_v2`, and `pod_candles` are **delta** channels
+        (they stream what changed each tick). `pod_markets`, `pod_positions`, and `pod_triggers` are **state** channels
         (each pushes a current snapshot). See `since` below for how each behaves on catch-up.
 
         Subscriptions follow the standard Ethereum `eth_subscribe` pattern:
@@ -1317,10 +1322,28 @@ paths:
         ```
         The `result` payload shape depends on the subscription type (see the list above).
 
-        **Filtering.** `pod_orderbook`, `pod_orders`, `pod_candles`, and `pod_markets` accept
+        **Reading a `pod_orders_v2` frame.** `orders` holds the orders *created* in this batch, each
+        once; `events` says what happened. An event names its order either by `o` (an index into this
+        frame's `orders`) or by `id` (an order resting from an earlier batch, whose owner is `a`) —
+        exactly one of the two. Owners are interned into `accts` and referenced by index, except on a
+        bidder-filtered stream, where `accts` and every `a` are omitted because every row belongs to
+        the subscriber. Absent optional fields carry a documented default (see `OrderEntityV2`), so a
+        plain user-signed limit order is small.
+
+        Two things clients most often get wrong: `batch` is the batch an action **landed in**, which
+        for an order is at or before the `deadline` it was signed for (an intent may be included in an
+        earlier batch than it targets); and a fill's `tb`/`tq`/`fee` are **cumulative over the
+        order's life**, not amounts for this batch — subtract the previous values you saw for that
+        order (or zero, since an order is admitted with nothing filled) to get this fill's share.
+
+        **Forward compatibility.** Clients MUST ignore event kinds (`k`) and fields they do not
+        recognise: new event kinds will be added without a new channel version. Existing keys are
+        never renamed or repurposed.
+
+        **Filtering.** `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_candles`, and `pod_markets` accept
         `orderbook_ids` (alias `clob_ids`) to restrict the stream to specific orderbooks
-        (empty/omitted = all). `pod_orders` additionally accepts `bidder` to deliver only that
-        account's updates. `pod_positions` and `pod_triggers` are account-scoped and **require**
+        (empty/omitted = all). `pod_orders` and `pod_orders_v2` additionally accept `bidder` to deliver
+        only that account's updates. `pod_positions` and `pod_triggers` are account-scoped and **require**
         `account` (alias `bidder`); they ignore `orderbook_ids`. `depth` applies to `pod_orderbook`
         snapshots only.
 
@@ -1331,6 +1354,15 @@ paths:
         resubscribe). State channels (`pod_markets`, `pod_positions`, `pod_triggers`) emit one
         current snapshot immediately, then stream live. Omitted = live-only. Which option applies to
         which subscription type is summarised in `SubscriptionParams`.
+
+        **Catch-up on `pod_orders_v2` (`since` + `since_book`).** One batch settles many orderbooks
+        and is delivered as one frame each, so a batch is not atomic on the wire — a client can hold
+        part of one. Resume on the **pair**: `since` is the `batch` of the last frame you accepted and
+        `since_book` its `book`. Replay then skips every book at or below `since_book` within that
+        batch and delivers later batches whole, so a client that accepted 7 of 10 books receives the
+        remaining 3 without a gap or a duplicate. Track one pair, not a per-book map. Omitting
+        `since_book` means "the whole of `since` arrived", which is correct if you subscribe to a
+        single orderbook, because a batch is then one frame.
       requestBody:
         content:
           application/json:
@@ -1346,24 +1378,29 @@ paths:
                   description: |
                     Parameters:
                     1. `subscription_type` (string): one of `pod_orderbook`, `pod_orders`,
-                       `pod_candles`, `pod_markets`, `pod_positions`, `pod_triggers`.
+                       `pod_orders_v2`, `pod_candles`, `pod_markets`, `pod_positions`,
+                       `pod_triggers`.
                     2. `options` (SubscriptionParams): filter/format options; all fields optional
                        except where a channel requires `account`. Which fields take effect depends on
                        the subscription type:
                        - `orderbook_ids` (alias `clob_ids`, array of bytes32) — `pod_orderbook`,
-                         `pod_orders`, `pod_candles`, `pod_markets`: restrict to those orderbooks
-                         (empty/omitted = all). Ignored by `pod_positions` / `pod_triggers`.
+                         `pod_orders`, `pod_orders_v2`, `pod_candles`, `pod_markets`: restrict to
+                         those orderbooks (empty/omitted = all). Ignored by `pod_positions` /
+                         `pod_triggers`.
                        - `depth` (integer) — **`pod_orderbook` only**: cap the price levels per side
                          in each snapshot (omit for all levels).
-                       - `bidder` (alias `account`, address) — `pod_orders`: stream only that
-                         bidder's updates (omit for all). **Required** for `pod_positions` and
-                         `pod_triggers` (the account to stream).
+                       - `bidder` (alias `account`, address) — `pod_orders`, `pod_orders_v2`:
+                         stream only that bidder's updates (omit for all). **Required** for
+                         `pod_positions` and `pod_triggers` (the account to stream).
                        - `since` (integer, microseconds) — all channels: catch-up watermark (see the
                          method description).
+                       - `since_book` (bytes32) — **`pod_orders_v2` only**: the `book` of the last
+                         frame accepted at `since`, completing the resume cursor (see the method
+                         description). Omit if the whole of `since` arrived.
                   items:
                     oneOf:
                       - type: string
-                        enum: [pod_orderbook, pod_orders, pod_candles, pod_markets, pod_positions, pod_triggers]
+                        enum: [pod_orderbook, pod_orders, pod_orders_v2, pod_candles, pod_markets, pod_positions, pod_triggers]
                       - $ref: '#/components/schemas/SubscriptionParams'
             examples:
               pod_orderbook:
@@ -1380,6 +1417,20 @@ paths:
                   method: "eth_subscribe"
                   id: 1
                   params: ["pod_orders", { bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28" }]
+              pod_orders_v2:
+                summary: pod_orders_v2 across all orderbooks, live-only
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_orders_v2", {}]
+              pod_orders_v2_resume:
+                summary: pod_orders_v2 resuming mid-batch from a (batch, book) cursor
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_orders_v2", { since: 1704153600000000, since_book: "0x0000000000000000000000000000000000000000000000000000000000000001" }]
               pod_candles:
                 summary: pod_candles for one orderbook, replaying ticks since a watermark
                 value:
@@ -3162,12 +3213,13 @@ components:
         Options object (second `eth_subscribe` param). All fields are optional except that
         `pod_positions` / `pod_triggers` require `account` (alias `bidder`). Which fields take
         effect depends on the subscription type:
-        - `orderbook_ids` (alias `clob_ids`) — `pod_orderbook`, `pod_orders`, `pod_candles`,
-          `pod_markets`; ignored by `pod_positions` / `pod_triggers`.
+        - `orderbook_ids` (alias `clob_ids`) — `pod_orderbook`, `pod_orders`, `pod_orders_v2`,
+          `pod_candles`, `pod_markets`; ignored by `pod_positions` / `pod_triggers`.
         - `depth` — `pod_orderbook` only.
-        - `bidder` (alias `account`) — optional for `pod_orders`; **required** for `pod_positions`
-          and `pod_triggers`.
+        - `bidder` (alias `account`) — optional for `pod_orders` / `pod_orders_v2`; **required** for
+          `pod_positions` and `pod_triggers`.
         - `since` — all channels (catch-up watermark, microseconds).
+        - `since_book` — `pod_orders_v2` only, completing its `(batch, book)` resume cursor.
       properties:
         depth:
           type: integer
@@ -3187,6 +3239,9 @@ components:
           type: integer
           format: int64
           description: 'Catch-up watermark: a solution time in microseconds. Delta channels replay buffered ticks after it; state channels emit one current snapshot then stream live. Omit for live-only. If a delta channel''s `since` predates the retained buffer, the subscription is rejected.'
+        since_book:
+          $ref: '#/components/schemas/Bytes32'
+          description: '`pod_orders_v2` only: the `book` of the last frame accepted at `since`, which together with it forms the resume cursor. A batch is delivered as one frame per orderbook, so a client can hold part of a batch; replay skips every book at or below this one within `since`, then delivers later batches whole. Omit when the whole of `since` arrived (always true when subscribed to a single orderbook).'
 
     EthSubscriptionMessage:
       type: object
@@ -3222,6 +3277,159 @@ components:
                 - $ref: '#/components/schemas/MarketDynamicEntry'
                 - $ref: '#/components/schemas/PositionsUpdate'
                 - $ref: '#/components/schemas/TriggersUpdate'
+
+    OrdersFrameV2:
+      type: object
+      description: |
+        One `pod_orders_v2` notification: everything that happened to one orderbook in one auction
+        batch.
+
+        The batch and the orderbook are named once, orders created in the batch appear once in
+        `orders`, and `events` describes what happened, referencing an order by `o` (an index into
+        `orders`) or by `id` (an order resting from an earlier batch). Ignore event kinds and fields
+        you do not recognise — new kinds are added without a new channel version.
+      required: [book, batch, orders, events]
+      properties:
+        book:
+          $ref: '#/components/schemas/Bytes32'
+          description: The orderbook these actions happened on.
+        batch:
+          type: integer
+          format: int64
+          description: |
+            Deadline of the batch the actions **landed in**, in microseconds. For an order this is at
+            or before the `deadline` it was signed for, because an intent may be included in an
+            earlier batch than the one it targets. Also the first half of the resume cursor
+            (`since`); the second is this frame's `book` (`since_book`).
+        accts:
+          type: array
+          items: { $ref: '#/components/schemas/Address' }
+          description: |
+            Owner addresses, referenced by index from `orders[].a` and from events that name an
+            order by `id`. Omitted on a bidder-filtered stream, where every row belongs to the
+            subscriber.
+        orders:
+          type: array
+          items: { $ref: '#/components/schemas/OrderEntityV2' }
+          description: Orders created in this batch, each appearing exactly once.
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/OrderEventV2' }
+          description: |
+            What happened, in a deterministic order: new/rejected orders, then fills ascending by
+            order id, then cancellations, expirations and modifications, then backstop sweeps.
+
+    OrderEntityV2:
+      type: object
+      description: |
+        An order as admitted, in a `pod_orders_v2` frame: the facts that do not change. Its status is
+        **not** here — that is implied by the events referencing it, which is what lets new event
+        kinds be added without changing this object.
+
+        Optional fields are omitted at their default rather than sent, so a plain user-signed limit
+        order is small. Each omission means a specific thing, noted per field.
+      required: [id, tx, n, px, sz]
+      properties:
+        id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Resting order id, as used by cancel/update intents and the REST order APIs.
+        tx:
+          $ref: '#/components/schemas/Bytes32'
+          description: Hash of the creating transaction, or of its parent `submitBatch` envelope. Zero for engine-generated orders.
+        a:
+          type: integer
+          description: Index into the frame's `accts`. Omitted on a bidder-filtered stream.
+        n:
+          type: integer
+          format: int64
+          description: Order nonce for the account.
+        px:
+          type: string
+          description: Limit price in quote/base units, 1e18-scaled, as a decimal string.
+        sz:
+          type: string
+          description: Signed order size, 1e18-scaled, decimal. Positive = buy/long, negative = sell/short — the sign carries the side, so there is no separate side field.
+        end:
+          type: integer
+          format: int64
+          description: TTL expiry in microseconds. **Omitted means the order never expires** (rather than unknown).
+        kind:
+          type: string
+          enum: [liquidation, triggered, adl, adl_counterparty, backstop_transfer]
+          description: How the order came about. **Omitted means user-signed.**
+        type:
+          type: string
+          enum: [market]
+          description: '**Omitted means a limit order.**'
+        reduce_only:
+          type: boolean
+          description: 'Omitted means false.'
+        ioc:
+          type: boolean
+          description: 'Immediate-or-cancel. Omitted means false.'
+        trigger:
+          type: string
+          enum: [take_profit, stop_loss]
+          description: Which trigger produced this order. Omitted unless it is a fired trigger's synthetic.
+        grouping:
+          type: string
+          enum: [asset]
+          description: Trigger grouping inherited from the parent trigger. Omitted when ungrouped.
+
+    OrderEventV2:
+      type: object
+      description: |
+        One transition in a `pod_orders_v2` frame, discriminated by `k`.
+
+        Every event names the order it concerns by exactly one of `o` (an index into this frame's
+        `orders`) or `id` (an order resting from an earlier batch, whose owner is `a`). **Ignore
+        values of `k` you do not recognise**: new kinds will be added without a new channel version.
+      required: [k]
+      properties:
+        k:
+          type: string
+          enum: [new, reject, fill, cancel, expire, modify]
+          description: |
+            - `new` — the order entered the book.
+            - `reject` — dropped during execution, never rested; `why` carries the reason.
+            - `fill` — matched, wholly or partly.
+            - `cancel` — removed by a cancel intent or by the engine.
+            - `expire` — removed on reaching its TTL.
+            - `modify` — a resting order's price and/or size changed in place.
+        o:
+          type: integer
+          description: Index into this frame's `orders`. Present when the order was created in this batch.
+        id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Order id. Present instead of `o` when the order has been resting since an earlier batch.
+        a:
+          type: integer
+          description: Index into the frame's `accts`, accompanying `id`. Omitted on a bidder-filtered stream.
+        why:
+          type: string
+          description: '`reject` only: why the engine dropped the order (insufficient balance or margin, off-tick price, and so on).'
+        tb:
+          type: string
+          description: |
+            `fill` only. Total base filled over the order's life **so far**, 1e18-scaled decimal —
+            cumulative, not this batch's amount. To get the amount filled by this fill, subtract the
+            previous value you saw for this order, or zero if this is its first fill.
+        tq:
+          type: string
+          description: '`fill` only. Total quote filled over the order''s life so far. Cumulative, like `tb`.'
+        fee:
+          type: string
+          description: '`fill` only. Total fee charged over the order''s life so far. Cumulative, like `tb`; fees are not reported per fill.'
+        st:
+          type: string
+          enum: [filled, canceled, margin_canceled, expired]
+          description: '`fill` only, and only on the fill that **closed** the order, carrying the status it closed with. Its absence means the order is still working.'
+        px:
+          type: string
+          description: '`modify` only: the order''s price after the change, 1e18-scaled decimal.'
+        sz:
+          type: string
+          description: '`modify` only: the order''s size after the change, 1e18-scaled decimal.'
 
     OrderUpdate:
       type: object
