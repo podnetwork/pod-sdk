@@ -27,6 +27,34 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+  # Until this job existed, no CI anywhere touched the TypeScript — a broken
+  # ts-sdk only surfaced when a downstream image build failed. It is also the
+  # gate reused by publish-ts-sdk.yml, so a release cannot ship code that does
+  # not compile. ts-sdk has no test runner; typecheck + build is the gate.
+  ts-sdk:
+    name: ts-sdk
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ts-sdk
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ts-sdk/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
   contracts:
     name: examples-solidity
     runs-on: ubuntu-latest

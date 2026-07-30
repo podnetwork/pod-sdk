@@ -1,6 +1,6 @@
 {
   "name": "@pod-network/trade-sdk",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Read/stream TypeScript SDK for the pod trading indexer: cacheable REST seeds + one multiplexed WebSocket, kept in memory. Framework-agnostic.",
   "type": "module",
   "sideEffects": false,
@@ -15,9 +15,20 @@
     }
   },
   "files": ["dist", "src"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/podnetwork/pod-sdk.git",
+    "directory": "ts-sdk"
+  },
+  "homepage": "https://github.com/podnetwork/pod-sdk/tree/main/ts-sdk#readme",
+  "bugs": "https://github.com/podnetwork/pod-sdk/issues",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "viem": "^2.21.0"
