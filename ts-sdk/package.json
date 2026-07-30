@@ -1,6 +1,6 @@
 {
   "name": "@pod-network/trade-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1-rc.0",
   "description": "Read/stream TypeScript SDK for the pod trading indexer: cacheable REST seeds + one multiplexed WebSocket, kept in memory. Framework-agnostic.",
   "type": "module",
   "sideEffects": false,
@@ -14,7 +14,10 @@
       "import": "./dist/write/index.js"
     }
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/podnetwork/pod-sdk.git",
