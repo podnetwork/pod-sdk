@@ -63,7 +63,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Public access comes from publishConfig.access in package.json rather than
+      # an --access flag, so it holds for every publish path, not just this one.
       - name: Publish
-        run: npm publish --provenance --access public --tag "${{ steps.version.outputs.npm_tag }}"
+        run: npm publish --provenance --tag "${{ steps.version.outputs.npm_tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
