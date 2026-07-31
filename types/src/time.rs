@@ -47,6 +47,14 @@ impl Timestamp {
         Timestamp(micros)
     }
 
+    /// Microseconds since the epoch held in a `u64` — the width timestamps are
+    /// stored, configured and returned by databases in. µs in a `u64` reach year
+    /// 586524, so nothing representable is lost; this only spares callers the
+    /// `as u128` cast they would otherwise write at every call site.
+    pub fn from_micros_u64(micros: u64) -> Self {
+        Timestamp(u128::from(micros))
+    }
+
     pub fn from_seconds(seconds: u64) -> Self {
         Timestamp(u128::from(seconds) * 1_000_000)
     }
