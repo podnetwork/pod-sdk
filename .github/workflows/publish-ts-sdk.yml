@@ -11,7 +11,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # required for `npm publish --provenance`
+  id-token: write # the OIDC token npm exchanges for publish rights (and provenance)
 
 jobs:
   publish:
@@ -22,12 +22,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Trusted publishing needs Node >= 22.14.0 and npm >= 11.5.1.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
           cache: npm
           cache-dependency-path: ts-sdk/package-lock.json
+
+      # No bundled npm meets the 11.5.1 floor — Node 22 ships 10.9.x and Node 24
+      # shipped 11.3 — so upgrade explicitly rather than relying on the runner.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Show toolchain
+        run: node --version && npm --version
 
       - name: Resolve version and dist-tag
         id: version
@@ -63,9 +72,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Authenticated by OIDC via a trusted publisher on npm, so there is no
+      # token here and no long-lived credential in repo secrets. `id-token: write`
+      # above is what makes that possible. Provenance is generated automatically
+      # under trusted publishing, so --provenance is not passed.
+      #
       # Public access comes from publishConfig.access in package.json rather than
       # an --access flag, so it holds for every publish path, not just this one.
       - name: Publish
-        run: npm publish --provenance --tag "${{ steps.version.outputs.npm_tag }}"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --tag "${{ steps.version.outputs.npm_tag }}"
