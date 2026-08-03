@@ -1317,6 +1317,27 @@ paths:
         ```
         The `result` payload shape depends on the subscription type (see the list above).
 
+        **Server-initiated close.** The server may end a subscription on its own — most often because
+        it dropped ticks for a subscriber that fell behind, which it does rather than serve a delta
+        stream with a gap in it. That arrives on the same `eth_subscription` method with `error` in
+        place of `result`, carrying a code, whether the stream is resumable, and the `resume_since`
+        watermark to resubscribe from:
+        ```json
+        {
+          "jsonrpc": "2.0",
+          "method": "eth_subscription",
+          "params": {
+            "subscription": "0x<id>",
+            "error": { "code": -32010, "message": "…", "data": { "resumable": true, "resume_since": 1718900000000000 } }
+          }
+        }
+        ```
+        Nothing further is sent for that subscription; the connection and any other subscriptions on
+        it are unaffected. Because a delta stream never has holes, this close is the only signal that
+        data was lost — while a subscription is open, no updates means an idle market. See
+        [JSON-RPC Errors](../json-rpc-errors.md#subscription-close-notifications) for every code and
+        the recommended client response.
+
         **Filtering.** `pod_orderbook`, `pod_orders`, `pod_candles`, and `pod_markets` accept
         `orderbook_ids` (alias `clob_ids`) to restrict the stream to specific orderbooks
         (empty/omitted = all). `pod_orders` additionally accepts `bidder` to deliver only that
