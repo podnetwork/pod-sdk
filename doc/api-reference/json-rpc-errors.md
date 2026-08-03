@@ -151,7 +151,13 @@ The subscription is over once this arrives; nothing further is sent for it. The 
 
 A close is the **only** signal that a delta stream lost data — the stream itself never has holes. Treat the absence of updates as an idle market only while the subscription is open.
 
-> **Note for `alloy` (Rust) users.** `alloy`'s pubsub transport rejects a subscription notification that carries `error`, and treats the failure as a connection error: it tears the websocket down and reconnects rather than surfacing the reason. You will observe the close as a reconnect, not as a payload. To read the reason, use a raw websocket client. `viem`/`ethers` and the pod TypeScript SDK deliver it to the subscription's error handler as shown above.
+> **Client support.** Not every websocket client surfaces this frame, so check yours before relying on the reason being readable.
+>
+> - **`alloy` (Rust)** rejects a subscription notification carrying `error` and treats it as a connection error: it tears the websocket down and reconnects rather than surfacing the payload. You observe the close as a reconnect.
+> - **`jsonrpsee` (Rust)** removes the subscription and discards the payload, so the stream ends with no reason attached.
+> - **The pod TypeScript SDK** does not read `params.error` yet, so a close currently arrives as an update with an empty payload and the subscription is not dropped. Until that lands, treat a payload-less update as a possible close.
+>
+> To act on the reason with any of these, read the raw websocket frame. The subscription is over regardless of whether your client reports it.
 
 ## Transaction validation messages
 
