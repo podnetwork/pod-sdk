@@ -1330,11 +1330,12 @@ paths:
         the subscriber. Absent optional fields carry a documented default (see `OrderEntityV2`), so a
         plain user-signed limit order is small.
 
-        Two things clients most often get wrong: `batch` is the batch an action **landed in**, which
-        for an order is at or before the `deadline` it was signed for (an intent may be included in an
-        earlier batch than it targets); and a fill's `tb`/`tq`/`fee` are **cumulative over the
-        order's life**, not amounts for this batch — subtract the previous values you saw for that
-        order (or zero, since an order is admitted with nothing filled) to get this fill's share.
+        Two things clients most often get wrong. `batch` is the batch an action **landed in**, which
+        for an order is at or before the `deadline` it was signed for — an intent may be included in an
+        earlier batch than it targets. And a fill carries **both** kinds of amount: `b`/`q` are what
+        that fill filled, while `tb`/`tq`/`tf` are the order's running totals. Apply `b`/`q`; use the
+        totals to check your own figure. Reading a total as a per-batch amount double-counts. There is
+        no per-fill fee, so difference `tf` for that.
 
         **Forward compatibility.** Clients MUST ignore event kinds (`k`) and fields they do not
         recognise: new event kinds will be added without a new channel version. Existing keys are
@@ -3408,18 +3409,28 @@ components:
         why:
           type: string
           description: '`reject` only: why the engine dropped the order (insufficient balance or margin, off-tick price, and so on).'
+        b:
+          type: string
+          description: '`fill` only. Base filled **by this fill**, 1e18-scaled decimal — this batch''s amount, not a running total.'
+        q:
+          type: string
+          description: '`fill` only. Quote filled by this fill, 1e18-scaled decimal.'
         tb:
           type: string
           description: |
-            `fill` only. Total base filled over the order's life **so far**, 1e18-scaled decimal —
-            cumulative, not this batch's amount. To get the amount filled by this fill, subtract the
-            previous value you saw for this order, or zero if this is its first fill.
+            `fill` only. Total base filled over the order's life **so far**, 1e18-scaled decimal.
+            Sent alongside `b` rather than instead of it: `b` is what you apply, `tb` is what you check
+            your running figure against, so a divergence surfaces on the next fill instead of drifting.
         tq:
           type: string
-          description: '`fill` only. Total quote filled over the order''s life so far. Cumulative, like `tb`.'
-        fee:
+          description: '`fill` only. Total quote filled over the order''s life so far, 1e18-scaled decimal.'
+        tf:
           type: string
-          description: '`fill` only. Total fee charged over the order''s life so far. Cumulative, like `tb`; fees are not reported per fill.'
+          description: |
+            `fill` only. Total fee charged over the order's life so far, 1e18-scaled decimal.
+            There is no per-fill fee counterpart — no such figure exists at this boundary to send. For
+            the fee attributable to one fill, subtract the previous `tf` seen for that order, or zero
+            on its first fill.
         st:
           type: string
           enum: [filled, canceled, margin_canceled, expired]
