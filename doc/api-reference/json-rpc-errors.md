@@ -144,7 +144,7 @@ The subscription is over once this arrives; nothing further is sent for it. The 
 | `data` field   | Type    | Description                                                                                                                                                        |
 | -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `resumable`    | boolean | Whether resubscribing recovers the stream. `false` only for `-32023`.                                                                                              |
-| `resume_since` | number  | Solution time (µs) of the last tick fully delivered on this subscription — pass it back as `since`. Absent if nothing was delivered; then reuse your original `since`. |
+| `resume_since` | number  | Solution time (µs) of the newest tick this subscription is square on — every update it owed you was delivered (a tick that matched none of your filters owed nothing, so it counts). Pass it back as `since`. Absent if it is square on nothing yet; then reuse your original `since`. |
 | `missed`       | number  | `-32020` only: how many ticks the broadcast dropped.                                                                                                               |
 
 `resume_since` names a whole tick, because `since` selects whole ticks. So if the subscription closed midway through one, resuming redelivers that tick in full and you may see a few deltas twice. That is deliberate — a repeated delta is something a client can dedupe, whereas one that was never sent is unrecoverable — and it does not apply to channels that can resume inside a tick.
