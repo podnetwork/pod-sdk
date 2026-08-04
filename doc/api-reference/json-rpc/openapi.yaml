@@ -1338,6 +1338,21 @@ paths:
         totals to check your own figure. Reading a total as a per-batch amount double-counts. There is
         no per-fill fee, so difference `tf` for that.
 
+        **Identity.** `id` is the resting order id, derived as
+        `keccak256(abi_encode(signer, nonce, sequence))` — the signing key, that transaction's nonce,
+        and the order's position inside a `submitBatch` envelope (`0` when the transaction carries one
+        intent). You can compute it before broadcasting and match your own orders on the first frame
+        that mentions them. Derive from the *delegate's* address for a delegated order: the id keys on
+        the signer, while `a`/`accts` report the owner. Note `n` is the transaction's nonce, so orders
+        from one envelope share `n` and `tx` and differ only in `id`.
+
+        **Every terminal event carries the order's final totals**, whichever shape ends it: a `fill`
+        bearing `st` for an order that filled out, or `cancel`/`expire` for one removed from the book —
+        both with `tb`/`tq`/`tf`. So a terminal handler is uniform and needs no accumulation of the
+        order's earlier fills, which matters for a partially filled order canceled for its remainder:
+        the amounts it did fill travel with the cancel. An order that both fills and terminates in the
+        same batch reports the totals on both events, with the same values.
+
         **Forward compatibility.** Clients MUST ignore event kinds (`k`) and fields they do not
         recognise: new event kinds will be added without a new channel version. Existing keys are
         never renamed or repurposed.
@@ -2564,7 +2579,10 @@ components:
         nonce:
           type: integer
           format: int64
-          description: Order nonce for the account
+          description: |
+            Nonce of the transaction that created the order — the signing key's nonce, not a
+            per-order counter, and the delegate's rather than the master's for a delegated order.
+            Orders from one `submitBatch` share it.
         order_type:
           type: string
           enum: [limit, market]
@@ -3398,7 +3416,19 @@ components:
       properties:
         id:
           $ref: '#/components/schemas/Bytes32'
-          description: Resting order id, as used by cancel/update intents and the REST order APIs.
+          description: |
+            Resting order id, as used by cancel/update intents and the REST order APIs.
+
+            Derived as `keccak256(abi_encode(signer, nonce, sequence))`, where `signer` is the key
+            that signed the transaction, `nonce` is that transaction's nonce (this entity's `n`), and
+            `sequence` is the order's position inside a `submitBatch` envelope — `0` for a
+            single-intent transaction. So you can compute the id yourself before broadcasting and
+            match your own orders to this stream the first time it mentions them, without waiting on
+            a receipt.
+
+            **For a delegated order, derive from the delegate's address, not the master's.** The id
+            keys on the signer so two delegates of one master cannot collide, whereas `a`/`accts`
+            report the *owner*. The two differ exactly when a delegate placed the order.
         tx:
           $ref: '#/components/schemas/Bytes32'
           description: Hash of the creating transaction, or of its parent `submitBatch` envelope. Zero for engine-generated orders.
@@ -3408,7 +3438,14 @@ components:
         n:
           type: integer
           format: int64
-          description: Order nonce for the account.
+          description: |
+            Nonce of the **transaction** that created the order — the signing key's nonce, not a
+            per-order counter. For a delegated order that is the *delegate's* nonce, not the
+            master's.
+
+            Two orders from one `submitBatch` therefore share both `n` and `tx`, and differ only in
+            `id`: `n` belongs to the envelope, not to the intents inside it. Use `id` to tell them
+            apart.
         px:
           type: string
           description: Limit price in quote/base units, 1e18-scaled, as a decimal string.
@@ -3483,16 +3520,25 @@ components:
         tb:
           type: string
           description: |
-            `fill` only. Total base filled over the order's life **so far**, 1e18-scaled decimal.
-            Sent alongside `b` rather than instead of it: `b` is what you apply, `tb` is what you check
-            your running figure against, so a divergence surfaces on the next fill instead of drifting.
+            Total base filled over the order's life, 1e18-scaled decimal. On `fill`, the running
+            total **so far**; on `cancel` and `expire`, the final total the order left the book with.
+
+            On a `fill` it is sent alongside `b` rather than instead of it: `b` is what you apply,
+            `tb` is what you check your running figure against, so a divergence surfaces on the next
+            fill instead of drifting. On a terminal event it is the settled figure, so you need no
+            accumulation at all — see the terminal-totals rule on the method description.
+
+            Zero is sent rather than the field being omitted, so an order that never filled is
+            reported as such rather than being indistinguishable from a field you failed to read.
         tq:
           type: string
-          description: '`fill` only. Total quote filled over the order''s life so far, 1e18-scaled decimal.'
+          description: 'Total quote filled over the order''s life, 1e18-scaled decimal. Running total on `fill`, final total on `cancel`/`expire`, as `tb`.'
         tf:
           type: string
           description: |
-            `fill` only. Total fee charged over the order's life so far, 1e18-scaled decimal.
+            Total fee charged over the order's life, 1e18-scaled decimal. Running total on `fill`,
+            final total on `cancel`/`expire`, as `tb`.
+
             There is no per-fill fee counterpart — no such figure exists at this boundary to send. For
             the fee attributable to one fill, subtract the previous `tf` seen for that order, or zero
             on its first fill.
