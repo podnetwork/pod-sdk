@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 pub use alloy_provider;
 use alloy_rpc_types::TransactionReceipt;
 use anyhow::Context;
 
 use crate::network::{PodNetwork, PodTransactionRequest};
+use alloy_eips::eip2718::Encodable2718;
 use alloy_json_rpc::{RpcError, RpcRecv, RpcSend};
 use alloy_network::{EthereumWallet, Network, NetworkWallet, TransactionBuilder};
 use alloy_provider::{
@@ -15,7 +16,7 @@ use alloy_provider::{
 use alloy_pubsub::Subscription;
 use async_trait::async_trait;
 
-use alloy_transport::{TransportError, TransportResult};
+use alloy_transport::{TransportError, TransportErrorKind, TransportResult};
 use pod_types::{
     consensus::Committee,
     ledger::log::VerifiableLog,
@@ -24,8 +25,9 @@ use pod_types::{
     rpc::filter::LogFilter,
 };
 
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{Address, B256 as Hash, U256};
 use pod_types::Timestamp;
+use serde::Deserialize;
 
 pub struct PodProviderBuilder<L, F>(ProviderBuilder<L, F, PodNetwork>);
 
@@ -273,6 +275,29 @@ impl PodProvider {
         Ok(receipt)
     }
 
+    /// Submit an already-signed transaction through `pod_sendRawTransaction`,
+    /// which waits for attestations (up to `timeout`, default 10s server-side)
+    /// and classifies the outcome.
+    ///
+    /// Prefer this over [`Provider::send_transaction`], which posts
+    /// `eth_sendRawTransaction` and reports none of these rejections.
+    ///
+    /// `Ok` means only that no terminal verdict was reached: it covers a
+    /// transaction that executed and one still gathering votes, and the response
+    /// cannot distinguish them. Wait for the receipt to settle that.
+    pub async fn pod_send_raw_transaction(
+        &self,
+        encoded_tx: &[u8],
+        timeout: Option<Duration>,
+    ) -> Result<PodSendResponse, PodSendError> {
+        let raw = format!("0x{}", hex::encode(encoded_tx));
+        let timeout_secs = timeout.map(|t| u16::try_from(t.as_secs().max(1)).unwrap_or(u16::MAX));
+        self.client()
+            .request("pod_sendRawTransaction", (raw, timeout_secs))
+            .await
+            .map_err(PodSendError::from)
+    }
+
     pub async fn past_perfect_time(&self, contract: Address) -> TransportResult<Timestamp> {
         let micros_str: String = self
             .client()
@@ -284,5 +309,266 @@ impl PodProvider {
         })?;
 
         Ok(Timestamp::from_micros(micros))
+    }
+}
+
+/// Sign `tx` locally and return its EIP-2718 encoding, ready for
+/// [`PodProvider::pod_send_raw_transaction`].
+///
+/// Signing separately from sending lets a caller resubmit the *same bytes*: two
+/// different transactions at one nonce split validator votes so neither reaches
+/// quorum, which locks the account until a recovery transaction clears it. `tx`
+/// must already carry every field feeding the hash, since nothing here fills any
+/// in.
+pub async fn sign_transaction_bytes(
+    tx: PodTransactionRequest,
+    key: crate::SigningKey,
+) -> alloy_signer::Result<Vec<u8>> {
+    let wallet = EthereumWallet::new(crate::PrivateKeySigner::from_signing_key(key));
+    let envelope = NetworkWallet::<PodNetwork>::sign_request(&wallet, tx).await?;
+    Ok(envelope.encoded_2718())
+}
+
+/// Reply from `pod_sendRawTransaction`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PodSendResponse {
+    pub tx_hash: Hash,
+    /// Validators whose attestation this node observed. A lower bound, not an
+    /// authority: a transaction can execute with fewer counted here, so do not
+    /// treat `successes < quorum_size` as "not applied".
+    pub successes: usize,
+    /// Advisory: a non-empty list alongside a quorum of `successes` only means a
+    /// minority disagreed.
+    #[serde(default, deserialize_with = "deserialize_rejections")]
+    pub errors: Vec<String>,
+}
+
+/// As the node serializes it: `{"error": "..."}`.
+#[derive(Deserialize)]
+struct Rejection {
+    #[serde(default)]
+    error: String,
+}
+
+fn deserialize_rejections<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Vec::<Rejection>::deserialize(deserializer)?
+        .into_iter()
+        .map(|item| item.error)
+        .collect())
+}
+
+#[derive(Deserialize)]
+struct AccountLockedData {
+    recovery_target: Hash,
+    recovery_target_nonce: u64,
+}
+
+#[derive(Deserialize)]
+struct EmptyTxRequiredData {
+    nonce: u64,
+    #[serde(default)]
+    errors: Vec<String>,
+}
+
+/// Mirrors the server's `ErrorCodes`; `-32003` is kept for compatibility.
+const ACCOUNT_LOCKED_CODE: i64 = 999;
+const EMPTY_TX_REQUIRED_CODE: i64 = 997;
+const REJECTED_CODE: i64 = -32003;
+
+/// Why pod refused a transaction. `eth_sendRawTransaction` reports none of these
+/// distinctions.
+#[derive(Debug)]
+pub enum PodSendError {
+    /// No transaction at this nonce can reach quorum; only a recovery transaction
+    /// at a fresh nonce, pointing at `recovery_target`, advances the account.
+    AccountLocked {
+        recovery_target: Hash,
+        recovery_target_nonce: u64,
+    },
+    /// Rejected deterministically by f+1 validators, so it can never execute and
+    /// a replacement at the same nonce is safe.
+    Rejected { errors: Vec<String> },
+    /// The head nonce has votes but no certificate; a deadline-free empty
+    /// self-transfer at `nonce` forces one.
+    EmptyTxRequired { nonce: u64, errors: Vec<String> },
+    /// Transport failure, or an unclassified server error. May still have been
+    /// delivered.
+    Transport(TransportError),
+}
+
+impl PodSendError {
+    /// Whether the transaction is known never to execute, so replacing it cannot
+    /// split votes. False for [`Self::Transport`], which may have been delivered.
+    pub fn is_terminal(&self) -> bool {
+        !matches!(self, Self::Transport(_))
+    }
+}
+
+impl std::fmt::Display for PodSendError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::AccountLocked {
+                recovery_target,
+                recovery_target_nonce,
+            } => write!(
+                f,
+                "account locked at nonce {recovery_target_nonce}; needs a recovery tx targeting {recovery_target}"
+            ),
+            Self::Rejected { errors } => {
+                write!(f, "rejected by f+1 validators: {}", errors.join(", "))
+            }
+            Self::EmptyTxRequired { nonce, errors } => write!(
+                f,
+                "empty self-transfer required at nonce {nonce}: {}",
+                errors.join(", ")
+            ),
+            Self::Transport(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for PodSendError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Transport(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl From<RpcError<TransportErrorKind>> for PodSendError {
+    fn from(err: RpcError<TransportErrorKind>) -> Self {
+        let Some(payload) = err.as_error_resp() else {
+            return Self::Transport(err);
+        };
+        match payload.code {
+            ACCOUNT_LOCKED_CODE => match payload.try_data_as::<AccountLockedData>() {
+                Some(Ok(data)) => Self::AccountLocked {
+                    recovery_target: data.recovery_target,
+                    recovery_target_nonce: data.recovery_target_nonce,
+                },
+                _ => Self::Transport(err),
+            },
+            EMPTY_TX_REQUIRED_CODE => match payload.try_data_as::<EmptyTxRequiredData>() {
+                Some(Ok(data)) => Self::EmptyTxRequired {
+                    nonce: data.nonce,
+                    errors: data.errors,
+                },
+                _ => Self::Transport(err),
+            },
+            // The message alone is meaningful, so unparsable `data` still classifies.
+            REJECTED_CODE => Self::Rejected {
+                errors: match payload.try_data_as::<Vec<Rejection>>() {
+                    Some(Ok(items)) => items.into_iter().map(|item| item.error).collect(),
+                    _ => vec![payload.message.to_string()],
+                },
+            },
+            _ => Self::Transport(err),
+        }
+    }
+}
+
+#[cfg(test)]
+mod send_tests {
+    use super::*;
+    use alloy_json_rpc::ErrorPayload;
+
+    fn rpc_error(code: i64, message: &str, data: Option<&str>) -> RpcError<TransportErrorKind> {
+        RpcError::ErrorResp(ErrorPayload {
+            code,
+            message: message.to_string().into(),
+            data: data.map(|d| serde_json::value::RawValue::from_string(d.to_string()).unwrap()),
+        })
+    }
+
+    #[test]
+    fn classifies_account_locked() {
+        let err = PodSendError::from(rpc_error(
+            ACCOUNT_LOCKED_CODE,
+            "Account locked",
+            Some(
+                r#"{"recovery_target":"0x596a7bd66762e52a914565f707d0fc2a479e818b3e7587ea9a6615c9290be13d","recovery_target_nonce":22}"#,
+            ),
+        ));
+        match err {
+            PodSendError::AccountLocked {
+                recovery_target_nonce,
+                ..
+            } => assert_eq!(recovery_target_nonce, 22),
+            other => panic!("expected AccountLocked, got {other:?}"),
+        }
+        // Unreadable `data` degrades to `Transport`, i.e. not terminal, so the
+        // caller resends rather than replaces. The node always sends `data`.
+        let no_data = PodSendError::from(rpc_error(ACCOUNT_LOCKED_CODE, "Account locked", None));
+        assert!(matches!(no_data, PodSendError::Transport(_)));
+        assert!(!no_data.is_terminal());
+    }
+
+    #[test]
+    fn classifies_rejected_with_and_without_data() {
+        let with_data = PodSendError::from(rpc_error(
+            REJECTED_CODE,
+            "Transaction rejected",
+            Some(r#"[{"error":"insufficient balance"},{"error":"bad nonce"}]"#),
+        ));
+        match with_data {
+            PodSendError::Rejected { errors } => {
+                assert_eq!(errors, vec!["insufficient balance", "bad nonce"]);
+            }
+            other => panic!("expected Rejected, got {other:?}"),
+        }
+
+        // The message alone is meaningful, so a missing `data` still classifies.
+        match PodSendError::from(rpc_error(REJECTED_CODE, "Transaction rejected: nope", None)) {
+            PodSendError::Rejected { errors } => {
+                assert_eq!(errors, vec!["Transaction rejected: nope"]);
+            }
+            other => panic!("expected Rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn classifies_empty_tx_required() {
+        match PodSendError::from(rpc_error(
+            EMPTY_TX_REQUIRED_CODE,
+            "Empty transaction required to make progress",
+            Some(r#"{"nonce":23,"errors":["split"]}"#),
+        )) {
+            PodSendError::EmptyTxRequired { nonce, errors } => {
+                assert_eq!(nonce, 23);
+                assert_eq!(errors, vec!["split"]);
+            }
+            other => panic!("expected EmptyTxRequired, got {other:?}"),
+        }
+    }
+
+    /// Must not be terminal: replacing here could put a second tx at the nonce.
+    #[test]
+    fn unknown_codes_are_transport_and_not_terminal() {
+        let err = PodSendError::from(rpc_error(-32000, "something else", None));
+        assert!(matches!(err, PodSendError::Transport(_)));
+        assert!(!err.is_terminal());
+    }
+
+    #[test]
+    fn deserializes_send_response() {
+        let response: PodSendResponse = serde_json::from_str(
+            r#"{"tx_hash":"0x1111111111111111111111111111111111111111111111111111111111111111","successes":5,"errors":[{"error":"nope"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(response.successes, 5);
+        assert_eq!(response.errors, vec!["nope"]);
+    }
+
+    #[test]
+    fn deserializes_send_response_without_errors() {
+        let response: PodSendResponse = serde_json::from_str(
+            r#"{"tx_hash":"0x1111111111111111111111111111111111111111111111111111111111111111","successes":6}"#,
+        )
+        .unwrap();
+        assert!(response.errors.is_empty());
     }
 }

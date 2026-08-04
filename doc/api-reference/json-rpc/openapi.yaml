@@ -1342,6 +1342,35 @@ paths:
         recognise: new event kinds will be added without a new channel version. Existing keys are
         never renamed or repurposed.
 
+        **Server-initiated close.** The server may end a subscription on its own — most often because
+        it dropped ticks for a subscriber that fell behind, which it does rather than serve a delta
+        stream with a gap in it. That arrives on the same `eth_subscription` method with `error` in
+        place of `result`, carrying a code, whether the stream is resumable, and the `resume_since`
+        watermark to resubscribe from:
+        ```json
+        {
+          "jsonrpc": "2.0",
+          "method": "eth_subscription",
+          "params": {
+            "subscription": "0x<id>",
+            "error": { "code": -32020, "message": "…", "data": { "resumable": true, "resume_since": 1718900000000000 } }
+          }
+        }
+        ```
+        Nothing further is sent for that subscription; the connection and any other subscriptions on
+        it are unaffected. Because a delta stream never has holes, this close is the only signal that
+        data was lost — while a subscription is open, no updates means an idle market. See
+        [JSON-RPC Errors](../json-rpc-errors.md#subscription-close-notifications) for every code and
+        the recommended client response.
+
+        On `pod_orders_v2` the close additionally carries `resume_since_book` whenever the batch it
+        stopped in was only partly delivered — the last `book` you were sent. Pass both back, as
+        `since` and `since_book`, and you receive exactly the frames you never got: no replay, no gap.
+        This is the case the two-part cursor exists for, because a close midway through a batch is
+        precisely when you cannot tell where you got to — frames already accepted by the connection
+        may not have reached your code yet. `resume_since_book` is absent when the batch landed whole,
+        and then `resume_since` alone is the position.
+
         **Filtering.** `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_candles`, and `pod_markets` accept
         `orderbook_ids` (alias `clob_ids`) to restrict the stream to specific orderbooks
         (empty/omitted = all). `pod_orders` and `pod_orders_v2` additionally accept `bidder` to deliver

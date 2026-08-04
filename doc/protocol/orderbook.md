@@ -62,6 +62,24 @@ The solver is the service responsible for settling a batch. It can be a rotating
 
 The solver does not get any additional advantage. It cannot censor transactions or include transactions that were not submitted in time. It has some flexibility on whether to include out-of-time transactions - orders submitted after the batch timestamp, or orders that received some attestations but fewer than the required n − f. These orders always lose, because they cannot claim funds even if they get matched.
 
+### Solution state commitment
+
+A solution is built against the state the previous batch left behind. Every settlement carries `previousStateHash` - the solver's fingerprint of that state - and each validator compares it against a fingerprint it computes from its own state before attesting. A solution whose claim disagrees is rejected, so a node whose trading state has drifted from the solver's stops attesting rather than settling on state nobody else has.
+
+A single settlement can cover several consecutive batches when the solver is catching up. They are all built from the same starting state, so one `previousStateHash` covers the whole call.
+
+The fingerprint is a CRC-32 digest - fast, since every node recomputes it once per batch - right-aligned in the `bytes32`. It covers the deadline of the batch that produced it, which binds the fingerprint to that batch, followed by every orderbook in ascending `orderbookId` order. Each orderbook contributes:
+
+* its last clearing price
+* its last mark price and last oracle price - spot markets have neither
+* its best ten resting orders per side, best first, as (price, remaining size) pairs - fewer if the side is thinner
+
+A price the market does not have, and an empty book side, fold in as a `-` marker rather than as zero, so "never traded" stays distinguishable from "traded at zero".
+
+A market with no price of any kind and an empty book contributes nothing at all. Market configuration reaches nodes one at a time, so a node that already knows about a new - and therefore still untraded - market has to agree with one that does not.
+
+`bytes32(0)` means "no reference point yet": a chain that has not settled a batch, or a node restarted from state written before the commitment existed. When either side is zero the comparison is skipped, and both sides recover a real value from the next settled batch.
+
 ### References
 
 * E. Budish, P. Cramton, J. Shim. _The High-Frequency Trading Arms Race: Frequent Batch Auctions as a Market Design Response._ Quarterly Journal of Economics, 2015.

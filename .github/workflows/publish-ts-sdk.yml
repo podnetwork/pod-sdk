@@ -1,0 +1,83 @@
+name: Publish ts-sdk
+
+# A ts-sdk-scoped tag, so TypeScript releases stay decoupled from the shared `v*`
+# tag that release.yml uses to zip every SDK into a GitHub Release: a TypeScript
+# patch should not force a rust-sdk release. `ts-sdk-v*` does not match `v*`, so
+# the two workflows never fire for the same tag.
+on:
+  push:
+    tags:
+      - "ts-sdk-v*"
+
+permissions:
+  contents: read
+  id-token: write # the OIDC token npm exchanges for publish rights (and provenance)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ts-sdk
+    steps:
+      - uses: actions/checkout@v5
+
+      # Trusted publishing needs Node >= 22.14.0 and npm >= 11.5.1.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: ts-sdk/package-lock.json
+
+      # No bundled npm meets the 11.5.1 floor — Node 22 ships 10.9.x and Node 24
+      # shipped 11.3 — so upgrade explicitly rather than relying on the runner.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Show toolchain
+        run: node --version && npm --version
+
+      - name: Resolve version and dist-tag
+        id: version
+        run: |
+          # The tag triggers the release, but package.json is the source of
+          # truth. Without this check, tagging ts-sdk-v0.1.0 against a manifest
+          # still reading 0.0.0 would publish a mislabelled version — and an npm
+          # version can never be reused, so that mistake is permanent.
+          tag_version="${GITHUB_REF_NAME#ts-sdk-v}"
+          pkg_version="$(node -p "require('./package.json').version")"
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} implies ${tag_version}, but package.json says ${pkg_version}"
+            exit 1
+          fi
+          # npm applies the `latest` dist-tag even to a semver prerelease, which
+          # would make a release candidate the default install for every
+          # consumer. Route hyphenated versions to `rc` instead.
+          case "$pkg_version" in
+            *-*) npm_tag=rc ;;
+            *) npm_tag=latest ;;
+          esac
+          echo "npm_tag=$npm_tag" >> "$GITHUB_OUTPUT"
+          echo "Publishing $pkg_version under dist-tag $npm_tag"
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # `ts-sdk/dist` is gitignored, so it does not exist in a fresh checkout and
+      # the package would publish empty without this.
+      - name: Build
+        run: npm run build
+
+      # Authenticated by OIDC via a trusted publisher on npm, so there is no
+      # token here and no long-lived credential in repo secrets. `id-token: write`
+      # above is what makes that possible. Provenance is generated automatically
+      # under trusted publishing, so --provenance is not passed.
+      #
+      # Public access comes from publishConfig.access in package.json rather than
+      # an --access flag, so it holds for every publish path, not just this one.
+      - name: Publish
+        run: npm publish --tag "${{ steps.version.outputs.npm_tag }}"
