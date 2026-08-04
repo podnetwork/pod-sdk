@@ -38,49 +38,6 @@ export interface WsClientOptions {
   idleTimeoutMs?: number;
 }
 
-/**
- * The server ended a subscription on its own initiative.
- *
- * Delivered to `subscribe`'s `onError`. The subscription is gone server-side, and
- * the connection stays open — so nothing else will nudge you, and no further
- * updates arrive on it. To resume where you left off:
- *
- * ```ts
- * const sub = ws.subscribe("pod_orders", { account }, onUpdate, (err) => {
- *   if (err instanceof PodSubscriptionClosedError && err.resumable) {
- *     if (err.resumeSince !== undefined) sub.update({ since: err.resumeSince });
- *     sub.resubscribe();
- *   }
- * });
- * ```
- *
- * `resumable` is false only for a server bug (`-32023`), where resubscribing
- * immediately will most likely reproduce it — back off or report it instead.
- */
-export class PodSubscriptionClosedError extends Error {
-  constructor(
-    /** -32020 lagged, -32021 node shutting down, -32022 send timeout, -32023 server bug. */
-    public code: number,
-    /** Whether resubscribing recovers the stream. */
-    public resumable: boolean,
-    message: string,
-    /**
-     * Solution time (micros) to pass back as `since`. Absent when the
-     * subscription was not yet square on a whole tick — reuse your own `since`.
-     */
-    public resumeSince?: number,
-    /** `pod_orders_v2` only: pass back as `since_book` alongside `resumeSince`. */
-    public resumeSinceBook?: string,
-    /** `-32020` only: how many ticks the broadcast dropped. */
-    public missed?: number,
-    /** The raw `params.error`, for anything not mapped above. */
-    public raw?: unknown,
-  ) {
-    super(message);
-    this.name = "PodSubscriptionClosedError";
-  }
-}
-
 /** What the server sends in a close notification's `params.error`. */
 interface WireCloseError {
   code?: unknown;
@@ -88,25 +45,58 @@ interface WireCloseError {
   data?: {
     resumable?: unknown;
     resume_since?: unknown;
-    resume_since_book?: unknown;
     missed?: unknown;
   };
 }
 
-function parseClose(err: WireCloseError): PodSubscriptionClosedError {
-  const d = err.data ?? {};
-  const num = (v: unknown) => (typeof v === "number" ? v : undefined);
-  return new PodSubscriptionClosedError(
-    num(err.code) ?? 0,
-    // An absent or non-true `resumable` counts as not resumable: retrying a
+const asNumber = (v: unknown) => (typeof v === "number" ? v : undefined);
+const asString = (v: unknown) => (typeof v === "string" ? v : undefined);
+
+/**
+ * The server ended a subscription on its own initiative.
+ *
+ * Delivered to `subscribe`'s `onError`. The subscription is gone server-side, and
+ * the connection stays open — so nothing else will nudge you, and no further
+ * updates arrive on it. On a resumable close the client has already advanced the
+ * subscription's `since` to `resumeSince`, so restarting it is one call:
+ *
+ * ```ts
+ * const sub = ws.subscribe("pod_orders", { account }, onUpdate, (err) => {
+ *   if (err instanceof PodSubscriptionClosedError && err.resumable) sub.resubscribe();
+ * });
+ * ```
+ *
+ * `resumable` is false for a server bug (`-32023`) and for any close this version
+ * cannot parse: resubscribing immediately would most likely reproduce it, so back
+ * off or report it instead.
+ */
+export class PodSubscriptionClosedError extends Error {
+  /** -32020 lagged, -32021 node shutting down, -32022 send timeout, -32023 server bug. */
+  readonly code: number;
+  /** Whether resubscribing recovers the stream. */
+  readonly resumable: boolean;
+  /**
+   * Solution time (micros) the stream is square on. Absent when the subscription
+   * had not yet taken a whole tick.
+   */
+  readonly resumeSince?: number;
+  /** `-32020` only: how many ticks the broadcast dropped. */
+  readonly missed?: number;
+  /** The raw `params.error`, for fields this version does not map. */
+  readonly raw: unknown;
+
+  constructor(raw: WireCloseError) {
+    super(asString(raw.message) ?? "subscription closed by the server");
+    const data = raw.data ?? {};
+    this.name = "PodSubscriptionClosedError";
+    this.code = asNumber(raw.code) ?? 0;
+    // Anything other than an explicit `true` counts as not resumable: retrying a
     // close we failed to understand can hot-loop, which is the worse failure.
-    d.resumable === true,
-    typeof err.message === "string" ? err.message : "subscription closed by the server",
-    num(d.resume_since),
-    typeof d.resume_since_book === "string" ? d.resume_since_book : undefined,
-    num(d.missed),
-    err,
-  );
+    this.resumable = data.resumable === true;
+    this.resumeSince = asNumber(data.resume_since);
+    this.missed = asNumber(data.missed);
+    this.raw = raw;
+  }
 }
 
 interface LogicalSub {
@@ -115,8 +105,8 @@ interface LogicalSub {
   onMessage: (result: unknown) => void;
   /**
    * `eth_subscribe` was rejected (e.g. `since` too old), or the server closed a
-   * live subscription — the latter is a [`PodSubscriptionClosedError`]. Either
-   * way the subscription is not running; `resubscribe()` starts a new one.
+   * live subscription — the latter is a {@link PodSubscriptionClosedError}.
+   * Either way the subscription is not running; `resubscribe()` starts a new one.
    */
   onError?: (err: unknown) => void;
   subId?: string; // server-assigned, when active
@@ -316,15 +306,20 @@ export class PodWsClient {
       if (msg && msg.method === "eth_subscription" && msg.params) {
         const sub = this.bySubId.get(msg.params.subscription);
         if (!sub) return;
-        // A close carries `error` where an update carries `result`. Checking for
-        // it first matters twice over: the subscription is dead and must be
-        // deregistered, and dispatching it as an update would hand the owner
-        // `undefined` — which for the snapshot channels throws inside their
-        // handler rather than doing nothing.
+        // A close carries `error` where an update carries `result`; dispatching
+        // one as an update would hand the owner `undefined`.
         if (msg.params.error) {
           this.bySubId.delete(msg.params.subscription);
           sub.subId = undefined; // server already dropped it; don't unsubscribe
-          const closed = parseClose(msg.params.error as WireCloseError);
+          const closed = new PodSubscriptionClosedError(msg.params.error as WireCloseError);
+          // Advance the cursor before anyone can act on the close. The sub stays
+          // in `subs`, so a later socket reconnect re-subscribes it from
+          // `onopen` — with the pre-close `since` unless it is moved here, which
+          // is the gap the close frame exists to prevent. Doing it here also
+          // means `resubscribe()` alone resumes correctly.
+          if (closed.resumable && closed.resumeSince !== undefined) {
+            sub.params = { ...sub.params, since: closed.resumeSince };
+          }
           if (sub.onError) sub.onError(closed);
           else this.emit("error", closed);
           return;
