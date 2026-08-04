@@ -30,7 +30,12 @@ jobs:
   # Until this job existed, no CI anywhere touched the TypeScript — a broken
   # ts-sdk only surfaced when a downstream image build failed. It is also the
   # gate reused by publish-ts-sdk.yml, so a release cannot ship code that does
-  # not compile. ts-sdk has no test runner; typecheck + build is the gate.
+  # not compile.
+  #
+  # Typecheck and build catch shape errors; they cannot catch behaviour, and the
+  # transport's subscription dispatch is where that mattered — a close frame went
+  # to the wrong callback for as long as the file existed, compiling cleanly the
+  # whole time. Hence `npm test` (vitest), which runs `src/**/*.test.ts`.
   ts-sdk:
     name: ts-sdk
     runs-on: ubuntu-latest
@@ -51,6 +56,9 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Test
+        run: npm test
 
       - name: Build
         run: npm run build

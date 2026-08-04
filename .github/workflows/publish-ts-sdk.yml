@@ -67,6 +67,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # A tag push reaches here without necessarily having passed test.yml, so the
+      # release re-runs the behaviour gate rather than assuming it ran.
+      - name: Test
+        run: npm test
+
       # `ts-sdk/dist` is gitignored, so it does not exist in a fresh checkout and
       # the package would publish empty without this.
       - name: Build
