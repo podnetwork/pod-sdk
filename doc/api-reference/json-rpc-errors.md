@@ -145,9 +145,12 @@ The subscription is over once this arrives; nothing further is sent for it. The 
 | -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `resumable`    | boolean | Whether resubscribing recovers the stream. `false` only for `-32023`.                                                                                              |
 | `resume_since` | number  | Solution time (µs) of the newest tick this subscription is square on — every update it owed you was delivered (a tick that matched none of your filters owed nothing, so it counts). Pass it back as `since`. Absent if it is square on nothing yet; then reuse your original `since`. |
+| `resume_since_book` | string | `pod_orders_v2` only, and only when the batch it stopped in was partly delivered: the last `book` you were sent. Pass it back as `since_book` alongside `resume_since`. Absent when the batch landed whole. |
 | `missed`       | number  | `-32020` only: how many ticks the broadcast dropped.                                                                                                               |
 
-`resume_since` names a whole tick, because `since` selects whole ticks. So if the subscription closed midway through one, resuming redelivers that tick in full and you may see a few deltas twice. That is deliberate — a repeated delta is something a client can dedupe, whereas one that was never sent is unrecoverable — and it does not apply to channels that can resume inside a tick.
+`resume_since` names a whole tick, because `since` selects whole ticks. So if the subscription closed midway through one, resuming redelivers that tick in full and you may see a few deltas twice. That is deliberate — a repeated delta is something a client can dedupe, whereas one that was never sent is unrecoverable.
+
+`pod_orders_v2` is the exception, because it can resume inside a tick. A batch settles many orderbooks and is delivered as one frame each, so a close there also carries `resume_since_book`; pass both back and you receive exactly the frames you never got, with nothing replayed. That is the case the two-part cursor exists for — a close midway through a batch is precisely when you cannot tell where you got to, since frames the connection already accepted may not have reached your code yet.
 
 A close is the **only** signal that a delta stream lost data — the stream itself never has holes. Treat the absence of updates as an idle market only while the subscription is open.
 
