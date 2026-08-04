@@ -89,8 +89,9 @@ export interface WirePartialFill {
 }
 
 export interface WireOrder {
-  orderbook_id?: Hex; // REST only; WS raw Order carries `pair` instead
-  market_type?: "spot" | "perp"; // REST only
+  orderbook_id?: Hex;
+  /** The order endpoints say "perpetual" where `/clob/markets` says "perp". */
+  market_type?: "spot" | "perp" | "perpetual";
   kind: string;
   order_id: Hex;
   tx_hash: Hex;
@@ -108,9 +109,6 @@ export interface WireOrder {
   included_batch?: number | string; // micros; batch-inclusion time (REST order history)
   effective_price?: WireDecimal | null;
   fills?: WirePartialFill[];
-  /** Present on WS stream orders (raw engine Order) instead of orderbook_id. */
-  pair?: { base: Hex; quote: Hex };
-  /** Present on REST orders; absent on the WS raw Order (derive from `initial_size`). */
   side?: "buy" | "sell";
   reduce_only?: boolean;
   ioc?: boolean;
@@ -263,29 +261,95 @@ export interface WireBackstopPage {
   solution_now: number;
 }
 
-// pod_orders push: tagged union on `type`.
-export type WireOrderUpdate =
-  | ({ type: "new" } & WireOrder)
-  | ({ type: "invalid" } & WireOrder)
-  | ({ type: "fill" } & WireOrderFill)
-  | { type: "expired"; order_id: Hex }
-  | { type: "canceled"; order_id: Hex }
-  | { type: "modified"; order_id: Hex; new_price: WireDecimal; new_size: WireDecimal };
+// --- pod_orders_v2 push (ADR 0029) ---
+//
+// One notification is one frame: everything that happened to one orderbook in one
+// auction batch. The book and the batch are named once, orders created in the
+// batch appear once in `orders`, and `events` are transitions referencing them.
+// Optional fields are omitted at their default rather than sent, so each absence
+// means something specific — noted per field.
 
-export interface WireOrderFill {
-  orderbook_id: Hex;
-  order_id: Hex;
-  tx_hash: Hex;
-  bidder: Hex;
-  status: string;
-  base_amount: WireDecimal;
-  quote_amount: WireDecimal;
-  filled_base_amount: WireDecimal;
-  filled_quote_amount: WireDecimal;
-  effective_price?: WireDecimal | null;
-  fee: WireDecimal;
-  position_before?: WireDecimal | null;
-  position_after?: WireDecimal | null;
+export interface WireOrdersFrame {
+  /** The orderbook these actions happened on; constant for the frame. */
+  book: Hex;
+  /** Deadline (micros) of the batch the actions **landed in**. Half of the resume cursor; `book` is the other half. */
+  batch: number;
+  /**
+   * Owner addresses, indexed by `orders[].a` and by events that name an order by
+   * `id`. Omitted when the subscription names exactly one account — decode on
+   * this field, not on the filter that was sent.
+   */
+  accts?: Hex[];
+  orders: WireOrderEntity[];
+  events: WireOrderEvent[];
+}
+
+/** An order as admitted: the facts that do not change. Its status is implied by the events. */
+export interface WireOrderEntity {
+  id: Hex;
+  /** Creating transaction, or its parent `submitBatch` envelope. */
+  tx: Hex;
+  /** Index into the frame's `accts`; present iff `accts` is. */
+  a?: number;
+  n: number;
+  px: WireDecimal;
+  /** Signed size: the sign carries the side, so there is no side field. */
+  sz: WireDecimal;
+  /** TTL expiry (micros). **Omitted means the order never expires.** */
+  end?: number;
+  /** **Omitted means user-signed.** */
+  kind?: string;
+  /** **Omitted means a limit order.** */
+  type?: "market";
+  /** Omitted means false. */
+  reduce_only?: boolean;
+  /** Omitted means false. */
+  ioc?: boolean;
+  /** Omitted unless the order is a fired trigger's synthetic. */
+  trigger?: string;
+  /** Omitted when ungrouped. */
+  grouping?: string;
+}
+
+/**
+ * One transition, discriminated by `k`. Every event names its order by exactly
+ * one of `o` (an index into this frame's `orders`) or `id` (resting from an
+ * earlier batch, owned by `accts[a]`).
+ *
+ * Kinds are open: unknown values of `k` must be ignored rather than rejected, so
+ * this is a plain shape with per-kind optional fields rather than a union that
+ * would make an unrecognised kind unrepresentable.
+ */
+export interface WireOrderEvent {
+  k: "new" | "reject" | "fill" | "cancel" | "expire" | "modify" | (string & {});
+  o?: number;
+  id?: Hex;
+  a?: number;
+  /** `reject`: why the engine dropped the order. */
+  why?: string;
+  /** `fill`: base filled by **this** fill. */
+  b?: WireDecimal;
+  /** `fill`: quote filled by this fill. */
+  q?: WireDecimal;
+  /**
+   * Total base filled over the order's life so far.
+   *
+   * Carried by `fill`, `cancel` and `expire` alike (ADR 0029 §4.1): a terminated
+   * order reports what it had filled, as an explicit zero rather than an omission,
+   * so absence never has to be read as zero. Optional only because this one shape
+   * covers every kind — `new`, `reject` and `modify` have no totals to report.
+   */
+  tb?: WireDecimal;
+  /** Total quote filled so far; travels with `tb`. */
+  tq?: WireDecimal;
+  /** Total fee charged so far; travels with `tb`. There is no per-fill counterpart. */
+  tf?: WireDecimal;
+  /** `fill`: present only on the fill that closed the order, carrying its terminal status. */
+  st?: "filled" | "canceled" | "margin_canceled" | "expired";
+  /** `modify`: the price after the change. */
+  px?: WireDecimal;
+  /** `modify`: the size after the change, as an **unsigned magnitude**. */
+  sz?: WireDecimal;
 }
 
 export interface WirePositionsPush {

@@ -211,19 +211,10 @@ export class PodTradeClient {
 
   orders(account: Address, query?: OrdersQuery): OrderHistory {
     const key = `orders:${account}:${query ? JSON.stringify(query) : ""}`;
-    // WS stream orders identify their market by token pair; resolve it against
-    // the markets list (unambiguous: base tokens are unique per market — if a
-    // pair ever matched several markets we leave orderbookId unset rather than
-    // guess). Reads the markets snapshot, so it adds no extra subscription.
-    const resolveOrderbookId = (pair: { base: Address; quote: Address }) => {
-      const base = pair.base.toLowerCase();
-      const quote = pair.quote.toLowerCase();
-      const matches = this.markets.get()?.filter((m) =>
-        m.base?.address.toLowerCase() === base && m.quote?.address.toLowerCase() === quote,
-      );
-      const only = matches && matches.length === 1 ? matches[0] : undefined;
-      return only?.id;
-    };
-    return this.memo(key, () => new OrderHistory(this.ctx, account, query, resolveOrderbookId));
+    // A streamed order names its book but not whether that book is spot or perp —
+    // that is static market metadata. Reads the markets snapshot, so it adds no
+    // extra subscription; undefined until the list has loaded.
+    const marketType = (book: MarketId) => this.markets.get()?.find((m) => m.id === book)?.type;
+    return this.memo(key, () => new OrderHistory(this.ctx, account, query, marketType));
   }
 }

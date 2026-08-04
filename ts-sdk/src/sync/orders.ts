@@ -1,19 +1,29 @@
 // OrderHistory: a SeriesResource<Order> seeded from the warm first page, kept
-// live by the pod_orders stream (bidder-filtered, `since`-resumed, all update
-// variants incl. `modified`), and paged backwards by cursor for deep history.
+// live by the pod_orders_v2 stream (bidder-filtered, resumed from a (batch, book)
+// cursor), and paged backwards by cursor for deep history.
 //
 // Reconnect: on every (re)connect we re-seed the first page (authoritative open
-// orders) and refresh `since` from its watermark; the WS auto-resubscribes, and
-// if `since` is too old (down too long) `onError` re-seeds and resubscribes.
+// orders) and refresh the cursor from its watermark; the WS auto-resubscribes,
+// and if the cursor is too old (down too long) `onError` re-seeds and
+// resubscribes. A server-initiated close is not the same as a rejection: the
+// transport has already advanced the cursor to the server's watermark, so
+// resuming from one is a bare `resubscribe()` with no re-seed.
 
-import type { Address, MarketId, Order, OrderStatus, OrdersQuery } from "../types/public.js";
-import type { WireOrderUpdate } from "../types/wire.js";
-import { dec, WAD } from "../codec/units.js";
-import { decodeOrder } from "../codec/decode.js";
+import type { Address, Hash, MarketId, MarketType, Order, OrdersQuery } from "../types/public.js";
+import type { WireOrdersFrame } from "../types/wire.js";
+import { applyOrdersFrame } from "../codec/orders-v2.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
-import type { Subscription } from "../transport/ws.js";
+import { PodSubscriptionClosedError, type Subscription } from "../transport/ws.js";
 import type { SeriesResource } from "./candles.js";
 import type { SyncContext } from "./sources.js";
+
+/**
+ * Consecutive server closes we resume from before falling back to the re-seed
+ * path. A lagged close is recoverable by resubscribing, so the fast path is the
+ * right default — but a stream that keeps closing is one we are not keeping up
+ * with, and re-seeding beats replaying a growing backlog on every attempt.
+ */
+const FAST_RESUMES_BEFORE_RESEED = 3;
 
 export class OrderHistory implements SeriesResource<Order> {
   private readonly base: BaseResource<Order[]>;
@@ -26,14 +36,17 @@ export class OrderHistory implements SeriesResource<Order> {
   private _hasMore = true;
   private _loading = false;
   private subRetries = 0;
+  private fastResumes = 0;
   private retryTimer?: ReturnType<typeof setTimeout>;
+  /** The last frame accepted: `since` plus the book that completes it. */
+  private cursorBook: Hash | undefined;
 
   constructor(
     private readonly ctx: SyncContext,
     private readonly account: Address,
     private readonly query: OrdersQuery = {},
-    /** Maps a WS order's token pair to its orderbook id (see rebuild). */
-    private readonly resolveOrderbookId?: (pair: { base: Address; quote: Address }) => MarketId | undefined,
+    /** The market type for a book, when the markets list has loaded. */
+    private readonly marketType?: (book: MarketId) => MarketType | undefined,
   ) {
     this.base = new BaseResource<Order[]>((h) => {
       this.handle = h;
@@ -88,7 +101,16 @@ export class OrderHistory implements SeriesResource<Order> {
       for (const o of page.orders) this.byId.set(o.id, o);
       this.nextCursor = page.nextCursor;
       this._hasMore = page.nextCursor !== null;
-      this.watermarkUs = page.solutionNow * 1000;
+      // Only ever forward. The indexer can be behind the stream, and resuming from
+      // a point already applied re-delivers frames — harmless for entities and
+      // modifications, which carry absolute values, but a replayed fill would be
+      // appended to `fills` a second time. A page settles whole batches, so a
+      // watermark taken from one retires the book half of the cursor.
+      const pageUs = page.solutionNow * 1000;
+      if (pageUs > this.watermarkUs) {
+        this.watermarkUs = pageUs;
+        this.cursorBook = undefined;
+      }
       this.rebuild();
       return true;
     } catch (e) {
@@ -102,100 +124,83 @@ export class OrderHistory implements SeriesResource<Order> {
       if (!ok || !this.alive) return;
       if (!this.sub) {
         this.sub = this.ctx.ws.subscribe(
-          "pod_orders",
-          { account: this.account, since: this.watermarkUs },
-          (r) => this.onUpdates(r),
-          () => this.onSubError(),
+          "pod_orders_v2",
+          { account: this.account, since: this.watermarkUs, sinceBook: this.cursorBook },
+          (r) => this.onFrame(r),
+          (e) => this.onSubError(e),
         );
       } else {
-        this.sub.update({ since: this.watermarkUs }); // refresh for the next reconnect
+        // Refresh for the next reconnect.
+        this.sub.update({ since: this.watermarkUs, sinceBook: this.cursorBook });
       }
     });
   }
 
   /**
-   * Subscription rejected — re-seed then resubscribe. Backed off (and capped),
-   * so a server that keeps rejecting can't spin this into a tight re-seed /
-   * resubscribe loop. After a couple of failures we drop `since` (the likely
-   * culprit) and just stream live. Reset once live data flows (`onUpdates`).
+   * The subscription is not running: `eth_subscribe` was rejected, or the server
+   * closed it.
+   *
+   * A resumable close needs neither a re-seed nor a delay — the transport has
+   * already moved the cursor to the server's watermark, so resubscribing delivers
+   * exactly the frames we never got. Everything else (a rejection, a server bug,
+   * or closes that keep coming) takes the slow path: backed off and capped, so a
+   * server that keeps refusing cannot spin this into a tight re-seed loop, and
+   * after a couple of failures the cursor is dropped (the likely culprit) to just
+   * stream live. Both counters reset once live data flows (`onFrame`).
    */
-  private onSubError(): void {
+  private onSubError(err: unknown): void {
     if (!this.alive) return;
+    if (err instanceof PodSubscriptionClosedError && err.resumable && this.fastResumes < FAST_RESUMES_BEFORE_RESEED) {
+      this.fastResumes++;
+      this.sub?.resubscribe();
+      return;
+    }
     this.subRetries++;
     const delay = Math.min(30_000, 500 * 2 ** (this.subRetries - 1));
     if (this.retryTimer) clearTimeout(this.retryTimer);
     this.retryTimer = setTimeout(() => {
       void this.fetchFirstPage().then((ok) => {
         if (!ok || !this.alive) return;
-        this.sub?.update({ since: this.subRetries > 2 ? undefined : this.watermarkUs });
+        const tooOld = this.subRetries > 2;
+        this.sub?.update({
+          since: tooOld ? undefined : this.watermarkUs,
+          sinceBook: tooOld ? undefined : this.cursorBook,
+        });
         this.sub?.resubscribe();
       });
     }, delay);
   }
 
-  private onUpdates(result: unknown): void {
-    this.subRetries = 0; // live data flowing → subscription is healthy
-    const updates = (Array.isArray(result) ? result : [result]) as WireOrderUpdate[];
-    for (const u of updates) this.applyUpdate(u);
-    this.rebuild();
-  }
+  /** One frame: everything that happened to one book in one auction batch. */
+  private onFrame(result: unknown): void {
+    // Live data flowing → the subscription is healthy on both paths.
+    this.subRetries = 0;
+    this.fastResumes = 0;
+    const frame = result as WireOrdersFrame;
+    if (!frame || typeof frame !== "object" || !Array.isArray(frame.events)) return;
 
-  private applyUpdate(u: WireOrderUpdate): void {
-    switch (u.type) {
-      case "new":
-      case "invalid": {
-        const o = decodeOrder(u);
-        this.byId.set(o.id, o);
-        break;
-      }
-      case "fill": {
-        const e = this.byId.get(u.order_id);
-        if (e) {
-          e.filledBase = dec(u.filled_base_amount);
-          e.filledQuote = dec(u.filled_quote_amount);
-          e.fee = dec(u.fee);
-          e.status = u.status as OrderStatus;
-          if (u.effective_price != null) e.effectivePrice = dec(u.effective_price);
-          // Keep the per-fill breakdown live too. The push carries this fill's
-          // base/quote delta but no timestamp — receipt time is close enough.
-          const base = dec(u.base_amount);
-          const quote = dec(u.quote_amount);
-          e.fills = [...e.fills, { base, quote, price: base > 0n ? (quote * WAD) / base : 0n, time: Date.now() }];
-        }
-        break;
-      }
-      case "modified": {
-        const e = this.byId.get(u.order_id);
-        if (e) {
-          e.price = dec(u.new_price);
-          const sign = e.initialSize < 0n ? -1n : 1n;
-          e.initialSize = sign * dec(u.new_size); // new_size is an unsigned magnitude
-        }
-        break;
-      }
-      case "expired": {
-        const e = this.byId.get(u.order_id);
-        if (e) e.status = "expired";
-        break;
-      }
-      case "canceled": {
-        const e = this.byId.get(u.order_id);
-        if (e) e.status = "canceled";
-        break;
-      }
+    applyOrdersFrame(frame, this.byId, {
+      account: this.account,
+      marketType: this.marketType,
+      nowMs: Date.now(),
+    });
+    // Advance both halves together. A batch is delivered as one frame per book,
+    // so this pair — not the batch alone — is where the stream actually is, and a
+    // socket-level reconnect resubscribes from whatever is stored here. Never
+    // backwards: a resumed subscription replays older batches, which must not
+    // undo the position we already reached.
+    if (frame.batch >= this.watermarkUs) {
+      this.watermarkUs = frame.batch;
+      this.cursorBook = frame.book;
+      this.sub?.update({ since: frame.batch, sinceBook: frame.book });
     }
+    this.rebuild();
   }
 
   private rebuild(): void {
     if (!this.handle) return;
-    // WS stream orders carry a token `pair` instead of orderbook_id — resolve
-    // it here so consumers can always filter by market. Retried every rebuild,
-    // so orders that streamed in before the markets list loaded still resolve.
-    if (this.resolveOrderbookId) {
-      for (const o of this.byId.values()) {
-        if (o.orderbookId === undefined && o.pair) o.orderbookId = this.resolveOrderbookId(o.pair);
-      }
-    }
+    // Orders arrive with their book named by the frame, so `orderbookId` is set
+    // from the start — nothing to resolve here.
     let arr = [...this.byId.values()];
     if (this.query.status) arr = arr.filter((o) => o.status === this.query.status);
     if (this.query.orderbookId) arr = arr.filter((o) => o.orderbookId === this.query.orderbookId);
