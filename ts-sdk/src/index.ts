@@ -10,7 +10,7 @@ export type {
   MarketDynamicsPatch, MarketStatsPage, OrdersPage, BackstopPage, TriggersPage,
   CandlesPage, OrdersQueryRest, TriggersQueryRest, RestClientOptions,
 } from "./transport/rest.js";
-export { PodWsClient } from "./transport/ws.js";
+export { PodWsClient, PodSubscriptionClosedError } from "./transport/ws.js";
 export type {
   Channel, SubParams, Subscription, ConnectionState, WsEvent, WebSocketCtor,
   WsClientOptions,

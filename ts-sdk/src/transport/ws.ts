@@ -38,11 +38,87 @@ export interface WsClientOptions {
   idleTimeoutMs?: number;
 }
 
+/**
+ * The server ended a subscription on its own initiative.
+ *
+ * Delivered to `subscribe`'s `onError`. The subscription is gone server-side, and
+ * the connection stays open — so nothing else will nudge you, and no further
+ * updates arrive on it. To resume where you left off:
+ *
+ * ```ts
+ * const sub = ws.subscribe("pod_orders", { account }, onUpdate, (err) => {
+ *   if (err instanceof PodSubscriptionClosedError && err.resumable) {
+ *     if (err.resumeSince !== undefined) sub.update({ since: err.resumeSince });
+ *     sub.resubscribe();
+ *   }
+ * });
+ * ```
+ *
+ * `resumable` is false only for a server bug (`-32023`), where resubscribing
+ * immediately will most likely reproduce it — back off or report it instead.
+ */
+export class PodSubscriptionClosedError extends Error {
+  constructor(
+    /** -32020 lagged, -32021 node shutting down, -32022 send timeout, -32023 server bug. */
+    public code: number,
+    /** Whether resubscribing recovers the stream. */
+    public resumable: boolean,
+    message: string,
+    /**
+     * Solution time (micros) to pass back as `since`. Absent when the
+     * subscription was not yet square on a whole tick — reuse your own `since`.
+     */
+    public resumeSince?: number,
+    /** `pod_orders_v2` only: pass back as `since_book` alongside `resumeSince`. */
+    public resumeSinceBook?: string,
+    /** `-32020` only: how many ticks the broadcast dropped. */
+    public missed?: number,
+    /** The raw `params.error`, for anything not mapped above. */
+    public raw?: unknown,
+  ) {
+    super(message);
+    this.name = "PodSubscriptionClosedError";
+  }
+}
+
+/** What the server sends in a close notification's `params.error`. */
+interface WireCloseError {
+  code?: unknown;
+  message?: unknown;
+  data?: {
+    resumable?: unknown;
+    resume_since?: unknown;
+    resume_since_book?: unknown;
+    missed?: unknown;
+  };
+}
+
+function parseClose(err: WireCloseError): PodSubscriptionClosedError {
+  const d = err.data ?? {};
+  const num = (v: unknown) => (typeof v === "number" ? v : undefined);
+  return new PodSubscriptionClosedError(
+    num(err.code) ?? 0,
+    // An absent or non-true `resumable` counts as not resumable: retrying a
+    // close we failed to understand can hot-loop, which is the worse failure.
+    d.resumable === true,
+    typeof err.message === "string" ? err.message : "subscription closed by the server",
+    num(d.resume_since),
+    typeof d.resume_since_book === "string" ? d.resume_since_book : undefined,
+    num(d.missed),
+    err,
+  );
+}
+
 interface LogicalSub {
   channel: Channel;
   params: SubParams;
   onMessage: (result: unknown) => void;
-  onError?: (err: unknown) => void; // eth_subscribe rejected (e.g. `since` too old)
+  /**
+   * `eth_subscribe` was rejected (e.g. `since` too old), or the server closed a
+   * live subscription — the latter is a [`PodSubscriptionClosedError`]. Either
+   * way the subscription is not running; `resubscribe()` starts a new one.
+   */
+  onError?: (err: unknown) => void;
   subId?: string; // server-assigned, when active
 }
 
@@ -239,7 +315,21 @@ export class PodWsClient {
       try { msg = JSON.parse(text); } catch { return; }
       if (msg && msg.method === "eth_subscription" && msg.params) {
         const sub = this.bySubId.get(msg.params.subscription);
-        if (sub) sub.onMessage(msg.params.result);
+        if (!sub) return;
+        // A close carries `error` where an update carries `result`. Checking for
+        // it first matters twice over: the subscription is dead and must be
+        // deregistered, and dispatching it as an update would hand the owner
+        // `undefined` — which for the snapshot channels throws inside their
+        // handler rather than doing nothing.
+        if (msg.params.error) {
+          this.bySubId.delete(msg.params.subscription);
+          sub.subId = undefined; // server already dropped it; don't unsubscribe
+          const closed = parseClose(msg.params.error as WireCloseError);
+          if (sub.onError) sub.onError(closed);
+          else this.emit("error", closed);
+          return;
+        }
+        sub.onMessage(msg.params.result);
         return;
       }
       if (msg && msg.id !== undefined && this.pending.has(msg.id)) {

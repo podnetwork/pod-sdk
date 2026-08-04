@@ -158,9 +158,9 @@ A close is the **only** signal that a delta stream lost data — the stream itse
 >
 > - **`alloy` (Rust)** rejects a subscription notification carrying `error` and treats it as a connection error: it tears the websocket down and reconnects rather than surfacing the payload. You observe the close as a reconnect.
 > - **`jsonrpsee` (Rust)** removes the subscription and discards the payload, so the stream ends with no reason attached.
-> - **The pod TypeScript SDK** does not read `params.error` yet, so a close currently arrives as an update with an empty payload and the subscription is not dropped. Until that lands, treat a payload-less update as a possible close.
+> - **The pod TypeScript SDK** (`@pod-network/trade-sdk`) delivers it to `subscribe`'s `onError` as a `PodSubscriptionClosedError` — `code`, `resumable`, `resumeSince`, `resumeSinceBook` and `missed` mapped to properties — and drops the subscription. Resume with `sub.update({ since: err.resumeSince }); sub.resubscribe();`.
 >
-> To act on the reason with any of these, read the raw websocket frame. The subscription is over regardless of whether your client reports it.
+> With the Rust clients, read the raw websocket frame to act on the reason. The subscription is over regardless of whether your client reports it.
 
 ## Transaction validation messages
 
