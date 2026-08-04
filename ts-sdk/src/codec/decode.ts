@@ -11,7 +11,7 @@ import type {
   WireMarketStatic, WireOrder, WireOrderbook, WirePartialFill, WirePerpPosition, WirePosition,
   WirePositionsSnapshot, WireSpotHolding, WireSpotPosition, WireStatus, WireTrigger,
 } from "../types/wire.js";
-import { dec, decOpt, toNumber, usToMs, usToMsOpt } from "./units.js";
+import { dec, decOpt, endMsFromUs, toNumber, usToMs, usToMsOpt } from "./units.js";
 
 export function decodeStatus(w: WireStatus): Status {
   return { solutionNow: usToMs(w.solution_now) };
@@ -80,9 +80,10 @@ export function decodeOrder(w: WireOrder): Order {
     id: w.order_id,
     txHash: w.tx_hash,
     orderbookId: w.orderbook_id,
-    marketType: w.market_type as MarketType | undefined,
-    pair: w.pair ? { base: w.pair.base, quote: w.pair.quote } : undefined,
-    // WS raw orders have no `side` field — derive it from the signed size.
+    // The order endpoints spell a perp market "perpetual"; `/clob/markets` and
+    // `MarketType` say "perp". Normalized here so one list of orders cannot carry
+    // both spellings — a streamed order takes its type from the market.
+    marketType: w.market_type === "perpetual" ? "perp" : (w.market_type as MarketType | undefined),
     side: w.side ?? (initialSize < 0n ? "sell" : "buy"),
     orderType: w.order_type,
     status: w.status as OrderStatus,
@@ -96,7 +97,7 @@ export function decodeOrder(w: WireOrder): Order {
     fee: dec(w.fee),
     effectivePrice: decOpt(w.effective_price),
     deadlineMs: usToMs(w.deadline),
-    endMs: usToMs(w.end),
+    endMs: endMsFromUs(w.end),
     includedMs: usToMsOpt(w.included_batch),
     fills: (w.fills ?? []).map(decodePartialFill),
     reduceOnly: w.reduce_only,

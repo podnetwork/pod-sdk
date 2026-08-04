@@ -3,10 +3,10 @@
 // Ref-counted logical subscriptions, exponential backoff, idle-timeout
 // reconnect, and automatic re-subscribe (with each sub's current `since`).
 
-import type { Address, MarketId } from "../types/public.js";
+import type { Address, Hash, MarketId } from "../types/public.js";
 
 export type Channel =
-  | "pod_orderbook" | "pod_orders" | "pod_candles"
+  | "pod_orderbook" | "pod_orders" | "pod_orders_v2" | "pod_candles"
   | "pod_markets" | "pod_positions" | "pod_triggers";
 
 export interface SubParams {
@@ -14,6 +14,17 @@ export interface SubParams {
   account?: Address;
   depth?: number;
   since?: number; // micros (solution time)
+  /**
+   * `pod_orders_v2` only: the `book` of the last frame accepted at `since`,
+   * completing the resume cursor.
+   *
+   * One batch settles many orderbooks and is delivered as one frame each, so a
+   * client can hold part of a batch, and `since` alone cannot express that
+   * position. With this set, replay skips every book at or below it within
+   * `since`, then delivers later batches whole. Omitted means the whole of
+   * `since` arrived — what `since` means on every other channel.
+   */
+  sinceBook?: Hash;
 }
 
 export interface Subscription {
@@ -45,6 +56,7 @@ interface WireCloseError {
   data?: {
     resumable?: unknown;
     resume_since?: unknown;
+    resume_since_book?: unknown;
     missed?: unknown;
   };
 }
@@ -61,7 +73,7 @@ const asString = (v: unknown) => (typeof v === "string" ? v : undefined);
  * subscription's `since` to `resumeSince`, so restarting it is one call:
  *
  * ```ts
- * const sub = ws.subscribe("pod_orders", { account }, onUpdate, (err) => {
+ * const sub = ws.subscribe("pod_orders_v2", { account }, onFrame, (err) => {
  *   if (err instanceof PodSubscriptionClosedError && err.resumable) sub.resubscribe();
  * });
  * ```
@@ -80,6 +92,11 @@ export class PodSubscriptionClosedError extends Error {
    * had not yet taken a whole tick.
    */
   readonly resumeSince?: number;
+  /**
+   * `pod_orders_v2` only: the last book of `resumeSince` that was delivered, when
+   * that batch was only partly delivered. Absent means the batch landed whole.
+   */
+  readonly resumeSinceBook?: Hash;
   /** `-32020` only: how many ticks the broadcast dropped. */
   readonly missed?: number;
   /** The raw `params.error`, for fields this version does not map. */
@@ -94,6 +111,7 @@ export class PodSubscriptionClosedError extends Error {
     // close we failed to understand can hot-loop, which is the worse failure.
     this.resumable = data.resumable === true;
     this.resumeSince = asNumber(data.resume_since);
+    this.resumeSinceBook = asString(data.resume_since_book) as Hash | undefined;
     this.missed = asNumber(data.missed);
     this.raw = raw;
   }
@@ -265,6 +283,7 @@ export class PodWsClient {
     if (p.account) out.account = p.account; // server aliases to `bidder`
     if (p.depth !== undefined) out.depth = p.depth;
     if (p.since !== undefined) out.since = p.since;
+    if (p.sinceBook !== undefined) out.since_book = p.sinceBook;
     return out;
   }
 
@@ -318,7 +337,11 @@ export class PodWsClient {
           // is the gap the close frame exists to prevent. Doing it here also
           // means `resubscribe()` alone resumes correctly.
           if (closed.resumable && closed.resumeSince !== undefined) {
-            sub.params = { ...sub.params, since: closed.resumeSince };
+            // Both halves, together. A close with no `resume_since_book` says the
+            // batch landed whole, so the stored book must be cleared rather than
+            // carried over: it belongs to an older batch, and leaving it would
+            // ask the server to skip books inside the new one.
+            sub.params = { ...sub.params, since: closed.resumeSince, sinceBook: closed.resumeSinceBook };
           }
           if (sub.onError) sub.onError(closed);
           else this.emit("error", closed);

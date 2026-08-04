@@ -34,6 +34,21 @@ export function usToMsOpt(us: number | string | null | undefined): number | unde
   return us === null || us === undefined ? undefined : usToMs(us);
 }
 
+/**
+ * An order's TTL expiry: microseconds -> milliseconds, or undefined when it never
+ * expires.
+ *
+ * "Never" has two spellings on the wire. `pod_orders_v2` omits the field; REST
+ * sends the engine's `Timestamp::MAX` sentinel, a u128 that arrives as a 39-digit
+ * number no JS number can hold exactly. Anything past `Number.MAX_SAFE_INTEGER`
+ * micros — the year 2255 — is that sentinel rather than a TTL someone signed.
+ */
+export function endMsFromUs(us: number | string | null | undefined): number | undefined {
+  if (us === null || us === undefined) return undefined;
+  const n = typeof us === "string" ? Number(us) : us;
+  return Number.isFinite(n) && n <= Number.MAX_SAFE_INTEGER ? Math.trunc(n / 1000) : undefined;
+}
+
 /** Milliseconds -> microseconds (for request params that take micros). */
 export function msToUs(ms: number): number {
   return ms * 1000;

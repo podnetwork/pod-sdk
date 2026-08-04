@@ -117,10 +117,8 @@ export interface PartialFill {
 export interface Order {
   id: Hash;
   txHash: Hash;
-  orderbookId?: MarketId; // REST orders; WS stream orders carry `pair` instead
+  orderbookId?: MarketId;
   marketType?: MarketType;
-  /** Token-address pair (base/quote); present on WS stream orders. */
-  pair?: { base: Address; quote: Address };
   side: OrderSide;
   orderType: OrderType;
   status: OrderStatus;
@@ -134,10 +132,13 @@ export interface Order {
   fee: bigint;
   effectivePrice?: bigint;
   deadlineMs: number;
-  endMs: number;
-  /** Batch-inclusion time (ms) — when the order entered the book. REST history only. */
+  /** TTL expiry (ms). Undefined when the order never expires. */
+  endMs?: number;
+  /** Batch-inclusion time (ms) — when the order entered the book. */
   includedMs?: number;
   fills: PartialFill[];
+  /** Why the engine rejected the order; set only on `status: "invalid"`. */
+  rejectReason?: string;
   // perpetual-only
   reduceOnly?: boolean;
   ioc?: boolean;
