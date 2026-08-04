@@ -1325,9 +1325,10 @@ paths:
         **Reading a `pod_orders_v2` frame.** `orders` holds the orders *created* in this batch, each
         once; `events` says what happened. An event names its order either by `o` (an index into this
         frame's `orders`) or by `id` (an order resting from an earlier batch, whose owner is `a`) —
-        exactly one of the two. Owners are interned into `accts` and referenced by index, except on a
-        bidder-filtered stream, where `accts` and every `a` are omitted because every row belongs to
-        the subscriber. Absent optional fields carry a documented default (see `OrderEntityV2`), so a
+        exactly one of the two. Owners are interned into `accts` and referenced by index, except when the
+        subscription names exactly one account, where `accts` and every `a` are omitted because every
+        row belongs to you. A subscription naming several accounts carries them, so decode on whether
+        `accts` is present rather than on whether you sent a filter. Absent optional fields carry a documented default (see `OrderEntityV2`), so a
         plain user-signed limit order is small.
 
         Two things clients most often get wrong. `batch` is the batch an action **landed in**, which
@@ -1344,7 +1345,10 @@ paths:
         **Filtering.** `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_candles`, and `pod_markets` accept
         `orderbook_ids` (alias `clob_ids`) to restrict the stream to specific orderbooks
         (empty/omitted = all). `pod_orders` and `pod_orders_v2` additionally accept `bidder` to deliver
-        only that account's updates. `pod_positions` and `pod_triggers` are account-scoped and **require**
+        only that account's updates, and `pod_orders_v2` accepts `bidders` — a set of up to 64
+        distinct accounts — to follow several on one subscription instead of opening one each.
+        `bidder` and `bidders` are mutually exclusive, and naming more than one account makes the
+        frame carry `accts`/`a` (see above). `pod_positions` and `pod_triggers` are account-scoped and **require**
         `account` (alias `bidder`); they ignore `orderbook_ids`. `depth` applies to `pod_orderbook`
         snapshots only.
 
@@ -1393,6 +1397,10 @@ paths:
                        - `bidder` (alias `account`, address) — `pod_orders`, `pod_orders_v2`:
                          stream only that bidder's updates (omit for all). **Required** for
                          `pod_positions` and `pod_triggers` (the account to stream).
+                       - `bidders` (array of addresses) — **`pod_orders_v2` only**: follow several
+                         accounts on one subscription. A set — order irrelevant, repeats collapsed —
+                         capped at 64 distinct accounts. Mutually exclusive with `bidder`; rejected
+                         on other channels. More than one account makes the frame carry `accts`/`a`.
                        - `since` (integer, microseconds) — all channels: catch-up watermark (see the
                          method description).
                        - `since_book` (bytes32) — **`pod_orders_v2` only**: the `book` of the last
@@ -3219,6 +3227,8 @@ components:
         - `depth` — `pod_orderbook` only.
         - `bidder` (alias `account`) — optional for `pod_orders` / `pod_orders_v2`; **required** for
           `pod_positions` and `pod_triggers`.
+        - `bidders` — `pod_orders_v2` only, to follow several accounts on one subscription.
+          Mutually exclusive with `bidder`.
         - `since` — all channels (catch-up watermark, microseconds).
         - `since_book` — `pod_orders_v2` only, completing its `(batch, book)` resume cursor.
       properties:
@@ -3235,7 +3245,29 @@ components:
           description: 'Accepted alias for `orderbook_ids`.'
         bidder:
           $ref: '#/components/schemas/Address'
-          description: 'Account filter (accepted alias: `account`). For `pod_orders`, when set, streams only this bidder''s updates (omit for all bidders). For `pod_positions` / `pod_triggers` this is **required** — the account whose positions / triggers to stream.'
+          description: 'Account filter (accepted alias: `account`). For `pod_orders`, when set, streams only this bidder''s updates (omit for all bidders). For `pod_positions` / `pod_triggers` this is **required** — the account whose positions / triggers to stream. On `pod_orders_v2` it is the single-account form of `bidders`, and sending both is an error.'
+        bidders:
+          type: array
+          items: { $ref: '#/components/schemas/Address' }
+          description: |
+            `pod_orders_v2` only: follow several accounts on one subscription, streaming
+            only rows owned by them. One subscription instead of one per account — each
+            subscription costs the server a copy of every batch, a notification and a
+            socket write whether or not your accounts traded, so this is markedly
+            cheaper than N of them.
+
+            Treated as a **set**: order is irrelevant and repeats are collapsed, so the
+            64-account limit counts *distinct* accounts. Exceeding it is an error, as is
+            sending it together with `bidder` (which is the single-account form) or on
+            any other channel — a filter that silently did not apply would hand you the
+            whole book.
+
+            **This changes the frame shape.** With more than one account the frame
+            carries the `accts` table and every row carries an `a` index, exactly as an
+            unfiltered stream does, because otherwise its rows would not be
+            attributable. With exactly one account (whether via `bidders` or `bidder`)
+            both are omitted, since every row belongs to you. Decode on the presence of
+            `accts`, not on whether you sent a filter.
         since:
           type: integer
           format: int64
@@ -3307,8 +3339,12 @@ components:
           items: { $ref: '#/components/schemas/Address' }
           description: |
             Owner addresses, referenced by index from `orders[].a` and from events that name an
-            order by `id`. Omitted on a bidder-filtered stream, where every row belongs to the
-            subscriber.
+            order by `id`.
+
+            Omitted only when the subscription names exactly one account (`bidder`, or a
+            one-element `bidders`), where every row belongs to you and an index would say
+            nothing. A subscription naming *several* accounts carries the table just like an
+            unfiltered one. Decode on this field's presence rather than on the filter you sent.
         orders:
           type: array
           items: { $ref: '#/components/schemas/OrderEntityV2' }
@@ -3339,7 +3375,7 @@ components:
           description: Hash of the creating transaction, or of its parent `submitBatch` envelope. Zero for engine-generated orders.
         a:
           type: integer
-          description: Index into the frame's `accts`. Omitted on a bidder-filtered stream.
+          description: Index into the frame's `accts`. Present if and only if `accts` is — see there.
         n:
           type: integer
           format: int64
@@ -3405,7 +3441,7 @@ components:
           description: Order id. Present instead of `o` when the order has been resting since an earlier batch.
         a:
           type: integer
-          description: Index into the frame's `accts`, accompanying `id`. Omitted on a bidder-filtered stream.
+          description: Index into the frame's `accts`, accompanying `id`. Present if and only if `accts` is.
         why:
           type: string
           description: '`reject` only: why the engine dropped the order (insufficient balance or margin, off-tick price, and so on).'
