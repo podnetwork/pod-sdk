@@ -1338,6 +1338,13 @@ paths:
         totals to check your own figure. Reading a total as a per-batch amount double-counts. There is
         no per-fill fee, so difference `tf` for that.
 
+        **Every terminal event carries the order's final totals**, whichever shape ends it: a `fill`
+        bearing `st` for an order that filled out, or `cancel`/`expire` for one removed from the book —
+        both with `tb`/`tq`/`tf`. So a terminal handler is uniform and needs no accumulation of the
+        order's earlier fills, which matters for a partially filled order canceled for its remainder:
+        the amounts it did fill travel with the cancel. An order that both fills and terminates in the
+        same batch reports the totals on both events, with the same values.
+
         **Forward compatibility.** Clients MUST ignore event kinds (`k`) and fields they do not
         recognise: new event kinds will be added without a new channel version. Existing keys are
         never renamed or repurposed.
@@ -3483,16 +3490,25 @@ components:
         tb:
           type: string
           description: |
-            `fill` only. Total base filled over the order's life **so far**, 1e18-scaled decimal.
-            Sent alongside `b` rather than instead of it: `b` is what you apply, `tb` is what you check
-            your running figure against, so a divergence surfaces on the next fill instead of drifting.
+            Total base filled over the order's life, 1e18-scaled decimal. On `fill`, the running
+            total **so far**; on `cancel` and `expire`, the final total the order left the book with.
+
+            On a `fill` it is sent alongside `b` rather than instead of it: `b` is what you apply,
+            `tb` is what you check your running figure against, so a divergence surfaces on the next
+            fill instead of drifting. On a terminal event it is the settled figure, so you need no
+            accumulation at all — see the terminal-totals rule on the method description.
+
+            Zero is sent rather than the field being omitted, so an order that never filled is
+            reported as such rather than being indistinguishable from a field you failed to read.
         tq:
           type: string
-          description: '`fill` only. Total quote filled over the order''s life so far, 1e18-scaled decimal.'
+          description: 'Total quote filled over the order''s life, 1e18-scaled decimal. Running total on `fill`, final total on `cancel`/`expire`, as `tb`.'
         tf:
           type: string
           description: |
-            `fill` only. Total fee charged over the order's life so far, 1e18-scaled decimal.
+            Total fee charged over the order's life, 1e18-scaled decimal. Running total on `fill`,
+            final total on `cancel`/`expire`, as `tb`.
+
             There is no per-fill fee counterpart — no such figure exists at this boundary to send. For
             the fee attributable to one fill, subtract the previous `tf` seen for that order, or zero
             on its first fill.
