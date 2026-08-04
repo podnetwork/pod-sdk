@@ -32,6 +32,7 @@ Every error is returned as a JSON-RPC 2.0 error object:
 | `-32000` | `transaction validation failed` | A protocol-level validation check failed (nonce, balance, chain ID, gas price, …).      |
 | `-32003` | `Transaction rejected: …`     | A quorum of validators rejected the transaction.                                          |
 | `999`    | `Account locked`              | The account is locked pending recovery. `data` carries the recovery target.              |
+| `-32020` … `-32023` | (see below)        | A websocket subscription was closed by the server. Delivered as a notification, not a response — see [Subscription close notifications](#subscription-close-notifications). |
 
 ### `3` — execution reverted
 
@@ -111,6 +112,52 @@ Returned when you submit a transaction for an account that is locked due to a pe
 | ----------------------- | ------ | ---------------------------------------------------- |
 | `recovery_target`       | hash   | Transaction hash of the recovery target.             |
 | `recovery_target_nonce` | number | Nonce of the recovery target.                        |
+
+## Subscription close notifications
+
+The codes above answer a request. A websocket subscription created with [`eth_subscribe`](json-rpc/openapi.yaml) can also be ended by the *server*, and that arrives as a notification rather than a response: same `eth_subscription` method as a normal update, but carrying `error` in place of `result`.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "eth_subscription",
+  "params": {
+    "subscription": "0x9c1f…",
+    "error": {
+      "code": -32020,
+      "message": "subscription lagged behind the tick broadcast",
+      "data": { "resumable": true, "missed": 42, "resume_since": 1718900000000000 }
+    }
+  }
+}
+```
+
+The subscription is over once this arrives; nothing further is sent for it. The connection itself stays open, so any other subscription on it keeps working.
+
+| Code     | Message                                             | What happened, and what to do                                                                                                                     |
+| -------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-32020` | `subscription lagged behind the tick broadcast`      | The server dropped ticks before this subscriber read them, rather than serve a stream with a gap in it. Resubscribe with `since` = `resume_since`. |
+| `-32021` | `node is shutting down`                              | The node is going away. Reconnect (to another node, if you have one) and resubscribe with `since` = `resume_since`.                               |
+| `-32022` | `subscriber did not accept a notification in time`   | The connection would not take a notification within the server's send timeout. Resubscribe with `since` = `resume_since` once you can keep up.     |
+| `-32023` | `failed to serialize a subscription notification`    | A server-side bug. **Do not** retry in a loop — an immediate resubscribe will likely reproduce it. Please report it.                              |
+
+| `data` field   | Type    | Description                                                                                                                                                        |
+| -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `resumable`    | boolean | Whether resubscribing recovers the stream. `false` only for `-32023`.                                                                                              |
+| `resume_since` | number  | Solution time (µs) of the newest tick this subscription is square on — every update it owed you was delivered (a tick that matched none of your filters owed nothing, so it counts). Pass it back as `since`. Absent if it is square on nothing yet; then reuse your original `since`. |
+| `missed`       | number  | `-32020` only: how many ticks the broadcast dropped.                                                                                                               |
+
+`resume_since` names a whole tick, because `since` selects whole ticks. So if the subscription closed midway through one, resuming redelivers that tick in full and you may see a few deltas twice. That is deliberate — a repeated delta is something a client can dedupe, whereas one that was never sent is unrecoverable — and it does not apply to channels that can resume inside a tick.
+
+A close is the **only** signal that a delta stream lost data — the stream itself never has holes. Treat the absence of updates as an idle market only while the subscription is open.
+
+> **Client support.** Not every websocket client surfaces this frame, so check yours before relying on the reason being readable.
+>
+> - **`alloy` (Rust)** rejects a subscription notification carrying `error` and treats it as a connection error: it tears the websocket down and reconnects rather than surfacing the payload. You observe the close as a reconnect.
+> - **`jsonrpsee` (Rust)** removes the subscription and discards the payload, so the stream ends with no reason attached.
+> - **The pod TypeScript SDK** does not read `params.error` yet, so a close currently arrives as an update with an empty payload and the subscription is not dropped. Until that lands, treat a payload-less update as a possible close.
+>
+> To act on the reason with any of these, read the raw websocket frame. The subscription is over regardless of whether your client reports it.
 
 ## Transaction validation messages
 
