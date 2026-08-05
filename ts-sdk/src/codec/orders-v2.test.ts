@@ -231,6 +231,31 @@ describe("applyOrdersFrame — events", () => {
     expect(o.status).toBe("active");
   });
 
+  it("classifies a perp fill from the position it left", () => {
+    const frame: WireOrdersFrame = {
+      ...MODIFY_FRAME,
+      events: [{
+        k: "fill", id: "0xa9a5",
+        b: (6n * WAD).toString(), q: (600n * WAD).toString(),
+        tb: (6n * WAD).toString(), tq: (600n * WAD).toString(), tf: "0",
+        pa: (4n * WAD).toString(),
+      }],
+    };
+    // A sell of 6 that left the owner at +4 must have started at +10, so it reduced a
+    // long. That is the label the order's own side and `reduceOnly` cannot reach: it
+    // is a plain sell, so the derived guess reads "Open Short".
+    const o = apply(frame, [resting({ initialSize: -6n * WAD })]).get("0xa9a5")!;
+    expect(o.direction).toBe("reduce_long");
+  });
+
+  it("leaves direction unset on a spot fill, which reports no position", () => {
+    const frame: WireOrdersFrame = {
+      ...MODIFY_FRAME,
+      events: [{ k: "fill", id: "0xa9a5", b: "1", q: "1", tb: "1", tq: "1", tf: "0" }],
+    };
+    expect(apply(frame, [resting()]).get("0xa9a5")!.direction).toBeUndefined();
+  });
+
   it("closes the order on the fill that carries `st`", () => {
     const frame: WireOrdersFrame = {
       ...MODIFY_FRAME,

@@ -346,6 +346,16 @@ export interface WireOrderEvent {
   tf?: WireDecimal;
   /** `fill`: present only on the fill that closed the order, carrying its terminal status. */
   st?: "filled" | "canceled" | "margin_canceled" | "expired";
+  /**
+   * `fill` on a perp market: the owner's position after this fill, signed and
+   * 1e18-scaled. Omitted on spot, which has no position.
+   *
+   * The position *before* is not sent because it is derivable — `pa - sign(sz) * b`,
+   * the same arithmetic the engine used to produce the pair — and the transition
+   * between the two is what says whether the fill opened, added to, reduced, closed
+   * or flipped the position.
+   */
+  pa?: WireDecimal;
   /** `modify`: the price after the change. */
   px?: WireDecimal;
   /** `modify`: the size after the change, as an **unsigned magnitude**. */
