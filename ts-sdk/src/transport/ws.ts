@@ -3,7 +3,7 @@
 // Ref-counted logical subscriptions, exponential backoff, idle-timeout
 // reconnect, and automatic re-subscribe (with each sub's current `since`).
 
-import type { Address, Hash, MarketId } from "../types/public.js";
+import type { Address, MarketId } from "../types/public.js";
 
 export type Channel =
   | "pod_orderbook" | "pod_orders" | "pod_orders_v2" | "pod_candles"
@@ -24,7 +24,7 @@ export interface SubParams {
    * `since`, then delivers later batches whole. Omitted means the whole of
    * `since` arrived — what `since` means on every other channel.
    */
-  sinceBook?: Hash;
+  sinceBook?: MarketId;
 }
 
 export interface Subscription {
@@ -96,7 +96,7 @@ export class PodSubscriptionClosedError extends Error {
    * `pod_orders_v2` only: the last book of `resumeSince` that was delivered, when
    * that batch was only partly delivered. Absent means the batch landed whole.
    */
-  readonly resumeSinceBook?: Hash;
+  readonly resumeSinceBook?: MarketId;
   /** `-32020` only: how many ticks the broadcast dropped. */
   readonly missed?: number;
   /** The raw `params.error`, for fields this version does not map. */
@@ -111,7 +111,7 @@ export class PodSubscriptionClosedError extends Error {
     // close we failed to understand can hot-loop, which is the worse failure.
     this.resumable = data.resumable === true;
     this.resumeSince = asNumber(data.resume_since);
-    this.resumeSinceBook = asString(data.resume_since_book) as Hash | undefined;
+    this.resumeSinceBook = asString(data.resume_since_book) as MarketId | undefined;
     this.missed = asNumber(data.missed);
     this.raw = raw;
   }

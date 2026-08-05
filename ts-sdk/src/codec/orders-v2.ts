@@ -6,18 +6,19 @@
 // them and to orders already held. Status lives only in the events, which is what
 // lets the server add transition kinds without changing the entity.
 
-import type { Address, MarketId, MarketType, Order, OrderStatus, PartialFill } from "../types/public.js";
+import type { Address, Order, OrderStatus, PartialFill } from "../types/public.js";
 import type { WireOrderEntity, WireOrderEvent, WireOrdersFrame } from "../types/wire.js";
 import { dec, endMsFromUs, usToMs, WAD } from "./units.js";
 
 export interface OrdersFrameContext {
   /** The account the subscription is filtered to, used when the frame omits `accts`. */
   account: Address;
-  /** Market type for a book, when the markets list has loaded. */
-  marketType?: (book: MarketId) => MarketType | undefined;
   /** Receipt time (ms) stamped on this frame's fills — the wire carries none. */
   nowMs: number;
 }
+
+/** Volume-weighted price of a filled amount; zero base has no price. */
+const vwap = (quote: bigint, base: bigint) => (base > 0n ? (quote * WAD) / base : 0n);
 
 /**
  * Fold one frame into `byId`, in place.
@@ -27,7 +28,9 @@ export interface OrdersFrameContext {
  * never been on the wire, so there is nothing to display.
  */
 export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order>, ctx: OrdersFrameContext): void {
-  const created = frame.orders.map((e) => decodeEntity(e, frame, ctx));
+  // The book and the batch are frame constants: resolved once, not per entity.
+  const batchMs = usToMs(frame.batch);
+  const created = frame.orders.map((e) => decodeEntity(e, frame, batchMs, ctx.account));
 
   for (const event of frame.events) {
     const target = event.o !== undefined ? created[event.o] : byId.get(event.id ?? "");
@@ -42,16 +45,16 @@ export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order
   for (const order of created) byId.set(order.id, order);
 }
 
-function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, ctx: OrdersFrameContext): Order {
+function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: number, account: Address): Order {
   const initialSize = dec(e.sz);
-  const batchMs = usToMs(frame.batch);
   return {
     id: e.id,
     txHash: e.tx,
-    // The frame names the book, so this is exact — v1 carried a token pair and
-    // left the id to be inferred from the markets list.
+    // The frame names the book, so this is exact rather than inferred. Whether
+    // that book is spot or perp is static market metadata, joined at read time by
+    // whoever needs it — freezing it here would strand every order decoded before
+    // the markets list loaded.
     orderbookId: frame.book,
-    marketType: ctx.marketType?.(frame.book),
     side: initialSize < 0n ? "sell" : "buy",
     orderType: e.type === "market" ? "market" : "limit",
     // Not on the entity: an order that rests is `active`, and the events below
@@ -60,7 +63,7 @@ function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, ctx: OrdersFra
     kind: (e.kind ?? "user_signed") as Order["kind"],
     nonce: e.n,
     // A frame with no `accts` covers exactly one account, so every row is its.
-    bidder: (frame.accts && e.a !== undefined ? frame.accts[e.a] : ctx.account) as Address,
+    bidder: (frame.accts && e.a !== undefined ? frame.accts[e.a] : account) as Address,
     price: dec(e.px),
     initialSize,
     filledBase: 0n,
@@ -91,7 +94,7 @@ function applyTotals(event: WireOrderEvent, order: Order): void {
   order.filledBase = dec(event.tb);
   order.filledQuote = dec(event.tq);
   order.fee = dec(event.tf);
-  if (order.filledBase > 0n) order.effectivePrice = (order.filledQuote * WAD) / order.filledBase;
+  if (order.filledBase > 0n) order.effectivePrice = vwap(order.filledQuote, order.filledBase);
 }
 
 function applyEvent(event: WireOrderEvent, order: Order, nowMs: number): void {
@@ -124,7 +127,7 @@ function applyEvent(event: WireOrderEvent, order: Order, nowMs: number): void {
       // receipt time is the closest thing available.
       const base = dec(event.b);
       const quote = dec(event.q);
-      const fill: PartialFill = { base, quote, price: base > 0n ? (quote * WAD) / base : 0n, time: nowMs };
+      const fill: PartialFill = { base, quote, price: vwap(quote, base), time: nowMs };
       order.fills = [...order.fills, fill];
       // Present only on the fill that closed the order.
       if (event.st) order.status = event.st as OrderStatus;
