@@ -136,7 +136,13 @@ export interface Order {
   filledQuote: bigint;
   fee: bigint;
   effectivePrice?: bigint;
-  deadlineMs: number;
+  /**
+   * The auction deadline the order was signed for (ms). REST only: it is a fact
+   * about the intent, not about when the order became real, and the
+   * `pod_orders_v2` frame does not carry it. To order orders, use `includedMs` —
+   * both sources report that.
+   */
+  deadlineMs?: number;
   /** TTL expiry (ms). Undefined when the order never expires. */
   endMs?: number;
   /** Batch-inclusion time (ms) — when the order entered the book. */

@@ -69,11 +69,11 @@ function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: numbe
     filledBase: 0n,
     filledQuote: 0n,
     fee: 0n,
-    // The signed deadline is not on the v2 wire. The batch the order landed in is
-    // at or before it, which is what ordering and display need; the REST re-seed
-    // replaces this with the signed value.
-    deadlineMs: batchMs,
     endMs: endMsFromUs(e.end),
+    // When the order became real. The signed deadline is not on this wire and is
+    // deliberately not invented from the batch: REST reports both separately, so
+    // inclusion time is the one thing every source agrees on and the only honest
+    // key to order by.
     includedMs: batchMs,
     fills: [],
     reduceOnly: e.reduce_only ?? false,
