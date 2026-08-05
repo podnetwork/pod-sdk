@@ -9,7 +9,7 @@
 // reports where delivery stopped, so resuming from one is a bare `resubscribe()`
 // with no re-seed.
 
-import type { Address, Order, OrdersQuery } from "../types/public.js";
+import type { Address, MarketId, Order, OrdersQuery } from "../types/public.js";
 import type { WireOrdersFrame } from "../types/wire.js";
 import { applyOrdersFrame } from "../codec/orders-v2.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
@@ -30,6 +30,29 @@ const FAST_RESUMES_BEFORE_RESEED = 3;
  * server is rejecting, drop it, and settle for streaming live.
  */
 const RETRIES_BEFORE_DROPPING_CURSOR = 2;
+
+/** The largest book id, which is what an absent `sinceBook` means. */
+const WHOLE_BATCH = `0x${"ff".repeat(32)}` as MarketId;
+
+/**
+ * Order two positions in the stream, the way the server does.
+ *
+ * A batch is delivered as one frame per book, so a position is the pair
+ * `(batch, book)` — and an absent book means the whole batch, which sorts *above*
+ * every book in it. This mirrors `already_delivered` in
+ * `node/src/rpc/orders_v2.rs`: `(frame_batch, frame_book) <= (since,
+ * since_book.unwrap_or(0xff…))`. Getting the absent case wrong turns "all of batch
+ * N" into "up to book B of batch N", which asks the server to re-send the rest.
+ *
+ * Book ids are fixed-width lowercase hex, so comparing them as strings is
+ * comparing their bytes.
+ */
+export function compareCursor(a: SubParams, b: SubParams): number {
+  const [ab, bb] = [a.since ?? 0, b.since ?? 0];
+  if (ab !== bb) return ab < bb ? -1 : 1;
+  const [abook, bbook] = [a.sinceBook ?? WHOLE_BATCH, b.sinceBook ?? WHOLE_BATCH];
+  return abook === bbook ? 0 : abook < bbook ? -1 : 1;
+}
 
 export class OrderHistory implements SeriesResource<Order> {
   private readonly base: BaseResource<Order[]>;
@@ -109,13 +132,11 @@ export class OrderHistory implements SeriesResource<Order> {
       for (const o of page.orders) this.byId.set(o.id, o);
       this.nextCursor = page.nextCursor;
       this._hasMore = page.nextCursor !== null;
-      // Only ever forward. The indexer can be behind the stream, and resuming from
-      // a point already applied re-delivers frames — harmless for entities and
-      // modifications, which carry absolute values, but a replayed fill would be
-      // appended to `fills` a second time. A page settles whole batches, so its
-      // watermark carries no book.
-      const pageUs = page.solutionNow * 1000;
-      if (pageUs > (this.cursor.since ?? 0)) this.cursor = { since: pageUs };
+      // Only ever forward, and a page settles whole batches, so its watermark
+      // carries no book — which makes it *ahead* of a stream position in the same
+      // batch, not equal to it.
+      const settled: SubParams = { since: page.solutionNow * 1000 };
+      if (compareCursor(settled, this.cursor) > 0) this.cursor = settled;
       this.rebuild();
       return true;
     } catch (e) {
@@ -146,20 +167,29 @@ export class OrderHistory implements SeriesResource<Order> {
    *
    * A resumable close needs neither a re-seed nor a delay: the server reports where
    * it stopped, so resubscribing from that delivers exactly the frames we never got.
-   * Everything else (a rejection, a server bug, or closes that keep coming) takes
-   * the slow path: backed off and capped, so a server that keeps refusing cannot
-   * spin this into a tight re-seed loop, and eventually the cursor is dropped (the
-   * likely culprit) to just stream live. Both counters reset once live data flows
-   * (`onFrame`).
+   * That fast path is only taken while the socket is actually open — `resubscribe()`
+   * is a no-op otherwise, which would spend the budget without an attempt and leave
+   * nothing scheduled, and `-32021` (node shutting down) arrives exactly as the
+   * socket goes away.
+   *
+   * Everything else (a rejection, a server bug, a close with the socket already
+   * gone, or closes that keep coming) takes the slow path: backed off and capped, so
+   * a server that keeps refusing cannot spin this into a tight re-seed loop, and
+   * eventually the cursor is dropped (the likely culprit) to just stream live. Both
+   * counters reset once live data flows (`onFrame`).
    */
   private onSubError(err: unknown): void {
     if (!this.alive) return;
-    if (err instanceof PodSubscriptionClosedError && err.resumable && this.fastResumes < FAST_RESUMES_BEFORE_RESEED) {
+    const canFastResume = err instanceof PodSubscriptionClosedError && err.resumable
+      && this.fastResumes < FAST_RESUMES_BEFORE_RESEED && this.ctx.ws.state === "open";
+    if (canFastResume) {
       this.fastResumes++;
-      // The server's watermark beats ours — it knows which frames it managed to
-      // hand over — and taking it here keeps `cursor` the one place the position
-      // lives, rather than leaving it to the copy the transport advanced.
-      if (err.resumeSince !== undefined) this.cursor = { since: err.resumeSince, sinceBook: err.resumeSinceBook };
+      // Adopt the server's watermark only when it is ahead of ours: it knows which
+      // frames it handed over, but a re-seed may already have carried us past it,
+      // and rewinding would re-deliver frames we have applied.
+      const closed = err as PodSubscriptionClosedError;
+      const reported: SubParams = { since: closed.resumeSince, sinceBook: closed.resumeSinceBook };
+      if (closed.resumeSince !== undefined && compareCursor(reported, this.cursor) > 0) this.cursor = reported;
       this.sub?.resubscribe();
       return;
     }
@@ -184,14 +214,18 @@ export class OrderHistory implements SeriesResource<Order> {
     const frame = result as WireOrdersFrame;
     if (!frame || !Array.isArray(frame.orders) || !Array.isArray(frame.events)) return;
 
+    // Drop what we already hold. Applying a frame is not idempotent — a fill event
+    // appends to `order.fills`, and re-creating an entity resets its totals — and
+    // re-delivery is designed in: a resumed subscription replays from a cursor, and
+    // the replay boundary is a whole batch. Same predicate as the server's
+    // `already_delivered`, so client and server agree on what "already sent" means.
+    const at: SubParams = { since: frame.batch, sinceBook: frame.book };
+    if (compareCursor(at, this.cursor) <= 0) return;
+
     applyOrdersFrame(frame, this.byId, { account: this.account, nowMs: Date.now() });
-    // A socket-level reconnect resubscribes from whatever is stored here, so the
-    // pair advances per frame — never backwards, since a resumed subscription
-    // replays older batches and must not undo the position we already reached.
-    if (frame.batch >= (this.cursor.since ?? 0)) {
-      this.cursor = { since: frame.batch, sinceBook: frame.book };
-      this.sub?.update(this.cursor);
-    }
+    // A socket-level reconnect resubscribes from whatever is stored here.
+    this.cursor = at;
+    this.sub?.update(at);
     this.rebuild();
   }
 
@@ -202,10 +236,11 @@ export class OrderHistory implements SeriesResource<Order> {
     if (this.query.orderbookId) arr = arr.filter((o) => o.orderbookId === this.query.orderbookId);
     // Newest first by when the order became real. Inclusion time is the key both
     // sources report — REST sends it alongside the signed deadline, and a frame's
-    // batch *is* it — so a REST row and a streamed row sort against each other.
-    // A signed order not yet in a batch has neither and sorts to the top, which is
-    // where the newest thing belongs.
-    const at = (o: Order) => o.includedMs ?? o.deadlineMs ?? Number.MAX_SAFE_INTEGER;
+    // batch *is* it — so a REST row and a streamed row sort against each other. An
+    // order with none has not been in a batch yet, so it is newer than every order
+    // that has; the signed deadline is deliberately not a fallback, since it is a
+    // future time and would sort on a different clock.
+    const at = (o: Order) => o.includedMs ?? Number.MAX_SAFE_INTEGER;
     arr.sort((a, b) => at(b) - at(a) || b.nonce - a.nonce);
     this.handle.set(arr);
   }
