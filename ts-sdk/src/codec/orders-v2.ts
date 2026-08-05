@@ -33,7 +33,14 @@ export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order
   const created = frame.orders.map((e) => decodeEntity(e, frame, batchMs, ctx.account));
 
   for (const event of frame.events) {
-    const target = event.o !== undefined ? created[event.o] : byId.get(event.id ?? "");
+    // `o` indexes this frame's entities and `id` names one resting from an earlier
+    // batch — but an event kind added later (ADR 0029 §6 reserves several) may name
+    // an entity from *this* frame by id, so try both before giving up. `created` is
+    // not in `byId` yet: entities are inserted after the events, so their own
+    // `new`/`reject` decides the status they land with.
+    const target = event.o !== undefined
+      ? created[event.o]
+      : byId.get(event.id ?? "") ?? created.find((o) => o.id === event.id);
     if (!target) continue;
     applyEvent(event, target, ctx.nowMs);
   }
@@ -62,8 +69,10 @@ function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: numbe
     status: "active",
     kind: (e.kind ?? "user_signed") as Order["kind"],
     nonce: e.n,
-    // A frame with no `accts` covers exactly one account, so every row is its.
-    bidder: (frame.accts && e.a !== undefined ? frame.accts[e.a] : account) as Address,
+    // A frame with no `accts` covers exactly one account, so every row is its. An
+    // index the table does not reach falls back the same way rather than becoming an
+    // `undefined` typed as an address.
+    bidder: (e.a !== undefined ? frame.accts?.[e.a] : undefined) ?? account,
     price: dec(e.px),
     initialSize,
     filledBase: 0n,
@@ -94,7 +103,9 @@ function applyTotals(event: WireOrderEvent, order: Order): void {
   order.filledBase = dec(event.tb);
   order.filledQuote = dec(event.tq);
   order.fee = dec(event.tf);
-  if (order.filledBase > 0n) order.effectivePrice = vwap(order.filledQuote, order.filledBase);
+  // Cleared, not skipped, when nothing is filled: a row reporting zero filled beside
+  // a fill price from before is worse than one with no fill price.
+  order.effectivePrice = order.filledBase > 0n ? vwap(order.filledQuote, order.filledBase) : undefined;
 }
 
 function applyEvent(event: WireOrderEvent, order: Order, nowMs: number): void {
