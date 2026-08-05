@@ -9,6 +9,7 @@
 import type { Address, Order, OrderStatus, PartialFill } from "../types/public.js";
 import type { WireOrderEntity, WireOrderEvent, WireOrdersFrame } from "../types/wire.js";
 import { dec, endMsFromUs, usToMs, WAD } from "./units.js";
+import { classifyPerpDirection } from "./direction.js";
 
 export interface OrdersFrameContext {
   /** The account the subscription is filtered to, used when the frame omits `accts`. */
@@ -140,6 +141,17 @@ function applyEvent(event: WireOrderEvent, order: Order, nowMs: number): void {
       const quote = dec(event.q);
       const fill: PartialFill = { base, quote, price: vwap(quote, base), time: nowMs };
       order.fills = [...order.fills, fill];
+      // A perp fill reports the position it left. The position it started from is
+      // that minus what this fill moved it — a buy raises it, a sell lowers it — and
+      // the transition is what says whether the order opened, added to, reduced,
+      // closed or flipped. Without it a client can only guess from the order's own
+      // side and `reduceOnly`, which calls a plain sell that closed a long an
+      // "Open Short".
+      if (event.pa !== undefined) {
+        const after = dec(event.pa);
+        const before = after - (order.initialSize < 0n ? -base : base);
+        order.direction = classifyPerpDirection(before, after);
+      }
       // Present only on the fill that closed the order.
       if (event.st) order.status = event.st as OrderStatus;
       break;
