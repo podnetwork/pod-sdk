@@ -193,6 +193,15 @@ export class OrderHistory implements SeriesResource<Order> {
       this.sub?.resubscribe();
       return;
     }
+    // The slow path, and the one that answers "what if we fell behind the server's
+    // replay buffer": `eth_subscribe` rejects a `since` older than what the buffer
+    // retains, and the prescribed recovery is to backfill over REST and resubscribe.
+    // That is what this is. `fetchFirstPage` also *replaces the cursor* with the
+    // page's watermark, so the position that was too old is gone by the first retry
+    // and the resubscribe is accepted with no gap — the server replays from the page
+    // forward. Dropping the cursor below is the backstop for when even that fresh
+    // watermark is refused (the indexer further behind than the buffer retains):
+    // live-only resubscribe, trading the unreplayable window for a working stream.
     this.subRetries++;
     const delay = Math.min(30_000, 500 * 2 ** (this.subRetries - 1));
     if (this.retryTimer) clearTimeout(this.retryTimer);
