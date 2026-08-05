@@ -211,10 +211,6 @@ export class PodTradeClient {
 
   orders(account: Address, query?: OrdersQuery): OrderHistory {
     const key = `orders:${account}:${query ? JSON.stringify(query) : ""}`;
-    // A streamed order names its book but not whether that book is spot or perp —
-    // that is static market metadata. Reads the markets snapshot, so it adds no
-    // extra subscription; undefined until the list has loaded.
-    const marketType = (book: MarketId) => this.markets.get()?.find((m) => m.id === book)?.type;
-    return this.memo(key, () => new OrderHistory(this.ctx, account, query, marketType));
+    return this.memo(key, () => new OrderHistory(this.ctx, account, query));
   }
 }

@@ -86,8 +86,7 @@ describe("applyOrdersFrame — entities", () => {
     expect(buy).toMatchObject({
       id: "0xb3bd",
       txHash: "0x8018",
-      // The frame names the book, so the id no longer has to be inferred from a
-      // token pair — the thing v1 could not report.
+      // The frame names the book, so the id is stated rather than inferred.
       orderbookId: BOOK_7,
       bidder: MM,
       nonce: 90643,
@@ -104,7 +103,7 @@ describe("applyOrdersFrame — entities", () => {
       reduceOnly: false,
       ioc: false,
     });
-    // `batch` is when the order landed, which is what v1 only ever gave over REST.
+    // `batch` is when the order landed — inclusion time, on a streamed order.
     expect(buy.includedMs).toBe(1785843401000);
     expect(buy.endMs).toBe(1785843579686);
   });
@@ -132,8 +131,8 @@ describe("applyOrdersFrame — entities", () => {
       orders: [{ id: "0xnoend", tx: "0xtx", a: 0, n: 1, px: "1", sz: "1" }],
       events: [{ k: "new", o: 0 }],
     };
-    // Omitted rather than the u128 sentinel v1 put on the wire, so there is no
-    // 39-digit number to represent.
+    // Omitted rather than sent as a u128 sentinel, so there is no 39-digit
+    // number for a JS consumer to represent.
     expect(apply(frame).get("0xnoend")!.endMs).toBeUndefined();
   });
 
@@ -155,16 +154,6 @@ describe("applyOrdersFrame — entities", () => {
       kind: "user_signed", orderType: "limit", reduceOnly: false, ioc: false,
     });
     expect(byId.get("0xplain")!.triggerType).toBeUndefined();
-  });
-
-  it("resolves the market type from the book when a resolver is given", () => {
-    const byId = new Map<string, Order>();
-    applyOrdersFrame(NEW_FRAME, byId, {
-      account: MM,
-      nowMs: NOW,
-      marketType: (book) => (book === BOOK_7 ? "perp" : undefined),
-    });
-    expect(byId.get("0xb3bd")!.marketType).toBe("perp");
   });
 });
 
@@ -274,8 +263,7 @@ describe("applyOrdersFrame — events", () => {
       events: [{ k: "reject", o: 0, why: "insufficient balance" }],
     };
     const o = apply(frame).get("0xbad")!;
-    // A reject never rested, but it belongs in history — with why it failed,
-    // which v1 could only flatten into `status`.
+    // A reject never rested, but it belongs in history — with why it failed.
     expect(o.status).toBe("invalid");
     expect(o.rejectReason).toBe("insufficient balance");
   });

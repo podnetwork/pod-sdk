@@ -118,6 +118,11 @@ export interface Order {
   id: Hash;
   txHash: Hash;
   orderbookId?: MarketId;
+  /**
+   * Whether the book is spot or perp, when the source said so — REST rows carry it,
+   * streamed ones do not. It is static market metadata rather than a fact about the
+   * order, so the reliable read is a join: `markets.find((m) => m.id === o.orderbookId)?.type`.
+   */
   marketType?: MarketType;
   side: OrderSide;
   orderType: OrderType;
