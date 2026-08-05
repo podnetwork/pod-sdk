@@ -200,7 +200,13 @@ export class OrderHistory implements SeriesResource<Order> {
     let arr = [...this.byId.values()];
     if (this.query.status) arr = arr.filter((o) => o.status === this.query.status);
     if (this.query.orderbookId) arr = arr.filter((o) => o.orderbookId === this.query.orderbookId);
-    arr.sort((a, b) => b.deadlineMs - a.deadlineMs || b.nonce - a.nonce);
+    // Newest first by when the order became real. Inclusion time is the key both
+    // sources report — REST sends it alongside the signed deadline, and a frame's
+    // batch *is* it — so a REST row and a streamed row sort against each other.
+    // A signed order not yet in a batch has neither and sorts to the top, which is
+    // where the newest thing belongs.
+    const at = (o: Order) => o.includedMs ?? o.deadlineMs ?? Number.MAX_SAFE_INTEGER;
+    arr.sort((a, b) => at(b) - at(a) || b.nonce - a.nonce);
     this.handle.set(arr);
   }
 }
