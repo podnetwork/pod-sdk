@@ -180,7 +180,9 @@ function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): { f
       if (event.st) order.status = event.st as OrderStatus;
       // Copied rather than shared: the same object is in `order.fills`, and attaching a
       // per-event field to it would leak the event into the order's fill history.
-      return { fill: { ...fill, closedAs: event.st as TerminalStatus | undefined } };
+      return {
+        fill: { ...fill, totalBase: dec(event.tb), closedAs: event.st as TerminalStatus | undefined },
+      };
     }
     case "modify_reject":
       // The order is untouched: this answers an amendment that did not happen. Without
