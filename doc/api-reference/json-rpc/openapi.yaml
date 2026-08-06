@@ -3577,8 +3577,13 @@ components:
         pa:
           type: string
           description: |
-            `fill` on a perp market: the owner's position after this fill, 1e18-scaled **signed**
-            decimal. Absent on spot, which has no position.
+            `fill`: the owner's position after this fill, 1e18-scaled **signed** decimal.
+
+            Present when a fill moved a position — so absent on spot, which has none, and absent
+            on the two fills the engine fabricates without moving one (the backstop sweep, and the
+            zero-size fill a cap-to-filled amendment emits to carry `st`). Do **not** read its
+            absence as "spot": take market type from the market. A client tracking positions treats
+            an absent `pa` as unchanged, which it is.
             The position *before* is not sent because it is derivable — `pa - sign(sz) * b`, the same
             arithmetic the engine used to produce the pair — and the transition between the two is
             what says whether the fill opened, added to, reduced, closed or flipped the position. A
