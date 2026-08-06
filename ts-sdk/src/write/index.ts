@@ -625,7 +625,7 @@ export async function mint(p: MintParams): Promise<TxReceipt> {
  * matching the engine (`trading/src/lib.rs`). `sequence` is the 0-based index
  * of the intent within a `submitBatch` (0 for a single-intent tx). Needs the
  * nonce, so it's only known up-front in managed mode; in advisory mode reconcile
- * by `tx_hash` from the `pod_orders` stream instead.
+ * by `tx` from the `pod_orders_v2` stream instead.
  */
 export function deriveOrderId(signer: Address, nonce: number, sequence = 0): Hash {
   return keccak256(

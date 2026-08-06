@@ -3491,7 +3491,7 @@ components:
       properties:
         k:
           type: string
-          enum: [new, reject, fill, cancel, expire, modify]
+          enum: [new, reject, fill, cancel, expire, modify, modify_reject]
           description: |
             - `new` — the order entered the book.
             - `reject` — dropped during execution, never rested; `why` carries the reason.
@@ -3499,6 +3499,7 @@ components:
             - `cancel` — removed by a cancel intent or by the engine.
             - `expire` — removed on reaching its TTL.
             - `modify` — a resting order's price and/or size changed in place.
+            - `modify_reject` — an amendment the engine refused. The order is untouched; `code` says why.
         o:
           type: integer
           description: Index into this frame's `orders`. Present when the order was created in this batch.
@@ -3510,7 +3511,34 @@ components:
           description: Index into the frame's `accts`, accompanying `id`. Present if and only if `accts` is.
         why:
           type: string
-          description: '`reject` only: why the engine dropped the order (insufficient balance or margin, off-tick price, and so on).'
+          description: |
+            On `reject`, why the engine dropped the order. On `modify_reject`, detail the `code`
+            cannot carry — the amounts on `insufficient_balance`, `invalid_price` and
+            `notional_below_minimum`, the pair on `unknown_market`, the whole reason on
+            `unspecified`. Absent for every other code, where it would restate the code.
+        by:
+          type: integer
+          description: |
+            `modify_reject` only: index into the frame's `accts` for the account that *asked*, which
+            is deliberately not `a`. A refusal says nothing about who owns the order, and on
+            `not_order_owner` the requester is precisely who does not. Absent when the subscription
+            names a single account.
+        req_px:
+          type: string
+          description: '`modify_reject` only: the price that was asked for, 1e18-scaled decimal. Echoed so a client with several amendments outstanding on one order can tell which this answers.'
+        req_sz:
+          type: string
+          description: '`modify_reject` only: the size that was asked for, 1e18-scaled decimal, unsigned.'
+        code:
+          type: string
+          enum: [insufficient_balance, invalid_price, zero_size, notional_below_minimum, unknown_market,
+                 order_not_found, not_order_owner, stale_nonce, wrong_pair, engine_managed_order,
+                 price_above_maximum, price_off_tick, market_order_must_be_ioc, size_above_maximum,
+                 size_off_lot, notional_overflow, notional_above_cap, unspecified]
+          description: |
+            `modify_reject` only: the stable reason identifier — branch on this, not on `why`.
+            Treat a value you do not recognise as `unspecified`: the set grows as the engine names
+            reasons, and `unspecified` itself means it has not named this one yet.
         b:
           type: string
           description: '`fill` only. Base filled **by this fill**, 1e18-scaled decimal — this batch''s amount, not a running total.'
@@ -3546,6 +3574,21 @@ components:
           type: string
           enum: [filled, canceled, margin_canceled, expired]
           description: '`fill` only, and only on the fill that **closed** the order, carrying the status it closed with. Its absence means the order is still working.'
+        pa:
+          type: string
+          description: |
+            `fill`: the owner's position after this fill, 1e18-scaled **signed** decimal.
+
+            Present when a fill moved a position — so absent on spot, which has none, and absent
+            on the two fills the engine fabricates without moving one (the backstop sweep, and the
+            zero-size fill a cap-to-filled amendment emits to carry `st`). Do **not** read its
+            absence as "spot": take market type from the market. A client tracking positions treats
+            an absent `pa` as unchanged, which it is.
+            The position *before* is not sent because it is derivable — `pa - sign(sz) * b`, the same
+            arithmetic the engine used to produce the pair — and the transition between the two is
+            what says whether the fill opened, added to, reduced, closed or flipped the position. A
+            raw position rather than a label so a client tracking positions off this stream can also
+            assert its running figure against it, the way `tb`/`tq` anchor the amounts.
         px:
           type: string
           description: '`modify` only: the order''s price after the change, 1e18-scaled decimal.'
