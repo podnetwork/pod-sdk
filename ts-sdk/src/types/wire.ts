@@ -3,7 +3,7 @@
 // strings; timestamps are microseconds (in `*_us` fields, or bare on candle/
 // orderbook). Decoders in ../codec/decode.ts convert these to ../types/public.
 
-import type { Hex } from "./public.js";
+import type { Hex, OrderEventKind } from "./public.js";
 
 export type WireDecimal = string; // 1e18-scaled integer as a decimal string
 
@@ -321,7 +321,7 @@ export interface WireOrderEntity {
  * would make an unrecognised kind unrepresentable.
  */
 export interface WireOrderEvent {
-  k: "new" | "reject" | "fill" | "cancel" | "expire" | "modify" | "modify_reject" | (string & {});
+  k: OrderEventKind | (string & {});
   o?: number;
   id?: Hex;
   a?: number;

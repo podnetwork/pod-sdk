@@ -7,7 +7,8 @@
 // lets the server add transition kinds without changing the entity.
 
 import type {
-  Address, Order, OrderEvent, OrderEventKind, OrderStatus, PartialFill, RejectCode,
+  Address, Order, OrderEvent, OrderEventFill, OrderEventKind, OrderStatus, PartialFill,
+  RejectCode, TerminalStatus,
 } from "../types/public.js";
 import type { WireOrderEntity, WireOrderEvent, WireOrdersFrame } from "../types/wire.js";
 import { dec, endMsFromUs, usToMs } from "./units.js";
@@ -53,12 +54,11 @@ export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order
       ? created[event.o]
       : byId.get(event.id ?? "") ?? created.find((o) => o.id === event.id);
     if (!target) continue;
-    const fill = applyEvent(event, target, facts);
-    // Only kinds this version understands: an unrecognised one is ignored rather than
-    // handed on as an event a consumer cannot act on (ADR 0029 §6).
-    if (KNOWN_KINDS.has(event.k)) {
-      applied.push({ kind: event.k as OrderEventKind, order: target, batchMs, ...(fill && { fill }) });
-    }
+    // `undefined` means a kind this version does not know, which is ignored rather than
+    // handed on as an event a consumer cannot act on (ADR 0029 §6). The switch is the
+    // only list of what is recognised — a separate one could disagree with it.
+    const outcome = applyEvent(event, target, facts);
+    if (outcome) applied.push({ kind: event.k as OrderEventKind, order: target, batchMs, fill: outcome.fill });
   }
 
   // After the events, not before: an entity's own `new`/`reject` decides the
@@ -125,34 +125,33 @@ function applyTotals(event: WireOrderEvent, order: Order): void {
   order.effectivePrice = order.filledBase > 0n ? div(order.filledQuote, order.filledBase) : undefined;
 }
 
-const KNOWN_KINDS = new Set<string>([
-  "new", "reject", "fill", "cancel", "expire", "modify", "modify_reject",
-]);
-
-/** Apply one event, returning the fill it recorded when it was a fill. */
-function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): (PartialFill & { closedAs?: OrderStatus }) | undefined {
+/**
+ * Apply one event. `undefined` when the kind is not one this version knows; otherwise
+ * what the event contributed, which for a fill is the fill itself.
+ */
+function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): { fill?: OrderEventFill } | undefined {
   switch (event.k) {
     case "new":
       order.status = "active";
-      break;
+      return {};
     case "reject":
       order.status = "invalid";
       order.rejectReason = event.why;
-      break;
+      return {};
     case "cancel":
       order.status = "canceled";
       applyTotals(event, order);
-      break;
+      return {};
     case "expire":
       order.status = "expired";
       applyTotals(event, order);
-      break;
+      return {};
     case "modify": {
       order.price = dec(event.px);
       // `sz` is an unsigned magnitude, so the side comes from the order we hold.
       const sign = order.initialSize < 0n ? -1n : 1n;
       order.initialSize = sign * dec(event.sz);
-      break;
+      return {};
     }
     case "fill": {
       applyTotals(event, order);
@@ -179,7 +178,9 @@ function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): (Pa
       }
       // Present only on the fill that closed the order.
       if (event.st) order.status = event.st as OrderStatus;
-      return { ...fill, closedAs: event.st as OrderStatus | undefined };
+      // Copied rather than shared: the same object is in `order.fills`, and attaching a
+      // per-event field to it would leak the event into the order's fill history.
+      return { fill: { ...fill, closedAs: event.st as TerminalStatus | undefined } };
     }
     case "modify_reject":
       // The order is untouched: this answers an amendment that did not happen. Without
@@ -194,7 +195,8 @@ function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): (Pa
         requestedBy: event.by !== undefined ? facts.accts?.[event.by] : undefined,
         batchMs: facts.batchMs,
       };
-      break;
-    // ADR 0029 §6: kinds are open. An unrecognised one is ignored, not an error.
+      return {};
+    // ADR 0029 §6: kinds are open, so an unrecognised one falls through to
+    // `undefined` — applied to nothing, reported to nobody.
   }
 }

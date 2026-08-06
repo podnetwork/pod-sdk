@@ -114,13 +114,16 @@ export class OrderHistory implements SeriesResource<Order> {
    * a snapshot cannot express: two fills in one batch are one state change, and a
    * refused amendment is none at all. Nothing is emitted for the REST seed, so a
    * consumer never has to filter out a backlog of history as if it were live.
-   *
-   * Emitted after the snapshot is published, so a listener reading the resource sees
-   * the state the events produced.
    */
   onEvent(listener: (events: OrderEvent[]) => void): () => void {
     this.eventListeners.add(listener);
-    return () => { this.eventListeners.delete(listener); };
+    // Listening starts the stream, like subscribing does. The resource is ref-counted
+    // from `subscribe`/`ready` alone, so without holding one an event-only consumer
+    // would wait forever — and would fall silent the moment the last snapshot
+    // subscriber left, since teardown drops the websocket subscription and leaves the
+    // listeners registered.
+    const release = this.base.subscribe(() => {});
+    return () => { this.eventListeners.delete(listener); release(); };
   }
 
   setWindow(): void { /* order history pages by cursor, not by time window */ }
@@ -259,8 +262,8 @@ export class OrderHistory implements SeriesResource<Order> {
     this.cursor = at;
     this.sub?.update(at);
     this.rebuild();
-    // After the snapshot: a listener that reads the resource in response to an event
-    // must see the state that event produced, not the state before it.
+    // Strictly after `rebuild()`: a listener that reads the resource in response to an
+    // event must see the state that event produced, not the state before it.
     if (events.length) {
       for (const listener of this.eventListeners) {
         try { listener(events); } catch { /* a listener's failure is not the stream's */ }
