@@ -6,7 +6,9 @@
 // them and to orders already held. Status lives only in the events, which is what
 // lets the server add transition kinds without changing the entity.
 
-import type { Address, Order, OrderStatus, PartialFill, RejectCode } from "../types/public.js";
+import type {
+  Address, Order, OrderEvent, OrderEventKind, OrderStatus, PartialFill, RejectCode,
+} from "../types/public.js";
 import type { WireOrderEntity, WireOrderEvent, WireOrdersFrame } from "../types/wire.js";
 import { dec, endMsFromUs, usToMs } from "./units.js";
 import { div } from "./fixed.js";
@@ -24,18 +26,23 @@ interface FrameFacts {
 }
 
 /**
- * Fold one frame into `byId`, in place.
+ * Fold one frame into `byId`, in place, and report the transitions it applied.
  *
  * Events naming an order that is not in `byId` and not in this frame are skipped:
  * they belong to an order resting outside the caller's window, and its terms have
- * never been on the wire, so there is nothing to display.
+ * never been on the wire, so there is nothing to display — and nothing to report.
+ *
+ * The returned events carry the order as the *whole* frame left it, not as it stood
+ * mid-frame: they are collected while applying but the rows are mutated in place, so a
+ * consumer never sees a half-applied order.
  */
-export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order>, ctx: OrdersFrameContext): void {
+export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order>, ctx: OrdersFrameContext): OrderEvent[] {
   // The book and the batch are frame constants: resolved once, not per entity.
   const batchMs = usToMs(frame.batch);
   const facts: FrameFacts = { batchMs, accts: frame.accts };
   const created = frame.orders.map((e) => decodeEntity(e, frame, batchMs, ctx.account));
 
+  const applied: OrderEvent[] = [];
   for (const event of frame.events) {
     // `o` indexes this frame's entities and `id` names one resting from an earlier
     // batch — but an event kind added later (ADR 0029 §6 reserves several) may name
@@ -46,7 +53,12 @@ export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order
       ? created[event.o]
       : byId.get(event.id ?? "") ?? created.find((o) => o.id === event.id);
     if (!target) continue;
-    applyEvent(event, target, facts);
+    const fill = applyEvent(event, target, facts);
+    // Only kinds this version understands: an unrecognised one is ignored rather than
+    // handed on as an event a consumer cannot act on (ADR 0029 §6).
+    if (KNOWN_KINDS.has(event.k)) {
+      applied.push({ kind: event.k as OrderEventKind, order: target, batchMs, ...(fill && { fill }) });
+    }
   }
 
   // After the events, not before: an entity's own `new`/`reject` decides the
@@ -54,6 +66,7 @@ export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order
   // understands are still inserted — the frame said the order exists, and a
   // transition from a newer server is no reason to drop the row.
   for (const order of created) byId.set(order.id, order);
+  return applied;
 }
 
 function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: number, account: Address): Order {
@@ -112,7 +125,12 @@ function applyTotals(event: WireOrderEvent, order: Order): void {
   order.effectivePrice = order.filledBase > 0n ? div(order.filledQuote, order.filledBase) : undefined;
 }
 
-function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): void {
+const KNOWN_KINDS = new Set<string>([
+  "new", "reject", "fill", "cancel", "expire", "modify", "modify_reject",
+]);
+
+/** Apply one event, returning the fill it recorded when it was a fill. */
+function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): (PartialFill & { closedAs?: OrderStatus }) | undefined {
   switch (event.k) {
     case "new":
       order.status = "active";
@@ -161,7 +179,7 @@ function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): voi
       }
       // Present only on the fill that closed the order.
       if (event.st) order.status = event.st as OrderStatus;
-      break;
+      return { ...fill, closedAs: event.st as OrderStatus | undefined };
     }
     case "modify_reject":
       // The order is untouched: this answers an amendment that did not happen. Without
