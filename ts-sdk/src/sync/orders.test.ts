@@ -9,8 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { MarketId } from "../types/public.js";
-import { compareCursor } from "./orders.js";
+import type { Address, MarketId, OrderEvent } from "../types/public.js";
+import { OrderHistory, compareCursor } from "./orders.js";
+import type { SyncContext } from "./sources.js";
 
 const book = (n: number) => `0x${n.toString(16).padStart(64, "0")}` as MarketId;
 const B1 = book(1);
@@ -65,5 +66,102 @@ describe("compareCursor — already-delivered decisions", () => {
   it("accepts a later batch, drops an earlier one", () => {
     expect(delivered({ batch: 6, book: B1 }, { since: 5, sinceBook: B9 })).toBe(false);
     expect(delivered({ batch: 4, book: B9 }, { since: 5 })).toBe(true);
+  });
+});
+
+// --- the event channel's contracts, none of which the codec tests can see ---
+
+/**
+ * `OrderHistory` over a stub context: a REST page that resolves immediately and a
+ * websocket whose `subscribe` hands us the frame callback, so a test can deliver a
+ * frame the way the transport would.
+ */
+function harness() {
+  let deliver: ((result: unknown) => void) | undefined;
+  const ws = {
+    state: "open",
+    on: () => () => {},
+    subscribe: (_channel: string, _params: unknown, onMessage: (r: unknown) => void) => {
+      deliver = onMessage;
+      return { unsubscribe: () => {}, update: () => {}, resubscribe: () => {} };
+    },
+  };
+  const rest = {
+    orders: async () => ({ orders: [], nextCursor: null, totalCount: 0, solutionNow: 0 }),
+  };
+  const history = new OrderHistory(
+    { rest, ws, positionResyncMs: 0, marketResyncMs: 0 } as unknown as SyncContext,
+    "0xabc" as Address,
+  );
+  return { history, frame: (f: unknown) => deliver?.(f), delivered: () => deliver !== undefined };
+}
+
+const FRAME = {
+  book: `0x${"00".repeat(31)}07`,
+  batch: 1_000_000,
+  accts: ["0xabc"],
+  orders: [{ id: "0xnew", tx: "0xtx", a: 0, n: 1, px: "1", sz: "1" }],
+  events: [{ k: "new", o: 0 }],
+};
+
+const flush = () => new Promise((r) => setTimeout(r, 0));
+
+describe("OrderHistory.onEvent", () => {
+  it("starts the stream on its own, without a snapshot subscriber", async () => {
+    const { history, frame, delivered } = harness();
+    const seen: OrderEvent[][] = [];
+    const off = history.onEvent((events) => seen.push(events));
+    await flush();
+
+    // The resource is ref-counted from `subscribe`/`ready`. Listening has to count too,
+    // or an event-only consumer waits forever — and today's app only worked because
+    // something else happened to hold the same instance.
+    expect(delivered(), "listening subscribed to the stream").toBe(true);
+    frame(FRAME);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.map((e) => e.kind)).toEqual(["new"]);
+    off();
+  });
+
+  it("emits after the snapshot, so a listener reads the state its events produced", async () => {
+    const { history, frame } = harness();
+    let orderCountWhenNotified: number | undefined;
+    const off = history.onEvent(() => { orderCountWhenNotified = history.get()?.length; });
+    await flush();
+
+    frame(FRAME);
+    // Emitting before `rebuild()` would show the listener the previous snapshot — the
+    // one without the order the event is about.
+    expect(orderCountWhenNotified).toBe(1);
+    off();
+  });
+
+  it("stops delivering once released, and survives a listener that throws", async () => {
+    const { history, frame } = harness();
+    const seen: string[] = [];
+    const offThrower = history.onEvent(() => { throw new Error("consumer bug"); });
+    const off = history.onEvent((events) => seen.push(...events.map((e) => e.kind)));
+    await flush();
+
+    // One listener's failure is its own, not the stream's.
+    expect(() => frame(FRAME)).not.toThrow();
+    expect(seen).toEqual(["new"]);
+
+    off();
+    frame({ ...FRAME, batch: 2_000_000, orders: [{ id: "0xtwo", tx: "0xtx", a: 0, n: 2, px: "1", sz: "1" }] });
+    expect(seen).toEqual(["new"]);
+    offThrower();
+  });
+
+  it("says nothing for the REST seed", async () => {
+    const { history } = harness();
+    const seen: OrderEvent[][] = [];
+    const off = history.onEvent((events) => seen.push(events));
+    await flush();
+
+    // The seed is history, not transitions. A consumer that had to filter it would be
+    // back to guessing which rows are new.
+    expect(seen).toEqual([]);
+    off();
   });
 });

@@ -85,6 +85,26 @@ export type OrderEventKind =
   | "new" | "reject" | "fill" | "cancel" | "expire" | "modify" | "modify_reject";
 
 /**
+ * The statuses an order can *close* with. Narrower than `OrderStatus`, which also
+ * covers the states a live order passes through — so a `switch` over this one can be
+ * exhaustive.
+ */
+export type TerminalStatus = Extract<OrderStatus, "filled" | "canceled" | "margin_canceled" | "expired">;
+
+/** One fill, plus the status it closed the order with when it did. */
+export interface OrderEventFill extends PartialFill {
+  /**
+   * Absent while the order is still working.
+   *
+   * `margin_canceled` here is the engine evicting the order for margin, reported on the
+   * fill that closed it. An eviction that closes an order *without* a fill arrives as a
+   * plain `cancel` instead: the wire cannot yet distinguish it from a user cancel (ADR
+   * 0029 §6 reserves a `why` for that), so do not try to re-derive it from `status`.
+   */
+  closedAs?: TerminalStatus;
+}
+
+/**
  * One transition the stream reported.
  *
  * The alternative is diffing consecutive snapshots, which can only see net state: two
@@ -98,15 +118,18 @@ export type OrderEventKind =
  */
 export interface OrderEvent {
   kind: OrderEventKind;
-  /** The order it happened to, as the whole frame left it. */
+  /**
+   * The order it happened to, as the whole frame left it.
+   *
+   * A live row, not a copy: the stream mutates it in place as later frames arrive. Read
+   * it in the callback, and copy it if you keep it — a buffered event would otherwise
+   * show the order's present state rather than its state at the time.
+   */
   order: Order;
   /** The batch it landed in (ms). */
   batchMs: number;
-  /**
-   * `fill` only: this fill alone — not a running total — plus the status it closed the
-   * order with, when it did.
-   */
-  fill?: PartialFill & { closedAs?: OrderStatus };
+  /** `fill` only: this fill alone, not a running total. */
+  fill?: OrderEventFill;
 }
 
 export interface TokenInfo {
