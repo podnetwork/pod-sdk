@@ -6,7 +6,7 @@
 // them and to orders already held. Status lives only in the events, which is what
 // lets the server add transition kinds without changing the entity.
 
-import type { Address, Order, OrderStatus, PartialFill } from "../types/public.js";
+import type { Address, Order, OrderStatus, PartialFill, RejectCode } from "../types/public.js";
 import type { WireOrderEntity, WireOrderEvent, WireOrdersFrame } from "../types/wire.js";
 import { dec, endMsFromUs, usToMs, WAD } from "./units.js";
 import { classifyPerpDirection } from "./direction.js";
@@ -14,8 +14,13 @@ import { classifyPerpDirection } from "./direction.js";
 export interface OrdersFrameContext {
   /** The account the subscription is filtered to, used when the frame omits `accts`. */
   account: Address;
-  /** Receipt time (ms) stamped on this frame's fills — the wire carries none. */
-  nowMs: number;
+}
+
+/** Per-frame facts the events need: the batch they landed in and who they belong to. */
+interface FrameFacts {
+  batchMs: number;
+  accts?: WireOrdersFrame["accts"];
+  account: Address;
 }
 
 /** Volume-weighted price of a filled amount; zero base has no price. */
@@ -31,6 +36,7 @@ const vwap = (quote: bigint, base: bigint) => (base > 0n ? (quote * WAD) / base 
 export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order>, ctx: OrdersFrameContext): void {
   // The book and the batch are frame constants: resolved once, not per entity.
   const batchMs = usToMs(frame.batch);
+  const facts: FrameFacts = { batchMs, accts: frame.accts, account: ctx.account };
   const created = frame.orders.map((e) => decodeEntity(e, frame, batchMs, ctx.account));
 
   for (const event of frame.events) {
@@ -43,7 +49,7 @@ export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order
       ? created[event.o]
       : byId.get(event.id ?? "") ?? created.find((o) => o.id === event.id);
     if (!target) continue;
-    applyEvent(event, target, ctx.nowMs);
+    applyEvent(event, target, facts);
   }
 
   // After the events, not before: an entity's own `new`/`reject` decides the
@@ -109,7 +115,7 @@ function applyTotals(event: WireOrderEvent, order: Order): void {
   order.effectivePrice = order.filledBase > 0n ? vwap(order.filledQuote, order.filledBase) : undefined;
 }
 
-function applyEvent(event: WireOrderEvent, order: Order, nowMs: number): void {
+function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): void {
   switch (event.k) {
     case "new":
       order.status = "active";
@@ -135,11 +141,11 @@ function applyEvent(event: WireOrderEvent, order: Order, nowMs: number): void {
     }
     case "fill": {
       applyTotals(event, order);
-      // `b`/`q` are this fill alone. The wire carries no per-fill timestamp, so
-      // receipt time is the closest thing available.
+      // `b`/`q` are this fill alone, and its time is the batch it cleared in — the
+      // auction's own timestamp rather than when this client happened to read it.
       const base = dec(event.b);
       const quote = dec(event.q);
-      const fill: PartialFill = { base, quote, price: vwap(quote, base), time: nowMs };
+      const fill: PartialFill = { base, quote, price: vwap(quote, base), time: facts.batchMs };
       order.fills = [...order.fills, fill];
       // A perp fill reports the position it left. The position it started from is
       // that minus what this fill moved it — a buy raises it, a sell lowers it — and
@@ -156,6 +162,20 @@ function applyEvent(event: WireOrderEvent, order: Order, nowMs: number): void {
       if (event.st) order.status = event.st as OrderStatus;
       break;
     }
+    case "modify_reject":
+      // The order is untouched: this answers an amendment that did not happen. Without
+      // it a refused price change looks exactly like one still in flight. `by` is the
+      // requester, not the owner — on `not_order_owner` it is precisely who does not
+      // own the order — so it is resolved separately from `a`.
+      order.amendRejected = {
+        requestedPrice: dec(event.req_px),
+        requestedSize: dec(event.req_sz),
+        code: (event.code ?? "unspecified") as RejectCode,
+        message: event.why,
+        requestedBy: event.by !== undefined ? facts.accts?.[event.by] : undefined,
+        batchMs: facts.batchMs,
+      };
+      break;
     // ADR 0029 §6: kinds are open. An unrecognised one is ignored, not an error.
   }
 }

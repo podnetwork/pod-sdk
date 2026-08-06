@@ -325,8 +325,20 @@ export interface WireOrderEvent {
   o?: number;
   id?: Hex;
   a?: number;
-  /** `reject`: why the engine dropped the order. */
+  /** `reject`: why the engine dropped the order. `modify_reject`: detail the `code` cannot carry. */
   why?: string;
+  /**
+   * `modify_reject`: index into `accts` for the account that *asked*, which is not
+   * necessarily the order's owner — hence not `a`. On `not_order_owner` the requester
+   * is precisely who does not own it.
+   */
+  by?: number;
+  /** `modify_reject`: the price that was asked for. */
+  req_px?: WireDecimal;
+  /** `modify_reject`: the size that was asked for, unsigned. */
+  req_sz?: WireDecimal;
+  /** `modify_reject`: the stable reason identifier — branch on this, not on `why`. */
+  code?: string;
   /** `fill`: base filled by **this** fill. */
   b?: WireDecimal;
   /** `fill`: quote filled by this fill. */
