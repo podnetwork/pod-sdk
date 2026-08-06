@@ -7,8 +7,8 @@
 // lets the server add transition kinds without changing the entity.
 
 import type {
-  Address, Order, OrderEvent, OrderEventFill, OrderEventKind, OrderStatus, PartialFill,
-  RejectCode, TerminalStatus,
+  Address, AmendRejection, Order, OrderEvent, OrderEventFill, OrderEventKind, OrderStatus,
+  PartialFill, RejectCode, TerminalStatus,
 } from "../types/public.js";
 import type { WireOrderEntity, WireOrderEvent, WireOrdersFrame } from "../types/wire.js";
 import { dec, endMsFromUs, usToMs } from "./units.js";
@@ -58,7 +58,15 @@ export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order
     // handed on as an event a consumer cannot act on (ADR 0029 §6). The switch is the
     // only list of what is recognised — a separate one could disagree with it.
     const outcome = applyEvent(event, target, facts);
-    if (outcome) applied.push({ kind: event.k as OrderEventKind, order: target, batchMs, fill: outcome.fill });
+    if (outcome) {
+      applied.push({
+        kind: event.k as OrderEventKind,
+        order: target,
+        batchMs,
+        fill: outcome.fill,
+        amendRejection: outcome.amendRejection,
+      });
+    }
   }
 
   // After the events, not before: an entity's own `new`/`reject` decides the
@@ -126,10 +134,14 @@ function applyTotals(event: WireOrderEvent, order: Order): void {
 }
 
 /**
- * Apply one event. `undefined` when the kind is not one this version knows; otherwise
- * what the event contributed, which for a fill is the fill itself.
+ * Apply one event. `undefined` when the kind is not one this version knows; otherwise what
+ * the event contributed beyond the order's own state — the fill, or the refused amendment.
  */
-function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): { fill?: OrderEventFill } | undefined {
+function applyEvent(
+  event: WireOrderEvent,
+  order: Order,
+  facts: FrameFacts,
+): { fill?: OrderEventFill; amendRejection?: AmendRejection } | undefined {
   switch (event.k) {
     case "new":
       order.status = "active";
@@ -189,19 +201,21 @@ function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): { f
       };
     }
     case "modify_reject":
-      // The order is untouched: this answers an amendment that did not happen. Without
-      // it a refused price change looks exactly like one still in flight. `by` is the
-      // requester, not the owner — on `not_order_owner` it is precisely who does not
-      // own the order — so it is resolved separately from `a`.
-      order.amendRejected = {
-        requestedPrice: dec(event.req_px),
-        requestedSize: dec(event.req_sz),
-        code: (event.code ?? "unspecified") as RejectCode,
-        message: event.why,
-        requestedBy: event.by !== undefined ? facts.accts?.[event.by] : undefined,
-        batchMs: facts.batchMs,
+      // Reported, not applied: this answers an amendment that did not happen, so the order
+      // is left exactly as it was — which is also why it belongs to the event and not to
+      // the order. Without it a refused price change looks like one still in flight.
+      // `by` is the requester, not the owner — on `not_order_owner` it is precisely who
+      // does not own the order — so it is resolved separately from `a`.
+      return {
+        amendRejection: {
+          requestedPrice: dec(event.req_px),
+          requestedSize: dec(event.req_sz),
+          code: (event.code ?? "unspecified") as RejectCode,
+          message: event.why,
+          requestedBy: event.by !== undefined ? facts.accts?.[event.by] : undefined,
+          batchMs: facts.batchMs,
+        },
       };
-      return {};
     // ADR 0029 §6: kinds are open, so an unrecognised one falls through to
     // `undefined` — applied to nothing, reported to nobody.
   }
