@@ -27,11 +27,12 @@ import { ethers } from "ethers";
 const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
-const abi = ["function getBalance(address token) view returns (uint256)"];
+const abi = ["function balanceOf(address token, address account) view returns (uint256)"];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, provider);
 
 const USDT = "0x0000000000000000000000000000000000000001";
-const balance = await orderbook.getBalance(USDT);
+const ACCOUNT = "0xYourAddress";
+const balance = await orderbook.balanceOf(USDT, ACCOUNT);
 console.log("Balance:", balance.toString());
 ```
 {% endtab %}
@@ -43,15 +44,17 @@ from web3 import Web3
 w3 = Web3(Web3.HTTPProvider("https://rpc.podtestnet.dev"))
 
 ORDERBOOK = "0x50d0000000000000000000000000000000000002"
-abi = [{"inputs": [{"name": "token", "type": "address"}],
-        "name": "getBalance",
+abi = [{"inputs": [{"name": "token", "type": "address"},
+                   {"name": "account", "type": "address"}],
+        "name": "balanceOf",
         "outputs": [{"name": "", "type": "uint256"}],
         "stateMutability": "view", "type": "function"}]
 
 orderbook = w3.eth.contract(address=ORDERBOOK, abi=abi)
 
 USDT = "0x0000000000000000000000000000000000000001"
-balance = orderbook.functions.getBalance(USDT).call()
+ACCOUNT = "0xYourAddress"
+balance = orderbook.functions.balanceOf(USDT, ACCOUNT).call()
 print("Balance:", balance)
 ```
 {% endtab %}
@@ -63,7 +66,7 @@ use alloy::{providers::ProviderBuilder, sol};
 sol! {
     #[sol(rpc)]
     contract Orderbook {
-        function getBalance(address token) public view returns (uint256);
+        function balanceOf(address token, address account) public view returns (uint256);
     }
 }
 
@@ -78,7 +81,8 @@ async fn main() -> eyre::Result<()> {
     );
 
     let usdt: Address = "0x0000000000000000000000000000000000000001".parse()?;
-    let balance = orderbook.getBalance(usdt).call().await?;
+    let account: Address = "0xYourAddress".parse()?;
+    let balance = orderbook.balanceOf(usdt, account).call().await?;
     println!("Balance: {}", balance._0);
 
     Ok(())
@@ -113,7 +117,11 @@ const orderbookId = "0x000000000000000000000000000000000000000000000000000000000
 const size = ethers.parseEther("1");            // buy 1 unit
 const price = ethers.parseEther("5000");        // limit price
 const orderType = 0;                            // 0 = Limit, 1 = Market
-const deadline = BigInt(Date.now()) * 1000n;    // now in microseconds
+// Deadline: next auction tick ~10s out — must be a multiple of the market's
+// auction interval (500 ms on testnet) or validators reject the order.
+const AUCTION_INTERVAL = 500_000n;              // microseconds
+const deadline = ((BigInt(Date.now()) * 1000n + 10_000_000n + AUCTION_INTERVAL - 1n)
+  / AUCTION_INTERVAL) * AUCTION_INTERVAL;
 const ttl = 60n * 1_000_000n;                  // 60 seconds in microseconds
 
 const tx = await orderbook.submitOrder(
@@ -148,12 +156,18 @@ abi = [{"inputs": [
 
 orderbook = w3.eth.contract(address=ORDERBOOK, abi=abi)
 
+# Deadline: next auction tick ~10s out — must be a multiple of the market's
+# auction interval (500 ms on testnet) or validators reject the order.
+AUCTION_INTERVAL = 500_000  # microseconds
+now_us = int(time.time() * 1_000_000)
+deadline = (now_us + 10_000_000 + AUCTION_INTERVAL - 1) // AUCTION_INTERVAL * AUCTION_INTERVAL
+
 tx = orderbook.functions.submitOrder(
     bytes.fromhex("00" * 31 + "01"),            # orderbook id
     10**18,                                      # size: buy 1 unit
     5000 * 10**18,                               # limit price
     0,                                           # order type: 0 = Limit
-    int(time.time() * 1_000_000),                # deadline in microseconds
+    deadline,                                    # deadline in microseconds
     60 * 1_000_000,                              # ttl: 60 seconds
     False,                                       # reduce only (perp only)
     False,                                       # ioc (immediate-or-cancel)
@@ -204,9 +218,13 @@ async fn main() -> eyre::Result<()> {
         &provider,
     );
 
+    // Deadline: next auction tick ~10s out — must be a multiple of the market's
+    // auction interval (500 ms on testnet) or validators reject the order.
+    const AUCTION_INTERVAL_US: u128 = 500_000;
     let now_us = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
-        .as_micros() as u128;
+        .as_micros();
+    let deadline = (now_us + 10_000_000).div_ceil(AUCTION_INTERVAL_US) * AUCTION_INTERVAL_US;
 
     let one_e18 = U256::from(10).pow(U256::from(18));
 
@@ -215,7 +233,7 @@ async fn main() -> eyre::Result<()> {
         I256::from_raw(one_e18),                 // size: buy 1 unit
         U256::from(5000) * one_e18,              // limit price
         Orderbook::OrderType::Limit,             // order type
-        now_us,                                   // deadline
+        deadline,                                 // deadline (auction-tick aligned)
         60 * 1_000_000,                          // ttl: 60 seconds
         false,                                    // reduceOnly (perp only)
         false,                                    // ioc — immediate-or-cancel

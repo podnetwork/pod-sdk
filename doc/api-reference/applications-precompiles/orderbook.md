@@ -19,7 +19,7 @@ Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds
 order_id = keccak256(abi.encode(address signer, uint64 nonce, uint32 sequence))
 ```
 
-where `signer` is the order owner, `nonce` is the `submitOrder` transaction's nonce, and `sequence` is the intent's position inside a `submitBatch` envelope (`0` for a standalone `submitOrder`). Wherever a call references an existing order — `cancel(canceledOrder, …)`, `update(updatedOrder, …)`, and the `getOrders(orderIds, …)` read — pass this `order_id`. You can compute it yourself with the formula above, or read it back from `ob_getOrders`, which returns it as `order_id` (the originating `submitOrder` tx hash is exposed separately as `tx_hash`).
+where `signer` is the order owner, `nonce` is the `submitOrder` transaction's nonce, and `sequence` is the intent's position inside a `submitBatch` envelope (`0` for a standalone `submitOrder`). Wherever a call references an existing order — `cancel(canceledOrder, …)` and `update(updatedOrder, …)` — pass this `order_id`. You can compute it yourself with the formula above, or read it back from `ob_getOrders`, which returns it as `order_id` (the originating `submitOrder` tx hash is exposed separately as `tx_hash`).
 {% endhint %}
 
 {% hint style="warning" %}
@@ -30,6 +30,8 @@ deadline = ceil((now + LAG) / auction_interval) * auction_interval
 ```
 
 `LAG` is the headroom you add to `now` so the intent reaches enough validators before its target batch. It is capped at **10 minutes**; aim for **at least 1 minute** under normal conditions, smaller when you want to target a specific upcoming batch.
+
+The alignment rule applies to **every deadline-bearing call** on this precompile — `deposit` and `withdraw` as much as orders, cancels, updates and triggers. All of them pass through the same validator check, so an unaligned deposit deadline is rejected just like an unaligned order deadline.
 
 See [Batch Deadline](../../protocol/orderbook.md#batch-deadline) in the protocol reference for the full discussion of `deadline` semantics and the trade-offs around `LAG`.
 {% endhint %}
@@ -61,22 +63,16 @@ contract Orderbook {
     // Trigger kind for a TP/SL trigger (perp markets only).
     enum TriggerType { TakeProfit, StopLoss }
 
-    // Whether a trigger is bound to the bidder's position on the pair.
+    // Exposure-association for a trigger.
     // None: standalone — removed only by a user cancel, TTL expiry, or its own fire.
-    // Position: the venue cancels the armed trigger (and any resting synthetic order
-    //           it already produced) at the end of the batch in which the bidder's
-    //           position on the pair reaches size 0.
-    enum TriggerGrouping { None, Position }
-
-    // --- Events ---
-
-    event SolutionExecuted(
-        bytes32 indexed orderbookId,
-        uint128 deadline,
-        uint256 clearingPrice,
-        uint256 totalVolume,
-        uint256 newOrdersCount
-    );
+    // Asset: binds the trigger to the asset the market type implies — on perp
+    //        markets the venue cancels the armed trigger (and any resting synthetic
+    //        order it already produced) at the end of the batch in which the
+    //        bidder's position on the pair reaches size 0; on spot markets it
+    //        cancels the armed trigger when the bidder's base-asset holdings hit 0.
+    //        (Renamed from `Position`; same ABI value — older nodes report it as
+    //        `position` in RPC responses.)
+    enum TriggerGrouping { None, Asset }
 
     // --- Order Management ---
 
@@ -157,36 +153,6 @@ contract Orderbook {
      */
     function withdrawableBalance(address token, address account) public view returns (uint256) {}
 
-    /**
-     * @notice Retrieves the deposited balance of the caller for a specific token.
-     * @param token The address of the ERC20 token to check.
-     * @return The current balance of the token held by the caller within the exchange.
-     * @deprecated Use balanceOf(address token, address account) instead.
-     */
-    function getBalance(address token) public view returns (int256) {}
-
-    /**
-     * @notice Batched retrieval of order details by their order ids.
-     * @param orderbookId The identifier of the market.
-     * @param orderIds An array of `order_id`s representing the orders to fetch.
-     * @return An array of order structs containing:
-     * - orderId: The unique order identifier (`keccak256(abi.encode(signer, nonce, sequence))`).
-     * - side: The order side (Buy/Sell).
-     * - status: The current status (e.g., Open, Filled, Canceled).
-     * - remainingBase: The amount of base asset left to fill.
-     * - price: The limit price.
-     * - startTs: Timestamp when the order was included in the orderbook.
-     * - endTs: Timestamp when the order expires.
-     * - filledBase: Amount of base asset already filled.
-     * - filledQuote: Amount of quote asset spent/received.
-     */
-    function getOrders(
-        bytes32 orderbookId,
-        bytes32[] calldata orderIds
-    ) public view returns (
-        (bytes32, Side, uint16, uint256, uint256, uint128, uint128, uint256, uint256)[] memory
-    ) {}
-
     // --- Fund Management ---
 
     /**
@@ -240,7 +206,7 @@ contract Orderbook {
      * @param limitPrice The limit price of the synthetic order produced when the trigger fires.
      * @param triggerPrice The mark-price threshold that fires the trigger.
      * @param triggerType TakeProfit or StopLoss.
-     * @param grouping Whether the trigger is bound to the bidder's position on the pair (see TriggerGrouping).
+     * @param grouping Whether the trigger is bound to the bidder's exposure on the pair (see TriggerGrouping).
      * @param deadline The latest batch this intent may be included in, in microseconds. Must be a multiple of the market's `auction_interval`.
      * @param ttl The "Time To Live" duration in microseconds; how long the armed trigger remains active.
      * @param reduceOnly If true, the synthetic order will only reduce an existing position.

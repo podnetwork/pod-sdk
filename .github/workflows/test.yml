@@ -27,6 +27,42 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+  # Until this job existed, no CI anywhere touched the TypeScript — a broken
+  # ts-sdk only surfaced when a downstream image build failed. `npm test`
+  # (vitest) is here because typecheck and build cannot catch behaviour: the
+  # transport dispatched subscription close frames to the wrong callback for as
+  # long as the file existed, compiling cleanly throughout.
+  #
+  # publish-ts-sdk.yml re-runs these same steps rather than depending on this
+  # job — a tag push can reach it without this workflow having run — so keep the
+  # two in step.
+  ts-sdk:
+    name: ts-sdk
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ts-sdk
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ts-sdk/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
   contracts:
     name: examples-solidity
     runs-on: ubuntu-latest

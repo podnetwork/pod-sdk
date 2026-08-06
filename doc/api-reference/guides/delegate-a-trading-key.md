@@ -45,7 +45,10 @@ const abi = [
 const orderbook = new ethers.Contract(ORDERBOOK, abi, delegate);
 
 const nvdaPerpId = "0x0000000000000000000000000000000000000000000000000000000000000007"; // NVDA-USD perp
-const deadline = now + 10_000_000n; // must be <= validUntil
+// Aligned to the market's auction interval (500 ms) — see Notes below.
+const AUCTION_INTERVAL = 500_000n;
+const deadline = ((now + 10_000_000n + AUCTION_INTERVAL - 1n) / AUCTION_INTERVAL)
+  * AUCTION_INTERVAL; // must be <= validUntil
 const ttl = 60n * 1_000_000n;
 
 // 5 NVDA long at $140 limit, owned by the master
@@ -116,7 +119,10 @@ let orderbook = Orderbook::new(
 
 let nvda_perp_id = FixedBytes::left_padding_from(&[7]); // NVDA-USD perp
 let one_e18 = U256::from(10).pow(U256::from(18));
-let deadline = u128::from(now_us) + 10_000_000; // must be <= valid_until
+// Aligned to the market's auction interval (500 ms) — see Notes below.
+const AUCTION_INTERVAL_US: u128 = 500_000;
+let deadline = (u128::from(now_us) + 10_000_000).div_ceil(AUCTION_INTERVAL_US)
+    * AUCTION_INTERVAL_US; // must be <= valid_until
 let ttl = 60 * 1_000_000;
 
 // 5 NVDA long at $140 limit, owned by the master

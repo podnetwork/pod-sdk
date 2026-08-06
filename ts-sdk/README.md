@@ -74,3 +74,40 @@ All monetary values are `bigint` (1e18-scaled; use `formatAmount`/`toNumber`/
 ```bash
 npm install && npm run build      # build the package to dist/
 ```
+
+## Working on the SDK and a consumer together
+
+The consumer's committed dependency is always the published version. To iterate
+locally, link this package into it instead of editing that dependency:
+
+```bash
+cd ts-sdk && npm run build && npm link
+cd ../../frontend && npm link @pod-network/trade-sdk
+# undo
+npm unlink @pod-network/trade-sdk && npm ci
+```
+
+`dist/` is what consumers import, so rebuild after each change. Nothing is
+committed on either side, so a local path can never leak into a release.
+
+## Releasing
+
+Publishing is driven by a **`ts-sdk-v*`** tag, which is deliberately distinct
+from the repo-wide `v*` tag that `release.yml` uses to zip every SDK into a
+GitHub Release — so a TypeScript release doesn't drag `rust-sdk` along:
+
+```bash
+# 1. bump the version in package.json, commit it
+# 2. tag it — the tag must match package.json or the job fails
+git tag ts-sdk-v0.1.0 && git push origin ts-sdk-v0.1.0
+```
+
+`publish-ts-sdk.yml` then typechecks, builds and publishes to npm with
+provenance. Two things worth knowing:
+
+- A version containing a hyphen (`0.2.0-rc.0`) publishes under the **`rc`**
+  dist-tag, leaving `latest` alone — so prereleases never become the default
+  install. Use one to rehearse a release; npm versions can never be reused.
+- `dist/` is gitignored and built during the release, and `prepublishOnly`
+  rebuilds it on any manual `npm publish` too, so a stale or empty `dist/`
+  can't ship.

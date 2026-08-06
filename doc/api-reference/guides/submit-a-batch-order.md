@@ -11,7 +11,7 @@ Each entry in `inner` is the full ABI-encoded calldata of a single-intent call (
 1. ABI-encode each single-intent call (entry order, take-profit trigger, stop-loss trigger).
 2. Pass them as the `inner` array to `submitBatch`.
 
-The example opens a 5 NVDA long at $140 and arms two position-grouped, reduce-only triggers — a take-profit that sells at $160 and a stop-loss that sells at $120.
+The example opens a 5 NVDA long at $140 and arms two asset-grouped (position-bound), reduce-only triggers — a take-profit that sells at $160 and a stop-loss that sells at $120.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -30,10 +30,15 @@ const abi = [
 const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 
 const nvdaPerpId = "0x0000000000000000000000000000000000000000000000000000000000000007"; // NVDA-USD perp
-const now = BigInt(Date.now()) * 1000n; // microseconds
+
+// Deadlines must be an exact multiple of the market's auction interval
+// (500 ms on every testnet market) or validators reject the intent.
+const AUCTION_INTERVAL = 500_000n; // microseconds
+const deadlineAfter = (lagUs: bigint): bigint =>
+  ((BigInt(Date.now()) * 1000n + lagUs + AUCTION_INTERVAL - 1n) / AUCTION_INTERVAL) * AUCTION_INTERVAL;
 
 // One shared deadline for the whole envelope — required by submitBatch.
-const deadline = now + 10_000_000n;
+const deadline = deadlineAfter(10_000_000n);
 const ttl = 60n * 1_000_000n;
 const size = ethers.parseEther("5"); // +5 NVDA long
 
@@ -45,13 +50,13 @@ const entry = orderbook.interface.encodeFunctionData("submitOrder", [
 // 2. Take-profit: sell 5 NVDA when price reaches $160 (reduceOnly, tied to the position)
 const takeProfit = orderbook.interface.encodeFunctionData("submitTrigger", [
   nvdaPerpId, -size, ethers.parseEther("160"), ethers.parseEther("160"),
-  0 /* TakeProfit */, 1 /* Position */, deadline, ttl, true, false,
+  0 /* TakeProfit */, 1 /* Asset */, deadline, ttl, true, false,
 ]);
 
 // 3. Stop-loss: sell 5 NVDA when price drops to $120 (reduceOnly, tied to the position)
 const stopLoss = orderbook.interface.encodeFunctionData("submitTrigger", [
   nvdaPerpId, -size, ethers.parseEther("120"), ethers.parseEther("120"),
-  1 /* StopLoss */, 1 /* Position */, deadline, ttl, true, false,
+  1 /* StopLoss */, 1 /* Asset */, deadline, ttl, true, false,
 ]);
 
 // Submit all three as one atomic envelope
@@ -73,7 +78,7 @@ sol! {
     contract Orderbook {
         enum OrderType { Limit, Market }
         enum TriggerType { TakeProfit, StopLoss }
-        enum TriggerGrouping { None, Position }
+        enum TriggerGrouping { None, Asset }
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
             OrderType orderType, uint128 deadline, uint128 ttl,
@@ -99,13 +104,17 @@ let orderbook = Orderbook::new(
 );
 
 let nvda_perp_id = FixedBytes::left_padding_from(&[7]); // NVDA-USD perp
-let now_us = std::time::SystemTime::now()
-    .duration_since(std::time::UNIX_EPOCH)?
-    .as_micros() as u128;
 let one_e18 = U256::from(10).pow(U256::from(18));
 
+// Deadlines must be an exact multiple of the market's auction interval
+// (500 ms on every testnet market) or validators reject the intent.
+const AUCTION_INTERVAL_US: u128 = 500_000;
+let now_us = std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)?
+    .as_micros();
+
 // One shared deadline for the whole envelope — required by submitBatch.
-let deadline = now_us + 10_000_000;
+let deadline = (now_us + 10_000_000).div_ceil(AUCTION_INTERVAL_US) * AUCTION_INTERVAL_US;
 let ttl = 60 * 1_000_000;
 let size = I256::from_raw(U256::from(5) * one_e18); // +5 NVDA long
 
@@ -125,7 +134,7 @@ let take_profit = Orderbook::submitTriggerCall {
     limitPrice: U256::from(160) * one_e18,
     triggerPrice: U256::from(160) * one_e18,
     triggerType: Orderbook::TriggerType::TakeProfit,
-    grouping: Orderbook::TriggerGrouping::Position,
+    grouping: Orderbook::TriggerGrouping::Asset,
     deadline, ttl, reduceOnly: true, ioc: false,
 }.abi_encode();
 
@@ -136,7 +145,7 @@ let stop_loss = Orderbook::submitTriggerCall {
     limitPrice: U256::from(120) * one_e18,
     triggerPrice: U256::from(120) * one_e18,
     triggerType: Orderbook::TriggerType::StopLoss,
-    grouping: Orderbook::TriggerGrouping::Position,
+    grouping: Orderbook::TriggerGrouping::Asset,
     deadline, ttl, reduceOnly: true, ioc: false,
 }.abi_encode();
 
