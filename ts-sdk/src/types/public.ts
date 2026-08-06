@@ -80,6 +80,35 @@ export interface AmendRejection {
   batchMs: number;
 }
 
+/** What the engine did to an order, as `pod_orders_v2` reports it (ADR 0029 §3). */
+export type OrderEventKind =
+  | "new" | "reject" | "fill" | "cancel" | "expire" | "modify" | "modify_reject";
+
+/**
+ * One transition the stream reported.
+ *
+ * The alternative is diffing consecutive snapshots, which can only see net state: two
+ * fills in one batch collapse into one change, a fill that closes an order hides the
+ * partial, and a transition that changes nothing about the order — a refused amendment
+ * — is invisible without a synthetic marker to spot it by.
+ *
+ * Deliberately lean. `order` is the row as the whole frame left it, and the detail that
+ * belongs to the order rather than to the event (a reject's `rejectReason`, a refusal's
+ * `amendRejected`) is read from there.
+ */
+export interface OrderEvent {
+  kind: OrderEventKind;
+  /** The order it happened to, as the whole frame left it. */
+  order: Order;
+  /** The batch it landed in (ms). */
+  batchMs: number;
+  /**
+   * `fill` only: this fill alone — not a running total — plus the status it closed the
+   * order with, when it did.
+   */
+  fill?: PartialFill & { closedAs?: OrderStatus };
+}
+
 export interface TokenInfo {
   address: Address;
   symbol: string;

@@ -9,7 +9,7 @@
 // reports where delivery stopped, so resuming from one is a bare `resubscribe()`
 // with no re-seed.
 
-import type { Address, MarketId, Order, OrdersQuery } from "../types/public.js";
+import type { Address, MarketId, Order, OrderEvent, OrdersQuery } from "../types/public.js";
 import type { WireOrdersFrame } from "../types/wire.js";
 import { applyOrdersFrame } from "../codec/orders-v2.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
@@ -68,6 +68,7 @@ export class OrderHistory implements SeriesResource<Order> {
   private subRetries = 0;
   private fastResumes = 0;
   private retryTimer?: ReturnType<typeof setTimeout>;
+  private readonly eventListeners = new Set<(events: OrderEvent[]) => void>();
   /**
    * Where the stream is: the last frame accepted, as the `(batch, book)` pair the
    * channel resumes from. Replaced whole rather than patched half at a time —
@@ -104,6 +105,23 @@ export class OrderHistory implements SeriesResource<Order> {
   hasMore(): boolean { return this._hasMore; }
   loading(): boolean { return this._loading; }
   destroy(): void { this.base.destroy(); }
+
+  /**
+   * Observe the transitions the stream reports, as they arrive — a frame at a time, in
+   * the order the engine caused them.
+   *
+   * The snapshot (`get`/`subscribe`) is what to render; this is what *happened*, which
+   * a snapshot cannot express: two fills in one batch are one state change, and a
+   * refused amendment is none at all. Nothing is emitted for the REST seed, so a
+   * consumer never has to filter out a backlog of history as if it were live.
+   *
+   * Emitted after the snapshot is published, so a listener reading the resource sees
+   * the state the events produced.
+   */
+  onEvent(listener: (events: OrderEvent[]) => void): () => void {
+    this.eventListeners.add(listener);
+    return () => { this.eventListeners.delete(listener); };
+  }
 
   setWindow(): void { /* order history pages by cursor, not by time window */ }
 
@@ -236,11 +254,18 @@ export class OrderHistory implements SeriesResource<Order> {
     const at: SubParams = { since: frame.batch, sinceBook: frame.book };
     if (compareCursor(at, this.cursor) <= 0) return;
 
-    applyOrdersFrame(frame, this.byId, { account: this.account });
+    const events = applyOrdersFrame(frame, this.byId, { account: this.account });
     // A socket-level reconnect resubscribes from whatever is stored here.
     this.cursor = at;
     this.sub?.update(at);
     this.rebuild();
+    // After the snapshot: a listener that reads the resource in response to an event
+    // must see the state that event produced, not the state before it.
+    if (events.length) {
+      for (const listener of this.eventListeners) {
+        try { listener(events); } catch { /* a listener's failure is not the stream's */ }
+      }
+    }
   }
 
   private rebuild(): void {

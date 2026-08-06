@@ -78,6 +78,12 @@ function apply(frame: WireOrdersFrame, seed: Order[] = [], account = MM): Map<st
   return byId;
 }
 
+/** The events a frame reported, rather than the state it left behind. */
+function events(frame: WireOrdersFrame, seed: Order[] = [], account = MM) {
+  const byId = new Map(seed.map((o) => [o.id, o]));
+  return applyOrdersFrame(frame, byId, { account });
+}
+
 describe("applyOrdersFrame — entities", () => {
   it("decodes a captured `new` frame into orders keyed by id", () => {
     const byId = apply(NEW_FRAME);
@@ -379,6 +385,76 @@ describe("applyOrdersFrame — refused amendments", () => {
     const byId = apply(frame, [resting()]);
     expect(byId.get("0xa9a5")!.amendRejected).toBeUndefined();
     expect(byId.has("0xnotmine")).toBe(false);
+  });
+});
+
+describe("applyOrdersFrame — reported events", () => {
+  it("reports what happened, in the frame's order, with the order it happened to", () => {
+    const frame: WireOrdersFrame = {
+      ...NEW_FRAME,
+      orders: [{ id: "0xnew", tx: "0xtx", a: 0, n: 1, px: (100n * WAD).toString(), sz: (2n * WAD).toString() }],
+      events: [
+        { k: "new", o: 0 },
+        { k: "fill", o: 0, b: (2n * WAD).toString(), q: (200n * WAD).toString(), tb: (2n * WAD).toString(), tq: (200n * WAD).toString(), tf: "3", st: "filled" },
+      ],
+    };
+    const out = events(frame);
+
+    // Order preserved: a consumer sees the order enter the book and then fill, which
+    // a diff of before/after snapshots cannot distinguish from "appeared, already
+    // filled" — the events are what the engine did, not the difference they made.
+    expect(out.map((e) => e.kind)).toEqual(["new", "fill"]);
+    expect(out[0]!.order.id).toBe("0xnew");
+    expect(out[0]!.batchMs).toBe(1785843401000);
+    // Every event carries the order as the whole frame left it, so a consumer reading
+    // `order.filledBase` on the `new` event is not looking at a half-applied row.
+    expect(out[0]!.order.filledBase).toBe(2n * WAD);
+  });
+
+  it("carries this fill alone, and the status it closed with", () => {
+    const frame: WireOrdersFrame = {
+      ...MODIFY_FRAME,
+      events: [
+        { k: "fill", id: "0xa9a5", b: WAD.toString(), q: (100n * WAD).toString(), tb: WAD.toString(), tq: (100n * WAD).toString(), tf: "0" },
+        { k: "fill", id: "0xa9a5", b: WAD.toString(), q: (101n * WAD).toString(), tb: (2n * WAD).toString(), tq: (201n * WAD).toString(), tf: "0", st: "filled" },
+      ],
+    };
+    const out = events(frame, [resting()]);
+
+    // Two fills in one batch stay two events. Folded into a snapshot they became one
+    // `filledBase` change, so a consumer could only ever report their sum — and the
+    // closing one hid the partial entirely.
+    expect(out).toHaveLength(2);
+    expect(out[0]!.fill).toEqual({ base: WAD, quote: 100n * WAD, price: 100n * WAD, time: 1785843559500 });
+    expect(out[0]!.fill?.closedAs).toBeUndefined();
+    expect(out[1]!.fill?.closedAs).toBe("filled");
+  });
+
+  it("reports a refusal, which changes nothing about the order", () => {
+    const frame: WireOrdersFrame = {
+      ...MODIFY_FRAME,
+      events: [{ k: "modify_reject", id: "0xa9a5", req_px: "1", req_sz: "1", code: "size_off_lot" }],
+    };
+    const out = events(frame, [resting()]);
+    // The reason rides on the order, so the event stays lean; what matters is that
+    // there *is* an event for something with no state change to detect.
+    expect(out.map((e) => e.kind)).toEqual(["modify_reject"]);
+    expect(out[0]!.order.amendRejected?.code).toBe("size_off_lot");
+  });
+
+  it("omits events it could not apply", () => {
+    const frame = {
+      ...MODIFY_FRAME,
+      events: [
+        { k: "cancel", id: "0xnotmine" },
+        { k: "adl_liquidation_from_a_newer_server", id: "0xa9a5" },
+        { k: "cancel", id: "0xa9a5" },
+      ],
+    } as unknown as WireOrdersFrame;
+    // An order outside the window has nothing to report against, and an unrecognised
+    // kind is ignored per ADR 0029 §6 — reporting either would hand a consumer an
+    // event it cannot act on.
+    expect(events(frame, [resting()]).map((e) => e.kind)).toEqual(["cancel"]);
   });
 });
 
