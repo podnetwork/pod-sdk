@@ -425,7 +425,10 @@ describe("applyOrdersFrame — reported events", () => {
     // `filledBase` change, so a consumer could only ever report their sum — and the
     // closing one hid the partial entirely.
     expect(out).toHaveLength(2);
-    expect(out[0]!.fill).toEqual({ base: WAD, quote: 100n * WAD, price: 100n * WAD, time: 1785843559500 });
+    // The running total is this fill's, not the order's after the whole frame — the two
+    // fills below would otherwise both claim the final 2.0.
+    expect(out[0]!.fill).toEqual({ base: WAD, quote: 100n * WAD, price: 100n * WAD, time: 1785843559500, totalBase: WAD });
+    expect(out[1]!.fill?.totalBase).toBe(2n * WAD);
     expect(out[0]!.fill?.closedAs).toBeUndefined();
     expect(out[1]!.fill?.closedAs).toBe("filled");
   });

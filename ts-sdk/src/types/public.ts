@@ -94,6 +94,14 @@ export type TerminalStatus = Extract<OrderStatus, "filled" | "canceled" | "margi
 /** One fill, plus the status it closed the order with when it did. */
 export interface OrderEventFill extends PartialFill {
   /**
+   * Base filled over the order's life **as of this fill**.
+   *
+   * Not the same as `order.filledBase`, which is where the *whole frame* left the order:
+   * two fills of one order in one batch would otherwise both report the final total,
+   * so neither matches the fill it is attached to.
+   */
+  totalBase: bigint;
+  /**
    * Absent while the order is still working.
    *
    * `margin_canceled` here is the engine evicting the order for margin, reported on the

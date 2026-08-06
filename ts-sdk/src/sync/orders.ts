@@ -75,7 +75,18 @@ export class OrderHistory implements SeriesResource<Order> {
    * `sinceBook` names a book *within* `since`, so the two are one fact and a
    * mismatched pair asks the server to skip books we never saw.
    */
-  private cursor: SubParams = { since: 0 };
+  private cursor: SubParams = { since: 0, sinceBook: undefined };
+
+  /**
+   * Push the cursor to the transport, both halves.
+   *
+   * `update` merges, so sending `{ since }` alone would leave whatever `sinceBook` was
+   * there before — a book from an older batch beside a newer `since`, which asks the
+   * server to skip less than it should and re-send the difference.
+   */
+  private pushCursor(): void {
+    this.sub?.update({ since: this.cursor.since, sinceBook: this.cursor.sinceBook });
+  }
 
   constructor(
     private readonly ctx: SyncContext,
@@ -149,16 +160,26 @@ export class OrderHistory implements SeriesResource<Order> {
   // --- internals ---
 
   private async fetchFirstPage(): Promise<boolean> {
+    const before = this.cursor;
     try {
       const page = await this.ctx.rest.orders(this.account, { limit: this.query.limit ?? 100 });
       if (!this.alive) return false;
-      for (const o of page.orders) this.byId.set(o.id, o);
+      // The transport resubscribes synchronously right after the `open` event that
+      // starts this fetch, so replayed frames can land while it is still in flight —
+      // and the indexer trails the stream by design. Overwriting a row the stream has
+      // already advanced would revert it, permanently: the cursor below refuses to
+      // rewind and `onFrame` drops a re-delivery, so nothing would repair it.
+      const streamMovedOn = compareCursor(this.cursor, before) > 0;
+      for (const o of page.orders) {
+        if (streamMovedOn && this.byId.has(o.id)) continue;
+        this.byId.set(o.id, o);
+      }
       this.nextCursor = page.nextCursor;
       this._hasMore = page.nextCursor !== null;
       // Only ever forward, and a page settles whole batches, so its watermark
       // carries no book — which makes it *ahead* of a stream position in the same
       // batch, not equal to it.
-      const settled: SubParams = { since: page.solutionNow * 1000 };
+      const settled: SubParams = { since: page.solutionNow * 1000, sinceBook: undefined };
       if (compareCursor(settled, this.cursor) > 0) this.cursor = settled;
       this.rebuild();
       return true;
@@ -179,7 +200,7 @@ export class OrderHistory implements SeriesResource<Order> {
           (e) => this.onSubError(e),
         );
       } else {
-        this.sub.update(this.cursor); // refresh for the next reconnect
+        this.pushCursor(); // refresh for the next reconnect
       }
     });
   }
@@ -215,7 +236,7 @@ export class OrderHistory implements SeriesResource<Order> {
       // The transport rewrote `sub.params` from the close before this ran, so without
       // pushing our own decision back the wire resumes from the server's point
       // regardless and the guard above protects nothing.
-      this.sub?.update(this.cursor);
+      this.pushCursor();
       this.sub?.resubscribe();
       return;
     }
@@ -228,14 +249,29 @@ export class OrderHistory implements SeriesResource<Order> {
     // forward. Dropping the cursor below is the backstop for when even that fresh
     // watermark is refused (the indexer further behind than the buffer retains):
     // live-only resubscribe, trading the unreplayable window for a working stream.
+    this.scheduleReseed();
+  }
+
+  /**
+   * Back off, re-seed over REST, then resubscribe — and keep trying.
+   *
+   * The re-seed can fail too (the same node is usually behind both the stream and the
+   * indexer), and a failure has to re-arm here: not resubscribing means no further
+   * close or rejection arrives, so nothing else would ever schedule another attempt and
+   * the stream would stay down with no error surfaced. Capped, so a node that keeps
+   * refusing cannot spin this.
+   */
+  private scheduleReseed(): void {
     this.subRetries++;
     const delay = Math.min(30_000, 500 * 2 ** (this.subRetries - 1));
     if (this.retryTimer) clearTimeout(this.retryTimer);
     this.retryTimer = setTimeout(() => {
       void this.fetchFirstPage().then((ok) => {
-        if (!ok || !this.alive) return;
+        if (!this.alive) return;
+        if (!ok) { this.scheduleReseed(); return; }
         const tooOld = this.subRetries > RETRIES_BEFORE_DROPPING_CURSOR;
-        this.sub?.update(tooOld ? { since: undefined, sinceBook: undefined } : this.cursor);
+        if (tooOld) this.sub?.update({ since: undefined, sinceBook: undefined });
+        else this.pushCursor();
         this.sub?.resubscribe();
       });
     }, delay);
