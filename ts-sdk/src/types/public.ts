@@ -47,6 +47,13 @@ export interface Market {
   tickPrecision: bigint;
   lotSize: bigint;
   maxLeverage: number;
+  /**
+   * Maintenance leverage multiplier, same convention as maxLeverage: the
+   * maintenance margin is `1e18 / maintenanceLeverage`. `2 × maxLeverage`
+   * unless the market config overrides it. Undefined against older nodes —
+   * fall back to half the initial margin then.
+   */
+  maintenanceLeverage?: number;
   fundingWindowUs: number; // funding-accrual divisor (micros)
   makerFee: bigint;
   takerFee: bigint;

@@ -27,6 +27,11 @@ export interface WireMarketStatic {
   tick_precision: WireDecimal; // 1e18-scaled price increment (decimal string)
   lot_size: WireDecimal;
   max_leverage: number;
+  /**
+   * Maintenance leverage multiplier, same convention as max_leverage
+   * (maintenance margin = 1e18 / value). Absent on older nodes.
+   */
+  maintenance_leverage?: number | null;
   funding_window_us: number; // funding-accrual divisor (micros)
 }
 
