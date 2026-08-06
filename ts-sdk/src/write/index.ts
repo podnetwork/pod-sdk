@@ -620,6 +620,70 @@ export async function mint(p: MintParams): Promise<TxReceipt> {
   return receipt;
 }
 
+// --- waitlist deposit (canary — real USDC on the source chain) ---------------
+//
+// Canary environments fund accounts with a real USDC deposit on the source
+// chain (Arbitrum One) instead of the faucet: approve the waitlist contract to
+// spend the USDC, call its `deposit`, and the bridge credits the pod account
+// once the deposit confirms. Pure encoding like the CLOB builders above — sign
+// and send the returned calls with a wallet connected to the *source* chain.
+
+const ERC20_ABI = parseAbi(["function approve(address spender, uint256 value)"]);
+
+const WAITLIST_ABI = parseAbi([
+  "function deposit(address token, uint256 amount, address from, address to, address callContract, uint256 reserveBalance, bytes permit)",
+]);
+
+/** An unsigned call on the source chain — spread into
+ * `walletClient.sendTransaction`; gas and fees are left to the wallet. */
+export interface SourceChainCall {
+  to: Address;
+  data: Hex;
+  value: bigint;
+}
+
+/** ERC-20 `approve(spender, amount)` — step 1 of a waitlist deposit, so the
+ * waitlist contract can pull the USDC. */
+export function buildApprove(token: Address, spender: Address, amount: bigint): SourceChainCall {
+  return {
+    to: token,
+    data: encodeFunctionData({ abi: ERC20_ABI, functionName: "approve", args: [spender, amount] }),
+    value: 0n,
+  };
+}
+
+export interface WaitlistDepositParams {
+  /** The waitlist contract on the source chain. */
+  waitlist: Address;
+  /** The deposited ERC-20; `amount` is in its base units (USDC: 6 decimals). */
+  token: Address;
+  amount: bigint;
+  /** Depositor — must hold `amount` and have approved the waitlist for it. */
+  from: Address;
+  /** pod recipient of the bridged credit; defaults to `from`. */
+  to?: Address;
+  /** Where the credit lands on pod; defaults to the CLOB (trading balance). */
+  callContract?: Address;
+  /** Waitlist parameter; defaults to 10000, the value the waitlist expects. */
+  reserveBalance?: bigint;
+  /** EIP-2612-style permit blob; defaults to none (`0x`). */
+  permit?: Hex;
+}
+
+/** Waitlist `deposit(...)` — step 2, once the {@link buildApprove} tx has
+ * confirmed. The pod credit arrives asynchronously via the bridge relayer. */
+export function buildWaitlistDeposit(p: WaitlistDepositParams): SourceChainCall {
+  return {
+    to: p.waitlist,
+    data: encodeFunctionData({
+      abi: WAITLIST_ABI,
+      functionName: "deposit",
+      args: [p.token, p.amount, p.from, p.to ?? p.from, p.callContract ?? CLOB_ADDRESS, p.reserveBalance ?? 10_000n, p.permit ?? "0x"],
+    }),
+    value: 0n,
+  };
+}
+
 /**
  * Deterministic order id: `keccak256(abi.encode(signer, nonce, sequence))`,
  * matching the engine (`trading/src/lib.rs`). `sequence` is the 0-based index
