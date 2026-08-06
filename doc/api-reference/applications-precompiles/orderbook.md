@@ -46,6 +46,20 @@ See [Batch Deadline](../../protocol/orderbook.md#batch-deadline) in the protocol
 
 The inner intent is **owned by the master** (balances, resting-order owner, cancel/update/withdraw target) while its `order_id` keys on the delegate (the tx signer); a delegated `deposit`/`withdraw` has its `recipient` overridden to the master. Any deadline-bearing call can be wrapped — single intents or a whole `submitBatch` — but `submitSolutions`, `createOrderBook`, and nested `delegated` are rejected. Delegated calls are gas-exempt. For the concept and security model see [Key Delegation](../../protocol/key-delegation.md) in the protocol reference; for a worked example see [Delegate a trading key](../guides/delegate-a-trading-key.md).
 
+### Gas
+
+Gas is charged per operation (see [Gas](../README.md#gas)):
+
+| Operation                                 | Gas    |
+| ----------------------------------------- | ------ |
+| `submitOrder` / `submitTrigger`           | 40,000 |
+| `update` / `updateTrigger`                | 30,000 |
+| `cancel` / `cancelTrigger`                | 25,000 |
+| `deposit`, `withdraw`, and any other call | 21,000 |
+
+* `submitBatch` costs the sum of its inner intents' per-operation costs (minimum 21,000 gas) — charged as if each inner call were submitted standalone.
+* `delegated` calls are gas-exempt.
+
 ### Solidity interface (ABI)
 
 ```solidity

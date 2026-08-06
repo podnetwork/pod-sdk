@@ -39,6 +39,18 @@ View transactions and accounts
 {% endtab %}
 {% endtabs %}
 
+## Gas
+
+Gas pricing on Pod is fixed for now: the gas price is a constant **1 gwei**, and each operation is charged a fixed amount of gas that depends on what it does — a simple transfer costs **21,000 gas**, and each precompile lists its own per-operation costs. Variable gas pricing may be introduced later — see [Gas Pricing Without Consensus](https://pod.network/blog/gas-pricing-in-a-world-without-consensus).
+
+Even though the price is constant, clients don't need to hardcode it — the usual fee RPCs keep working:
+
+* `eth_gasPrice` returns the fixed price (`0x3b9aca00` = 1 gwei). The same value is served as `baseFeePerGas` in block responses and in `eth_feeHistory`.
+* `eth_estimateGas` works as-is — it returns the gas the transaction will actually be charged.
+* There is no priority fee or tip: `eth_maxPriorityFeePerGas` always returns `0`, and `eth_feeHistory` rewards are all zero.
+
+Each precompile's per-operation gas costs are listed in its own section under [Precompiles](applications-precompiles/README.md).
+
 ## Next Steps
 
 {% hint style="info" %}

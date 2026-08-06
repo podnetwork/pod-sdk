@@ -37,3 +37,7 @@ interface IOptimisticAuction {
 {% hint style="warning" %}
 **Microseconds, not milliseconds.** Deadlines are Unix timestamps in microseconds.
 {% endhint %}
+
+## Gas
+
+A `submitBid` call is charged **25,000 gas** (see [Gas](../README.md#gas)).
