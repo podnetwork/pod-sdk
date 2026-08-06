@@ -17,10 +17,9 @@ describe("classifyPerpDirection", () => {
   });
 
   it("distinguishes opening from increasing — the whole point of sending the position", () => {
-    // Same fill size, same side; only the position it started from differs.
-    expect(classifyPerpDirection(0n, L(5))).toBe("open_long");
+    // Opening is covered above; these are the same side and size from a position that
+    // already exists, which is the only thing that distinguishes them.
     expect(classifyPerpDirection(L(3), L(8))).toBe("add_long");
-    expect(classifyPerpDirection(0n, S(5))).toBe("open_short");
     expect(classifyPerpDirection(S(3), S(8))).toBe("add_short");
   });
 

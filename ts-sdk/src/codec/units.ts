@@ -46,7 +46,8 @@ export function usToMsOpt(us: number | string | null | undefined): number | unde
 export function endMsFromUs(us: number | string | null | undefined): number | undefined {
   if (us === null || us === undefined) return undefined;
   const n = typeof us === "string" ? Number(us) : us;
-  return Number.isFinite(n) && n <= Number.MAX_SAFE_INTEGER ? Math.trunc(n / 1000) : undefined;
+  // `NaN` and `Infinity` both fail this comparison, so it is the whole guard.
+  return n <= Number.MAX_SAFE_INTEGER ? usToMs(n) : undefined;
 }
 
 /** Milliseconds -> microseconds (for request params that take micros). */

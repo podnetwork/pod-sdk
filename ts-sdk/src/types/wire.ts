@@ -321,7 +321,7 @@ export interface WireOrderEntity {
  * would make an unrecognised kind unrepresentable.
  */
 export interface WireOrderEvent {
-  k: "new" | "reject" | "fill" | "cancel" | "expire" | "modify" | (string & {});
+  k: "new" | "reject" | "fill" | "cancel" | "expire" | "modify" | "modify_reject" | (string & {});
   o?: number;
   id?: Hex;
   a?: number;

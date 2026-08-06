@@ -267,7 +267,8 @@ export interface Trigger {
   reduceOnly: boolean;
   ioc: boolean;
   deadlineMs: number;
-  endMs: number;
+  /** TTL expiry (ms). Undefined when the trigger never expires. */
+  endMs?: number;
 }
 
 export interface BackstopTransfer {

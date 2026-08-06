@@ -48,10 +48,12 @@ const WHOLE_BATCH = `0x${"ff".repeat(32)}` as MarketId;
  * comparing their bytes.
  */
 export function compareCursor(a: SubParams, b: SubParams): number {
-  const [ab, bb] = [a.since ?? 0, b.since ?? 0];
-  if (ab !== bb) return ab < bb ? -1 : 1;
-  const [abook, bbook] = [a.sinceBook ?? WHOLE_BATCH, b.sinceBook ?? WHOLE_BATCH];
-  return abook === bbook ? 0 : abook < bbook ? -1 : 1;
+  const aBatch = a.since ?? 0;
+  const bBatch = b.since ?? 0;
+  if (aBatch !== bBatch) return aBatch < bBatch ? -1 : 1;
+  const aBook = a.sinceBook ?? WHOLE_BATCH;
+  const bBook = b.sinceBook ?? WHOLE_BATCH;
+  return aBook === bBook ? 0 : aBook < bBook ? -1 : 1;
 }
 
 export class OrderHistory implements SeriesResource<Order> {
@@ -187,9 +189,12 @@ export class OrderHistory implements SeriesResource<Order> {
       // Adopt the server's watermark only when it is ahead of ours: it knows which
       // frames it handed over, but a re-seed may already have carried us past it,
       // and rewinding would re-deliver frames we have applied.
-      const closed = err as PodSubscriptionClosedError;
-      const reported: SubParams = { since: closed.resumeSince, sinceBook: closed.resumeSinceBook };
-      if (closed.resumeSince !== undefined && compareCursor(reported, this.cursor) > 0) this.cursor = reported;
+      const reported: SubParams = { since: err.resumeSince, sinceBook: err.resumeSinceBook };
+      if (err.resumeSince !== undefined && compareCursor(reported, this.cursor) > 0) this.cursor = reported;
+      // The transport rewrote `sub.params` from the close before this ran, so without
+      // pushing our own decision back the wire resumes from the server's point
+      // regardless and the guard above protects nothing.
+      this.sub?.update(this.cursor);
       this.sub?.resubscribe();
       return;
     }
