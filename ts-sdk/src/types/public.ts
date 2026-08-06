@@ -54,7 +54,7 @@ export type RejectCode =
  *
  * The requested price and size are echoed back because a client may have several
  * amendments outstanding on one order, and they are how it tells which one this
- * answers. Only the latest refusal is kept.
+ * answers.
  */
 export interface AmendRejection {
   /** The price that was asked for. */
@@ -120,9 +120,10 @@ export interface OrderEventFill extends PartialFill {
  * partial, and a transition that changes nothing about the order — a refused amendment
  * — is invisible without a synthetic marker to spot it by.
  *
- * Deliberately lean. `order` is the row as the whole frame left it, and the detail that
- * belongs to the order rather than to the event (a reject's `rejectReason`, a refusal's
- * `amendRejected`) is read from there.
+ * Deliberately lean. `order` is the row as the whole frame left it, so durable state a
+ * transition leaves behind is read from there — a `reject`'s `rejectReason` annotates the
+ * `invalid` status it set. Detail that belongs to the transition itself, and describes
+ * nothing about the order afterwards, is on the event: `fill`, and `amendRejection`.
  */
 export interface OrderEvent {
   kind: OrderEventKind;
@@ -138,6 +139,16 @@ export interface OrderEvent {
   batchMs: number;
   /** `fill` only: this fill alone, not a running total. */
   fill?: OrderEventFill;
+  /**
+   * `modify_reject` only: the amendment the engine refused.
+   *
+   * On the event rather than on `order`, because the order is exactly what it is not
+   * about — a refusal changes nothing about it. Parked on the entity it would be
+   * write-once and never cleared, so an order would keep reporting a refusal it had
+   * long since amended past, and only when the row came from this stream rather than
+   * from REST.
+   */
+  amendRejection?: AmendRejection;
 }
 
 export interface TokenInfo {
@@ -258,12 +269,6 @@ export interface Order {
   fills: PartialFill[];
   /** Why the engine rejected the order; set only on `status: "invalid"`. */
   rejectReason?: string;
-  /**
-   * The latest amendment the engine refused for this order, if any. The order is
-   * unchanged by it — without this, a refused price change is indistinguishable from
-   * one still in flight.
-   */
-  amendRejected?: AmendRejection;
   // perpetual-only
   reduceOnly?: boolean;
   ioc?: boolean;

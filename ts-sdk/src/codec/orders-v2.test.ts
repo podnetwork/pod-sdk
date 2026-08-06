@@ -351,7 +351,7 @@ describe("applyOrdersFrame — events", () => {
 });
 
 describe("applyOrdersFrame — refused amendments", () => {
-  it("records a refusal against the order, leaving the order itself alone", () => {
+  it("reports the refusal on the event, leaving the order itself alone", () => {
     const frame: WireOrdersFrame = {
       ...NEW_FRAME,
       orders: [],
@@ -361,14 +361,18 @@ describe("applyOrdersFrame — refused amendments", () => {
         code: "size_off_lot",
       }],
     };
-    const o = apply(frame, [resting()]).get("0xa9a5")!;
+    const seed = resting();
+    const o = apply(frame, [seed]).get("0xa9a5")!;
 
     // The amendment did not happen, so price and size are untouched — that is the
     // whole point: a refusal used to be indistinguishable from one still in flight.
     expect(o.price).toBe(100n * WAD);
     expect(o.initialSize).toBe(5n * WAD);
     expect(o.status).toBe("active");
-    expect(o.amendRejected).toEqual({
+    // And nothing about the refusal is left on the order: it describes an amendment,
+    // not the order, so it lives and dies with the event that carried it.
+    expect(Object.keys(o)).not.toContain("amendRejection");
+    expect(events(frame, [seed])[0]!.amendRejection).toEqual({
       requestedPrice: 101n * WAD,
       requestedSize: 2n * WAD,
       code: "size_off_lot",
@@ -388,11 +392,11 @@ describe("applyOrdersFrame — refused amendments", () => {
         code: "insufficient_balance", why: "need 5 have 2",
       }],
     };
-    const o = apply(frame, [resting()]).get("0xa9a5")!;
-    expect(o.amendRejected?.code).toBe("insufficient_balance");
-    expect(o.amendRejected?.message).toBe("need 5 have 2");
+    const refusal = events(frame, [resting()])[0]!.amendRejection;
+    expect(refusal?.code).toBe("insufficient_balance");
+    expect(refusal?.message).toBe("need 5 have 2");
     // A single-account stream has no accts table, so there is no index to resolve.
-    expect(o.amendRejected?.requestedBy).toBeUndefined();
+    expect(refusal?.requestedBy).toBeUndefined();
   });
 
   it("treats a code from a newer server as unspecified rather than dropping the refusal", () => {
@@ -402,9 +406,9 @@ describe("applyOrdersFrame — refused amendments", () => {
     } as unknown as WireOrdersFrame;
     // The code is open (ADR 0029 §6). Knowing an amendment was refused matters more
     // than recognising why, so the refusal is kept and the message carries what is left.
-    const o = apply(frame, [resting()]).get("0xa9a5")!;
-    expect(o.amendRejected?.code).toBe("some_future_reason");
-    expect(o.amendRejected?.message).toBe("detail");
+    const refusal = events(frame, [resting()])[0]!.amendRejection;
+    expect(refusal?.code).toBe("some_future_reason");
+    expect(refusal?.message).toBe("detail");
   });
 
   it("ignores a refusal for an order it does not hold", () => {
@@ -414,9 +418,12 @@ describe("applyOrdersFrame — refused amendments", () => {
     };
     // `order_not_found` names an order that may never have existed, so there is
     // nothing to attach the refusal to.
-    const byId = apply(frame, [resting()]);
-    expect(byId.get("0xa9a5")!.amendRejected).toBeUndefined();
+    const seed = resting();
+    const byId = apply(frame, [seed]);
     expect(byId.has("0xnotmine")).toBe(false);
+    // No order to name it against, so no event either — a consumer cannot act on a
+    // refusal whose subject it has never seen.
+    expect(events(frame, [seed])).toEqual([]);
   });
 });
 
@@ -474,7 +481,7 @@ describe("applyOrdersFrame — reported events", () => {
     // The reason rides on the order, so the event stays lean; what matters is that
     // there *is* an event for something with no state change to detect.
     expect(out.map((e) => e.kind)).toEqual(["modify_reject"]);
-    expect(out[0]!.order.amendRejected?.code).toBe("size_off_lot");
+    expect(out[0]!.amendRejection?.code).toBe("size_off_lot");
   });
 
   it("omits events it could not apply", () => {
