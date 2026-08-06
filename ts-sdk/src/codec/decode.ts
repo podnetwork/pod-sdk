@@ -262,7 +262,7 @@ export function decodeTrigger(w: WireTrigger): Trigger {
     reduceOnly: w.reduce_only,
     ioc: w.ioc,
     deadlineMs: usToMs(w.deadline),
-    endMs: usToMs(w.end),
+    endMs: endMsFromUs(w.end),
   };
 }
 

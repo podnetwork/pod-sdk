@@ -20,7 +20,7 @@ import { WAD } from "./units.js";
 const MM = "0x55dee4dad525ba46e5d99c8dfa66662160dbd4ef" as Address;
 const BOOK_7 = "0x0000000000000000000000000000000000000000000000000000000000000007" as MarketId;
 
-/** Captured: four quotes created in one batch on book 7, each with a TTL. */
+/** Captured (two of four): quotes created in one batch on book 7, each with a TTL. */
 const NEW_FRAME: WireOrdersFrame = {
   book: BOOK_7,
   batch: 1785843401000000,
@@ -32,7 +32,7 @@ const NEW_FRAME: WireOrdersFrame = {
   events: [{ k: "new", o: 0 }, { k: "new", o: 1 }],
 };
 
-/** Captured: four TTLs reached in one batch, all on orders resting from before. */
+/** Captured (two of four): TTLs reached in one batch, on orders resting from before. */
 const EXPIRE_FRAME: WireOrdersFrame = {
   book: BOOK_7,
   batch: 1785843399500000,
@@ -141,7 +141,7 @@ describe("applyOrdersFrame — entities", () => {
     const frame: WireOrdersFrame = {
       ...NEW_FRAME,
       orders: [
-        { id: "0xrich", tx: "0xtx", a: 0, n: 2, px: "1", sz: "-1", kind: "triggered", type: "market", reduce_only: true, ioc: true, trigger: "stop_loss", grouping: "asset" },
+        { id: "0xrich", tx: "0xtx", a: 0, n: 2, px: "1", sz: "-1", kind: "triggered", type: "market", reduce_only: true, ioc: true, trigger: "stop_loss" },
         { id: "0xplain", tx: "0xtx", a: 0, n: 3, px: "1", sz: "1" },
       ],
       events: [{ k: "new", o: 0 }, { k: "new", o: 1 }],
@@ -247,6 +247,23 @@ describe("applyOrdersFrame — events", () => {
     // is a plain sell, so the derived guess reads "Open Short".
     const o = apply(frame, [resting({ initialSize: -6n * WAD })]).get("0xa9a5")!;
     expect(o.direction).toBe("reduce_long");
+  });
+
+  it("labels a forced close by its provenance, not by the transition", () => {
+    const frame: WireOrdersFrame = {
+      ...MODIFY_FRAME,
+      events: [{
+        k: "fill", id: "0xa9a5",
+        b: (6n * WAD).toString(), q: (600n * WAD).toString(),
+        tb: (6n * WAD).toString(), tq: (600n * WAD).toString(), tf: "0",
+        pa: (4n * WAD).toString(),
+      }],
+    };
+    // The transition says reduce_long; REST says `liquidation`, because
+    // `order_direction_for_response` overrides the classifier for that kind. Following
+    // only the positions here would disagree with the same row after a refetch.
+    const o = apply(frame, [resting({ initialSize: -6n * WAD, kind: "liquidation" })]).get("0xa9a5")!;
+    expect(o.direction).toBe("liquidation");
   });
 
   it("leaves direction unset on a spot fill, which reports no position", () => {
@@ -392,7 +409,6 @@ describe("applyOrdersFrame — forward compatibility", () => {
 
   it("ignores an event that names neither `o` nor an id it holds", () => {
     const frame = { ...MODIFY_FRAME, events: [{ k: "cancel" }] } as unknown as WireOrdersFrame;
-    expect(() => apply(frame, [resting()])).not.toThrow();
     expect(apply(frame, [resting()]).get("0xa9a5")!.status).toBe("active");
   });
 });

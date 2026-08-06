@@ -8,7 +8,8 @@
 
 import type { Address, Order, OrderStatus, PartialFill, RejectCode } from "../types/public.js";
 import type { WireOrderEntity, WireOrderEvent, WireOrdersFrame } from "../types/wire.js";
-import { dec, endMsFromUs, usToMs, WAD } from "./units.js";
+import { dec, endMsFromUs, usToMs } from "./units.js";
+import { div } from "./fixed.js";
 import { classifyPerpDirection } from "./direction.js";
 
 export interface OrdersFrameContext {
@@ -16,15 +17,11 @@ export interface OrdersFrameContext {
   account: Address;
 }
 
-/** Per-frame facts the events need: the batch they landed in and who they belong to. */
+/** Per-frame facts the events need. */
 interface FrameFacts {
   batchMs: number;
   accts?: WireOrdersFrame["accts"];
-  account: Address;
 }
-
-/** Volume-weighted price of a filled amount; zero base has no price. */
-const vwap = (quote: bigint, base: bigint) => (base > 0n ? (quote * WAD) / base : 0n);
 
 /**
  * Fold one frame into `byId`, in place.
@@ -36,7 +33,7 @@ const vwap = (quote: bigint, base: bigint) => (base > 0n ? (quote * WAD) / base 
 export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order>, ctx: OrdersFrameContext): void {
   // The book and the batch are frame constants: resolved once, not per entity.
   const batchMs = usToMs(frame.batch);
-  const facts: FrameFacts = { batchMs, accts: frame.accts, account: ctx.account };
+  const facts: FrameFacts = { batchMs, accts: frame.accts };
   const created = frame.orders.map((e) => decodeEntity(e, frame, batchMs, ctx.account));
 
   for (const event of frame.events) {
@@ -112,7 +109,7 @@ function applyTotals(event: WireOrderEvent, order: Order): void {
   order.fee = dec(event.tf);
   // Cleared, not skipped, when nothing is filled: a row reporting zero filled beside
   // a fill price from before is worse than one with no fill price.
-  order.effectivePrice = order.filledBase > 0n ? vwap(order.filledQuote, order.filledBase) : undefined;
+  order.effectivePrice = order.filledBase > 0n ? div(order.filledQuote, order.filledBase) : undefined;
 }
 
 function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): void {
@@ -145,7 +142,7 @@ function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): voi
       // auction's own timestamp rather than when this client happened to read it.
       const base = dec(event.b);
       const quote = dec(event.q);
-      const fill: PartialFill = { base, quote, price: vwap(quote, base), time: facts.batchMs };
+      const fill: PartialFill = { base, quote, price: div(quote, base), time: facts.batchMs };
       order.fills = [...order.fills, fill];
       // A perp fill reports the position it left. The position it started from is
       // that minus what this fill moved it — a buy raises it, a sell lowers it — and
@@ -156,7 +153,11 @@ function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): voi
       if (event.pa !== undefined) {
         const after = dec(event.pa);
         const before = after - (order.initialSize < 0n ? -base : base);
-        order.direction = classifyPerpDirection(before, after);
+        // A forced close is labelled by how it came about, not by the transition it
+        // made — `order_direction_for_response` overrides the classifier the same way,
+        // and without this a liquidation reads `close_long` here and `liquidation`
+        // after a REST refetch.
+        order.direction = order.kind === "liquidation" ? "liquidation" : classifyPerpDirection(before, after);
       }
       // Present only on the fill that closed the order.
       if (event.st) order.status = event.st as OrderStatus;
