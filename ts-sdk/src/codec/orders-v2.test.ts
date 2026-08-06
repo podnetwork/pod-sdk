@@ -238,6 +238,38 @@ describe("applyOrdersFrame — events", () => {
     expect(o.status).toBe("active");
   });
 
+  it("takes the status from a zero-size fill without inventing a trade for it", () => {
+    // The cap-to-filled amendment: shrinking an order to at-or-below what it had already
+    // filled leaves nothing to rest, and the engine fabricates a zero-size fill so
+    // `st: filled` reaches the indexer, which reads status from fills alone. It also
+    // names no position, which is why `pa` is absent here — and its absence must not
+    // clobber a direction earlier fills established.
+    const frame: WireOrdersFrame = {
+      ...MODIFY_FRAME,
+      events: [{
+        k: "fill", id: "0xa9a5", st: "filled",
+        b: "0", q: "0",
+        tb: (6n * WAD).toString(), tq: (600n * WAD).toString(), tf: "5000",
+      }],
+    };
+    const seeded = resting({
+      filledBase: 6n * WAD, filledQuote: 600n * WAD, direction: "open_long",
+      fills: [{ base: 6n * WAD, quote: 600n * WAD, price: 100n * WAD, time: 1 }],
+    });
+    const events_ = events(frame, [seeded]);
+    const o = apply(frame, [seeded]).get("0xa9a5")!;
+
+    expect(o.status).toBe("filled");
+    expect(o.filledBase).toBe(6n * WAD);
+    // One fill, the real one. A `0.0000 @ $0.00` row would read as a trade that happened.
+    expect(o.fills).toHaveLength(1);
+    expect(o.direction).toBe("open_long");
+    // The event still reports itself, so a consumer can announce the close — with the
+    // total, which is the figure that means anything here.
+    expect(events_[0]!.fill?.totalBase).toBe(6n * WAD);
+    expect(events_[0]!.fill?.closedAs).toBe("filled");
+  });
+
   it("classifies a perp fill from the position it left", () => {
     const frame: WireOrdersFrame = {
       ...MODIFY_FRAME,

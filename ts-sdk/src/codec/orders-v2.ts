@@ -160,7 +160,11 @@ function applyEvent(event: WireOrderEvent, order: Order, facts: FrameFacts): { f
       const base = dec(event.b);
       const quote = dec(event.q);
       const fill: PartialFill = { base, quote, price: div(quote, base), time: facts.batchMs };
-      order.fills = [...order.fills, fill];
+      // A real fill always has size. A zero-size one is the engine flipping status: the
+      // cap-to-filled amendment fabricates it so `st: filled` reaches the indexer, which
+      // reads status from fills alone. Its totals and status count; adding a
+      // `0.0000 @ $0.00` row to the order's fill history would only invent a trade.
+      if (base !== 0n) order.fills = [...order.fills, fill];
       // A perp fill reports the position it left. The position it started from is
       // that minus what this fill moved it — a buy raises it, a sell lowers it — and
       // the transition is what says whether the order opened, added to, reduced,
