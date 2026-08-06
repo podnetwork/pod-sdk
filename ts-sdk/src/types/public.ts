@@ -32,6 +32,54 @@ export type OrderDirection =
   | "open_short" | "add_short" | "reduce_short" | "close_short"
   | "long_to_short" | "short_to_long" | "liquidation";
 
+/**
+ * Why the engine refused something, as a stable identifier to branch on.
+ *
+ * Open by design: a newer node may report a code this version does not list, so
+ * treat an unrecognised one like `"unspecified"` — the accompanying `message` is
+ * then all there is. `"unspecified"` itself means the engine has not given that
+ * reason a name yet.
+ */
+export type RejectCode =
+  | "insufficient_balance" | "invalid_price" | "zero_size" | "notional_below_minimum"
+  | "unknown_market" | "order_not_found" | "not_order_owner" | "stale_nonce"
+  | "wrong_pair" | "engine_managed_order" | "price_above_maximum" | "price_off_tick"
+  | "market_order_must_be_ioc" | "size_above_maximum" | "size_off_lot"
+  | "notional_overflow" | "notional_above_cap" | "unspecified"
+  | (string & {});
+
+/**
+ * An amendment the engine refused. The order itself is untouched — this is the
+ * answer to a price/size change that did not happen.
+ *
+ * The requested price and size are echoed back because a client may have several
+ * amendments outstanding on one order, and they are how it tells which one this
+ * answers. Only the latest refusal is kept.
+ */
+export interface AmendRejection {
+  /** The price that was asked for. */
+  requestedPrice: bigint;
+  /** The size that was asked for, as an unsigned magnitude. */
+  requestedSize: bigint;
+  /** Branch on this rather than on `message`. */
+  code: RejectCode;
+  /**
+   * Present only when the reason carries detail the code cannot — the amounts on
+   * `insufficient_balance`, `invalid_price` and `notional_below_minimum`, the pair on
+   * `unknown_market`, and the whole reason on `unspecified`. For every other code the
+   * message would just restate the code.
+   */
+  message?: string;
+  /**
+   * Who asked. Deliberately not the order's owner: a refusal says nothing about who
+   * owns the order, and on `not_order_owner` the requester is precisely who does not.
+   * Absent when the stream names a single account.
+   */
+  requestedBy?: Address;
+  /** The batch the refusal landed in (ms). */
+  batchMs: number;
+}
+
 export interface TokenInfo {
   address: Address;
   symbol: string;
@@ -150,6 +198,12 @@ export interface Order {
   fills: PartialFill[];
   /** Why the engine rejected the order; set only on `status: "invalid"`. */
   rejectReason?: string;
+  /**
+   * The latest amendment the engine refused for this order, if any. The order is
+   * unchanged by it — without this, a refused price change is indistinguishable from
+   * one still in flight.
+   */
+  amendRejected?: AmendRejection;
   // perpetual-only
   reduceOnly?: boolean;
   ioc?: boolean;

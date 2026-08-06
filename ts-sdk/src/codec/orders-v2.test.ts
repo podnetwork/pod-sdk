@@ -4,9 +4,11 @@
 // here.
 //
 // The `new`, `expire` and `modify` frames below are verbatim captures from
-// staging (wss://staging-rpc.podtestnet.dev, 2026-08-04). Fills are synthetic:
-// staging's market maker only quotes and cancels, so no fill crossed the wire
-// in any capture window — they follow `node/src/rpc/orders_v2.rs`.
+// staging (wss://staging-rpc.podtestnet.dev, 2026-08-04). Fill, position and
+// modify_reject cases are written from `node/src/rpc/orders_v2.rs` instead: staging
+// only began crossing trades later, and its deployed build predates both `pa` and
+// `modify_reject`, so those shapes have no captured bytes yet. Replacing them with
+// captures is worth doing once a node build carries the fields.
 
 import { describe, expect, it } from "vitest";
 
@@ -17,7 +19,6 @@ import { WAD } from "./units.js";
 
 const MM = "0x55dee4dad525ba46e5d99c8dfa66662160dbd4ef" as Address;
 const BOOK_7 = "0x0000000000000000000000000000000000000000000000000000000000000007" as MarketId;
-const NOW = 1_700_000_000_000;
 
 /** Captured: four quotes created in one batch on book 7, each with a TTL. */
 const NEW_FRAME: WireOrdersFrame = {
@@ -73,7 +74,7 @@ function resting(over: Partial<Order> = {}): Order {
 
 function apply(frame: WireOrdersFrame, seed: Order[] = [], account = MM): Map<string, Order> {
   const byId = new Map(seed.map((o) => [o.id, o]));
-  applyOrdersFrame(frame, byId, { account, nowMs: NOW });
+  applyOrdersFrame(frame, byId, { account });
   return byId;
 }
 
@@ -226,7 +227,7 @@ describe("applyOrdersFrame — events", () => {
     expect(o.effectivePrice).toBe(101n * WAD);
     // `b`/`q` are this fill alone, appended to the breakdown.
     expect(o.fills).toHaveLength(2);
-    expect(o.fills[1]).toEqual({ base: 2n * WAD, quote: 200n * WAD, price: 100n * WAD, time: NOW });
+    expect(o.fills[1]).toEqual({ base: 2n * WAD, quote: 200n * WAD, price: 100n * WAD, time: 1785843559500 });
     // No `st`: still working.
     expect(o.status).toBe("active");
   });
@@ -291,6 +292,76 @@ describe("applyOrdersFrame — events", () => {
     // A reject never rested, but it belongs in history — with why it failed.
     expect(o.status).toBe("invalid");
     expect(o.rejectReason).toBe("insufficient balance");
+  });
+});
+
+describe("applyOrdersFrame — refused amendments", () => {
+  it("records a refusal against the order, leaving the order itself alone", () => {
+    const frame: WireOrdersFrame = {
+      ...NEW_FRAME,
+      orders: [],
+      events: [{
+        k: "modify_reject", id: "0xa9a5", by: 0,
+        req_px: (101n * WAD).toString(), req_sz: (2n * WAD).toString(),
+        code: "size_off_lot",
+      }],
+    };
+    const o = apply(frame, [resting()]).get("0xa9a5")!;
+
+    // The amendment did not happen, so price and size are untouched — that is the
+    // whole point: a refusal used to be indistinguishable from one still in flight.
+    expect(o.price).toBe(100n * WAD);
+    expect(o.initialSize).toBe(5n * WAD);
+    expect(o.status).toBe("active");
+    expect(o.amendRejected).toEqual({
+      requestedPrice: 101n * WAD,
+      requestedSize: 2n * WAD,
+      code: "size_off_lot",
+      message: undefined,
+      // `by` is the requester, resolved through the frame's accts table.
+      requestedBy: MM,
+      batchMs: 1785843401000,
+    });
+  });
+
+  it("keeps the message when the code cannot carry the detail", () => {
+    const frame: WireOrdersFrame = {
+      ...MODIFY_FRAME,
+      events: [{
+        k: "modify_reject", id: "0xa9a5",
+        req_px: "1", req_sz: "1",
+        code: "insufficient_balance", why: "need 5 have 2",
+      }],
+    };
+    const o = apply(frame, [resting()]).get("0xa9a5")!;
+    expect(o.amendRejected?.code).toBe("insufficient_balance");
+    expect(o.amendRejected?.message).toBe("need 5 have 2");
+    // A single-account stream has no accts table, so there is no index to resolve.
+    expect(o.amendRejected?.requestedBy).toBeUndefined();
+  });
+
+  it("treats a code from a newer server as unspecified rather than dropping the refusal", () => {
+    const frame = {
+      ...MODIFY_FRAME,
+      events: [{ k: "modify_reject", id: "0xa9a5", req_px: "1", req_sz: "1", code: "some_future_reason", why: "detail" }],
+    } as unknown as WireOrdersFrame;
+    // The code is open (ADR 0029 §6). Knowing an amendment was refused matters more
+    // than recognising why, so the refusal is kept and the message carries what is left.
+    const o = apply(frame, [resting()]).get("0xa9a5")!;
+    expect(o.amendRejected?.code).toBe("some_future_reason");
+    expect(o.amendRejected?.message).toBe("detail");
+  });
+
+  it("ignores a refusal for an order it does not hold", () => {
+    const frame: WireOrdersFrame = {
+      ...MODIFY_FRAME,
+      events: [{ k: "modify_reject", id: "0xnotmine", req_px: "1", req_sz: "1", code: "order_not_found" }],
+    };
+    // `order_not_found` names an order that may never have existed, so there is
+    // nothing to attach the refusal to.
+    const byId = apply(frame, [resting()]);
+    expect(byId.get("0xa9a5")!.amendRejected).toBeUndefined();
+    expect(byId.has("0xnotmine")).toBe(false);
   });
 });
 

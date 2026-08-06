@@ -231,7 +231,7 @@ export class OrderHistory implements SeriesResource<Order> {
     const at: SubParams = { since: frame.batch, sinceBook: frame.book };
     if (compareCursor(at, this.cursor) <= 0) return;
 
-    applyOrdersFrame(frame, this.byId, { account: this.account, nowMs: Date.now() });
+    applyOrdersFrame(frame, this.byId, { account: this.account });
     // A socket-level reconnect resubscribes from whatever is stored here.
     this.cursor = at;
     this.sub?.update(at);
