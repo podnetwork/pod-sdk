@@ -143,6 +143,9 @@ export interface Order {
   ioc?: boolean;
   direction?: OrderDirection;
   triggerType?: TriggerType;
+  /** Realized PnL from this order's fills (perp; present on PnL-realizing
+   * directions — reduce/close/flip/liquidation). */
+  realizedPnl?: bigint;
 }
 
 export type Position = SpotPosition | PerpPosition;
@@ -186,6 +189,9 @@ export interface PositionsSnapshot {
   accountValue: bigint;
   cash: bigint;
   withdrawableCash: bigint;
+  /** Σ maintenance-margin requirement at live notional (= Σ notional · im/2).
+   * Present on enriched snapshots (livePositions); absent on raw REST decodes. */
+  maintenanceMargin?: bigint;
 }
 
 export interface Trigger {

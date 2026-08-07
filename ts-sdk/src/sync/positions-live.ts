@@ -98,5 +98,6 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
     withdrawableCash,
     totalUnrealizedPnl: snap.totalUnrealizedPnl + dPriceUpnl + dSpot,
     accountValue: snap.accountValue + (perpsEquity - snap.perpsEquity) + dSpot,
+    maintenanceMargin: mm,
   };
 }

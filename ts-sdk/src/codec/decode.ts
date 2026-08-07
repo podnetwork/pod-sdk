@@ -103,6 +103,7 @@ export function decodeOrder(w: WireOrder): Order {
     ioc: w.ioc,
     direction: w.direction as OrderDirection | undefined,
     triggerType: (w.trigger_type ?? undefined) as TriggerType | undefined,
+    realizedPnl: decOpt(w.realized_pnl),
   };
 }
 
