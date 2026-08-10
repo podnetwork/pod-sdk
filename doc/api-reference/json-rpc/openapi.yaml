@@ -172,7 +172,7 @@ paths:
       description: |
         Retrieves the current orderbook snapshot for a specified market, showing buy and sell orders aggregated by price level.
         
-        Orders are grouped by price and include total volume and minimum expiry at each level.
+        Orders are grouped by price and include the total volume resting at each level.
         Buy orders are sorted by price descending (best bid first), sell orders by price ascending (best ask first).
       requestBody:
         content:
@@ -214,17 +214,13 @@ paths:
                   buys:
                     "5000000000000000000":
                       volume: "0xde0b6b3a7640000"
-                      minimum_expiry: 1704153600000000
                     "4900000000000000000":
                       volume: "0x1bc16d674ec80000"
-                      minimum_expiry: 1704153600000000
                   sells:
                     "5100000000000000000":
                       volume: "0x14d1120d7b160000"
-                      minimum_expiry: 1704153600000000
                     "5200000000000000000":
                       volume: "0x22b1c8c1227a0000"
-                      minimum_expiry: 1704153600000000
                   clearing_price: "0x4563918244f40000"
                   grouping_precision: "0x1"
                   timestamp: 1704153600000000
@@ -2781,9 +2777,6 @@ components:
         volume:
           $ref: '#/components/schemas/HexUint256'
           description: Total volume available at this price level (1e18, hex-encoded)
-        minimum_expiry: 
-          type: integer
-          description: Minimum expiry timestamp (microseconds) for orders at this price level
 
     OrderbookSnapshot:
       type: object
