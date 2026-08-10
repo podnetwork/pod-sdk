@@ -16,7 +16,7 @@ const orderbookId = "0x000000000000000000000000000000000000000000000000000000000
 const depth = 20; // price levels per side
 
 const snapshot = await provider.send("ob_getOrderbook", [orderbookId, depth]);
-// Returns: { buys: { price: { volume, minimum_expiry } }, sells: { ... }, timestamp }
+// Returns: { buys: { price: { volume } }, sells: { ... }, timestamp }
 ```
 
 ## Get OHLCV candles

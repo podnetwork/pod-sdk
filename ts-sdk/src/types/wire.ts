@@ -128,7 +128,6 @@ export interface WireOrdersPage {
 
 export interface WireTickSnapshot {
   volume: WireDecimal;
-  minimum_expiry?: number;
 }
 
 export interface WireOrderbook {
