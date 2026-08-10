@@ -1,0 +1,78 @@
+name: Publish OpenAPI to GitBook
+
+# GitBook does not render the spec file in this repo. It renders the spec
+# registered in the organization as `pod-docs` — see the `builtin:openapi` block
+# under JSON-RPC in doc/api-reference/SUMMARY.md, whose dependency is
+# `kind: openapi, spec: pod-docs`. So merging a spec change here left the
+# published reference stale until someone re-uploaded the file by hand in the
+# GitBook UI. This publishes it on merge instead.
+on:
+  push:
+    branches: ["main"]
+    # Deliberately narrower than GitBook's sample workflow, which watches
+    # **/*.yaml, **/*.yml and **/*.json — in this repo that fires on every
+    # workflow edit, lockfile bump and protocol config, republishing an
+    # unchanged spec each time.
+    paths:
+      - "doc/api-reference/json-rpc/openapi.yaml"
+  # Republish on demand: recovers from a failed run, or from a spec edited
+  # directly in GitBook that should be reset to what main says.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Publish one at a time. Two merges in quick succession would otherwise race,
+# and whichever run finished last would decide the published spec regardless of
+# which commit is newer. Queued rather than cancelled so the final state always
+# matches the last merge.
+concurrency:
+  group: gitbook-openapi-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      # The CLI reads the token from the environment; `openapi publish` has no
+      # token flag, and a flag would put the credential in the process list.
+      GITBOOK_TOKEN: ${{ secrets.GITBOOK_TOKEN }}
+      # Not a credential (it appears in GitBook URLs), so it lives in repo
+      # variables rather than secrets — a secret would be masked in the logs of
+      # the very step whose failures are diagnosed by reading it.
+      GITBOOK_ORGANIZATION_ID: ${{ vars.GITBOOK_ORGANIZATION_ID }}
+      # Committed rather than configured: this name is already in the repo, in
+      # SUMMARY.md's openapi block, and the two must agree or the docs render a
+      # spec this workflow never updates. An unset variable would silently
+      # publish somewhere else.
+      GITBOOK_SPEC_NAME: pod-docs
+      SPEC_PATH: doc/api-reference/json-rpc/openapi.yaml
+    steps:
+      - uses: actions/checkout@v5
+
+      # Fail with a message that names the setting to fix. Without this, a
+      # missing token surfaces as a bare `[401] Invalid authentication token`
+      # and a missing organization as a not-found, both of which read like a
+      # GitBook outage rather than a repo misconfiguration.
+      - name: Check GitBook credentials are configured
+        run: |
+          if [ -z "$GITBOOK_TOKEN" ]; then
+            echo "::error::GITBOOK_TOKEN is not set (Settings -> Secrets and variables -> Actions -> Secrets)"
+            exit 1
+          fi
+          if [ -z "$GITBOOK_ORGANIZATION_ID" ]; then
+            echo "::error::GITBOOK_ORGANIZATION_ID is not set (Settings -> Secrets and variables -> Actions -> Variables)"
+            exit 1
+          fi
+
+      # Pinned, not @latest: this step holds write access to the published API
+      # reference, so a new CLI release should arrive as a reviewed bump here
+      # rather than silently on the next merge. 0.30.0 is the current stable
+      # release, and its `openapi publish` takes `--spec`/`--organization` plus
+      # the spec path.
+      - name: Publish spec to GitBook
+        run: |
+          npx -y @gitbook/cli@0.30.0 openapi publish \
+            --spec "$GITBOOK_SPEC_NAME" \
+            --organization "$GITBOOK_ORGANIZATION_ID" \
+            "$SPEC_PATH"
