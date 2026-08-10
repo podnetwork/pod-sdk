@@ -62,7 +62,7 @@ async function subscribed(withOnError = true) {
   const onMessage = vi.fn();
   const onError = vi.fn();
   const sub = client.subscribe(
-    "pod_orders",
+    "pod_orders_v2",
     { account: "0xabc", since: 500 },
     onMessage,
     withOnError ? onError : undefined,
@@ -182,6 +182,43 @@ describe("PodWsClient subscription close", () => {
     expect(err.resumable).toBe(false);
     expect(err.code).toBe(-39_999);
     expect(err.resumeSince).toBeUndefined();
+  });
+
+  it("resumes a partly delivered batch from the (batch, book) cursor", async () => {
+    const { sub, socket, subscribeReq, notify, onError } = await subscribed();
+    accept(socket, subscribeReq);
+
+    // A `pod_orders_v2` close mid-batch: the client holds some of that batch's
+    // books, which `resume_since` alone cannot express.
+    notify({ error: {
+      code: -32020,
+      message: "subscription lagged behind the tick broadcast",
+      data: { resumable: true, resume_since: 1_718_900_000_000_000, resume_since_book: "0x07" },
+    } });
+    sub.resubscribe();
+
+    expect((onError.mock.calls[0]![0] as PodSubscriptionClosedError).resumeSinceBook).toBe("0x07");
+    const params = (socket.sentMethod("eth_subscribe")!.params as unknown[])[1] as Json;
+    expect(params.since).toBe(1_718_900_000_000_000);
+    expect(params.since_book).toBe("0x07");
+  });
+
+  it("clears the book half when the close says the batch landed whole", async () => {
+    const { sub, socket, subscribeReq, notify } = await subscribed();
+    accept(socket, subscribeReq);
+
+    // Mid-batch close, then a later one that carries no book.
+    notify({ error: { code: -32020, message: "lagged", data: { resumable: true, resume_since: 100, resume_since_book: "0x07" } } });
+    sub.resubscribe();
+    accept(socket, socket.sentMethod("eth_subscribe")!);
+    notify({ error: { code: -32020, message: "lagged", data: { resumable: true, resume_since: 200 } } });
+    sub.resubscribe();
+
+    // Carrying 0x07 into batch 200 would ask the server to skip every book at or
+    // below it there — books this client has never seen.
+    const params = (socket.sentMethod("eth_subscribe")!.params as unknown[])[1] as Json;
+    expect(params.since).toBe(200);
+    expect(params.since_book).toBeUndefined();
   });
 
   it("surfaces a close with no onError on the client error event", async () => {

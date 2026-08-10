@@ -32,6 +32,125 @@ export type OrderDirection =
   | "open_short" | "add_short" | "reduce_short" | "close_short"
   | "long_to_short" | "short_to_long" | "liquidation";
 
+/**
+ * Why the engine refused something, as a stable identifier to branch on.
+ *
+ * Open by design: a newer node may report a code this version does not list, so
+ * treat an unrecognised one like `"unspecified"` — the accompanying `message` is
+ * then all there is. `"unspecified"` itself means the engine has not given that
+ * reason a name yet.
+ */
+export type RejectCode =
+  | "insufficient_balance" | "invalid_price" | "zero_size" | "notional_below_minimum"
+  | "unknown_market" | "order_not_found" | "not_order_owner" | "stale_nonce"
+  | "wrong_pair" | "engine_managed_order" | "price_above_maximum" | "price_off_tick"
+  | "market_order_must_be_ioc" | "size_above_maximum" | "size_off_lot"
+  | "notional_overflow" | "notional_above_cap" | "unspecified"
+  | (string & {});
+
+/**
+ * An amendment the engine refused. The order itself is untouched — this is the
+ * answer to a price/size change that did not happen.
+ *
+ * The requested price and size are echoed back because a client may have several
+ * amendments outstanding on one order, and they are how it tells which one this
+ * answers.
+ */
+export interface AmendRejection {
+  /** The price that was asked for. */
+  requestedPrice: bigint;
+  /** The size that was asked for, as an unsigned magnitude. */
+  requestedSize: bigint;
+  /** Branch on this rather than on `message`. */
+  code: RejectCode;
+  /**
+   * Present only when the reason carries detail the code cannot — the amounts on
+   * `insufficient_balance`, `invalid_price` and `notional_below_minimum`, the pair on
+   * `unknown_market`, and the whole reason on `unspecified`. For every other code the
+   * message would just restate the code.
+   */
+  message?: string;
+  /**
+   * Who asked. Deliberately not the order's owner: a refusal says nothing about who
+   * owns the order, and on `not_order_owner` the requester is precisely who does not.
+   * Absent when the stream names a single account.
+   */
+  requestedBy?: Address;
+  /** The batch the refusal landed in (ms). */
+  batchMs: number;
+}
+
+/** What the engine did to an order, as `pod_orders_v2` reports it (ADR 0029 §3). */
+export type OrderEventKind =
+  | "new" | "reject" | "fill" | "cancel" | "expire" | "modify" | "modify_reject";
+
+/**
+ * The statuses an order can *close* with. Narrower than `OrderStatus`, which also
+ * covers the states a live order passes through — so a `switch` over this one can be
+ * exhaustive.
+ */
+export type TerminalStatus = Extract<OrderStatus, "filled" | "canceled" | "margin_canceled" | "expired">;
+
+/** One fill, plus the status it closed the order with when it did. */
+export interface OrderEventFill extends PartialFill {
+  /**
+   * Base filled over the order's life **as of this fill**.
+   *
+   * Not the same as `order.filledBase`, which is where the *whole frame* left the order:
+   * two fills of one order in one batch would otherwise both report the final total,
+   * so neither matches the fill it is attached to.
+   */
+  totalBase: bigint;
+  /**
+   * Absent while the order is still working.
+   *
+   * `margin_canceled` here is the engine evicting the order for margin, reported on the
+   * fill that closed it. An eviction that closes an order *without* a fill arrives as a
+   * plain `cancel` instead: the wire cannot yet distinguish it from a user cancel (ADR
+   * 0029 §6 reserves a `why` for that), so do not try to re-derive it from `status`.
+   */
+  closedAs?: TerminalStatus;
+}
+
+/**
+ * One transition the stream reported.
+ *
+ * The alternative is diffing consecutive snapshots, which can only see net state: two
+ * fills in one batch collapse into one change, a fill that closes an order hides the
+ * partial, and a transition that changes nothing about the order — a refused amendment
+ * — is invisible without a synthetic marker to spot it by.
+ *
+ * Deliberately lean. `order` is the row as the whole frame left it, so durable state a
+ * transition leaves behind is read from there — a `reject`'s `rejectReason` annotates the
+ * `invalid` status it set. Detail that belongs to the transition itself, and describes
+ * nothing about the order afterwards, is on the event: `fill`, and `amendRejection`.
+ */
+export interface OrderEvent {
+  kind: OrderEventKind;
+  /**
+   * The order it happened to, as the whole frame left it.
+   *
+   * A live row, not a copy: the stream mutates it in place as later frames arrive. Read
+   * it in the callback, and copy it if you keep it — a buffered event would otherwise
+   * show the order's present state rather than its state at the time.
+   */
+  order: Order;
+  /** The batch it landed in (ms). */
+  batchMs: number;
+  /** `fill` only: this fill alone, not a running total. */
+  fill?: OrderEventFill;
+  /**
+   * `modify_reject` only: the amendment the engine refused.
+   *
+   * On the event rather than on `order`, because the order is exactly what it is not
+   * about — a refusal changes nothing about it. Parked on the entity it would be
+   * write-once and never cleared, so an order would keep reporting a refusal it had
+   * long since amended past, and only when the row came from this stream rather than
+   * from REST.
+   */
+  amendRejection?: AmendRejection;
+}
+
 export interface TokenInfo {
   address: Address;
   symbol: string;
@@ -117,10 +236,13 @@ export interface PartialFill {
 export interface Order {
   id: Hash;
   txHash: Hash;
-  orderbookId?: MarketId; // REST orders; WS stream orders carry `pair` instead
+  orderbookId?: MarketId;
+  /**
+   * Whether the book is spot or perp, when the source said so — REST rows carry it,
+   * streamed ones do not. It is static market metadata rather than a fact about the
+   * order, so the reliable read is a join: `markets.find((m) => m.id === o.orderbookId)?.type`.
+   */
   marketType?: MarketType;
-  /** Token-address pair (base/quote); present on WS stream orders. */
-  pair?: { base: Address; quote: Address };
   side: OrderSide;
   orderType: OrderType;
   status: OrderStatus;
@@ -133,11 +255,20 @@ export interface Order {
   filledQuote: bigint;
   fee: bigint;
   effectivePrice?: bigint;
-  deadlineMs: number;
-  endMs: number;
-  /** Batch-inclusion time (ms) — when the order entered the book. REST history only. */
+  /**
+   * The auction deadline the order was signed for (ms). REST only: it is a fact
+   * about the intent, not about when the order became real, and the
+   * `pod_orders_v2` frame does not carry it. To order orders, use `includedMs` —
+   * both sources report that.
+   */
+  deadlineMs?: number;
+  /** TTL expiry (ms). Undefined when the order never expires. */
+  endMs?: number;
+  /** Batch-inclusion time (ms) — when the order entered the book. */
   includedMs?: number;
   fills: PartialFill[];
+  /** Why the engine rejected the order; set only on `status: "invalid"`. */
+  rejectReason?: string;
   // perpetual-only
   reduceOnly?: boolean;
   ioc?: boolean;
@@ -201,7 +332,8 @@ export interface Trigger {
   reduceOnly: boolean;
   ioc: boolean;
   deadlineMs: number;
-  endMs: number;
+  /** TTL expiry (ms). Undefined when the trigger never expires. */
+  endMs?: number;
 }
 
 export interface BackstopTransfer {
