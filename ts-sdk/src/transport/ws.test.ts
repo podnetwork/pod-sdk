@@ -62,7 +62,7 @@ async function subscribed(withOnError = true) {
   const onMessage = vi.fn();
   const onError = vi.fn();
   const sub = client.subscribe(
-    "pod_orders",
+    "pod_orders_v2",
     { account: "0xabc", since: 500 },
     onMessage,
     withOnError ? onError : undefined,

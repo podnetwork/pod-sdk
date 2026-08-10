@@ -6,7 +6,7 @@
 import type { Address, MarketId } from "../types/public.js";
 
 export type Channel =
-  | "pod_orderbook" | "pod_orders" | "pod_orders_v2" | "pod_candles"
+  | "pod_orderbook" | "pod_orders_v2" | "pod_candles"
   | "pod_markets" | "pod_positions" | "pod_triggers";
 
 export interface SubParams {
