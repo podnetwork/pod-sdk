@@ -65,6 +65,18 @@ jobs:
             exit 1
           fi
 
+      # Pinning the CLI is only half of a reproducible publish — the runtime it
+      # runs on has to be pinned too. @gitbook/cli declares `node >= 18` with no
+      # upper bound, and the runner image moves forward on its own schedule, so
+      # without this the step eventually executes on a Node major the CLI has
+      # never been tested against. Matches publish-ts-sdk.yml's pin. Runs after
+      # the guard so a misconfigured repo fails in seconds without provisioning
+      # a toolchain first, and without `cache` because no lockfile governs an
+      # `npx` install.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       # Pinned, not @latest: this step holds write access to the published API
       # reference, so a new CLI release should arrive as a reviewed bump here
       # rather than silently on the next merge. 0.30.0 is the current stable
