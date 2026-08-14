@@ -62,13 +62,22 @@ const wire = (n: number, timeUs: number): WireWithdrawal => ({
  * at a time, so a test can describe a multi-page backfill; `calls` records the
  * cursor each call was made with.
  */
-async function started(pages: Withdrawal[][]) {
+async function started(pages: Withdrawal[][], holdCall?: number) {
   const calls: WithdrawalsQuery[] = [];
   const remaining = [...pages];
+  // `holdCall` parks that call's RESPONSE, leaving the walk mid-backfill so a
+  // test can deliver a live frame before the next page's cursor is computed.
+  // Without it the whole walk finishes inside `started`, and a push afterwards
+  // cannot influence a query that was already issued.
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
   const rest = {
     bridgeWithdrawals: vi.fn(async (_account?: Address, q?: WithdrawalsQuery) => {
+      const n = calls.length;
       calls.push(q ?? {});
-      return remaining.shift() ?? [];
+      const rows = remaining.shift() ?? [];
+      if (n === holdCall) await held;
+      return rows;
     }),
   } as unknown as PodRestClient;
 
@@ -105,7 +114,7 @@ async function started(pages: Withdrawal[][]) {
     await flush();
   };
 
-  return { resource, calls, rest, push };
+  return { resource, calls, rest, push, release };
 }
 
 describe("withdrawalsSource", () => {
@@ -137,8 +146,16 @@ describe("withdrawalsSource", () => {
   // rows the forward-only cursor could never return for.
   it("keeps paging an older tick after a live push moves the shared cursor", async () => {
     const full = Array.from({ length: 500 }, (_, i) => outcome(i + 1, 5_000));
-    const { calls, push } = await started([full, [outcome(501, 5_000)]]);
-    await push([wire(900, 9_000)]); // newer tick arrives mid-backfill
+    // Park page 1's response, so the walk is genuinely suspended between pages
+    // when the frame lands. Pushing after a completed walk proves nothing: the
+    // next page's cursor would already have been computed and issued.
+    const { calls, push, release } = await started([full, [outcome(501, 5_000)]], 0);
+    await push([wire(900, 9_000)]); // newer tick arrives MID-backfill
+    release();
+    await flush();
+    await flush();
+    // Page 2 resumes from the run-local cursor, not the shared one the push
+    // advanced to 9_000 — which would skip the rest of the 5_000 tick for good.
     expect(calls[1]).toEqual({ since: 5_000, sinceId: id(500), limit: 500 });
   });
 

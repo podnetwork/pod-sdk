@@ -701,15 +701,22 @@ export interface ClobWithdrawParams {
   recipient: Address;
   /** 1e18-scaled, and a whole number of claim-chain units. */
   amount: bigint;
-  /** Auction interval in microseconds; floors the deadline like the order builders. */
-  auctionIntervalUs?: number;
+  /**
+   * Auction interval in microseconds (`market.auctionIntervalMs * 1000`).
+   *
+   * **Required, unlike the order builders'.** Admission refuses a deadline that
+   * is not a multiple of it, and the default here is a far-future timestamp with
+   * no reason to land on one — so an optional interval would silently produce a
+   * transaction that is rejected unless the clock happened to be aligned, and
+   * the rare one that slipped through would be stranded a decade out.
+   */
+  auctionIntervalUs: number;
   deadline?: number; // ms; default far future
 }
 
 export function buildClobWithdraw(p: ClobWithdrawParams): PodTxRequest {
   const nowUs = BigInt(Date.now()) * 1000n;
-  const interval = p.auctionIntervalUs ? BigInt(p.auctionIntervalUs) : 0n;
-  const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), interval);
+  const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), BigInt(p.auctionIntervalUs));
   const data = encodeFunctionData({
     abi: CLOB_ABI,
     functionName: "withdraw",

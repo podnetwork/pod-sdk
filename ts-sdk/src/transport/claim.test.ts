@@ -132,6 +132,21 @@ describe("fetchClaimStatus", () => {
     expect(await status(detail("claimable", false))).toEqual({ state: "pending" });
   });
 
+  // The forward-compatibility rule, and the one a plausible "simplification"
+  // would break: a status this build has never seen must not veto a certificate
+  // attached to the same response. Gating proof handling on the known statuses
+  // passes every other test in this file, which is why this one exists.
+  it("believes a proof under a status it has never heard of", async () => {
+    expect(await status(detail("settling", true)))
+      .toEqual({ state: "claimable", claimHash: CLAIM_HASH });
+  });
+
+  // And the other half: unfamiliar means "ask again", never terminal — a client
+  // holding burned funds must not be told they are gone by a word it cannot read.
+  it("treats an unfamiliar status with no proof as pending, not terminal", async () => {
+    expect(await status(detail("settling", false))).toEqual({ state: "pending" });
+  });
+
   // No outcome row yet — the normal state right after submitting. Terminality is
   // carried only by `status`, never by an HTTP code.
   it("treats a 404 as pending, not terminal", async () => {

@@ -43,14 +43,23 @@ export type ClaimStatus =
 /**
  * Resolve one withdrawal's claim state from the pod node.
  *
- * The node reports it directly — `status` is always present and is the authority,
- * so nothing here infers terminality from a missing field or an error string. The
- * three states are not interchangeable: `pending` means fewer than N−F signatures
- * are held *on this node* and the caller should ask again, while `refused` means
- * the withdrawal was rejected at execution with nothing debited.
+ * **The precedence is deliberate and is the forward-compatibility contract — do
+ * not "simplify" it into a switch on `status`:**
  *
- * A 404 is neither — it means this node has no outcome row yet, which is the
- * normal state for the first moments after submitting, so it reads as `pending`.
+ * 1. A present `proof.claim_hash` wins, whatever `status` says. The money is in
+ *    the certificate, not in the word beside it, and a status this build has
+ *    never heard of must not veto one sitting in the same response.
+ * 2. Only then may `status` be terminal, and only `refused` is — meaning the
+ *    withdrawal was rejected at execution with nothing debited.
+ * 3. Everything else is `pending`, i.e. "ask again": an unfamiliar status, a
+ *    404 (this node has no outcome row yet, normal right after submitting), any
+ *    other HTTP failure, and a transport error. None of them is information
+ *    about the withdrawal, and guessing `refused` would tell a user their funds
+ *    were never taken when they may well have been.
+ *
+ * This mirrors the two properties the node's own `WithdrawalDetail` documents
+ * for consumers (node/src/rpc/bridge_rest.rs), which its producer type
+ * deliberately does not provide.
  */
 export async function fetchClaimStatus(
   restUrl: string,
@@ -59,7 +68,13 @@ export async function fetchClaimStatus(
 ): Promise<ClaimStatus> {
   const doFetch = opts?.fetch ?? fetch;
   try {
-    const res = await doFetch(`${restUrl}/bridge/withdrawals/by-id/${withdrawalId}`, {
+    // Trailing slashes are stripped because `PodRestClient` accepts a base with
+    // one and this helper is handed the same value. `https://host/v1/` would
+    // otherwise request `/v1//bridge/...`, and a 404 from that is indistinguishable
+    // here from a certificate that has not assembled yet — so the watch would
+    // poll a misspelled URL forever without surfacing anything.
+    const base = restUrl.replace(/\/+$/, "");
+    const res = await doFetch(`${base}/bridge/withdrawals/by-id/${withdrawalId}`, {
       headers: { accept: "application/json" },
       signal: opts?.signal,
     });
@@ -276,8 +291,24 @@ export function watchClaims(opts: WatchClaimsOptions): ClaimWatcher {
   const pending = new Map<Hash, Entry>();
   let stopped = false;
   let wake: (() => void) | undefined;
+  /**
+   * The newest head this watcher has seen. Kept so `add` can anchor immediately
+   * rather than waiting for the next tick to do it: an id added while a scan is
+   * in flight is not covered by `wake` (the watcher is not sleeping) and would
+   * otherwise be anchored at the FOLLOWING head, silently skipping every block
+   * between the call and that read — the exact window a per-id floor exists to
+   * preserve. Undefined only before the first head read, where nothing has been
+   * scanned yet and the first tick anchors it correctly.
+   */
+  let lastHead: bigint | undefined;
 
   const live = () => !stopped && !signal?.aborted;
+
+  /** The oldest block an id joining at `head` still needs searched. */
+  const anchorFrom = (head: bigint, lookback: number) => {
+    const back = BigInt(lookback);
+    return head > back ? head - back : 0n;
+  };
 
   const sleep = () => new Promise<void>((resolve) => {
     const timer = setTimeout(done, pollMs);
@@ -322,11 +353,9 @@ export function watchClaims(opts: WatchClaimsOptions): ClaimWatcher {
     const head = await tryRpc<string>(claimRpcUrl, "eth_blockNumber", [], rest);
     if (head === undefined) return;
     const toBlock = BigInt(head);
+    lastHead = toBlock;
     for (const entry of pending.values()) {
-      if (entry.floor === undefined) {
-        const back = BigInt(entry.lookback);
-        entry.floor = toBlock > back ? toBlock - back : 0n;
-      }
+      if (entry.floor === undefined) entry.floor = anchorFrom(toBlock, entry.lookback);
     }
 
     const hashes = [...pending.values()].map((e) => e.claimHash).filter((h): h is Hash => !!h);
@@ -383,8 +412,16 @@ export function watchClaims(opts: WatchClaimsOptions): ClaimWatcher {
   return {
     add(withdrawalId, addOpts) {
       if (stopped || pending.has(withdrawalId)) return;
-      pending.set(withdrawalId, { lookback: addOpts?.lookbackBlocks ?? 0 });
-      wake?.(); // pin its floor now rather than after the current sleep
+      const lookback = addOpts?.lookbackBlocks ?? 0;
+      // Anchor from the last head seen, NOT from whatever the next tick reads.
+      // `wake` only helps while the watcher is sleeping; an id added during an
+      // in-flight scan would otherwise be pinned at a later head and lose every
+      // block in between.
+      pending.set(withdrawalId, {
+        lookback,
+        floor: lastHead === undefined ? undefined : anchorFrom(lastHead, lookback),
+      });
+      wake?.(); // and start looking now rather than after the current sleep
     },
     get size() {
       return pending.size;

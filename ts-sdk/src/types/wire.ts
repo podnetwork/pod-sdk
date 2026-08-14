@@ -421,8 +421,11 @@ export interface WireWithdrawal {
 /** `GET /v1/bridge/withdrawals/by-id/{id}`. Nested rather than flattened because
  * `WithdrawalUpdate` carries a u128 and serde's `flatten` cannot round-trip one.
  *
- * `status` is always present and is the authority on which state this is; `proof`
- * is omitted (never null) until a certificate can be assembled. */
+ * `status` is always present, but it is NOT what a consumer decides on: `proof`
+ * takes precedence, including over a `status` this build has never seen, so an
+ * unfamiliar label cannot veto a certificate attached to the same response.
+ * `proof` is omitted (never null) until one can be assembled. `fetchClaimStatus`
+ * carries the full precedence. */
 export interface WireWithdrawalDetail {
   withdrawal: WireWithdrawal;
   status: "claimable" | "pending" | "refused";

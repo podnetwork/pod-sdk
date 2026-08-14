@@ -57,7 +57,11 @@ const ob = useSyncExternalStore(
   object for the TradingView Charting Library (framework-agnostic, no React).
 
 All monetary values are `bigint` (1e18-scaled; use `formatAmount`/`toNumber`/
-`parseAmount`); all timestamps are millisecond `number`s.
+`parseAmount`); all timestamps are millisecond `number`s — with one deliberate
+exception, `Withdrawal.timeUs`, which stays in **microseconds** because it is
+also the resume cursor for `pod_withdrawals` and its REST backfill, both of which
+compare it in micros. The `Us` suffix is the only marker, so treating it as
+milliseconds silently reads a timestamp a thousand times too large.
 
 ## Withdrawals (ADR 0033)
 
@@ -75,9 +79,20 @@ const token = bridgeTokenFor(config, NATIVE_USD_ADDRESS)!;
 // Size it against the token's own rules before signing.
 const amount = maxWithdrawable(balances.withdrawableCash, token);
 const rejection = checkWithdrawAmount(amount, token); // undefined = admissible
+if (rejection) return render(rejection); // e.g. a balance below the token's minimum
 
-await wallet.submit(buildClobWithdraw({ token: token.podToken, recipient, amount }));
+await wallet.submit(buildClobWithdraw({
+  token: token.podToken,
+  recipient,
+  amount,
+  // Required: admission refuses a deadline that is not a multiple of it.
+  auctionIntervalUs: market.auctionIntervalMs * 1000,
+}));
 ```
+
+The rejection is checked rather than merely computed, because `maxWithdrawable`
+returns `0n` for a balance below the token's minimum — so an unguarded path
+submits an amount the node is certain to refuse.
 
 `checkWithdrawAmount` returns a discriminated rejection (`{ code, … }`, each
 variant carrying only the numbers its message needs) rather than a sentence — the
