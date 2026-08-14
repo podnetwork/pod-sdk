@@ -51,12 +51,89 @@ const ob = useSyncExternalStore(
 - **Layer 2 (resources):** `client.status`, `.markets`, `.market(id)`,
   `.orderbook(id,{depth})`, `.positions(account)`, `.triggers(account)`,
   `.backstopTransfers(account)`, `.candles(id, resolution, range)` (a
-  `SeriesResource` with `setWindow`/`loadOlder`), `.orders(account, query)`.
+  `SeriesResource` with `setWindow`/`loadOlder`), `.orders(account, query)`,
+  `.bridgeConfig`, `.withdrawals(account)`.
 - **Charting:** `createPodDatafeed(client)` returns an `IDatafeedChartApi`-shaped
   object for the TradingView Charting Library (framework-agnostic, no React).
 
 All monetary values are `bigint` (1e18-scaled; use `formatAmount`/`toNumber`/
 `parseAmount`); all timestamps are millisecond `number`s.
+
+## Withdrawals (ADR 0033)
+
+`Clob.withdraw` moves a CLOB balance straight to the claim chain in **one**
+transaction — nothing is credited to a pod account on the way, so there is no
+second signature and no half-finished state to recover.
+
+```ts
+import { buildClobWithdraw, NATIVE_USD_ADDRESS } from "@pod-network/trade-sdk/write";
+import { bridgeTokenFor, checkWithdrawAmount, maxWithdrawable } from "@pod-network/trade-sdk";
+
+const config = await client.bridgeConfig.ready();
+const token = bridgeTokenFor(config, NATIVE_USD_ADDRESS)!;
+
+// Size it against the token's own rules before signing.
+const amount = maxWithdrawable(balances.withdrawableCash, token);
+const rejection = checkWithdrawAmount(amount, token); // undefined = admissible
+
+await wallet.submit(buildClobWithdraw({ token: token.podToken, recipient, amount }));
+```
+
+`checkWithdrawAmount` returns a discriminated rejection (`{ code, … }`, each
+variant carrying only the numbers its message needs) rather than a sentence — the
+wording belongs to whatever renders it.
+
+**`amount` stays in pod's 18 decimals but must be a whole number of claim-chain
+units.** Whatever decimals the token uses on the claim chain become the
+withdrawal granularity on pod, and the config's `min`/`max` are in those decimals
+too — so where native USD maps to 6-decimal USDC, every withdrawal must be a
+multiple of 1e12 wei. `maxWithdrawable` handles both; the builder deliberately
+does no rounding of its own, because silently changing a signed amount is worse
+than a clear rejection.
+
+Track the outcome on `client.withdrawals(account)` (live, REST-backfilled),
+matching on the id derived above. `error` is the **only** place a failure reason
+exists: both `insufficient_balance` and `not_included` produce no L1 event at
+all, so a client watching only the claim chain waits forever.
+
+To confirm the funds actually landed, `waitForClaim({ restUrl, claimRpcUrl,
+withdrawalId, bridge })` reads the withdrawal's claim state from pod and then
+watches the claim chain for the bridge's `Claim` event carrying its hash. It
+settles as `claimed` (with the L1 transaction), `refused` (rejected at execution
+— nothing was debited, so the user can resubmit), or `pending` (timed out or
+aborted, still in flight). Pass a `signal` to stop it.
+
+Two things it handles that are easy to get wrong alone: the claim hash is
+**fetched, never recomputed** — it folds in the pod chain id and the bridge
+version, so a local copy silently stops matching after a version bump — and
+`pending` is not `refused`, so a certificate that is merely still assembling
+never reads as a dead withdrawal. Note `refused` is named for the *burn*, not for
+claimability: it means nothing left the CLOB balance.
+
+**Following more than one, use `watchClaims`.** `waitForClaim` is one loop per
+withdrawal, and a UI tracking several pays that many times over. `watchClaims`
+takes the same options minus the id, hands back `{ add, size, stop }`, and
+reports each outcome through `onSettled` as it happens:
+
+```ts
+const claims = watchClaims({ restUrl, claimRpcUrl, bridge, onSettled: announce });
+claims.add(withdrawalId, { lookbackBlocks: 200 });
+```
+
+The claim-chain half then costs the same whether one withdrawal is outstanding
+or twenty, because a `Claim` topic filter is an OR set at `topics[1]` and one
+`eth_getLogs` covers every hash. Stage 1 is still a REST read per unresolved id,
+issued concurrently, so it is the log scan that stops scaling — not every request.
+
+Each withdrawal keeps its **own** scan floor and the shared query starts at the
+oldest of them, which is the one thing worth knowing when using it. A withdrawal
+still waiting for its certificate contributes no hash to the query, but the
+blocks passing meanwhile are exactly where its `Claim` may land — a relayer can
+claim from a certificate this node has not finished assembling. So a floor is
+raised only for an id whose hash was actually in the query that covered it.
+`add` is idempotent while a withdrawal is outstanding but not after it settles —
+the watcher forgets settled ids, so not re-announcing an outcome you already
+acted on stays with the caller.
 
 ## How caching / low traffic works
 

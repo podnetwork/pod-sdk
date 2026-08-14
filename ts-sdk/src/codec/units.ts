@@ -2,6 +2,11 @@
 // strings; wire timestamps are microseconds. Public surface uses `bigint`
 // (1e18-scaled) and millisecond `number` timestamps.
 
+// "wad" is the DappHub/MakerDAO name for a fixed-point number carrying 18
+// digits of precision, which is the scale every pod amount is in. Spelled out
+// because the term is only obvious if you have met it before, and code that
+// mixes scales — bridge withdrawals settle in the claim-chain token's decimals,
+// not pod's — reads very differently depending on whether you know that.
 export const WAD = 1_000_000_000_000_000_000n; // 1e18
 export const WAD_DECIMALS = 18;
 

@@ -1,14 +1,16 @@
 import type {
-  Address, BackstopTransfer, Balances, LeaderboardPage, LeaderboardQuery, Market, MarketId,
-  PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery, TxExplorer, OrdersQuery,
+  Address, BackstopTransfer, Balances, BridgeConfig, LeaderboardPage, LeaderboardQuery, Market,
+  MarketId, PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery, TxExplorer,
+  OrdersQuery, Withdrawal,
 } from "./types/public.js";
 import { PodRestClient } from "./transport/rest.js";
 import { PodWsClient, type WebSocketCtor } from "./transport/ws.js";
 import { BaseResource, combineResources, derivedResource, type Resource } from "./stores/resource.js";
 import {
-  balancesSource, marketsSource, orderbookSource, positionsSource, statusSource, triggersSource,
-  type MarketsCache, type SyncContext,
+  balancesSource, bridgeConfigSource, marketsSource, orderbookSource, positionsSource,
+  statusSource, triggersSource, type MarketsCache, type SyncContext,
 } from "./sync/sources.js";
+import { withdrawalsSource } from "./sync/withdrawals.js";
 import { CandleSeries } from "./sync/candles.js";
 import { OrderHistory } from "./sync/orders.js";
 import { enrichPositions } from "./sync/positions-live.js";
@@ -175,6 +177,32 @@ export class PodTradeClient {
   balances(account: Address): Resource<Balances> {
     return this.memo(`balances:${account}`, () =>
       new BaseResource(balancesSource(this.ctx, account)),
+    );
+  }
+
+  /**
+   * Static bridge config: the claim chain, and each bridged token's L1 address,
+   * decimals and withdraw window (ADR 0033 §5). Everything a client needs to
+   * build an admissible withdrawal — see `maxWithdrawable` / `checkWithdrawAmount`.
+   *
+   * Re-seeded on reconnect rather than fetched once: an operator can change the
+   * token set or the limits under a long-lived tab, and a stale window would
+   * quietly offer amounts the node now refuses.
+   */
+  get bridgeConfig(): Resource<BridgeConfig> {
+    return this.memo("bridgeConfig", () => new BaseResource(bridgeConfigSource(this.ctx)));
+  }
+
+  /**
+   * This account's terminal withdrawal outcomes, newest first — live off
+   * `pod_withdrawals`, gap-filled over REST on every reconnect.
+   *
+   * Scoped to the **debited** account, which is the master for a delegated
+   * withdrawal, so pass the master address rather than the session key.
+   */
+  withdrawals(account: Address): Resource<Withdrawal[]> {
+    return this.memo(`withdrawals:${account}`, () =>
+      new BaseResource(withdrawalsSource(this.ctx, account)),
     );
   }
 
