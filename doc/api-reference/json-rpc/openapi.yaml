@@ -1298,8 +1298,14 @@ paths:
           **Requires** `account` (alias `bidder`).
         - `pod_triggers` — a `TriggersUpdate` (the `ob_getTriggers` fields plus `account`) for the
           subscribed account, pushed when a settlement touches it. **Requires** `account`.
+        - `pod_withdrawals` — an **array of `WithdrawalUpdate`**: what became of every orderbook
+          withdrawal that settled this tick — claimable on the bridge's claim chain, or refused with
+          the reason. Tick-level rather than per-orderbook, since a withdrawal belongs to no book, so
+          `orderbook_ids` does not apply; `account` narrows it to one withdrawer. A tick with no
+          matching outcomes sends nothing at all rather than an empty array.
 
-        `pod_orderbook`, `pod_orders`, `pod_orders_v2`, and `pod_candles` are **delta** channels
+        `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_candles`, and `pod_withdrawals` are
+        **delta** channels
         (they stream what changed each tick). `pod_markets`, `pod_positions`, and `pod_triggers` are **state** channels
         (each pushes a current snapshot). See `since` below for how each behaves on catch-up.
 
@@ -1389,14 +1395,19 @@ paths:
         distinct accounts — to follow several on one subscription instead of opening one each.
         `bidder` and `bidders` are mutually exclusive, and naming more than one account makes the
         frame carry `accts`/`a` (see above). `pod_positions` and `pod_triggers` are account-scoped and **require**
-        `account` (alias `bidder`); they ignore `orderbook_ids`. `depth` applies to `pod_orderbook`
+        `account` (alias `bidder`); they ignore `orderbook_ids`. `pod_withdrawals` takes `account`
+        **optionally** — omitted streams every account's outcomes — and matches it against
+        `withdrawer`, the debited account, which for a delegated withdrawal is the master rather than
+        the transaction signer; it ignores `orderbook_ids` too. `depth` applies to `pod_orderbook`
         snapshots only.
 
         **Catch-up (`since`).** Optionally pass `since` (a solution time in **microseconds**) to
         catch up with no gap or duplicate. Delta channels (`pod_orderbook`, `pod_orders`,
-        `pod_candles`) replay buffered ticks with deadline strictly greater than `since`; if `since`
-        predates the retained buffer the subscription is rejected (backfill via REST and
-        resubscribe). State channels (`pod_markets`, `pod_positions`, `pod_triggers`) emit one
+        `pod_candles`, `pod_withdrawals`) replay buffered ticks with deadline strictly greater than
+        `since`; if `since` predates the retained buffer the subscription is rejected (backfill via
+        REST and resubscribe — for `pod_withdrawals` that is
+        `GET /v1/bridge/withdrawals[/{account}]?since=`, which takes the same cursor and serves the
+        same shape). State channels (`pod_markets`, `pod_positions`, `pod_triggers`) emit one
         current snapshot immediately, then stream live. Omitted = live-only. Which option applies to
         which subscription type is summarised in `SubscriptionParams`.
 
@@ -1424,7 +1435,7 @@ paths:
                     Parameters:
                     1. `subscription_type` (string): one of `pod_orderbook`, `pod_orders`,
                        `pod_orders_v2`, `pod_candles`, `pod_markets`, `pod_positions`,
-                       `pod_triggers`.
+                       `pod_triggers`, `pod_withdrawals`.
                     2. `options` (SubscriptionParams): filter/format options; all fields optional
                        except where a channel requires `account`. Which fields take effect depends on
                        the subscription type:
@@ -1436,7 +1447,8 @@ paths:
                          in each snapshot (omit for all levels).
                        - `bidder` (alias `account`, address) — `pod_orders`, `pod_orders_v2`:
                          stream only that bidder's updates (omit for all). **Required** for
-                         `pod_positions` and `pod_triggers` (the account to stream).
+                         `pod_positions` and `pod_triggers` (the account to stream). Optional on
+                         `pod_withdrawals`, where it matches `withdrawer` (the debited account).
                        - `bidders` (array of addresses) — **`pod_orders_v2` only**: follow several
                          accounts on one subscription. A set — order irrelevant, repeats collapsed —
                          capped at 64 distinct accounts. Mutually exclusive with `bidder`; rejected
@@ -1449,7 +1461,7 @@ paths:
                   items:
                     oneOf:
                       - type: string
-                        enum: [pod_orderbook, pod_orders, pod_orders_v2, pod_candles, pod_markets, pod_positions, pod_triggers]
+                        enum: [pod_orderbook, pod_orders, pod_orders_v2, pod_candles, pod_markets, pod_positions, pod_triggers, pod_withdrawals]
                       - $ref: '#/components/schemas/SubscriptionParams'
             examples:
               pod_orderbook:
@@ -1508,6 +1520,13 @@ paths:
                   method: "eth_subscribe"
                   id: 1
                   params: ["pod_triggers", { account: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28" }]
+              pod_withdrawals:
+                summary: pod_withdrawals for one account, replaying ticks since a watermark
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_withdrawals", { account: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", since: 1704153600000000 }]
       responses:
         '200':
           description: |
@@ -1571,6 +1590,27 @@ paths:
                           filled_quote_amount: "0x22b1c8c1227a0000"
                           effective_price: "0x4563918244f40000"
                           fee: "0x0"
+                pod_withdrawals_notification:
+                  summary: A streamed pod_withdrawals notification (array of WithdrawalUpdate) — one claimable, one refused
+                  value:
+                    jsonrpc: "2.0"
+                    method: "eth_subscription"
+                    params:
+                      subscription: "0x9ce59a13059e417087c02d3236a0b1cc"
+                      result:
+                        - withdrawal_id: "0x3f1c2b4a5d6e70819a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f3021"
+                          withdrawer: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                          to: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                          token: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+                          amount: "0xde0b6b3a7640000"
+                          timestamp_us: 1704153600000000
+                        - withdrawal_id: "0x88a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f"
+                          withdrawer: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                          to: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                          token: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+                          amount: "0x8ac7230489e80000"
+                          error: "insufficient_balance"
+                          timestamp_us: 1704153600000000
 
   /eth_unsubscribe:
     post:
@@ -3271,10 +3311,11 @@ components:
         `pod_positions` / `pod_triggers` require `account` (alias `bidder`). Which fields take
         effect depends on the subscription type:
         - `orderbook_ids` (alias `clob_ids`) — `pod_orderbook`, `pod_orders`, `pod_orders_v2`,
-          `pod_candles`, `pod_markets`; ignored by `pod_positions` / `pod_triggers`.
+          `pod_candles`, `pod_markets`; ignored by `pod_positions` / `pod_triggers` /
+          `pod_withdrawals`.
         - `depth` — `pod_orderbook` only.
-        - `bidder` (alias `account`) — optional for `pod_orders` / `pod_orders_v2`; **required** for
-          `pod_positions` and `pod_triggers`.
+        - `bidder` (alias `account`) — optional for `pod_orders` / `pod_orders_v2` /
+          `pod_withdrawals`; **required** for `pod_positions` and `pod_triggers`.
         - `bidders` — `pod_orders_v2` only, to follow several accounts on one subscription.
           Mutually exclusive with `bidder`.
         - `since` — all channels (catch-up watermark, microseconds).
@@ -3293,7 +3334,7 @@ components:
           description: 'Accepted alias for `orderbook_ids`.'
         bidder:
           $ref: '#/components/schemas/Address'
-          description: 'Account filter (accepted alias: `account`). For `pod_orders`, when set, streams only this bidder''s updates (omit for all bidders). For `pod_positions` / `pod_triggers` this is **required** — the account whose positions / triggers to stream. On `pod_orders_v2` it is the single-account form of `bidders`, and sending both is an error.'
+          description: 'Account filter (accepted alias: `account`). For `pod_orders`, when set, streams only this bidder''s updates (omit for all bidders). For `pod_positions` / `pod_triggers` this is **required** — the account whose positions / triggers to stream. On `pod_orders_v2` it is the single-account form of `bidders`, and sending both is an error. On `pod_withdrawals` it is optional and matches `withdrawer` — the debited account, which is the master for a delegated withdrawal.'
         bidders:
           type: array
           items: { $ref: '#/components/schemas/Address' }
@@ -3335,6 +3376,7 @@ components:
         - `pod_markets` → a `MarketDynamicEntry`.
         - `pod_positions` → a `PositionsUpdate`.
         - `pod_triggers` → a `TriggersUpdate`.
+        - `pod_withdrawals` → an array of `WithdrawalUpdate`.
       properties:
         jsonrpc:
           type: string
@@ -3358,6 +3400,8 @@ components:
                 - $ref: '#/components/schemas/MarketDynamicEntry'
                 - $ref: '#/components/schemas/PositionsUpdate'
                 - $ref: '#/components/schemas/TriggersUpdate'
+                - type: array
+                  items: { $ref: '#/components/schemas/WithdrawalUpdate' }
 
     OrdersFrameV2:
       type: object
@@ -4340,3 +4384,47 @@ components:
           type: string
           nullable: true
           description: 'Pagination cursor, wire format `"{orderbook_id}:{order_id}"`. Null if no more results.'
+
+    WithdrawalUpdate:
+      type: object
+      description: |
+        One outcome from `pod_withdrawals` — what became of a single orderbook withdrawal when its
+        tick executed. The REST backfill (`GET /v1/bridge/withdrawals[/{account}]?since=`) serves the
+        identical shape, so an outcome read after a reconnect is indistinguishable from one that
+        arrived live.
+
+        An orderbook withdrawal is burned on Pod and claimed on the bridge's claim chain; nothing is
+        credited to a Pod account on the way. No `error` means it is on its way there.
+        `insufficient_balance` and `not_included` both mean **nothing was debited** — the funds are
+        still in the orderbook balance and no claim will ever exist — and this is the only surface
+        that carries the reason, so a client watching only the claim chain waits forever for an event
+        that cannot come.
+
+        The claim itself is not here: read it from
+        `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}`, which reports `claimable` / `pending` /
+        `refused` and attaches the proof once a certificate can be assembled.
+      required: [withdrawal_id, withdrawer, to, token, amount, timestamp_us]
+      properties:
+        withdrawal_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: 'Identity of the withdrawal intent, `keccak256(abi.encode(signer, nonce, sequence))`, where `sequence` is its position inside a `submitBatch` envelope (`0` for a standalone `withdraw`). Computable before submitting, and the key the claim is fetched by.'
+        withdrawer:
+          $ref: '#/components/schemas/Address'
+          description: 'The debited account — the master for a delegated withdrawal, not the transaction signer. This is what the `account` subscription filter matches.'
+        to:
+          $ref: '#/components/schemas/Address'
+          description: 'Recipient **on the claim chain**. Nothing is credited on Pod.'
+        token:
+          $ref: '#/components/schemas/Address'
+          description: 'Pod-side token address. Map it to the asset the claim pays out using the token list from `GET /v1/bridge/config`.'
+        amount:
+          type: string
+          description: 'Amount in Pod''s 18 decimals, hex-encoded — what the user signed and what left the orderbook balance. The claim carries this converted to the token''s claim-chain decimals, which differs by 10^12 for a 6-decimal token, so never pass this value to `claim`; take that one from the proof response. A refused withdrawal still reports the amount that was asked for.'
+        error:
+          type: string
+          enum: [insufficient_balance, not_included]
+          description: 'Absent when the withdrawal is claimable. `insufficient_balance` — the balance did not cover it at execution; admission deliberately does not check the balance, because pending fills can raise it before the tick runs. `not_included` — the solver omitted a finalized intent before its deadline passed. Treat an unrecognised value as a failure rather than as success: the vocabulary can grow.'
+        timestamp_us:
+          type: integer
+          format: int64
+          description: 'The tick''s batch deadline, in microseconds — also the `since` cursor for this subscription and for the REST backfill, so a value read here can be handed straight to either.'

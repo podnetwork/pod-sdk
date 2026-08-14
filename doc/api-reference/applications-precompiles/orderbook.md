@@ -106,8 +106,6 @@ There is exactly one claimable chain — the one the network's bridge is configu
 }
 ```
 
-A network with no bridge configured serves an empty `tokens` list and refuses every orderbook withdrawal — there is no chain for one to be claimed on.
-
 **What the parameters mean.**
 
 | Parameter   | Meaning                                                                                                                                                                                                                                                                             |
@@ -145,10 +143,6 @@ so you can compute it before you submit — `sequence` is the intent's position 
 Both mean **nothing was debited**: the funds are still in your orderbook balance, no claim exists and none ever will. Resubmit — the new transaction gets a new `withdrawal_id`. This is the only place a failure reason appears, so a client watching only the claim chain waits forever for an event that cannot come.
 
 **Claiming.** Once `n - f` validators have signed the withdrawal, `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}` returns `status: "claimable"` and a `proof` carrying the claim hash together with the claim-chain `(token, amount, to)` to pass to the bridge contract's `claim`. The bridge relayer submits that claim for you; the call is permissionless, so anyone — including you — can submit the same proof if the relayer is unavailable. `status: "pending"` means the certificate is still being assembled: ask again rather than treating it as a failure. See [Native Bridge](../../protocol/native-bridge.md) for how the certificate is produced.
-
-{% hint style="warning" %}
-**Gas still comes from the native Pod balance**, and `withdraw` no longer credits it. A direct (non-delegated) caller who empties their native balance cannot pay for the transaction that would move their orderbook balance out; the way back in is a bridge deposit. Delegated calls are gas-exempt, which is the path the trading app and the TypeScript SDK take.
-{% endhint %}
 
 ### Batch envelope
 

@@ -49,4 +49,6 @@ When calling `withdraw` to bridge from Pod to another chain, the `amount` must b
 
 ## Native Token Withdrawals
 
-When withdrawing the native token (ETH), **`tx.value` must be `0`**. The bridge deducts the balance internally — do not send value with the transaction.
+When withdrawing the **native token**, the coin travels with the transaction: set `tx.value` to the `amount` **scaled up to Pod's 18 decimals**. Bridging 1 USDC uses `amount = 1000000` (1e6) and `tx.value = 1000000000000000000` (1e18). A native withdraw is rejected unless the two match.
+
+**ERC20 withdrawals send no value** — set `tx.value` to `0`, and the balance is deducted internally.

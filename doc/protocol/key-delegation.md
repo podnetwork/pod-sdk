@@ -50,5 +50,5 @@ The set of delegatable calls is fixed by the protocol — a delegation certifica
 ## Security model
 
 * **Expiry.** A delegated intent is honored only while `validUntil >= deadline` of the intent. Expired or malformed certificates make the transaction invalid.
-* **No exfiltration.** A delegated `withdraw` or `deposit` can only move funds to the master, so a leaked delegate key can trade the master's balance but never steal it. This matters more than it used to: an orderbook `withdraw` now sends funds off Pod to the claim chain, so without the override a leaked delegate would be one irreversible transaction away from the whole balance. The pinned recipient resolves to the master's own address on the claim chain, controlled by the same key.
+* **No exfiltration.** A delegated `withdraw` or `deposit` can only move funds to the master, so a leaked delegate key can trade the master's balance but never steal it.
 * **No revocation.** There is no explicit revoke: a certificate stays valid until its `validUntil`. Keep `validUntil` short and rotate — to replace a delegate, stop using the old key and sign a new `DelegationAuth` for a new one.
