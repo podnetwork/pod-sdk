@@ -2,6 +2,10 @@
 
 This guide walks through bridging ERC20 tokens from Pod to Ethereum. For background on how the bridge works, see [Native Bridge](https://docs.v2.pod.network/documentation/native-bridge).
 
+{% hint style="info" %}
+**This page covers funds held in a Pod account.** A **trading balance leaves through the orderbook precompile instead**: `withdraw` there burns the balance on Pod and makes it claimable on the bridge chain in a single transaction, with no `chainId` to pass and no intermediate credit to a Pod account. See [Withdrawals leave Pod](../applications-precompiles/orderbook.md#withdrawals-leave-pod). The path below is the older of the two and goes away with Pod account balances.
+{% endhint %}
+
 ## Decimal Scaling
 
 All tokens on Pod are represented with 18 decimals, regardless of their decimals on Ethereum. When calling `withdraw` on the Pod bridge precompile, the `amount` must be specified in the **Ethereum token's units**. For example, to bridge 1 USDC (6 decimals on Ethereum), pass `1000000` (1e6), not `1000000000000000000` (1e18).

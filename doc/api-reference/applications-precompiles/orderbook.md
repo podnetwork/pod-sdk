@@ -2,7 +2,7 @@
 
 The **Orderbook precompile** is the on-chain execution surface for native markets — both **spot** and **perpetual**. The same contract, calls, and balances are shared across both market types; a market's behavior is determined by the `MarketType` set at creation.
 
-Use it for **placing/canceling/updating orders**, **depositing/withdrawing funds**, **opening leveraged perpetual positions**, **arming take-profit / stop-loss triggers**, and **reading balances and order state**.
+Use it for **placing/canceling/updating orders**, **depositing funds and withdrawing them to the claim chain**, **opening leveraged perpetual positions**, **arming take-profit / stop-loss triggers**, and **reading balances and order state**.
 
 {% hint style="info" %}
 **Orderbook precompile address:** `0x50d0000000000000000000000000000000000002`
@@ -89,6 +89,67 @@ What that means in practice:
 
 **Amendments re-arm the guarantee.** An `update` that re-queues the order — a price change, or a size increase — makes it a newcomer again, so it may not trade for the rest of *that* batch and can be refused in it (for example, when you reprice it onto a crossing level). An update that only *decreases* the size keeps its queue priority and its original admission batch, so it goes on matching normally.
 
+### Withdrawals leave Pod
+
+`withdraw` does **not** move funds to your Pod account. It debits the orderbook balance, burns it on Pod, and makes the same value claimable on the bridge's **claim chain** — one transaction, one signature, and nothing credited anywhere on Pod along the way. The ABI is unchanged from when this call credited the signer's native Pod balance; the destination is not, so a caller that used `withdraw` to fund a Pod account now sends those funds off the network.
+
+There is exactly one claimable chain — the one the network's bridge is configured for — so `withdraw` takes no chain id and there is nothing to name wrongly. Read the chain, the bridge contract and the per-token rules from `GET /v1/bridge/config` on any full node:
+
+```json
+{
+  "claim_chain_id": 42161,
+  "source_contract": "0x…",
+  "version": 1,
+  "tokens": [
+    { "pod_token": "0x…", "l1_token": "0x…", "decimals": 6, "min": "0xf4240", "max": "0x…" }
+  ]
+}
+```
+
+A network with no bridge configured serves an empty `tokens` list and refuses every orderbook withdrawal — there is no chain for one to be claimed on.
+
+**What the parameters mean.**
+
+| Parameter   | Meaning                                                                                                                                                                                                                                                                             |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `recipient` | An address on the **claim chain**, not on Pod. Same 20 bytes, different chain — check that whoever controls it there is who you mean, especially for a contract address.                                                                                                              |
+| `amount`    | Still Pod's 18 decimals, and it must be a **whole number of claim-chain units**: `amount % 10^(18 - decimals) == 0`. Where a token is 6-decimal on the claim chain, every withdrawal is a multiple of `1e12` wei. Nothing is rounded for you — an inexact amount is rejected outright. |
+| `token`     | The **Pod-side** token address. `l1_token` from `/v1/bridge/config` is the asset the claim pays out, and that list is the only source of the mapping.                                                                                                                                 |
+| `deadline`  | Unchanged — the latest batch this intent may land in, in microseconds, aligned to the market's `auction_interval`.                                                                                                                                                                    |
+
+The per-token `min`/`max` from `/v1/bridge/config` are in the token's **claim-chain decimals** and are compared against the converted amount, not against the 18-decimal one you sign.
+
+Validators check all of that before attesting. They deliberately do **not** check your orderbook balance there — pending fills can raise it before the batch executes — so an insufficient balance surfaces as an outcome after execution rather than as a rejected transaction.
+
+**Following a withdrawal.** Every withdrawal has an id, derived exactly like an `order_id`:
+
+```text
+withdrawal_id = keccak256(abi.encode(address signer, uint64 nonce, uint32 sequence))
+```
+
+so you can compute it before you submit — `sequence` is the intent's position inside a `submitBatch` envelope, `0` for a standalone `withdraw`. Outcomes are published once per batch:
+
+| Surface                                                     | Use                                                                                                                                                          |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `eth_subscribe("pod_withdrawals", { account, since })`      | Live outcomes. Each carries `withdrawal_id`, `withdrawer`, `to`, `token`, `amount` (18 decimals), `error` and `timestamp_us`.                                  |
+| `GET /v1/bridge/withdrawals/{account}?since=&since_id=&limit=` | Backfill after a disconnect — identical shape, and `since` is the same cursor the subscription takes.                                                        |
+| `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}`          | One withdrawal: its `status` (`claimable`, `pending` or `refused`) and, once assembled, the claim `proof`.                                                     |
+
+`withdrawer` is the **debited** account — the master for a delegated withdrawal, not the transaction signer — and it is what `account` filters on.
+
+`error` is absent when the withdrawal is claimable, and otherwise names why it was refused:
+
+* `insufficient_balance` — the balance did not cover the amount when the batch executed.
+* `not_included` — the solver left the intent out of the solution its deadline pointed at.
+
+Both mean **nothing was debited**: the funds are still in your orderbook balance, no claim exists and none ever will. Resubmit — the new transaction gets a new `withdrawal_id`. This is the only place a failure reason appears, so a client watching only the claim chain waits forever for an event that cannot come.
+
+**Claiming.** Once `n - f` validators have signed the withdrawal, `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}` returns `status: "claimable"` and a `proof` carrying the claim hash together with the claim-chain `(token, amount, to)` to pass to the bridge contract's `claim`. The bridge relayer submits that claim for you; the call is permissionless, so anyone — including you — can submit the same proof if the relayer is unavailable. `status: "pending"` means the certificate is still being assembled: ask again rather than treating it as a failure. See [Native Bridge](../../protocol/native-bridge.md) for how the certificate is produced.
+
+{% hint style="warning" %}
+**Gas still comes from the native Pod balance**, and `withdraw` no longer credits it. A direct (non-delegated) caller who empties their native balance cannot pay for the transaction that would move their orderbook balance out; the way back in is a bridge deposit. Delegated calls are gas-exempt, which is the path the trading app and the TypeScript SDK take.
+{% endhint %}
+
 ### Batch envelope
 
 `submitBatch` packs several single-intent calls (1–64) into a single signed transaction that lands atomically in one auction tick. Each entry in `inner` is the full ABI-encoded calldata of a single-intent function (`submitOrder`, `cancel`, `update`, `submitTrigger`, `deposit`, …) — encoded exactly as a standalone call, including its 4-byte selector. Every sub-intent **must carry the same `deadline`** (the uniform-deadline invariant), and nested batches are rejected. For the full rules and a worked example, see [Submit a batch order](../guides/submit-a-batch-order.md).
@@ -97,7 +158,7 @@ What that means in practice:
 
 `delegated` lets a **delegate** key perform an orderbook call on behalf of a **master** account. The transaction is signed by the delegate; `signature` is the master's 65-byte `r ‖ s ‖ v` EIP-712 signature over `DelegationAuth { delegate, validUntil }` (domain `{ name: "pod delegation", version: "1", chainId }`), where `delegate` must equal the transaction's signer, and `inner` is the full ABI-encoded calldata of the wrapped call, including its 4-byte selector. The certificate is verified statelessly on every transaction — no registration, no on-chain state — and the intent is accepted only while `validUntil >= deadline` of the inner call (both in microseconds).
 
-The inner intent is **owned by the master** (balances, resting-order owner, cancel/update/withdraw target) while its `order_id` keys on the delegate (the tx signer); a delegated `deposit`/`withdraw` has its `recipient` overridden to the master. Any deadline-bearing call can be wrapped — single intents or a whole `submitBatch` — but `submitSolutions`, `createOrderBook`, and nested `delegated` are rejected. Delegated calls are gas-exempt. For the concept and security model see [Key Delegation](../../protocol/key-delegation.md) in the protocol reference; for a worked example see [Delegate a trading key](../guides/delegate-a-trading-key.md).
+The inner intent is **owned by the master** (balances, resting-order owner, cancel/update/withdraw target) while its `order_id` keys on the delegate (the tx signer); a delegated `deposit`/`withdraw` has its `recipient` overridden to the master — for a withdraw that is the master's own address on the claim chain, so a leaked delegate can never direct funds off Pod to anyone else. Any deadline-bearing call can be wrapped — single intents or a whole `submitBatch` — but `submitSolutions`, `createOrderBook`, and nested `delegated` are rejected. Delegated calls are gas-exempt. For the concept and security model see [Key Delegation](../../protocol/key-delegation.md) in the protocol reference; for a worked example see [Delegate a trading key](../guides/delegate-a-trading-key.md).
 
 ### Solidity interface (ABI)
 
@@ -249,10 +310,20 @@ contract Orderbook {
     ) public {}
 
     /**
-     * @notice Withdraws tokens from the exchange to an external wallet.
-     * @param token The address of the ERC20 token to withdraw.
-     * @param recipient The address receiving the withdrawn tokens.
-     * @param amount The amount of tokens to withdraw.
+     * @notice Withdraws tokens from the exchange to the claim chain. The balance is
+     *         burned on Pod — nothing is credited to a Pod account — and the same
+     *         value becomes claimable on the chain the bridge is configured for.
+     * @dev Checked before attestation, against the bridge config served by
+     *      `GET /v1/bridge/config`: the token must be bridged, `amount` must be a whole
+     *      number of claim-chain units (`amount % 10^(18 - decimals) == 0`), and the
+     *      converted amount must fall inside that token's `[min, max]`. The orderbook
+     *      balance is checked at execution instead, so an insufficient balance arrives
+     *      as a `pod_withdrawals` outcome rather than as a rejected transaction. There
+     *      is no `chainId` parameter — exactly one chain is claimable. See
+     *      "Withdrawals leave Pod" above for the outcome and claim flow.
+     * @param token The Pod-side address of the token to withdraw.
+     * @param recipient The address receiving the funds **on the claim chain**.
+     * @param amount The amount to withdraw, in Pod's 18 decimals and a whole multiple of `10^(18 - decimals)` for the token's claim-chain decimals.
      * @param deadline The Unix timestamp after which the withdrawal is invalid in microseconds. Must be a multiple of the `auction_interval`.
      */
     function withdraw(
@@ -369,7 +440,8 @@ contract Orderbook {
      *      - `inner` must be a deadline-bearing call — a single intent or a
      *        `submitBatch`. `submitSolutions`, `createOrderBook`, and nested
      *        `delegated` are rejected; view functions cannot be wrapped.
-     *      - A delegated `deposit`/`withdraw` has its `recipient` overridden to `master`.
+     *      - A delegated `deposit`/`withdraw` has its `recipient` overridden to `master`
+     *        — for a withdraw, the master's own address on the claim chain.
      *      The inner intent is owned by `master` (balances, resting-order owner,
      *      cancel/update/withdraw target), while its `order_id` keys on the delegate
      *      (the tx signer). Delegated calls are gas-exempt.
