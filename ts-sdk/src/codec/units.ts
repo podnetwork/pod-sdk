@@ -110,7 +110,9 @@ export function parseAmount(value: string, decimals: number = WAD_DECIMALS): big
   const neg = value.trim().startsWith("-");
   const clean = neg ? value.trim().slice(1) : value.trim();
   const [whole = "0", frac = ""] = clean.split(".");
+  if (whole === "" && frac === "") throw new SyntaxError("Cannot convert empty amount to a BigInt");
   const fracPadded = (frac + "0".repeat(decimals)).slice(0, decimals);
-  const scaled = BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fracPadded || "0");
+  const wholePart = whole === "" && frac !== "" ? "0" : whole;
+  const scaled = BigInt(wholePart) * 10n ** BigInt(decimals) + BigInt(fracPadded || "0");
   return neg ? -scaled : scaled;
 }
