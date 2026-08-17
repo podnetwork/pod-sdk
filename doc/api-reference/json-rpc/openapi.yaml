@@ -2461,7 +2461,7 @@ components:
 
     OrderStatus:
       type: string
-      enum: ["pending", "active", "filled", "expired", "canceled"]
+      enum: ["pending", "active", "filled", "expired", "canceled", "margin_canceled", "post_only_refused", "invalid"]
       description: |
         Current status of an order:
         - `pending`: Order submitted but not yet included in orderbook
@@ -2469,6 +2469,9 @@ components:
         - `filled`: Order completely filled
         - `expired`: Order expired (TTL exceeded)
         - `canceled`: Order was canceled by user
+        - `margin_canceled`: The engine removed the order because the owner's margin capacity was exhausted
+        - `post_only_refused`: The engine removed a `post_only` order that would have taken liquidity in the batch that admitted (or re-priced) it. Distinct from `canceled` so an engine refusal can be told apart from a cancel the trader sent — see [Post-only orders](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook)
+        - `invalid`: Rejected at execution and never entered the book; the reject reason travels with the status
 
     MarketType:
       type: string
@@ -2554,7 +2557,7 @@ components:
     Order:
       type: object
       description: |
-        An order returned by `ob_getOrders`. Carries spot and perp shapes — perp-only fields (`reduce_only`, `ioc`, `direction`) are present only when `market_type = perpetual`. The `initial_size` is signed: positive for Buy/Long, negative for Sell/Short.
+        An order returned by `ob_getOrders`. Carries spot and perp shapes — perp-only fields (`reduce_only`, `ioc`, `direction`) are present only when `market_type = perpetual`. `post_only` is reported on both. The `initial_size` is signed: positive for Buy/Long, negative for Sell/Short.
       properties:
         orderbook_id:
           $ref: '#/components/schemas/Bytes32'
@@ -2625,6 +2628,11 @@ components:
           type: boolean
           description: Perp only. Immediate-or-cancel — any unfilled remainder is canceled at end of batch. Omitted for spot orders.
           nullable: true
+        post_only:
+          type: boolean
+          description: |
+            Add-liquidity-only — the order could not trade in the batch that admitted it. Reported on
+            both market types, and **omitted when false**.
         direction:
           $ref: '#/components/schemas/OrderDirection'
           description: Composite direction label (set for spot, and for perps once fills land or for liquidation orders).
@@ -3393,8 +3401,15 @@ components:
           type: array
           items: { $ref: '#/components/schemas/OrderEventV2' }
           description: |
-            What happened, in a deterministic order: new/rejected orders, then fills ascending by
-            order id, then cancellations, expirations and modifications, then backstop sweeps.
+            What happened, in a deterministic order: new/rejected orders, then cancellations, then
+            modifications, then post-only refusals, then refused amendments, then fills ascending by
+            order id, then expirations, then backstop sweeps.
+
+            The order is not arbitrary: apply events as they arrive and your book is never transiently
+            wrong. Cancellations precede the fills so you never hold an order that has already been
+            removed, and post-only refusals sit **after** the modifications rather than with the other
+            cancellations, so an order repriced onto a crossing level and refused for it ends the frame
+            removed rather than resting at the refused price.
 
     OrderEntityV2:
       type: object
@@ -3463,6 +3478,11 @@ components:
         ioc:
           type: boolean
           description: 'Immediate-or-cancel. Omitted means false.'
+        post_only:
+          type: boolean
+          description: |
+            Add-liquidity-only — the order may not trade in the batch that admitted it, so it can rest
+            through a batch it appeared to cross. Omitted means false.
         trigger:
           type: string
           enum: [take_profit, stop_loss]
@@ -3489,7 +3509,8 @@ components:
             - `new` — the order entered the book.
             - `reject` — dropped during execution, never rested; `why` carries the reason.
             - `fill` — matched, wholly or partly.
-            - `cancel` — removed by a cancel intent or by the engine.
+            - `cancel` — removed by a cancel intent or by the engine. An engine removal carries `st`
+              (today only `post_only_refused`); a cancel the owner sent omits it.
             - `expire` — removed on reaching its TTL.
             - `modify` — a resting order's price and/or size changed in place.
             - `modify_reject` — an amendment the engine refused. The order is untouched; `code` says why.
@@ -3565,8 +3586,23 @@ components:
             on its first fill.
         st:
           type: string
-          enum: [filled, canceled, margin_canceled, expired]
-          description: '`fill` only, and only on the fill that **closed** the order, carrying the status it closed with. Its absence means the order is still working.'
+          enum: [filled, canceled, margin_canceled, expired, post_only_refused]
+          description: |
+            The terminal status an event closed the order with.
+
+            On `fill`: present only on the fill that **closed** the order; its absence there means the
+            order is still working.
+
+            On `cancel`: present only when the **engine** removed the order rather than the owner
+            cancelling it — today that is `post_only_refused`, a `post_only` order removed because it
+            would have taken liquidity in the batch that admitted or re-priced it. An ordinary cancel
+            omits `st`, so a client that ignores the field reads every `cancel` exactly as it did
+            before.
+
+            A refusal is ordered **after** the `modify` events in its frame, unlike every other cancel.
+            An order repriced onto a crossing level and refused for it emits `modify` and then `cancel`:
+            apply them in the order given and the order ends the frame removed, rather than resurrected
+            at the refused price.
         pa:
           type: string
           description: |
@@ -3598,7 +3634,10 @@ components:
         - `new` / `invalid`: the full `Order` fields are inlined alongside `type` (an `invalid`
           order was rejected at execution and never entered the book; the reason is on its
           `status`).
-        - `expired` / `canceled`: only `type` and `order_id` are present.
+        - `expired` / `canceled`: only `type` and `order_id` are present. This variant carries no
+          status, so an engine removal — such as a refused post-only order — is
+          indistinguishable from a cancel the trader sent. Use `pod_orders_v2`, whose `cancel` event
+          carries `st`, if you need to tell them apart.
         - `modified`: a resting order's price and/or size was changed in place by an `update`
           intent — `type`, `order_id`, and the new `new_price` / `new_size` are present.
         - `fill`: the `OrderFillUpdate` fields are inlined alongside `type`.

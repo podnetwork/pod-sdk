@@ -23,10 +23,17 @@ const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
-  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
+  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, uint8 flags)",
   "function submitTrigger(bytes32 orderbookId, int256 size, uint256 limitPrice, uint256 triggerPrice, uint8 triggerType, uint8 grouping, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
   "function submitBatch(bytes[] inner)",
 ];
+
+// `submitOrder` flags bits. `submitTrigger` keeps its two booleans and has no
+// flags argument, so a trigger's synthetic order cannot be post-only.
+const REDUCE_ONLY = 0x01;
+const IOC = 0x02;
+const POST_ONLY = 0x04;
+
 const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 
 const nvdaPerpId = "0x0000000000000000000000000000000000000000000000000000000000000007"; // NVDA-USD perp
@@ -44,7 +51,7 @@ const size = ethers.parseEther("5"); // +5 NVDA long
 
 // 1. Entry: 5 NVDA long at $140 limit
 const entry = orderbook.interface.encodeFunctionData("submitOrder", [
-  nvdaPerpId, size, ethers.parseEther("140"), 0 /* Limit */, deadline, ttl, false, false,
+  nvdaPerpId, size, ethers.parseEther("140"), 0 /* Limit */, deadline, ttl, 0 /* flags */,
 ]);
 
 // 2. Take-profit: sell 5 NVDA when price reaches $160 (reduceOnly, tied to the position)
@@ -82,7 +89,7 @@ sol! {
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
             OrderType orderType, uint128 deadline, uint128 ttl,
-            bool reduceOnly, bool ioc
+            uint8 flags
         ) public;
         function submitTrigger(
             bytes32 orderbookId, int256 size, uint256 limitPrice, uint256 triggerPrice,
@@ -124,7 +131,8 @@ let entry = Orderbook::submitOrderCall {
     size,
     price: U256::from(140) * one_e18,
     orderType: Orderbook::OrderType::Limit,
-    deadline, ttl, reduceOnly: false, ioc: false,
+    // flags — 0 rests on the book; POST_ONLY (0x04) to guarantee you add liquidity
+    deadline, ttl, flags: 0,
 }.abi_encode();
 
 // 2. Take-profit: sell 5 NVDA when price reaches $160 (reduceOnly, tied to the position)

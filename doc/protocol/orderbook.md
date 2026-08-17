@@ -14,6 +14,36 @@ The order book supports limit orders and market orders. The direction of a trade
 
 All markets use 1e18 tick sizes, matching the token decimal standard.
 
+### Execution flags
+
+Beyond its type, an order carries a small set of execution properties, submitted as the `flags` bitfield on `submitOrder`:
+
+| Flag          | Effect                                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `REDUCE_ONLY` | The order may only reduce the submitter's existing position. Perpetual markets only.                                      |
+| `IOC`         | Immediate-or-cancel: whatever does not match in the order's batch is cancelled rather than resting. Market orders must set it. |
+| `POST_ONLY`   | Add-liquidity-only — see below.                                                                                           |
+
+A flag bit that a node does not recognise is rejected rather than ignored, so an order never executes with a property dropped from it. Bit values and the encoding rules are in the [Orderbook precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook).
+
+### Post-only
+
+A post-only order is guaranteed to add liquidity rather than take it. Under frequent batch auctions that guarantee has to be stated against the batch, not against the book at arrival: every intent in a batch is matched simultaneously, so two orders that arrive in the same batch and match each other are both takers, however the book looked when either was submitted. Asking "does it cross right now?" would therefore not be enough to guarantee anything.
+
+So the rule is:
+
+> A post-only order may not trade in the batch that admitted it. From the next batch onwards it is an ordinary resting maker.
+
+What follows from it:
+
+* A post-only order that would have traded in its admitting batch is removed from the book instead. The removal is terminal and never partial, and it is reported under its own status, `post_only_refused`, so it is distinguishable from a cancel the trader sent.
+* One that would not have traded in that batch simply rests, and matches from the next batch on.
+* Two post-only orders admitted in the same batch that cross only each other are both refused: neither took resting liquidity, but each would have taken from the other.
+* If a same-price order with better queue priority absorbs the crossing liquidity first, the post-only order behind it rests untouched — it never had the chance to take.
+* Amending an order in a way that re-queues it (a new price, or a larger size) makes it a newcomer again for that batch; an amendment that only shrinks the order keeps its queue priority and goes on matching.
+
+A post-only order is therefore a *guaranteed maker* under a fee schedule that classifies maker and taker by the batch an order was included in: the classification cannot be gamed by an order that both arrived and traded in the same batch.
+
 ## Market Data
 
 The full node includes a built-in indexer for both live and historical market data. This provides order book snapshots, OHLCV candles, account-level order history, and position data without requiring users to run their own indexer. See the [`ob_` endpoints](https://docs.v2.pod.network/guides-references/json-rpc) in the JSON-RPC reference.

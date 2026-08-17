@@ -39,7 +39,7 @@ const signature = await master.signTypedData(
 // 2. Delegate wraps an order in delegated(...) and submits it with its own key.
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
-  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
+  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, uint8 flags)",
   "function delegated(address master, uint64 validUntil, bytes signature, bytes inner)",
 ];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, delegate);
@@ -54,7 +54,7 @@ const ttl = 60n * 1_000_000n;
 // 5 NVDA long at $140 limit, owned by the master
 const inner = orderbook.interface.encodeFunctionData("submitOrder", [
   nvdaPerpId, ethers.parseEther("5"), ethers.parseEther("140"),
-  0 /* Limit */, deadline, ttl, false, false,
+  0 /* Limit */, deadline, ttl, 0 /* flags */,
 ]);
 
 const tx = await orderbook.delegated(master.address, validUntil, signature, inner);
@@ -83,7 +83,7 @@ sol! {
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
             OrderType orderType, uint128 deadline, uint128 ttl,
-            bool reduceOnly, bool ioc
+            uint8 flags
         ) public;
         function delegated(address master, uint64 validUntil, bytes signature, bytes inner) public;
     }
@@ -131,7 +131,7 @@ let inner = Orderbook::submitOrderCall {
     size: I256::from_raw(U256::from(5) * one_e18),
     price: U256::from(140) * one_e18,
     orderType: Orderbook::OrderType::Limit,
-    deadline, ttl, reduceOnly: false, ioc: false,
+    deadline, ttl, flags: 0,
 }.abi_encode();
 
 let tx = orderbook
