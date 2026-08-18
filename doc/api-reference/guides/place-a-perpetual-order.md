@@ -22,8 +22,14 @@ const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
   "function deposit(address token, address recipient, uint256 amount, uint128 deadline)",
-  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
+  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, uint8 flags)",
 ];
+
+// `flags` bits — OR together the ones you want, 0 for a plain resting limit order
+const REDUCE_ONLY = 0x01;
+const IOC = 0x02;
+const POST_ONLY = 0x04;
+
 const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 
 // USD is Pod's native token — use the canonical native-token sentinel address
@@ -49,8 +55,7 @@ const ttl = 60n * 1_000_000n;
 
 const tx = await orderbook.submitOrder(
   nvdaPerpId, size, price, orderType, deadline, ttl,
-  false,    // reduceOnly — set true to only close existing positions
-  false,    // ioc
+  0,        // flags — REDUCE_ONLY to only close, POST_ONLY to guarantee you add liquidity
 );
 console.log("Perp order tx:", tx.hash);
 ```
@@ -71,10 +76,15 @@ sol! {
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
             OrderType orderType, uint128 deadline, uint128 ttl,
-            bool reduceOnly, bool ioc
+            uint8 flags
         ) public;
     }
 }
+
+// `flags` bits — OR together the ones you want, 0 for a plain resting limit order
+const REDUCE_ONLY: u8 = 0x01;
+const IOC: u8 = 0x02;
+const POST_ONLY: u8 = 0x04;
 
 let signer: PrivateKeySigner = PRIVATE_KEY.parse()?;
 let provider = ProviderBuilder::new()
@@ -115,8 +125,7 @@ let ttl = 60 * 1_000_000;
 let tx = orderbook
     .submitOrder(
         nvda_perp_id, size, price, Orderbook::OrderType::Limit, deadline, ttl,
-        false,        // reduceOnly — set true to only close existing positions
-        false,        // ioc
+        0,            // flags — REDUCE_ONLY to only close, POST_ONLY to guarantee you add liquidity
     )
     .send().await?;
 println!("Perp order tx: {:?}", tx.tx_hash());
@@ -126,7 +135,21 @@ println!("Perp order tx: {:?}", tx.tx_hash());
 
 ## Closing a position
 
-Submit an opposite-sided order with `reduceOnly = true`. Reduce-only orders can only decrease your existing exposure — they will be rejected if matching them would flip your position direction or open a new one.
+Submit an opposite-sided order with `REDUCE_ONLY` (`0x01`) set in `flags`. Reduce-only orders can only decrease your existing exposure — they will be rejected if matching them would flip your position direction or open a new one.
+
+## Market-making: guarantee that you add liquidity
+
+Set `POST_ONLY` (`0x04`) in `flags` to quote as a guaranteed maker. The order rests on the book as usual, but it may not trade in the batch that admitted it: if it would have taken liquidity in that batch, it is removed instead and reported with the terminal status `post_only_refused`. From the next batch onwards it matches like any other resting order.
+
+```typescript
+// A post-only, reduce-only quote: it can only add liquidity, and only close exposure
+const tx = await orderbook.submitOrder(
+  nvdaPerpId, size, price, orderType, deadline, ttl,
+  POST_ONLY | REDUCE_ONLY,
+);
+```
+
+`POST_ONLY` cannot be combined with `IOC`, and cannot be set on a market order — both are rejected. It also cannot be requested on a TP/SL trigger, since `submitTrigger` has no `flags` argument. See [Post-only orders](../applications-precompiles/orderbook.md#post-only-orders) for the exact rules, including what happens when two post-only orders cross each other and how amendments re-arm the guarantee.
 
 {% hint style="info" %}
 **Market leverage.** Each perp market has a fixed `maxLeverage` set at creation (20x on every testnet perp). It determines the margin required per position — there's no per-order leverage to set.

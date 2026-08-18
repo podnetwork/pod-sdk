@@ -2,7 +2,7 @@
 
 This guide walks through placing a limit order on one of Pod's spot markets. For background, see [Orderbook](https://docs.v2.pod.network/documentation/markets/orderbook).
 
-Spot orders use the same `submitOrder` call as perpetual orders. For spot, pass `reduceOnly = false` and `ioc = false` for a resting limit order. Deposit the quote token (USD) before submitting.
+Spot orders use the same `submitOrder` call as perpetual orders. Its `flags` argument carries the order's execution properties as a bitfield — pass `0` for a plain resting limit order. Deposit the quote token (USD) before submitting.
 
 The example below trades the NVDAx-USD spot market — see [Market Configurations](../market-configurations.md) for the full live list.
 
@@ -24,8 +24,14 @@ const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
   "function deposit(address token, address recipient, uint256 amount, uint128 deadline)",
-  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
+  "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, uint8 flags)",
 ];
+
+// `flags` bits — OR together the ones you want, 0 for a plain resting limit order
+const REDUCE_ONLY = 0x01; // perp only
+const IOC = 0x02;
+const POST_ONLY = 0x04;
+
 const orderbook = new ethers.Contract(ORDERBOOK, abi, wallet);
 
 // USD is the native token; NVDAx is the synthetic Nvidia base
@@ -51,8 +57,7 @@ const ttl = 60n * 1_000_000n;               // order lives for 60 seconds
 
 const tx = await orderbook.submitOrder(
   orderbookId, size, price, orderType, deadline, ttl,
-  false,    // reduceOnly (perp only)
-  false,    // ioc — immediate-or-cancel
+  0,        // flags — 0 rests on the book; POST_ONLY to guarantee you add liquidity
 );
 console.log("Order tx:", tx.hash);
 ```
@@ -73,10 +78,15 @@ sol! {
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
             OrderType orderType, uint128 deadline, uint128 ttl,
-            bool reduceOnly, bool ioc
+            uint8 flags
         ) public;
     }
 }
+
+// `flags` bits — OR together the ones you want, 0 for a plain resting limit order
+const REDUCE_ONLY: u8 = 0x01; // perp only
+const IOC: u8 = 0x02;
+const POST_ONLY: u8 = 0x04;
 
 let signer: PrivateKeySigner = PRIVATE_KEY.parse()?;
 let provider = ProviderBuilder::new()
@@ -117,8 +127,7 @@ let ttl = 60 * 1_000_000; // order lives for 60 seconds
 let tx = orderbook
     .submitOrder(
         orderbook_id, size, price, Orderbook::OrderType::Limit, deadline, ttl,
-        false,        // reduceOnly (perp only)
-        false,        // ioc — immediate-or-cancel
+        0,            // flags — 0 rests on the book; POST_ONLY to guarantee you add liquidity
     )
     .send().await?;
 println!("Order tx: {:?}", tx.tx_hash());
@@ -129,3 +138,16 @@ println!("Order tx: {:?}", tx.tx_hash());
 {% hint style="warning" %}
 **Microseconds, not milliseconds.** Deadlines and TTLs are Unix timestamps in microseconds.
 {% endhint %}
+
+## Guarantee that you add liquidity
+
+Pass `POST_ONLY` (`0x04`) in `flags` to make the order a guaranteed maker. It rests on the book as usual, but it may not trade in the batch that admitted it: if it would have taken liquidity in that batch, it is removed instead and reported with the terminal status `post_only_refused`. From the next batch onwards it matches like any other resting order.
+
+```typescript
+const tx = await orderbook.submitOrder(
+  orderbookId, size, price, orderType, deadline, ttl,
+  POST_ONLY,
+);
+```
+
+`POST_ONLY` cannot be combined with `IOC`, and cannot be set on a market order — both are rejected. See [Post-only orders](../applications-precompiles/orderbook.md#post-only-orders) for the exact rules, including what happens when two post-only orders cross each other and how amendments re-arm the guarantee.

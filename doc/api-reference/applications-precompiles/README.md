@@ -108,7 +108,7 @@ const abi = [
   `function submitOrder(
     bytes32 orderbookId, int256 size, uint256 price,
     uint8 orderType, uint128 deadline, uint128 ttl,
-    bool reduceOnly, bool ioc
+    uint8 flags
   )`
 ];
 const orderbook = new ethers.Contract(ORDERBOOK, abi, signer);
@@ -126,8 +126,7 @@ const ttl = 60n * 1_000_000n;                  // 60 seconds in microseconds
 
 const tx = await orderbook.submitOrder(
   orderbookId, size, price, orderType, deadline, ttl,
-  false,    // reduceOnly (perp only)
-  false,    // ioc — immediate-or-cancel
+  0,        // flags: 0x01 REDUCE_ONLY (perp only) | 0x02 IOC | 0x04 POST_ONLY
 );
 console.log("Order tx:", tx.hash);
 ```
@@ -149,8 +148,7 @@ abi = [{"inputs": [
     {"name": "orderType", "type": "uint8"},
     {"name": "deadline", "type": "uint128"},
     {"name": "ttl", "type": "uint128"},
-    {"name": "reduceOnly", "type": "bool"},
-    {"name": "ioc", "type": "bool"}],
+    {"name": "flags", "type": "uint8"}],
     "name": "submitOrder", "outputs": [],
     "stateMutability": "nonpayable", "type": "function"}]
 
@@ -169,8 +167,7 @@ tx = orderbook.functions.submitOrder(
     0,                                           # order type: 0 = Limit
     deadline,                                    # deadline in microseconds
     60 * 1_000_000,                              # ttl: 60 seconds
-    False,                                       # reduce only (perp only)
-    False,                                       # ioc (immediate-or-cancel)
+    0,                                           # flags: 0x01 REDUCE_ONLY | 0x02 IOC | 0x04 POST_ONLY
 ).build_transaction({
     "from": account.address,
     "nonce": w3.eth.get_transaction_count(account.address),
@@ -199,7 +196,7 @@ sol! {
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
             OrderType orderType, uint128 deadline, uint128 ttl,
-            bool reduceOnly, bool ioc
+            uint8 flags
         ) public;
     }
 }
@@ -235,8 +232,7 @@ async fn main() -> eyre::Result<()> {
         Orderbook::OrderType::Limit,             // order type
         deadline,                                 // deadline (auction-tick aligned)
         60 * 1_000_000,                          // ttl: 60 seconds
-        false,                                    // reduceOnly (perp only)
-        false,                                    // ioc — immediate-or-cancel
+        0,                                        // flags: 0x01 REDUCE_ONLY | 0x02 IOC | 0x04 POST_ONLY
     ).send().await?;
 
     println!("Order tx: {:?}", tx.tx_hash());

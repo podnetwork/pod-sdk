@@ -36,6 +36,59 @@ The alignment rule applies to **every deadline-bearing call** on this precompile
 See [Batch Deadline](../../protocol/orderbook.md#batch-deadline) in the protocol reference for the full discussion of `deadline` semantics and the trade-offs around `LAG`.
 {% endhint %}
 
+### Order flags
+
+`submitOrder` carries an order's boolean properties in a single `uint8 flags` bitfield rather than one `bool` argument per property. OR together the bits you want; `0` is a plain resting limit order.
+
+| Bit | Value  | Flag          | Meaning                                                                                                                                     |
+| --- | ------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0   | `0x01` | `REDUCE_ONLY` | The order may only reduce the submitter's existing position. Perp markets only.                                                              |
+| 1   | `0x02` | `IOC`         | Immediate-or-cancel: whatever does not match in the order's batch is cancelled at the end of it instead of resting on the book.              |
+| 2   | `0x04` | `POST_ONLY`   | Add-liquidity-only: the order rests, but may not trade in the batch that admitted it. See [Post-only orders](#post-only-orders).             |
+
+Combinations are checked when the intent is validated:
+
+* `IOC | POST_ONLY` is **rejected** (`post-only order cannot be immediate-or-cancel`) — IOC demands a fill in the admitting batch, post-only forbids one.
+* `POST_ONLY` on a `Market` order is **rejected** (`post-only is not valid for a market order`) — a market order has no resting price, so it has nothing to post at.
+* `REDUCE_ONLY | POST_ONLY` is fine, as is any other combination.
+* Market orders must set `IOC` (`market orders must be immediate-or-cancel`).
+
+{% hint style="warning" %}
+**Bits 3–7 must be zero.** Calldata carrying a flag bit the network does not recognise is rejected, not masked off — so an intent is never executed with a property silently dropped from it. Future order properties arrive as new bits here rather than as another overload.
+{% endhint %}
+
+{% hint style="info" %}
+**`submitOrder` is overloaded, and only the `flags` form is current.** Encode against the exact signature — the selector differs per overload:
+
+| Signature                                                                             | Selector     | Status                                                                                                                              |
+| ------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `submitOrder(bytes32,int256,uint256,uint8,uint128,uint128,uint8)`                      | `0x1e416275` | **Current.** The `flags` form; the only one that can request post-only.                                                              |
+| `submitOrder(bytes32,int256,uint256,uint8,uint128,uint128,bool,bool)`                  | `0x435f7e71` | Deprecated. The old `reduceOnly, ioc` pair, still accepted; equivalent to setting bit 0 from `reduceOnly` and bit 1 from `ioc`.                         |
+| `submitOrder(bytes32,int256,uint256,uint8,uint128,uint128,bool)`                       | `0xc06f0480` | Retired. The `reduceOnly`-only form, rejected for any `deadline` at or after the network's configured legacy cutoff.                 |
+
+The `flags` overload can only be decoded by nodes that ship it, so a client that must also work against a network running an older build can keep emitting the deprecated `bool, bool` form — it is accepted unchanged, and it simply cannot request post-only.
+
+`submitTrigger` still takes `bool reduceOnly, bool ioc` and has no `flags` argument, so a trigger's synthetic order cannot be post-only.
+{% endhint %}
+
+### Post-only orders
+
+A post-only order is guaranteed to **add** liquidity: it rests on the book and never takes from it on the way in. Set `POST_ONLY` (`0x04`) in `flags`.
+
+Because pod matches in discrete batch auctions rather than on arrival, "would this order cross the book right now?" is the wrong question — every intent in a batch is matched together, so two orders that arrive in the same batch and match each other are *both* takers. The guarantee is therefore expressed against the batch:
+
+> **A post-only order may not trade in the batch that admitted it.** From the next batch onwards it is an ordinary resting maker and matches normally.
+
+What that means in practice:
+
+* The order enters the book immediately and is reported `active`, like any other resting order.
+* If it would have traded **in that first batch**, it is removed from the book instead. The removal is terminal and never partial — a refusal never leaves a post-only order half-filled — and it is reported with the terminal status `post_only_refused`, which is distinct from `canceled` so you can tell a refusal from a cancel you sent yourself.
+* If it would **not** have traded in that batch, nothing happens to it: it rests, and can be matched from the next batch on.
+* If another order at the same price with better queue priority absorbs the crossing liquidity first, your post-only order simply rests — it never had the opportunity to take, so there is nothing to refuse.
+* Two post-only orders admitted in the same batch that cross only each other are **both** refused. Neither took resting liquidity, but each would have taken from the other.
+
+**Amendments re-arm the guarantee.** An `update` that re-queues the order — a price change, or a size increase — makes it a newcomer again, so it may not trade for the rest of *that* batch and can be refused in it (for example, when you reprice it onto a crossing level). An update that only *decreases* the size keeps its queue priority and its original admission batch, so it goes on matching normally.
+
 ### Batch envelope
 
 `submitBatch` packs several single-intent calls (1–64) into a single signed transaction that lands atomically in one auction tick. Each entry in `inner` is the full ABI-encoded calldata of a single-intent function (`submitOrder`, `cancel`, `update`, `submitTrigger`, `deposit`, …) — encoded exactly as a standalone call, including its 4-byte selector. Every sub-intent **must carry the same `deadline`** (the uniform-deadline invariant), and nested batches are rejected. For the full rules and a worked example, see [Submit a batch order](../guides/submit-a-batch-order.md).
@@ -76,6 +129,14 @@ contract Orderbook {
 
     // --- Order Management ---
 
+    // Bits of `submitOrder`'s `flags` argument. OR together the ones you want;
+    // 0 is a plain resting limit order. Bits 3-7 are unassigned and MUST be
+    // zero — a node rejects calldata carrying a flag bit it does not know
+    // rather than ignoring it. New order properties become a new bit here.
+    uint8 constant REDUCE_ONLY = 0x01; // perp markets only
+    uint8 constant IOC         = 0x02;
+    uint8 constant POST_ONLY   = 0x04;
+
     /**
      * Submits a new order to the orderbook.
      * The direction of the trade (Bid/Ask) is determined by the sign of the size.
@@ -85,8 +146,26 @@ contract Orderbook {
      * @param orderType The order type (Limit or Market).
      * @param deadline The timestamp limit for this order to be included in a batch in microseconds. Must be a multiple of the market's `auction_interval`.
      * @param ttl The "Time To Live" duration in microseconds; how long the order remains active in the book.
-     * @param reduceOnly If true, this order will only reduce an existing position. Perp markets only.
-     * @param ioc If true, the order is Immediate-Or-Cancel: any unmatched portion is cancelled at the end of the batch instead of resting on the book.
+     * @param flags Bitfield of the order's properties — REDUCE_ONLY, IOC, POST_ONLY (see above).
+     *        IOC | POST_ONLY is rejected, as is POST_ONLY on a Market order.
+     */
+    function submitOrder(
+        bytes32 orderbookId,
+        int256 size,
+        uint256 price,
+        OrderType orderType,
+        uint128 deadline,
+        uint128 ttl,
+        uint8 flags
+    ) public {}
+
+    /**
+     * @notice Deprecated: the pre-`flags` form of `submitOrder`, kept so calldata
+     *         written against it still decodes. It cannot request POST_ONLY.
+     *         Equivalent to the current form with bit 0 set from `reduceOnly`
+     *         and bit 1 from `ioc`.
+     * @dev A third, retired overload — the same call without `ioc` — is rejected
+     *      for any `deadline` at or after the network's legacy cutoff.
      */
     function submitOrder(
         bytes32 orderbookId,
