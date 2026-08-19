@@ -30,7 +30,7 @@ A delegated intent is **owned by the master** but **signed by the delegate**:
 | Resting-order owner, balances, cancel/withdraw target  | master                                   |
 | `order_id`                                             | keyed on the delegate (the tx signer)    |
 | Transaction signer, nonce, account lock                | delegate                                 |
-| `deposit` / `withdraw` recipient                       | forced to the master                     |
+| `deposit` / `withdraw` recipient                       | forced to the master - on the claim chain, for a withdraw |
 | Gas                                                    | exempt (the delegate needs no gas funds) |
 
 Because `order_id` is derived from the delegate rather than the master, two delegates of the same master never collide on order ids. And because ownership resolves to the master, the master can always cancel a delegate-placed order directly with its own key.
@@ -41,7 +41,7 @@ Because `order_id` is derived from the delegate rather than the master, two dele
 | --- | --- | --- |
 | `submitOrder`, `cancel`, `update` | ✅ | owned by the master; `order_id` keys on the delegate |
 | `submitTrigger`, `cancelTrigger`, `updateTrigger` | ✅ | same |
-| `deposit`, `withdraw` | ✅ | `recipient` is **forced to the master** — a delegate can never send funds elsewhere |
+| `deposit`, `withdraw` | ✅ | `recipient` is **forced to the master** — a delegate can never send funds elsewhere, on Pod or on the claim chain |
 | `submitBatch` | ✅ | every sub-intent is owned by the master; the certificate must cover the batch's `deadline` |
 | `submitSolutions`, `createOrderBook`, nested `delegated` | ❌ | rejected at validation |
 

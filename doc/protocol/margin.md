@@ -50,6 +50,8 @@ The maximum cash that can be withdrawn at any time is capped both by available m
 withdrawable_cash = min(available_margin, cash)
 ```
 
+That is the ceiling the account imposes. What actually leaves is further bounded by the bridge: a withdrawal is claimed on another chain, so its amount must be a whole number of that chain's token units and must fall inside the token's `[min, max]`. See [Withdrawals leave Pod](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook) for the exact rules.
+
 When `equity < liquidation_margin`, positions become eligible for liquidation.
 
 ## Liquidation
