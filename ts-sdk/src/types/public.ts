@@ -465,3 +465,97 @@ export interface TriggersQuery {
   orderbookId?: MarketId;
   limit?: number;
 }
+
+// --- bridge / withdrawals (ADR 0033) ---
+
+/**
+ * One bridged token, as `GET /v1/bridge/config` serves it.
+ *
+ * `min`, `max` and `decimals` are all on the **claim chain's** terms, not pod's
+ * 18 — see `codec/bridge.ts`, which owns that conversion.
+ */
+export interface BridgeToken {
+  podToken: Address;
+  l1Token: Address;
+  /** Decimals on the claim chain, and so the withdrawal granularity on pod. */
+  decimals: number;
+  /** Smallest admissible withdrawal, in claim-chain decimals. */
+  min: bigint;
+  /** Largest admissible withdrawal, in claim-chain decimals. */
+  max: bigint;
+}
+
+/** Static bridge configuration — the one chain pod withdrawals settle on. */
+export interface BridgeConfig {
+  /** `0` when the node has no bridge configured, in which case `tokens` is
+   * empty and no withdrawal is admissible at all. */
+  claimChainId: number;
+  /** The bridge contract on the claim chain, where `Claim` is emitted. */
+  sourceContract: Address;
+  /** Bridge version; feeds the claim-hash domain separator. */
+  version: number;
+  tokens: BridgeToken[];
+}
+
+/**
+ * Why a withdrawal produced no L1 claim. Any value here means **no L1 event will
+ * ever fire**, so a client watching only the claim chain would wait forever —
+ * this is the only place a reason exists.
+ */
+export type WithdrawalError =
+  /** The CLOB balance did not cover it at execution. Admission deliberately
+   * doesn't check the balance (pending fills can raise it), so this races that. */
+  | "insufficient_balance"
+  /** The solver never included the intent before its deadline. Funds are
+   * untouched and the withdrawal can simply be resubmitted. */
+  | "not_included"
+  /**
+   * Any other reason a node reports. This set is **open by construction**: the
+   * node's reason enum is explicitly extensible and an app ships ahead of the
+   * fleet, so a spelling this build predates has to arrive verbatim rather than
+   * be dropped. Dropping it makes a *failed* withdrawal read as claimable —
+   * the one direction it is unsafe to be lossy in, because the caller then
+   * reports success and waits for a claim that can never land.
+   *
+   * `(string & {})` keeps the two known values in editor completion while still
+   * admitting the rest. Treat an unknown reason exactly like a known one, and
+   * show it verbatim rather than guessing which known reason it resembles.
+   */
+  | (string & {});
+
+/** One terminal withdrawal outcome, from `pod_withdrawals` or its REST backfill. */
+export interface Withdrawal {
+  /** `keccak(abi.encode(signer, nonce, sequence))` — derivable client-side
+   * before submitting, which is what lets a client match its own withdrawal. */
+  id: Hash;
+  /** The debited account: the master, for a delegated withdrawal. */
+  withdrawer: Address;
+  /** Recipient on the **claim chain**. Nothing is credited on pod. */
+  to: Address;
+  /** Pod-side token address. */
+  token: Address;
+  /** Pod's 18 decimals, as signed. The L1 claim carries this converted to the
+   * token's claim-chain decimals — never pass this value to `claim`. */
+  amount: bigint;
+  /** Absent when the withdrawal is claimable on L1. */
+  error?: WithdrawalError;
+  /**
+   * The tick's batch deadline, in **microseconds** — not the millisecond
+   * convention the rest of this surface uses.
+   *
+   * Deliberate: this value is also the resume cursor for `pod_withdrawals` and
+   * for the REST backfill, both of which compare it in micros. Narrowing it to
+   * ms and back would round a tick boundary and silently re-serve or skip a
+   * tick, so it stays in the unit the server compares.
+   */
+  timeUs: number;
+}
+
+export interface WithdrawalsQuery {
+  /** Batch deadline in microseconds; strictly greater. */
+  since?: number;
+  /** Last id already seen *within* the `since` tick, to resume mid-tick. */
+  sinceId?: Hash;
+  /** Server default 500, capped at 1000. */
+  limit?: number;
+}

@@ -13,6 +13,7 @@
 import { decodeAbiParameters, encodeAbiParameters, encodeFunctionData, keccak256, parseAbi } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Address, Hash, Hex, MarketId } from "../types/public.js";
+import { rpc } from "../transport/jsonrpc.js";
 
 /** The CLOB precompile (chain id 1293 / 0x50d). */
 export const CLOB_ADDRESS: Address = "0x50d0000000000000000000000000000000000002";
@@ -26,6 +27,7 @@ const CLOB_ABI = parseAbi([
   "function cancelTrigger(bytes32 orderbookId, bytes32 triggerOrder, uint128 deadline)",
   "function updateTrigger(bytes32 orderbookId, bytes32 triggerOrder, int256 newSize, uint256 newLimitPrice, uint256 newTriggerPrice, uint128 deadline)",
   "function submitBatch(bytes[] inner)",
+  "function withdraw(address token, address recipient, uint256 amount, uint128 deadline)",
 ]);
 
 /** ~10 years in microseconds — default far-future expiry for resting orders. */
@@ -587,18 +589,9 @@ export interface MintParams {
  * on rejection (e.g. "Minting is disabled") and Error on on-chain revert. */
 export async function mint(p: MintParams): Promise<TxReceipt> {
   const doFetch = p.fetch ?? fetch;
-  const rpc = async (method: string): Promise<string> => {
-    const res = await doFetch(p.rpcUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: [] }),
-    });
-    const json = (await res.json()) as { result?: string; error?: { message?: string } };
-    if (json.error || json.result === undefined) throw new Error(json.error?.message ?? `${method} failed`);
-    return json.result;
-  };
-  const chainId = p.chainId ?? Number(await rpc("eth_chainId"));
-  const maxFeePerGas = BigInt(await rpc("eth_gasPrice"));
+  const read = (method: string) => rpc<string>(p.rpcUrl, method, [], { fetch: doFetch });
+  const chainId = p.chainId ?? Number(await read("eth_chainId"));
+  const maxFeePerGas = BigInt(await read("eth_gasPrice"));
   const signer = privateKeyToAccount(generatePrivateKey());
   const data = encodeFunctionData({
     abi: MINT_ABI,
@@ -684,12 +677,65 @@ export function buildWaitlistDeposit(p: WaitlistDepositParams): SourceChainCall 
   };
 }
 
+// --- withdrawals (ADR 0033) --------------------------------------------------
+//
+// `Clob.withdraw` settles on L1 in ONE transaction: the CLOB balance is debited
+// straight to the bridge's custody and N−F validators sign the L1 claim at
+// solution execution. Nothing is credited to a pod account on the way, so the
+// legacy `Bridge.withdraw` rules — `tx.value == amount`, a gas reserve, a second
+// signature — do not apply, and MAX is the whole withdrawable balance.
+//
+// Two fields mean something different from the same-named ones elsewhere:
+//   - `recipient` is an address on the CLAIM chain, not on pod. Delegated calls
+//     stay pinned to the master (ADR 0018), so a session key cannot redirect it.
+//   - `amount` stays in pod's 18 decimals, but must be a whole number of
+//     claim-chain units or admission rejects it. Size it with `maxWithdrawable`
+//     / `quantizeWithdrawAmount` from `codec/bridge.ts` — this builder encodes
+//     what it is given and does no rounding of its own, because silently
+//     changing an amount a user signed for is worse than a clear rejection.
+
+export interface ClobWithdrawParams {
+  /** Pod-side token address (native USD for cash). */
+  token: Address;
+  /** Recipient on the **claim chain**. */
+  recipient: Address;
+  /** 1e18-scaled, and a whole number of claim-chain units. */
+  amount: bigint;
+  /**
+   * Auction interval in microseconds (`market.auctionIntervalMs * 1000`).
+   *
+   * **Required, unlike the order builders'.** Admission refuses a deadline that
+   * is not a multiple of it, and the default here is a far-future timestamp with
+   * no reason to land on one — so an optional interval would silently produce a
+   * transaction that is rejected unless the clock happened to be aligned, and
+   * the rare one that slipped through would be stranded a decade out.
+   */
+  auctionIntervalUs: number;
+  deadline?: number; // ms; default far future
+}
+
+export function buildClobWithdraw(p: ClobWithdrawParams): PodTxRequest {
+  const nowUs = BigInt(Date.now()) * 1000n;
+  const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), BigInt(p.auctionIntervalUs));
+  const data = encodeFunctionData({
+    abi: CLOB_ABI,
+    functionName: "withdraw",
+    args: [p.token, p.recipient, p.amount, deadline],
+  }) as Hex;
+  return { to: CLOB_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
+}
+
 /**
  * Deterministic order id: `keccak256(abi.encode(signer, nonce, sequence))`,
  * matching the engine (`trading/src/lib.rs`). `sequence` is the 0-based index
  * of the intent within a `submitBatch` (0 for a single-intent tx). Needs the
  * nonce, so it's only known up-front in managed mode; in advisory mode reconcile
  * by `tx` from the `pod_orders_v2` stream instead.
+ *
+ * **This is also the `withdrawal_id`** that `pod_withdrawals` reports and that
+ * `GET /v1/bridge/withdrawals/by-id/{id}` is keyed on — same derivation, same
+ * intent identity (ADR 0033 §3). `signer` is whoever signed the transaction,
+ * i.e. the delegate under a session key, not the debited master.
  */
 export function deriveOrderId(signer: Address, nonce: number, sequence = 0): Hash {
   return keccak256(

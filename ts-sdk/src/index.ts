@@ -47,3 +47,19 @@ export {
 export {
   RESOLUTION_SECONDS, RESOLUTION_PAGE_BUCKETS, RESOLUTIONS, isResolution,
 } from "./codec/resolution.js";
+
+// Withdrawal amount arithmetic (ADR 0033). Read-side, so a UI can size and
+// validate a withdrawal without pulling the signing entry.
+export {
+  withdrawStep, quantizeWithdrawAmount, toClaimAmount, toPodAmount,
+  maxWithdrawable, checkWithdrawAmount, type WithdrawRejection, bridgeTokenFor,
+} from "./codec/bridge.js";
+// Following a withdrawal onto the claim chain.
+export {
+  fetchClaimStatus, waitForClaim, watchClaims, CLAIM_TOPIC,
+  type ClaimStatus, type ClaimOutcome, type WaitForClaimOptions,
+  type ClaimWatcher, type WatchClaimsOptions,
+} from "./transport/claim.js";
+// Only the options type: `WaitForClaimOptions` extends it, so declaration emit
+// needs it public. The functions themselves stay internal.
+export type { RpcOptions } from "./transport/jsonrpc.js";

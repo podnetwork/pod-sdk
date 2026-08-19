@@ -3,17 +3,19 @@
 // ms in, decoded (bigint / ms) out.
 
 import type {
-  Address, BackstopTransfer, Balances, Bar, CandleQuery, LeaderboardPage, LeaderboardQuery,
-  Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status, Trigger, TxExplorer,
+  Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery, LeaderboardPage,
+  LeaderboardQuery, Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status,
+  Trigger, TxExplorer, Withdrawal, WithdrawalsQuery,
 } from "../types/public.js";
 import type {
-  WireBackstopPage, WireBalances, WireCandlesEnvelope, WireLeaderboard, WireMarketStatic,
-  WireMarketStatsPage, WireOrderbook, WireOrdersPage, WirePositionsSnapshot, WireStatus,
-  WireTriggersPage,
+  WireBackstopPage, WireBalances, WireBridgeConfig, WireCandlesEnvelope, WireLeaderboard,
+  WireMarketStatic, WireMarketStatsPage, WireOrderbook, WireOrdersPage, WirePositionsSnapshot,
+  WireStatus, WireTriggersPage, WireWithdrawal,
 } from "../types/wire.js";
 import {
-  decodeBackstopTransfer, decodeBalances, decodeCandle, decodeLeaderboard, decodeMarketDynamics,
-  decodeMarketStatic, decodeOrder, decodeOrderbook, decodePositions, decodeStatus, decodeTrigger,
+  decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle, decodeLeaderboard,
+  decodeMarketDynamics, decodeMarketStatic, decodeOrder, decodeOrderbook, decodePositions,
+  decodeStatus, decodeTrigger, decodeWithdrawal,
 } from "../codec/decode.js";
 import { msToSecs, usToMs } from "../codec/units.js";
 
@@ -197,6 +199,32 @@ export class PodRestClient {
       limit: q?.limit, offset: q?.offset, address: q?.account,
     });
     return decodeLeaderboard(w, q?.offset ?? 0);
+  }
+
+  /** Static bridge config: the claim chain, the bridge contract, and every
+   * bridged token's L1 address, decimals and withdraw window (ADR 0033 §5).
+   * Served unconditionally — it is not behind the CLOB indexer's gate. */
+  async bridgeConfig(): Promise<BridgeConfig> {
+    return decodeBridgeConfig(await this.get<WireBridgeConfig>("/bridge/config"));
+  }
+
+  /**
+   * Terminal withdrawal outcomes, newest cursor last. Omit `account` for every
+   * account (what a relayer wants); pass one to scope it to a single user.
+   *
+   * This is the reconnect backfill behind the `pod_withdrawals` subscription:
+   * the rows decode to exactly the same shape the stream pushes, so a client
+   * cannot tell which one an outcome arrived on. Page with `since` (the tick
+   * cursor) plus `sinceId` to resume *inside* a tick that spanned a page.
+   */
+  async bridgeWithdrawals(account?: Address, q?: WithdrawalsQuery): Promise<Withdrawal[]> {
+    const path = account ? `/bridge/withdrawals/${account}` : "/bridge/withdrawals";
+    const w = await this.get<WireWithdrawal[]>(path, {
+      since: q?.since,
+      since_id: q?.sinceId,
+      limit: q?.limit,
+    });
+    return w.map(decodeWithdrawal);
   }
 
   async triggers(account: Address, q?: TriggersQueryRest): Promise<TriggersPage> {

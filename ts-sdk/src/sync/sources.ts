@@ -14,7 +14,7 @@
 //    REST re-seed via `onError` when `since` is too old (down too long).
 
 import type {
-  Address, Balances, Market, MarketId, Orderbook, PositionsSnapshot, Status, Trigger,
+  Address, Balances, BridgeConfig, Market, MarketId, Orderbook, PositionsSnapshot, Status, Trigger,
 } from "../types/public.js";
 import type {
   WireMarketDynamics, WireOrderbook, WirePositionsPush, WireTriggersPush,
@@ -80,6 +80,21 @@ export function statusSource({ rest, ws }: SyncContext): ResourceSource<Status> 
     let alive = true;
     const seed = () => { rest.status().then((s) => { if (alive) h.set(s); }).catch((e) => h.fail(e)); };
     const off = seedNowAndOnReconnect(ws, seed);
+    return () => { alive = false; off(); };
+  };
+}
+
+/** Static bridge config (ADR 0033 §5). Re-seeded on reconnect because an
+ * operator can change the token set or the withdraw limits under a long-lived
+ * tab, and a stale window would offer amounts the node now refuses. */
+export function bridgeConfigSource({ rest, ws }: SyncContext): ResourceSource<BridgeConfig> {
+  return (h) => {
+    let alive = true;
+    const off = seedNowAndOnReconnect(ws, () => {
+      rest.bridgeConfig()
+        .then((c) => { if (alive) h.set(c); })
+        .catch((e) => { if (!h.current()) h.fail(e as Error); });
+    });
     return () => { alive = false; off(); };
   };
 }

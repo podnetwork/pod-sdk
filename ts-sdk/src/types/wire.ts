@@ -384,3 +384,50 @@ export interface WireTriggersPush {
   total_count: number;
   next_cursor: string | null;
 }
+
+// --- bridge / withdrawals (ADR 0033) ---
+
+export interface WireBridgeToken {
+  pod_token: Hex;
+  l1_token: Hex;
+  decimals: number;
+  /** Hex-encoded U256, in claim-chain decimals. */
+  min: string;
+  max: string;
+}
+
+export interface WireBridgeConfig {
+  claim_chain_id: number;
+  source_contract: Hex;
+  version: number;
+  tokens: WireBridgeToken[];
+}
+
+/** `pod_withdrawals` delivers an ARRAY of these per tick; the REST backfill
+ * serves the identical shape, so a backfilled outcome is indistinguishable
+ * from one that arrived live. */
+export interface WireWithdrawal {
+  withdrawal_id: Hex;
+  withdrawer: Hex;
+  to: Hex;
+  token: Hex;
+  /** Hex-encoded U256 in pod's 18 decimals — the amount as signed. */
+  amount: string;
+  /** Omitted (not null) when the withdrawal is claimable. */
+  error?: string | null;
+  timestamp_us: number;
+}
+
+/** `GET /v1/bridge/withdrawals/by-id/{id}`. Nested rather than flattened because
+ * `WithdrawalUpdate` carries a u128 and serde's `flatten` cannot round-trip one.
+ *
+ * `status` is always present, but it is NOT what a consumer decides on: `proof`
+ * takes precedence, including over a `status` this build has never seen, so an
+ * unfamiliar label cannot veto a certificate attached to the same response.
+ * `proof` is omitted (never null) until one can be assembled. `fetchClaimStatus`
+ * carries the full precedence. */
+export interface WireWithdrawalDetail {
+  withdrawal: WireWithdrawal;
+  status: "claimable" | "pending" | "refused";
+  proof?: { claim_hash?: Hex | null };
+}

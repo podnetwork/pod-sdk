@@ -2,14 +2,16 @@
 // representations are normalized into bigint + millisecond numbers.
 
 import type {
-  Bar, BackstopTransfer, Balances, LeaderboardEntry, LeaderboardPage, Market, Order,
+  Bar, BackstopTransfer, Balances, BridgeConfig, LeaderboardEntry, LeaderboardPage, Market, Order,
   Orderbook, PartialFill, PerpPosition, Position, PositionsSnapshot, SpotHolding,
   SpotPosition, Status, Trigger, MarketType, OrderDirection, OrderKind, OrderStatus, TriggerType,
+  Withdrawal,
 } from "../types/public.js";
 import type {
-  WireBackstopTransfer, WireBalances, WireCandle, WireLeaderboard, WireMarketDynamics,
-  WireMarketStatic, WireOrder, WireOrderbook, WirePartialFill, WirePerpPosition, WirePosition,
-  WirePositionsSnapshot, WireSpotHolding, WireSpotPosition, WireStatus, WireTrigger,
+  WireBackstopTransfer, WireBalances, WireBridgeConfig, WireCandle, WireLeaderboard,
+  WireMarketDynamics, WireMarketStatic, WireOrder, WireOrderbook, WirePartialFill,
+  WirePerpPosition, WirePosition, WirePositionsSnapshot, WireSpotHolding, WireSpotPosition,
+  WireStatus, WireTrigger, WireWithdrawal,
 } from "../types/wire.js";
 import { dec, decOpt, endMsFromUs, toNumber, usToMs, usToMsOpt } from "./units.js";
 
@@ -274,5 +276,46 @@ export function decodeBackstopTransfer(w: WireBackstopTransfer): BackstopTransfe
     markPrice: dec(w.mark_price),
     equity: dec(w.equity),
     time: usToMs(w.timestamp_us),
+  };
+}
+
+export function decodeBridgeConfig(w: WireBridgeConfig): BridgeConfig {
+  return {
+    claimChainId: w.claim_chain_id,
+    sourceContract: w.source_contract,
+    version: w.version,
+    tokens: w.tokens.map((t) => ({
+      podToken: t.pod_token,
+      l1Token: t.l1_token,
+      decimals: t.decimals,
+      min: dec(t.min),
+      max: dec(t.max),
+    })),
+  };
+}
+
+/**
+ * One withdrawal outcome.
+ *
+ * An unrecognised `error` spelling is carried through **verbatim**, never
+ * dropped. The node's reason enum is extensible and this app ships ahead of the
+ * fleet, so filtering to the spellings this build knows would turn a *failed*
+ * withdrawal into a claimable-looking one: the caller announces that the money
+ * is on its way and then waits for an L1 event that can never fire. Presence is
+ * what carries the meaning here — any reason at all means no claim — so only
+ * presence is decoded, and naming the reason is left to whatever renders it.
+ */
+export function decodeWithdrawal(w: WireWithdrawal): Withdrawal {
+  return {
+    id: w.withdrawal_id,
+    withdrawer: w.withdrawer,
+    to: w.to,
+    token: w.token,
+    amount: dec(w.amount),
+    // `||`, not `??`: an empty string is the wire saying "no reason", and it
+    // would otherwise be a present-but-falsy value that every `if (w.error)`
+    // reads as success while `error !== undefined` reads as failure.
+    error: w.error || undefined,
+    timeUs: w.timestamp_us,
   };
 }

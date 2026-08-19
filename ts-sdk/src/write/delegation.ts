@@ -13,6 +13,7 @@
 import { createWalletClient, defineChain, encodeFunctionData, http, parseAbi, recoverTypedDataAddress } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Address, Hash, Hex } from "../types/public.js";
+import { rpc } from "../transport/jsonrpc.js";
 import { sendRawTransaction, type PodTxRequest } from "./index.js";
 
 /** EIP-712 payload the master signs (domain "pod delegation" v1). */
@@ -92,22 +93,11 @@ export async function createDelegatedWallet(p: CreateDelegatedWalletParams): Pro
       functionName: "delegated",
       args: [p.master, validUntil, signature, tx.data],
     });
-    const maxFeePerGas = BigInt(await rpc(p.rpcUrl, doFetch, "eth_gasPrice"));
+    const maxFeePerGas = BigInt(await rpc<string>(p.rpcUrl, "eth_gasPrice", [], { fetch: doFetch }));
     const prepared = await client.prepareTransactionRequest({ ...tx, data, account, chain, maxFeePerGas });
     const serialized = await client.signTransaction(prepared as never);
     return sendRawTransaction(p.rpcUrl, serialized, { fetch: doFetch });
   };
 
   return Object.freeze({ master: p.master, delegate: account.address, validUntil, submit });
-}
-
-async function rpc(rpcUrl: string, doFetch: typeof fetch, method: string): Promise<string> {
-  const res = await doFetch(rpcUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: [] }),
-  });
-  const json = (await res.json()) as { result?: string; error?: { message?: string } };
-  if (json.error || json.result === undefined) throw new Error(json.error?.message ?? `${method} failed`);
-  return json.result;
 }
