@@ -2736,6 +2736,15 @@ components:
           type: integer
           description: Maximum allowed leverage. Returned for both spot and perp markets, but only meaningful for perp.
           example: 10
+        maintenance_leverage:
+          type: integer
+          description: |
+            Maintenance leverage multiplier, same convention as
+            `max_leverage`: the maintenance margin is
+            `1 / maintenance_leverage`. Twice `max_leverage` unless the
+            market configuration overrides it. Absent on older nodes — fall
+            back to half the initial margin then.
+          example: 20
         oracle_price:
           type: string
           nullable: true
