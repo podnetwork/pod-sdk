@@ -37,6 +37,17 @@ interface IPodBridge {
 }
 ```
 
+## Gas
+
+Gas is charged per operation (see [Gas](../README.md#gas)):
+
+| Operation      | Gas    |
+| -------------- | ------ |
+| `withdraw`     | 50,000 |
+| any other call | 21,000 |
+
+Deposits are credited by the network and cost the user nothing on Pod.
+
 ## Decimal Scaling
 
 All tokens on Pod are represented with 18 decimals, regardless of their decimals on the target chain (e.g. USDC has 6 decimals on Ethereum but 18 on Pod).
