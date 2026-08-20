@@ -96,6 +96,41 @@ export function candlePageWindows(
 }
 
 /**
+ * The live series' bars inside `range`, waiting up to `timeoutMs` for one to
+ * turn up. The series folds the tick stream, so this is where the forming
+ * bucket comes from — REST withholds it.
+ *
+ * Deliberately not `ready()`: that resolves on the series' FIRST commit, and a
+ * fresh series commits an empty seed while its load is still in flight (see
+ * `fetchPages`, which surfaces loading state before any page lands). Awaiting
+ * it hands back `[]` and gives up before the bucket it was called for arrives.
+ */
+export function candleTailFrom(
+  series: SeriesResource<Bar>,
+  range: TimeRange,
+  timeoutMs: number,
+): Promise<Bar[]> {
+  const toMs = range.to ?? Number.MAX_SAFE_INTEGER;
+  const inWindow = () => (series.get() ?? []).filter((b) => b.time >= range.from && b.time < toMs);
+  const found = inWindow();
+  if (found.length) return Promise.resolve(found);
+  return new Promise((resolve) => {
+    let release: (() => void) | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settle = (bars: Bar[]) => {
+      clearTimeout(timer);
+      release?.();
+      resolve(bars);
+    };
+    timer = setTimeout(() => settle(inWindow()), timeoutMs);
+    release = series.subscribe(() => {
+      const bars = inWindow();
+      if (bars.length) settle(bars);
+    });
+  });
+}
+
+/**
  * Decoded pages, per REST client — so per host, never shared between clients
  * pointed at different environments. A page is only stored once it can never
  * change again, which takes BOTH of: a full span (not the trailing page, which
@@ -136,19 +171,25 @@ async function fetchCandlePage(
         to: window.toMs,
         limit: RESOLUTION_PAGE_BUCKETS[resolution],
       });
-      if (wholePage && page.solutionNow >= window.toMs) {
+      // The indexer's watermark is the server's own test for a final answer: a
+      // window it has not reached yet comes back short of its newest buckets.
+      const final = page.solutionNow >= window.toMs;
+      if (final && wholePage) {
         // Oldest insertion out first; the bound is on memory, not a policy.
         if (cache.size >= PAGE_CACHE_MAX) cache.delete(cache.keys().next().value!);
         cache.set(key, page.bars);
       }
-      return page.bars;
+      // Retry a short answer rather than let a caller take it as complete — the
+      // watermark is usually a second behind. On the last attempt return what
+      // there is: a lagging indexer must not turn into a hard failure.
+      if (final || attempt >= PAGE_ATTEMPTS) return page.bars;
     } catch (err) {
       if (attempt >= PAGE_ATTEMPTS || !worthRetrying(err)) throw err;
-      // Exponential with jitter: the node sheds load in bursts, and a read that
-      // retries on a fixed short delay just lands inside the same burst.
-      const backoff = PAGE_RETRY_MS * 2 ** (attempt - 1) * (1 + Math.random());
-      await new Promise((resolve) => setTimeout(resolve, backoff));
     }
+    // Exponential with jitter: the node sheds load in bursts, and a read that
+    // retries on a fixed short delay just lands inside the same burst.
+    const backoff = PAGE_RETRY_MS * 2 ** (attempt - 1) * (1 + Math.random());
+    await new Promise((resolve) => setTimeout(resolve, backoff));
   }
 }
 

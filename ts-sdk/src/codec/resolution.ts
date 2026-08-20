@@ -1,6 +1,9 @@
 import type { Resolution } from "../types/public.js";
 
-/** Bucket width per resolution, in seconds. 1M is calendar-variable; see pages. */
+/**
+ * Bucket width per resolution, in seconds — the widths the server buckets by,
+ * which every page boundary here is derived from.
+ */
 export const RESOLUTION_SECONDS: Record<Resolution, number> = {
   "1m": 60,
   "5m": 300,
@@ -10,7 +13,7 @@ export const RESOLUTION_SECONDS: Record<Resolution, number> = {
   "4h": 14_400,
   "1d": 86_400,
   "1W": 604_800,
-  "1M": 2_592_000, // nominal 30d; only used as a hint, pages use calendar months
+  "1M": 2_592_000, // a nominal 30d month: what the indexer buckets by, not calendar months
 };
 
 /**

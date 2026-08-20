@@ -16,7 +16,9 @@ import { RESOLUTION_PAGE_BUCKETS, RESOLUTION_SECONDS } from "../codec/resolution
 import type { PodRestClient } from "../transport/rest.js";
 import type { Bar, MarketId, Resolution } from "../types/public.js";
 import { PodHttpError } from "../transport/rest.js";
-import { candlePageWindows, CandleSeries, fetchCandleHistory } from "./candles.js";
+import {
+  candlePageWindows, CandleSeries, candleTailFrom, fetchCandleHistory, type SeriesResource,
+} from "./candles.js";
 import type { SyncContext } from "./sources.js";
 
 const ID = `0x${"8".padStart(64, "0")}` as MarketId;
@@ -141,6 +143,44 @@ describe("fetchCandleHistory", () => {
   });
 });
 
+describe("candleTailFrom", () => {
+  /** A series whose bars arrive after the caller starts waiting, and whose
+   * `ready()` resolves on the empty seed the way the real one does. */
+  const stubSeries = () => {
+    let bars: Bar[] = [];
+    const listeners = new Set<() => void>();
+    const series = {
+      get: () => bars,
+      ready: async () => bars,
+      subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
+      loading: () => false, error: undefined,
+      setWindow: () => {}, loadOlder: async () => {}, hasMore: () => false,
+    } as unknown as SeriesResource<Bar>;
+    return { series, listeners, push: (next: Bar[]) => { bars = next; listeners.forEach((l) => l()); } };
+  };
+
+  it("waits for a bar in the window rather than taking the empty seed", async () => {
+    const { series, listeners, push } = stubSeries();
+    const pending = candleTailFrom(series, { from: T0, to: T0 + MIN }, 2_000);
+    push([bar(T0)]); // the forming bucket lands a beat after the call
+    expect((await pending).map((b) => b.time)).toEqual([T0]);
+    expect(listeners.size).toBe(0); // and it lets go of the series again
+  });
+
+  it("gives up at the timeout instead of hanging the caller", async () => {
+    const { series, listeners } = stubSeries();
+    expect(await candleTailFrom(series, { from: T0, to: T0 + MIN }, 20)).toEqual([]);
+    expect(listeners.size).toBe(0);
+  });
+
+  it("ignores bars outside the window", async () => {
+    const { series, push } = stubSeries();
+    const pending = candleTailFrom(series, { from: T0, to: T0 + MIN }, 60);
+    push([bar(T0 - 5 * MIN)]); // older than the window: keep waiting, then time out
+    expect(await pending).toEqual([]);
+  });
+});
+
 describe("page cache", () => {
   it("serves a repeat read of a final page without asking again", async () => {
     const bars = series1m(700);
@@ -152,6 +192,28 @@ describe("page cache", () => {
     expect(second.map((b) => b.time)).toEqual(first.map((b) => b.time));
     // Only the trailing (still-growing) page is re-asked; the full pages are not.
     expect(asked.length - asksAfterFirst).toBeLessThan(asksAfterFirst);
+  });
+
+  it("retries a window the indexer had not reached, instead of answering short", async () => {
+    const bars = series1m(700);
+    const pageMs = RESOLUTION_PAGE_BUCKETS["1m"] * MIN;
+    const page = Math.floor(bars[0]!.time / pageMs) + 1;
+    const range = { from: page * pageMs, to: (page + 1) * pageMs };
+    let asks = 0;
+    const rest = {
+      candles: async (_id: MarketId, q: { from: number; to: number }) => {
+        asks += 1;
+        // First answer is behind the window's end; the indexer catches up after.
+        const solutionNow = asks === 1 ? range.to - 10 * MIN : Number.MAX_SAFE_INTEGER;
+        return {
+          bars: bars.filter((b) => b.time >= q.from && b.time < q.to && b.time < solutionNow),
+          solutionNow,
+        };
+      },
+    } as unknown as PodRestClient;
+    const got = await fetchCandleHistory(rest, ID, "1m", range, T0 + MIN);
+    expect(asks).toBe(2); // the short answer was not taken as final
+    expect(got.at(-1)!.time).toBe(range.to - MIN);
   });
 
   it("never stores a page the indexer had not caught up to", async () => {

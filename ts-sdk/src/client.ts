@@ -11,7 +11,7 @@ import {
   statusSource, triggersSource, type MarketsCache, type SyncContext,
 } from "./sync/sources.js";
 import { withdrawalsSource } from "./sync/withdrawals.js";
-import { CandleSeries, fetchCandleHistory } from "./sync/candles.js";
+import { CandleSeries, candleTailFrom, fetchCandleHistory } from "./sync/candles.js";
 import { OrderHistory } from "./sync/orders.js";
 import { enrichPositions } from "./sync/positions-live.js";
 
@@ -261,9 +261,9 @@ export class PodTradeClient {
    * "no bars" makes the chart latch the range as empty. Both datafeeds fall
    * back to this instead.
    *
-   * Subscribes for the wait rather than calling `ready()`: `ready()` starts the
-   * resource without registering a listener, so nothing would ever stop its
-   * WS fold again.
+   * Subscribes for the wait rather than calling `ready()`, which both starts the
+   * resource without registering a listener (nothing would ever stop its WS fold
+   * again) and resolves on the empty seed — see `candleTailFrom`.
    */
   async candleTail(
     id: MarketId,
@@ -274,16 +274,9 @@ export class PodTradeClient {
     // No range: this must not call setWindow on a series someone else is live on.
     const series = this.candles(id, resolution);
     const release = series.subscribe(() => {});
-    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await Promise.race([
-        series.ready(),
-        new Promise((resolve) => { timer = setTimeout(resolve, timeoutMs); }),
-      ]);
-      const toMs = range.to ?? Date.now();
-      return (series.get() ?? []).filter((b) => b.time >= range.from && b.time < toMs);
+      return await candleTailFrom(series, range, timeoutMs);
     } finally {
-      clearTimeout(timer);
       release();
     }
   }
