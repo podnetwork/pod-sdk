@@ -5,6 +5,13 @@
 export interface Resource<T> {
   get(): T | undefined;
   subscribe(listener: () => void): () => void;
+  /**
+   * Resolves on the FIRST value the source commits — which for a resource that
+   * seeds progressively is the initial, possibly empty, seed and not "fully
+   * loaded". Do not use it to decide that a window has finished loading (that
+   * mistake drew empty charts); for a bounded read that must be complete, use a
+   * one-shot call such as `client.candleHistory`.
+   */
   ready(): Promise<T>;
   /** Restart the source for a fresh seed (optional — see BaseResource). */
   refresh?(): void;
@@ -62,7 +69,13 @@ export class BaseResource<T> implements Resource<T> {
     return this.readyPromise;
   }
 
-  /** Force teardown (used by the client on close). */
+  /**
+   * Force teardown, ignoring the subscriber count — for `client.close()`, not
+   * for one consumer that is done with a shared resource. Resources are
+   * memoised per key, so destroying one another consumer still holds stops its
+   * source underneath it; releasing your `subscribe()` teardown is enough,
+   * since the last one out stops the source anyway.
+   */
   destroy(): void {
     this.stop();
   }

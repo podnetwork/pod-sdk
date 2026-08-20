@@ -56,15 +56,14 @@ export function createPodDatafeed(client: PodTradeClient): unknown {
       try {
         const id = (symbolInfo.ticker ?? symbolInfo.name) as MarketId;
         const res = TV_TO_RESOLUTION[resolution] ?? "1h";
-        const series = client.candles(id, res, {
-          from: periodParams.from * 1000,
-          to: periodParams.to * 1000,
-        });
-        const bars = await series.ready();
-        const inRange = bars
-          .filter((b) => b.time >= periodParams.from * 1000 && b.time < periodParams.to * 1000)
-          .map((b) => toTvBar(b));
-        onResult(inRange, { noData: inRange.length === 0 });
+        // One-shot read, never the memoised series — see client.candleHistory.
+        const range = { from: periodParams.from * 1000, to: periodParams.to * 1000 };
+        let bars = await client.candleHistory(id, res, range);
+        // Nothing closed yet in a window reaching now: the forming bucket is all
+        // this market has, and `noData` would make TV stop asking for it.
+        if (!bars.length && range.to > Date.now()) bars = await client.candleTail(id, res, range);
+        const tv = bars.map((b) => toTvBar(b));
+        onResult(tv, { noData: tv.length === 0 });
       } catch (e) {
         onError(String(e));
       }
