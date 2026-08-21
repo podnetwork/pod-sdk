@@ -32,7 +32,7 @@ export const RESOLUTION_PAGE_BUCKETS: Record<Resolution, number> = {
   "4h": 180, // ~30 days
   "1d": 365, // ~1 year
   "1W": 260, // ~5 years
-  "1M": 120, // ~decade (calendar-month buckets)
+  "1M": 120, // ~decade (nominal 30-day buckets, epoch-anchored — see above)
 };
 
 export const RESOLUTIONS = Object.keys(RESOLUTION_SECONDS) as Resolution[];

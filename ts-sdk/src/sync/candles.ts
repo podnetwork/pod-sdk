@@ -46,6 +46,13 @@ const SEED_RESOLUTION: Resolution = "1h";
  * buckets, identified by its page index. */
 export interface CandlePageWindow { page: number; fromMs: number; toMs: number }
 
+/**
+ * One page's bars, plus how far the indexer had actually got. `watermarkMs` is
+ * `MAX_SAFE_INTEGER` when the page is known complete (a settled cache hit), so
+ * it never bounds a read it has nothing to say about.
+ */
+interface CandlePage { bars: Bar[]; watermarkMs: number }
+
 const pageSpanMs = (resolution: Resolution) =>
   RESOLUTION_PAGE_BUCKETS[resolution] * RESOLUTION_SECONDS[resolution] * 1000;
 
@@ -117,7 +124,10 @@ export function candleTailFrom(
   return new Promise((resolve) => {
     let release: (() => void) | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
     const settle = (bars: Bar[]) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       release?.();
       resolve(bars);
@@ -127,6 +137,10 @@ export function candleTailFrom(
       const bars = inWindow();
       if (bars.length) settle(bars);
     });
+    // `subscribe` starts the source, which can emit synchronously inside the
+    // call above — before `release` was assigned. Release here or the listener
+    // (and with it the series' tick fold) is never let go.
+    if (settled) release();
   });
 }
 
@@ -155,14 +169,14 @@ async function fetchCandlePage(
   id: MarketId,
   resolution: Resolution,
   window: CandlePageWindow,
-): Promise<Bar[]> {
+): Promise<CandlePage> {
   const wholePage = window.toMs - window.fromMs === pageSpanMs(resolution);
   const key = `${id}:${resolution}:${window.page}`;
   let cache = pageCaches.get(rest);
   if (!cache) pageCaches.set(rest, (cache = new Map()));
   // Cached entries were verified final when stored, so a hit needs no re-check.
   const hit = wholePage ? cache.get(key) : undefined;
-  if (hit) return hit;
+  if (hit) return { bars: hit, watermarkMs: Number.MAX_SAFE_INTEGER };
   for (let attempt = 1; ; attempt++) {
     try {
       const page = await rest.candles(id, {
@@ -171,18 +185,22 @@ async function fetchCandlePage(
         to: window.toMs,
         limit: RESOLUTION_PAGE_BUCKETS[resolution],
       });
-      // The indexer's watermark is the server's own test for a final answer: a
-      // window it has not reached yet comes back short of its newest buckets.
-      const final = page.solutionNow >= window.toMs;
-      if (final && wholePage) {
+      // Two different questions, so two predicates. Cacheable? Only a whole
+      // page the indexer has passed can never change again.
+      const covered = page.solutionNow >= window.toMs;
+      if (covered && wholePage) {
         // Oldest insertion out first; the bound is on memory, not a policy.
         if (cache.size >= PAGE_CACHE_MAX) cache.delete(cache.keys().next().value!);
         cache.set(key, page.bars);
       }
-      // Retry a short answer rather than let a caller take it as complete — the
-      // watermark is usually a second behind. On the last attempt return what
-      // there is: a lagging indexer must not turn into a hard failure.
-      if (final || attempt >= PAGE_ATTEMPTS) return page.bars;
+      // Worth retrying? Only a WHOLE page that came back short — the indexer is
+      // behind by more than a page and a moment will fix it. The trailing page
+      // is clamped by OUR clock, so its shortfall is the normal state of
+      // affairs, and retrying it spins three requests and seconds of backoff
+      // against a healthy node on nothing worse than clock skew.
+      if (covered || !wholePage || attempt >= PAGE_ATTEMPTS) {
+        return { bars: page.bars, watermarkMs: page.solutionNow };
+      }
     } catch (err) {
       if (attempt >= PAGE_ATTEMPTS || !worthRetrying(err)) throw err;
     }
@@ -237,7 +255,7 @@ export async function fetchCandleHistory(
 ): Promise<Bar[]> {
   const toMs = range.to ?? nowMs;
   const windows = candlePageWindows(resolution, range.from, toMs, nowMs);
-  const pages: Bar[][] = new Array(windows.length);
+  const pages: CandlePage[] = new Array(windows.length);
   const failures: unknown[] = new Array(windows.length);
   // Newest page first, `HISTORY_CONCURRENCY` at a time: a wide window is tens
   // of pages (56 for a fortnight of 1m bars, thousands for a year), and firing
@@ -263,9 +281,15 @@ export async function fetchCandleHistory(
   for (let i = oldestOk; i < pages.length; i++) {
     if (pages[i] === undefined) throw failures[i]; // a gap with bars on both sides
   }
+  const kept = pages.slice(Math.max(0, oldestOk));
+  // The indexer's watermark bounds what any of these answers could cover:
+  // buckets past it are not history yet, they are simply unwritten. Claiming
+  // only up to there keeps a lagging indexer from looking like a complete
+  // window that happens to stop early.
+  const coveredToMs = kept.reduce((limit, page) => Math.min(limit, page.watermarkMs), toMs);
   // Pages tile the window in ascending order and never overlap, so this is
   // already sorted; the filter drops the partial buckets at either edge.
-  return pages.slice(Math.max(0, oldestOk)).flat().filter((b) => b.time >= range.from && b.time < toMs);
+  return kept.flatMap((page) => page.bars).filter((b) => b.time >= range.from && b.time < coveredToMs);
 }
 
 export class CandleSeries implements SeriesResource<Bar> {
@@ -327,6 +351,12 @@ export class CandleSeries implements SeriesResource<Bar> {
         this.tickSub?.unsubscribe();
         this.tickSub = undefined;
         this.handle = undefined;
+        // Folded buckets do not survive the fold being stopped: on re-subscribe
+        // the first `rebuild()` would re-emit a partially-folded bucket from
+        // whenever the series last ran, and a reader asking for the forming
+        // edge would take it as the answer. Closed pages are immutable, so they
+        // stay — dropping them would only refetch what is already correct.
+        this.live.clear();
       };
     });
   }
@@ -382,7 +412,7 @@ export class CandleSeries implements SeriesResource<Bar> {
         const window = candlePageWindow(this.resolution, p, nowMs);
         if (!window) { this.notePage(p); return; }
         try {
-          const bars = await fetchCandlePage(this.ctx.rest, this.id, this.resolution, window);
+          const { bars } = await fetchCandlePage(this.ctx.rest, this.id, this.resolution, window);
           this.pages.set(p, bars);
           this.notePage(p);
           if (bars.length === 0 && this.minPage === p) this._hasMore = false;

@@ -167,6 +167,27 @@ describe("candleTailFrom", () => {
     expect(listeners.size).toBe(0); // and it lets go of the series again
   });
 
+  it("releases its listener when the series emits inside subscribe()", async () => {
+    // `subscribe` starts the source, and the first `rebuild()` runs before its
+    // first await — so the listener can fire while it is still being registered.
+    let bars: Bar[] = [];
+    const listeners = new Set<() => void>();
+    const series = {
+      get: () => bars,
+      ready: async () => bars,
+      subscribe: (l: () => void) => {
+        listeners.add(l);
+        bars = [bar(T0)];
+        l(); // synchronous emit, before `subscribe` has returned
+        return () => listeners.delete(l);
+      },
+      loading: () => false, error: undefined,
+      setWindow: () => {}, loadOlder: async () => {}, hasMore: () => false,
+    } as unknown as SeriesResource<Bar>;
+    expect((await candleTailFrom(series, { from: T0, to: T0 + MIN }, 2_000)).map((b) => b.time)).toEqual([T0]);
+    expect(listeners.size).toBe(0); // and the tick fold is not left running
+  });
+
   it("gives up at the timeout instead of hanging the caller", async () => {
     const { series, listeners } = stubSeries();
     expect(await candleTailFrom(series, { from: T0, to: T0 + MIN }, 20)).toEqual([]);
@@ -214,6 +235,42 @@ describe("page cache", () => {
     const got = await fetchCandleHistory(rest, ID, "1m", range, T0 + MIN);
     expect(asks).toBe(2); // the short answer was not taken as final
     expect(got.at(-1)!.time).toBe(range.to - MIN);
+  });
+
+  it("does not retry the trailing page for being short — that is its normal state", async () => {
+    const bars = series1m(700);
+    const pageMs = RESOLUTION_PAGE_BUCKETS["1m"] * MIN;
+    const page = Math.floor(bars[0]!.time / pageMs) + 1;
+    // A clock mid-page, so the trailing window is clamped and cannot be whole.
+    const nowMs = page * pageMs + 10 * MIN;
+    let asks = 0;
+    const rest = {
+      candles: async (_id: MarketId, q: { from: number; to: number }) => {
+        asks += 1;
+        const solutionNow = q.to - MIN; // behind the window's end, as a lagging indexer is
+        return { bars: bars.filter((b) => b.time >= q.from && b.time < q.to), solutionNow };
+      },
+    } as unknown as PodRestClient;
+    await fetchCandleHistory(rest, ID, "1m", { from: page * pageMs, to: nowMs }, nowMs);
+    expect(asks).toBe(1); // no spin, no seconds of backoff against a healthy node
+  });
+
+  it("claims only what the indexer had reached, not every bar it was handed", async () => {
+    const bars = series1m(700);
+    const pageMs = RESOLUTION_PAGE_BUCKETS["1m"] * MIN;
+    const page = Math.floor(bars[0]!.time / pageMs) + 1;
+    const nowMs = page * pageMs + 10 * MIN;
+    const watermark = page * pageMs + 4 * MIN;
+    const rest = {
+      // A server that answers past its own watermark: the read must not pass
+      // those bars off as covered history.
+      candles: async (_id: MarketId, q: { from: number; to: number }) => ({
+        bars: bars.filter((b) => b.time >= q.from && b.time < q.to),
+        solutionNow: watermark,
+      }),
+    } as unknown as PodRestClient;
+    const got = await fetchCandleHistory(rest, ID, "1m", { from: page * pageMs, to: nowMs }, nowMs);
+    expect(got.at(-1)!.time).toBe(watermark - MIN);
   });
 
   it("never stores a page the indexer had not caught up to", async () => {
