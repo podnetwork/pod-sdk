@@ -78,7 +78,6 @@
 //! # })
 //! ```
 
-pub mod auctions;
 pub mod network;
 pub mod precompiles;
 pub mod provider;
