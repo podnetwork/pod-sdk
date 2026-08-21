@@ -48,6 +48,11 @@ const ob = useSyncExternalStore(
 
 - **Layer 1 (low-level, exposed):** `client.rest.*` typed one-shot reads and
   `client.ws.subscribe(channel, params, onMessage)` raw subscriptions.
+- **One-shot reads:** `client.candleHistory(id, resolution, range)` for chart
+  history (resolves with the whole window or rejects — a partial answer is worse
+  than an error, because a chart never re-asks) and `.candleTail(id, resolution,
+  range)` for the still-forming bucket, plus `.leaderboard(query)`,
+  `.transaction(hash)`.
 - **Layer 2 (resources):** `client.status`, `.markets`, `.market(id)`,
   `.orderbook(id,{depth})`, `.positions(account)`, `.triggers(account)`,
   `.backstopTransfers(account)`, `.candles(id, resolution, range)` (a

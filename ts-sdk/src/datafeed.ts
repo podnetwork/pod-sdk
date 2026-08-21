@@ -5,6 +5,7 @@
 import type { PodTradeClient } from "./client.js";
 import type { Bar, MarketId, Resolution } from "./types/public.js";
 import { toNumber } from "./codec/units.js";
+import { RESOLUTION_SECONDS } from "./codec/resolution.js";
 
 const TV_TO_RESOLUTION: Record<string, Resolution> = {
   "1": "1m", "5": "5m", "15": "15m", "30": "30m",
@@ -56,15 +57,20 @@ export function createPodDatafeed(client: PodTradeClient): unknown {
       try {
         const id = (symbolInfo.ticker ?? symbolInfo.name) as MarketId;
         const res = TV_TO_RESOLUTION[resolution] ?? "1h";
-        const series = client.candles(id, res, {
-          from: periodParams.from * 1000,
-          to: periodParams.to * 1000,
-        });
-        const bars = await series.ready();
-        const inRange = bars
-          .filter((b) => b.time >= periodParams.from * 1000 && b.time < periodParams.to * 1000)
-          .map((b) => toTvBar(b));
-        onResult(inRange, { noData: inRange.length === 0 });
+        // One-shot read, never the memoised series — see client.candleHistory.
+        const range = { from: periodParams.from * 1000, to: periodParams.to * 1000 };
+        let bars = await client.candleHistory(id, res, range);
+        // Nothing closed in a window that reaches into the forming bucket: that
+        // bucket is all this market has, and `noData` would make TV stop asking
+        // for it. Tested against the bucket, not `Date.now()`: TV rounds `to` to
+        // whole seconds, so a window covering the open bucket can still end a
+        // few hundred ms in the past.
+        const bucketMs = RESOLUTION_SECONDS[res] * 1000;
+        if (!bars.length && range.to > Math.floor(Date.now() / bucketMs) * bucketMs) {
+          bars = await client.candleTail(id, res, range);
+        }
+        const tv = bars.map((b) => toTvBar(b));
+        onResult(tv, { noData: tv.length === 0 });
       } catch (e) {
         onError(String(e));
       }

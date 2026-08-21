@@ -1,5 +1,5 @@
 import type {
-  Address, BackstopTransfer, Balances, BridgeConfig, LeaderboardPage, LeaderboardQuery, Market,
+  Address, BackstopTransfer, Balances, Bar, BridgeConfig, LeaderboardPage, LeaderboardQuery, Market,
   MarketId, PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery, TxExplorer,
   OrdersQuery, Withdrawal,
 } from "./types/public.js";
@@ -11,7 +11,7 @@ import {
   statusSource, triggersSource, type MarketsCache, type SyncContext,
 } from "./sync/sources.js";
 import { withdrawalsSource } from "./sync/withdrawals.js";
-import { CandleSeries } from "./sync/candles.js";
+import { CandleSeries, candleTailFrom, fetchCandleHistory } from "./sync/candles.js";
 import { OrderHistory } from "./sync/orders.js";
 import { enrichPositions } from "./sync/positions-live.js";
 
@@ -235,6 +235,50 @@ export class PodTradeClient {
     );
     if (range) series.setWindow(range);
     return series;
+  }
+
+  /**
+   * Closed bars for a window — a one-shot read, not a live resource.
+   *
+   * Chart history belongs here rather than on a `CandleSeries`: series are
+   * memoised per (market, resolution) and shared with whatever else is watching
+   * that market, so a history read that waited on the series' loading state
+   * could be resolved by an unrelated load finishing and report "no bars" for a
+   * window whose own pages were still in flight. This read owns its request:
+   * it resolves with the window's bars or rejects.
+   */
+  candleHistory(id: MarketId, resolution: Resolution, range: TimeRange): Promise<Bar[]> {
+    return fetchCandleHistory(this.ctx.rest, id, resolution, range);
+  }
+
+  /**
+   * The bars the live tick fold currently holds inside `range`, the forming
+   * bucket included — the other half of `candleHistory`, which can only ever
+   * return closed bars because REST withholds the open bucket.
+   *
+   * A chart asking for a window that reaches "now" on a market whose only
+   * activity is in that bucket has no closed history at all, and answering it
+   * "no bars" makes the chart latch the range as empty. Both datafeeds fall
+   * back to this instead.
+   *
+   * Subscribes for the wait rather than calling `ready()`, which both starts the
+   * resource without registering a listener (nothing would ever stop its WS fold
+   * again) and resolves on the empty seed — see `candleTailFrom`.
+   */
+  async candleTail(
+    id: MarketId,
+    resolution: Resolution,
+    range: TimeRange,
+    timeoutMs = 1_500,
+  ): Promise<Bar[]> {
+    // No range: this must not call setWindow on a series someone else is live on.
+    const series = this.candles(id, resolution);
+    const release = series.subscribe(() => {});
+    try {
+      return await candleTailFrom(series, range, timeoutMs);
+    } finally {
+      release();
+    }
   }
 
   orders(account: Address, query?: OrdersQuery): OrderHistory {

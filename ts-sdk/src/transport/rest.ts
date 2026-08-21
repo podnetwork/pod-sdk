@@ -70,16 +70,25 @@ type FetchFn = typeof fetch;
 export interface RestClientOptions {
   restUrl: string;
   fetch?: FetchFn;
+  /**
+   * Per-request timeout (ms, default 15s). A request that never settles is
+   * worse than one that fails: it holds its slot in `inflight`, so retries of
+   * the same URL join the hang instead of trying again. Cold candle windows on
+   * a busy node have taken tens of seconds and then answered in half a second.
+   */
+  timeoutMs?: number;
 }
 
 export class PodRestClient {
   private readonly base: string;
   private readonly fetchFn: FetchFn;
+  private readonly timeoutMs: number;
   private readonly inflight = new Map<string, Promise<unknown>>();
 
   constructor(opts: RestClientOptions) {
     this.base = opts.restUrl.replace(/\/$/, "");
     this.fetchFn = opts.fetch ?? globalThis.fetch.bind(globalThis);
+    this.timeoutMs = opts.timeoutMs ?? 15_000;
   }
 
   private async get<T>(path: string, query?: Record<string, string | number | undefined>): Promise<T> {
@@ -105,7 +114,12 @@ export class PodRestClient {
   }
 
   private async doGet<T>(url: string): Promise<T> {
-    const res = await this.fetchFn(url, { headers: { accept: "application/json" } });
+    const res = await this.fetchFn(url, {
+      headers: { accept: "application/json" },
+      // `AbortSignal.timeout` everywhere current; omitted rather than polyfilled
+      // where it is missing, which only loses the timeout.
+      signal: AbortSignal.timeout?.(this.timeoutMs),
+    });
     if (!res.ok) {
       let body = "";
       try { body = await res.text(); } catch { /* ignore */ }
