@@ -6,8 +6,6 @@ Pod's protocol includes a set of asset-agnostic, fully on-chain, composable mark
 
 Transactions are added to the network without any central party - there is no leader or sequencer that controls which transactions are included or in what order. Confirmed transactions are batched and cleared at a single uniform price. Only transactions that were submitted in time can be part of a batch, and only transactions that were sufficiently early get to settle (i.e. claim funds if matched). This means competition happens on price alone - there are no timing or ordering advantages to exploit.
 
-Pod supports two kinds of markets: native markets and external markets.
-
 ## Native Markets
 
 Native markets are accessed through the Market precompile. Users deposit funds into the market contract and trade against a central limit order book (CLOB) with batch auction matching. Balances are unified across all native markets - a single deposit can be used for both spot and perpetual trading.
@@ -32,12 +30,7 @@ The batch duration defines a tradeoff between fairness and latency of market set
 
 Maker, taker, and liquidation fees are currently set to zero. This is subject to change in the future.
 
-## External Markets
-
-External markets use the [Optimistic Auctions](optimistic-auctions.md) precompile. Pod collects bids in a censorship-resistant way, but settlement happens on a separate chain. Unlike native markets which match orders at a uniform clearing price on Pod, external markets let applications define their own winner selection and settlement logic. This supports use cases like solver auctions and priority fee auctions.
-
 ## Navigating the Docs
 
 * [Order Book](orderbook.md) - the enshrined CLOB, order types, matching, and market data
-* [Optimistic Auctions](optimistic-auctions.md) - censorship-resistant auctions with off-Pod settlement
 * [JSON-RPC reference](https://docs.v2.pod.network/api-reference/json-rpc) - the `ob_*` methods (`ob_getMarkets`, `ob_getOrders`, `ob_getPositions`, …) used to read market state and order/position history

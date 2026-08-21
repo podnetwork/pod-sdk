@@ -12,7 +12,6 @@
 * [Bridge to Pod](guides/bridge-to-pod.md)
 * [Bridge from Pod](guides/bridge-from-pod.md)
 * [Recover a locked account](guides/recover-locked-account.md)
-* [Bid in an optimistic auction](guides/optimistic-auction.md)
 
 ## References
 
@@ -32,11 +31,5 @@
 * [JSON-RPC Errors](json-rpc-errors.md)
 * [Precompiles](applications-precompiles/README.md)
   * [Orderbook](applications-precompiles/orderbook.md)
-  * [Optimistic Auctions](applications-precompiles/wip-optimistic-auctions.md)
   * [Bridge](applications-precompiles/bridge.md)
   * [Recovery](applications-precompiles/recovery.md)
-
-## Case Studies
-
-* [CowSwap Solver Auctions](case-studies/cowswap-solver-auctions.md)
-* [RollupBoost Priority Auctions](case-studies/rollupboost-priority-auctions.md)

@@ -8,7 +8,6 @@ Pod uses precompiles for enshrined applications and internal protocol operations
 | --------- | ------- | ----------- |
 | [Orderbook](orderbook.md) | `0x50d0000000000000000000000000000000000002` | Central limit order book for spot and perpetual markets |
 | [Bridge](bridge.md) | `0x50d0000000000000000000000000000000000001` | ERC-20 token bridging between Pod and Ethereum |
-| [Optimistic Auctions](wip-optimistic-auctions.md) | `0x50d0000000000000000000000000000000000004` | Censorship-resistant auction for intents (settlement happens off-Pod) |
 | [Recovery](recovery.md) | `0x50d0000000000000000000000000000000000003` | Recover a locked account by finalizing the target transaction chain |
 
 ## Interacting with Precompiles

@@ -1,17 +1,7 @@
 [workspace]
 members = [
-  "examples/solidity/bindings",
   "types",
   "rust-sdk",
-  "examples/notary",
-  "examples/auction",
-  "examples/bridge-flow",
-  "examples/rust",
-  "examples/voting/client",
-  "examples/nfts",
-  "examples/tokens",
-  "examples/bsky/plc",
-  "examples/optimism-tx-auction",
   "protocol/bindings",
 ]
 resolver = "2"
