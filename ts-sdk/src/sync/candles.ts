@@ -17,11 +17,13 @@ import { dec, usToMs, WAD } from "../codec/units.js";
 import { RESOLUTION_PAGE_BUCKETS, RESOLUTION_SECONDS } from "../codec/resolution.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
 import type { Subscription } from "../transport/ws.js";
+import { PodHttpError, type PodRestClient } from "../transport/rest.js";
 import type { SyncContext } from "./sources.js";
 
 export interface SeriesResource<Item> {
   get(): Item[] | undefined;
   subscribe(listener: () => void): () => void;
+  /** First committed value, not "window loaded" — see `Resource.ready`. */
   ready(): Promise<Item[]>;
   readonly error?: Error;
   setWindow(range: TimeRange): void;
@@ -40,6 +42,271 @@ const bmin = (a: bigint, b: bigint) => (a < b ? a : b);
 const REPLAY_SAFE_SECS = 3_600;
 const SEED_RESOLUTION: Resolution = "1h";
 
+/** One canonical page window: an epoch-anchored span of `RESOLUTION_PAGE_BUCKETS`
+ * buckets, identified by its page index. */
+export interface CandlePageWindow { page: number; fromMs: number; toMs: number }
+
+/**
+ * One page's bars, plus how far the indexer had actually got. `watermarkMs` is
+ * `MAX_SAFE_INTEGER` when the page is known complete (a settled cache hit), so
+ * it never bounds a read it has nothing to say about.
+ */
+interface CandlePage { bars: Bar[]; watermarkMs: number }
+
+const pageSpanMs = (resolution: Resolution) =>
+  RESOLUTION_PAGE_BUCKETS[resolution] * RESOLUTION_SECONDS[resolution] * 1000;
+
+/**
+ * Page index of `ms` on a resolution's epoch-anchored grid — the single
+ * definition of that grid. Every candle read goes through it on purpose: the
+ * server's `immutable` responses and the REST client's URL-keyed in-flight
+ * dedupe both only pay off while every request lands on the same boundaries, so
+ * a second implementation of this arithmetic would silently turn cache hits
+ * into node traffic.
+ */
+export function candlePageAt(resolution: Resolution, ms: number): number {
+  return Math.floor(Math.max(0, ms) / pageSpanMs(resolution));
+}
+
+/**
+ * One page's canonical window — `undefined` when the page holds nothing but the
+ * forming bucket, because there is nothing closed to fetch. The window is
+ * clamped to the last closed bucket so it stays fully elapsed: those are the
+ * responses the server marks `immutable`, while a `to` in the future is
+ * `no-store` on every open.
+ */
+export function candlePageWindow(
+  resolution: Resolution,
+  page: number,
+  nowMs = Date.now(),
+): CandlePageWindow | undefined {
+  const stepMs = RESOLUTION_SECONDS[resolution] * 1000;
+  const fromMs = page * pageSpanMs(resolution);
+  const toMs = Math.min(fromMs + pageSpanMs(resolution), Math.floor(nowMs / stepMs) * stepMs);
+  return toMs > fromMs ? { page, fromMs, toMs } : undefined;
+}
+
+/** The canonical windows covering `[fromMs, toMs)`, oldest first. */
+export function candlePageWindows(
+  resolution: Resolution,
+  fromMs: number,
+  toMs: number,
+  nowMs = Date.now(),
+): CandlePageWindow[] {
+  const windows: CandlePageWindow[] = [];
+  const last = candlePageAt(resolution, toMs - 1);
+  for (let page = candlePageAt(resolution, fromMs); page <= last; page++) {
+    const window = candlePageWindow(resolution, page, nowMs);
+    if (window) windows.push(window);
+  }
+  return windows;
+}
+
+/**
+ * The live series' bars inside `range`, waiting up to `timeoutMs` for one to
+ * turn up. The series folds the tick stream, so this is where the forming
+ * bucket comes from — REST withholds it.
+ *
+ * Deliberately not `ready()`: that resolves on the series' FIRST commit, and a
+ * fresh series commits an empty seed while its load is still in flight (see
+ * `fetchPages`, which surfaces loading state before any page lands). Awaiting
+ * it hands back `[]` and gives up before the bucket it was called for arrives.
+ */
+export function candleTailFrom(
+  series: SeriesResource<Bar>,
+  range: TimeRange,
+  timeoutMs: number,
+): Promise<Bar[]> {
+  const toMs = range.to ?? Number.MAX_SAFE_INTEGER;
+  const inWindow = () => (series.get() ?? []).filter((b) => b.time >= range.from && b.time < toMs);
+  const found = inWindow();
+  if (found.length) return Promise.resolve(found);
+  return new Promise((resolve) => {
+    let release: (() => void) | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+    const settle = (bars: Bar[]) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      release?.();
+      resolve(bars);
+    };
+    timer = setTimeout(() => settle(inWindow()), timeoutMs);
+    release = series.subscribe(() => {
+      const bars = inWindow();
+      if (bars.length) settle(bars);
+    });
+    // `subscribe` starts the source, which can emit synchronously inside the
+    // call above — before `release` was assigned. Release here or the listener
+    // (and with it the series' tick fold) is never let go.
+    if (settled) release();
+  });
+}
+
+/**
+ * Decoded pages, per REST client — so per host, never shared between clients
+ * pointed at different environments. A page is only stored once it can never
+ * change again, which takes BOTH of: a full span (not the trailing page, which
+ * still grows as buckets close) and an indexer watermark past the window's end.
+ * Wall clock is not enough — the server gates its own `immutable` header on
+ * solution time, and a window that has elapsed by the clock while the indexer
+ * lags comes back SHORT of its newest buckets. Caching that would pin a hole
+ * for the process's lifetime, which is the failure this whole read exists to
+ * avoid.
+ *
+ * Without this, overlapping requests re-decode the same bars, and overlap is
+ * the norm: a chart's opening window reaches further back than it has been
+ * served, and every pan-left ends mid-page. Decoding costs six `BigInt` parses
+ * per bar (see `decodeCandle`) on the thread that draws the chart.
+ */
+const pageCaches = new WeakMap<PodRestClient, Map<string, Bar[]>>();
+const PAGE_CACHE_MAX = 256;
+
+/** One canonical page, served from this client's page cache when it is final. */
+async function fetchCandlePage(
+  rest: PodRestClient,
+  id: MarketId,
+  resolution: Resolution,
+  window: CandlePageWindow,
+): Promise<CandlePage> {
+  const wholePage = window.toMs - window.fromMs === pageSpanMs(resolution);
+  const key = `${id}:${resolution}:${window.page}`;
+  let cache = pageCaches.get(rest);
+  if (!cache) pageCaches.set(rest, (cache = new Map()));
+  // Cached entries were verified final when stored, so a hit needs no re-check.
+  const hit = wholePage ? cache.get(key) : undefined;
+  if (hit) return { bars: hit, watermarkMs: Number.MAX_SAFE_INTEGER };
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const page = await rest.candles(id, {
+        resolution,
+        from: window.fromMs,
+        to: window.toMs,
+        limit: RESOLUTION_PAGE_BUCKETS[resolution],
+      });
+      // Two different questions, so two predicates. Cacheable? Only a whole
+      // page the indexer has passed can never change again.
+      const covered = page.solutionNow >= window.toMs;
+      if (covered && wholePage) {
+        // Oldest insertion out first; the bound is on memory, not a policy.
+        if (cache.size >= PAGE_CACHE_MAX) cache.delete(cache.keys().next().value!);
+        cache.set(key, page.bars);
+      }
+      // Worth retrying? Only a WHOLE page that came back short — the indexer is
+      // behind by more than a page and a moment will fix it. The trailing page
+      // is clamped by OUR clock, so its shortfall is the normal state of
+      // affairs, and retrying it spins three requests and seconds of backoff
+      // against a healthy node on nothing worse than clock skew.
+      if (covered || !wholePage || attempt >= PAGE_ATTEMPTS) {
+        return { bars: page.bars, watermarkMs: page.solutionNow };
+      }
+    } catch (err) {
+      if (attempt >= PAGE_ATTEMPTS || !worthRetrying(err)) throw err;
+    }
+    // Exponential with jitter: the node sheds load in bursts, and a read that
+    // retries on a fixed short delay just lands inside the same burst.
+    const backoff = PAGE_RETRY_MS * 2 ** (attempt - 1) * (1 + Math.random());
+    await new Promise((resolve) => setTimeout(resolve, backoff));
+  }
+}
+
+/** How many pages a history read has in flight at once. */
+const HISTORY_CONCURRENCY = 8;
+
+/**
+ * Attempts per page, and the backoff between them. One failure must not decide
+ * a whole read: `fetchCandleHistory` rejects the window on a failed page, and a
+ * chart shows that as a hard error it will not retry on its own. Cold windows
+ * on a busy node do fail once and then answer in half a second, which is
+ * exactly what a retry is for. A 4xx (other than 429) is the server saying the
+ * request itself is wrong — asking again cannot help.
+ */
+const PAGE_ATTEMPTS = 3;
+const PAGE_RETRY_MS = 400;
+
+const worthRetrying = (err: unknown) =>
+  !(err instanceof PodHttpError) || err.status === 429 || err.status >= 500;
+
+/**
+ * Closed bars covering `[range.from, range.to)` — the one-shot read behind a
+ * chart's history request, with no resource, no subscription and no shared
+ * mutable state.
+ *
+ * A page that fails after its retries decides how much of the window is
+ * deliverable, and WHERE it failed is what matters:
+ *
+ * - at the old end, the answer is simply shorter — history stops at the gap,
+ *   and the caller asks again for the older range when it needs it (a chart
+ *   does exactly that on the next pan). Nothing is misrepresented, with one
+ *   exception that must not slip through: if nothing at all survives, an empty
+ *   answer would assert the window is empty, so that case rejects too.
+ * - anywhere inside, the read REJECTS. A chart treats the answer as the truth
+ *   for the range it asked about and does not re-ask, so bars either side of a
+ *   swallowed gap would draw a hole nobody can detect — the failure this whole
+ *   read exists to prevent. Callers get an error they can retry.
+ *
+ * (The live series takes the opposite side of that trade — see `fetchPages`.)
+ */
+export async function fetchCandleHistory(
+  rest: PodRestClient,
+  id: MarketId,
+  resolution: Resolution,
+  range: TimeRange,
+  nowMs = Date.now(),
+): Promise<Bar[]> {
+  const toMs = range.to ?? nowMs;
+  const windows = candlePageWindows(resolution, range.from, toMs, nowMs);
+  const pages: CandlePage[] = new Array(windows.length);
+  const failures: unknown[] = new Array(windows.length);
+  // Newest page first, `HISTORY_CONCURRENCY` at a time: a wide window is tens
+  // of pages (56 for a fortnight of 1m bars, thousands for a year), and firing
+  // them all at once queues the visible edge behind the oldest history on
+  // HTTP/1.1 and lands the whole fan-out on the node at once on HTTP/2.
+  let next = windows.length - 1;
+  const worker = async () => {
+    while (next >= 0) {
+      const i = next--;
+      try {
+        pages[i] = await fetchCandlePage(rest, id, resolution, windows[i]!);
+      } catch (err) {
+        failures[i] = err;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(HISTORY_CONCURRENCY, windows.length) }, worker));
+
+  // An unfetched page reads as `undefined`; an empty page is an empty array, so
+  // "no bars here" and "never arrived" stay distinguishable.
+  const oldestOk = pages.findIndex((page) => page !== undefined);
+  if (windows.length && oldestOk === -1) throw failures.find((err) => err !== undefined);
+  for (let i = oldestOk; i < pages.length; i++) {
+    if (pages[i] === undefined) throw failures[i]; // a gap with bars on both sides
+  }
+  const kept = pages.slice(Math.max(0, oldestOk));
+  // The indexer's watermark bounds what any of these answers could cover:
+  // buckets past it are not history yet, they are simply unwritten. Claiming
+  // only up to there keeps a lagging indexer from looking like a complete
+  // window that happens to stop early.
+  const coveredToMs = kept.reduce((limit, page) => Math.min(limit, page.watermarkMs), toMs);
+  // Pages tile the window in ascending order and never overlap, so this is
+  // already sorted; the filter drops the partial buckets at either edge.
+  const bars = kept.flatMap((page) => page.bars).filter((b) => b.time >= range.from && b.time < coveredToMs);
+
+  // An EMPTY answer is not a small answer: it asserts "there are no bars in this
+  // window", and a chart takes that as settled and stops asking. Only the part
+  // of the window that was actually read can say that. So when nothing came
+  // back and the window was not covered — a failed page dropped off the old
+  // end, or the watermark short of the new end — surface the failure instead,
+  // which the caller retries. Otherwise a quiet stretch next to a shed page
+  // would hide that page's bars for as long as the chart lives.
+  if (!bars.length && (oldestOk > 0 || coveredToMs < toMs)) {
+    throw failures[oldestOk - 1]
+      ?? new Error(`candle history for ${id} is not indexed past ${coveredToMs}`);
+  }
+  return bars;
+}
+
 export class CandleSeries implements SeriesResource<Bar> {
   private readonly base: BaseResource<Bar[]>;
   private handle: ResourceHandle<Bar[]> | undefined;
@@ -47,12 +314,9 @@ export class CandleSeries implements SeriesResource<Bar> {
   private readonly pages = new Map<number, Bar[]>(); // pageIndex -> closed bars
   private readonly live = new Map<number, Bar>(); // bucketStartMs -> forming bar
   private readonly resSecs: number;
-  private readonly pageBuckets: number;
-  private readonly pageSpanSecs: number;
 
   private window: TimeRange;
   private minPage: number | undefined;
-  private maxPage: number | undefined;
   private _loading = false;
   private _hasMore = true;
   private lastTickUs = 0;
@@ -68,10 +332,7 @@ export class CandleSeries implements SeriesResource<Bar> {
     range?: TimeRange,
   ) {
     this.resSecs = RESOLUTION_SECONDS[resolution];
-    this.pageBuckets = RESOLUTION_PAGE_BUCKETS[resolution];
-    this.pageSpanSecs = this.resSecs * this.pageBuckets;
-    const span = this.pageSpanSecs * 1000;
-    this.window = range ?? { from: Date.now() - span };
+    this.window = range ?? { from: Date.now() - pageSpanMs(resolution) };
 
     this.base = new BaseResource<Bar[]>((h) => {
       this.handle = h;
@@ -105,6 +366,12 @@ export class CandleSeries implements SeriesResource<Bar> {
         this.tickSub?.unsubscribe();
         this.tickSub = undefined;
         this.handle = undefined;
+        // Folded buckets do not survive the fold being stopped: on re-subscribe
+        // the first `rebuild()` would re-emit a partially-folded bucket from
+        // whenever the series last ran, and a reader asking for the forming
+        // edge would take it as the answer. Closed pages are immutable, so they
+        // stay — dropping them would only refetch what is already correct.
+        this.live.clear();
       };
     });
   }
@@ -131,17 +398,12 @@ export class CandleSeries implements SeriesResource<Bar> {
 
   // --- internals ---
 
-  private pageOf(secs: number): number {
-    return Math.floor(secs / this.pageSpanSecs);
-  }
-
   private async loadWindow(range: TimeRange): Promise<void> {
-    const fromSecs = Math.floor(range.from / 1000);
-    const toSecs = Math.floor((range.to ?? Date.now()) / 1000);
-    const startPage = this.pageOf(fromSecs);
-    const endPage = this.pageOf(Math.max(fromSecs, toSecs - 1));
-    const nowSecs = Math.floor(Date.now() / 1000);
-    const trailingPage = this.pageOf(nowSecs);
+    const nowMs = Date.now();
+    const toMs = range.to ?? nowMs;
+    const startPage = candlePageAt(this.resolution, range.from);
+    const endPage = candlePageAt(this.resolution, Math.max(range.from, toMs - 1));
+    const trailingPage = candlePageAt(this.resolution, nowMs);
 
     const wanted: number[] = [];
     for (let p = startPage; p <= endPage; p++) {
@@ -150,42 +412,32 @@ export class CandleSeries implements SeriesResource<Bar> {
     await this.fetchPages(wanted);
   }
 
+  /** The oldest page loaded — `loadOlder` walks down from it. */
+  private notePage(page: number): void {
+    this.minPage = Math.min(this.minPage ?? page, page);
+  }
+
   private async fetchPages(pageIndices: number[]): Promise<void> {
     if (!pageIndices.length) { this.rebuild(); return; }
     this._loading = true;
     this.rebuild(); // surface loading state
     try {
-      // The trailing page's window is clamped to the last closed bucket: the
-      // server returns only closed bars either way, so the content is
-      // identical — but a fully-elapsed window is served `immutable`
-      // (browser/CDN-cacheable; its URL rotates once per bucket close), while
-      // a `to` in the future would be `no-store` on every open. The forming
-      // bucket comes from the tick subscription (see prepareLiveEdge).
-      const lastClosedMs = Math.floor(Date.now() / 1000 / this.resSecs) * this.resSecs * 1000;
+      const nowMs = Date.now(); // one clock read, so every page agrees on it
       await Promise.all(pageIndices.map(async (p) => {
-        const fromMs = p * this.pageSpanSecs * 1000;
-        const toMs = Math.min((p + 1) * this.pageSpanSecs * 1000, lastClosedMs);
-        if (toMs <= fromMs) {
-          // Page holds nothing but the forming bucket (it just started) —
-          // nothing closed to fetch yet; keep bookkeeping consistent.
-          this.pages.set(p, this.pages.get(p) ?? []);
-          this.minPage = this.minPage === undefined ? p : Math.min(this.minPage, p);
-          this.maxPage = this.maxPage === undefined ? p : Math.max(this.maxPage, p);
-          return;
-        }
+        const window = candlePageWindow(this.resolution, p, nowMs);
+        if (!window) { this.notePage(p); return; }
         try {
-          const page = await this.ctx.rest.candles(this.id, {
-            resolution: this.resolution,
-            from: fromMs,
-            to: toMs,
-            limit: this.pageBuckets,
-          });
-          this.pages.set(p, page.bars);
-          this.minPage = this.minPage === undefined ? p : Math.min(this.minPage, p);
-          this.maxPage = this.maxPage === undefined ? p : Math.max(this.maxPage, p);
-          if (page.bars.length === 0 && this.minPage === p) this._hasMore = false;
+          const { bars } = await fetchCandlePage(this.ctx.rest, this.id, this.resolution, window);
+          this.pages.set(p, bars);
+          this.notePage(p);
+          if (bars.length === 0 && this.minPage === p) this._hasMore = false;
         } catch {
-          this.pages.set(p, this.pages.get(p) ?? []);
+          // A live series tolerates a missing page where `fetchCandleHistory`
+          // rejects: it will ask again. But leave the page MISSING rather than
+          // storing it empty — a stored empty page is indistinguishable from
+          // "no bars in this span", so a transient failure would become a
+          // permanent hole, since `loadWindow` only fetches pages it does not
+          // already have.
         }
       }));
     } finally {
