@@ -613,7 +613,7 @@ export async function mint(p: MintParams): Promise<TxReceipt> {
   return receipt;
 }
 
-// --- waitlist deposit (canary — real USDC on the source chain) ---------------
+// --- waitlist deposit + withdraw (canary — real USDC on the source chain) ----
 //
 // Canary environments fund accounts with a real USDC deposit on the source
 // chain (Arbitrum One) instead of the faucet: approve the waitlist contract to
@@ -625,6 +625,7 @@ const ERC20_ABI = parseAbi(["function approve(address spender, uint256 value)"])
 
 const WAITLIST_ABI = parseAbi([
   "function deposit(address token, uint256 amount, address from, address to, address callContract, uint256 reserveBalance, bytes permit)",
+  "function withdraw(uint256 depositId, address token, uint256 amount, address from, address to, address callContract, uint256 reserveBalance)",
 ]);
 
 /** An unsigned call on the source chain — spread into
@@ -672,6 +673,46 @@ export function buildWaitlistDeposit(p: WaitlistDepositParams): SourceChainCall 
       abi: WAITLIST_ABI,
       functionName: "deposit",
       args: [p.token, p.amount, p.from, p.to ?? p.from, p.callContract ?? CLOB_ADDRESS, p.reserveBalance ?? 10_000n, p.permit ?? "0x"],
+    }),
+    value: 0n,
+  };
+}
+
+/** Arguments for {@link buildWaitlistWithdraw}. Every field is required — see the
+ * builder for why none of them may be defaulted. */
+export interface WaitlistWithdrawParams {
+  /** The waitlist contract on the source chain — the one the deposit went to. */
+  waitlist: Address;
+  /** The contract's id for the deposit being taken back out. One call per
+   * deposit: the waitlist deliberately has no batch withdrawal. */
+  depositId: bigint;
+  token: Address;
+  amount: bigint;
+  /** The depositing address — only it may withdraw, so it must also be the
+   * sender of this call. */
+  from: Address;
+  to: Address;
+  callContract: Address;
+  reserveBalance: bigint;
+}
+
+/** Waitlist `withdraw(...)` — takes a confirmed deposit back out on the source
+ * chain, undoing a {@link buildWaitlistDeposit}.
+ *
+ * Unlike the deposit builder, this one defaults nothing, and must not start to.
+ * The waitlist keeps only a *hash* of the deposit's argument set and recomputes
+ * it here, so an argument that merely looks right — `to` filled in from `from`,
+ * the usual `callContract`, a tidied `reserveBalance` — hashes to something else
+ * and reverts, and the user pays gas for the failure. The caller reads all seven
+ * verbatim from the waitlist API's `/v1/waitlist/me` response and passes them
+ * straight through: no fallbacks, no normalising, no lowercasing. */
+export function buildWaitlistWithdraw(p: WaitlistWithdrawParams): SourceChainCall {
+  return {
+    to: p.waitlist,
+    data: encodeFunctionData({
+      abi: WAITLIST_ABI,
+      functionName: "withdraw",
+      args: [p.depositId, p.token, p.amount, p.from, p.to, p.callContract, p.reserveBalance],
     }),
     value: 0n,
   };
