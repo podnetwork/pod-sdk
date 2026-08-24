@@ -238,7 +238,9 @@ const worthRetrying = (err: unknown) =>
  *
  * - at the old end, the answer is simply shorter — history stops at the gap,
  *   and the caller asks again for the older range when it needs it (a chart
- *   does exactly that on the next pan). Nothing is misrepresented.
+ *   does exactly that on the next pan). Nothing is misrepresented, with one
+ *   exception that must not slip through: if nothing at all survives, an empty
+ *   answer would assert the window is empty, so that case rejects too.
  * - anywhere inside, the read REJECTS. A chart treats the answer as the truth
  *   for the range it asked about and does not re-ask, so bars either side of a
  *   swallowed gap would draw a hole nobody can detect — the failure this whole
@@ -289,7 +291,20 @@ export async function fetchCandleHistory(
   const coveredToMs = kept.reduce((limit, page) => Math.min(limit, page.watermarkMs), toMs);
   // Pages tile the window in ascending order and never overlap, so this is
   // already sorted; the filter drops the partial buckets at either edge.
-  return kept.flatMap((page) => page.bars).filter((b) => b.time >= range.from && b.time < coveredToMs);
+  const bars = kept.flatMap((page) => page.bars).filter((b) => b.time >= range.from && b.time < coveredToMs);
+
+  // An EMPTY answer is not a small answer: it asserts "there are no bars in this
+  // window", and a chart takes that as settled and stops asking. Only the part
+  // of the window that was actually read can say that. So when nothing came
+  // back and the window was not covered — a failed page dropped off the old
+  // end, or the watermark short of the new end — surface the failure instead,
+  // which the caller retries. Otherwise a quiet stretch next to a shed page
+  // would hide that page's bars for as long as the chart lives.
+  if (!bars.length && (oldestOk > 0 || coveredToMs < toMs)) {
+    throw failures[oldestOk - 1]
+      ?? new Error(`candle history for ${id} is not indexed past ${coveredToMs}`);
+  }
+  return bars;
 }
 
 export class CandleSeries implements SeriesResource<Bar> {

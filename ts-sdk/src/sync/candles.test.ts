@@ -132,6 +132,23 @@ describe("fetchCandleHistory", () => {
     expect(got.at(-1)!.time).toBe(T0);
   });
 
+  it("rejects when a dropped old page leaves nothing to show", async () => {
+    // The trap: a quiet stretch next to a shed page. Slicing the failed prefix
+    // off leaves an empty array, which a chart reads as "no bars here, stop
+    // asking" — hiding the shed page's bars for as long as it lives.
+    const bars = series1m(700);
+    const pageMs = RESOLUTION_PAGE_BUCKETS["1m"] * MIN;
+    const oldest = Math.floor((T0 - 699 * MIN) / pageMs) * pageMs;
+    const { rest } = restStub(
+      // Only the oldest page has any trades in it, and that page fails.
+      bars.filter((b) => b.time < oldest + pageMs),
+      { fail: (from) => from === oldest },
+    );
+    await expect(
+      fetchCandleHistory(rest, ID, "1m", { from: T0 - 699 * MIN, to: T0 + MIN }, T0 + MIN),
+    ).rejects.toThrow(/failed/);
+  });
+
   it("rejects a gap that would sit between bars it is returning", async () => {
     const bars = series1m(700);
     const pageMs = RESOLUTION_PAGE_BUCKETS["1m"] * MIN;
