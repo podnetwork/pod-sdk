@@ -12,7 +12,7 @@ Orders are immediately added to the order book as soon as they are finalized thr
 
 The order book supports limit orders and market orders. The direction of a trade is determined by the sign of the volume parameter - positive for buy/bid, negative for sell/ask.
 
-All markets use 1e18 tick sizes, matching the token decimal standard.
+The tick size (minimum price increment) is a per-market parameter; prices must be multiples of it. The default is 1e16 — i.e. 0.01 in the 18-decimal token representation.
 
 ### Execution flags
 
@@ -52,7 +52,7 @@ The full node includes a built-in indexer for both live and historical market da
 
 Pod uses frequent batch auctions to match orders. Instead of processing orders one at a time as they arrive (continuous trading), orders are collected over a short interval and matched together at a single uniform clearing price. This removes timing-based ordering advantages - competition is on price alone.
 
-Each market has a fixed **batch interval** that defines how often matching rounds run. At the end of every interval the solver settles a batch covering all orders whose `deadline` lands at or before that interval. See [Market Configurations](https://docs.v2.pod.network/guides-references/market-configurations) for the per-market interval on live markets.
+The **batch interval** that defines how often matching rounds run is a single global setting shared by every market — currently 500ms. At the end of every interval the solver settles a batch covering all orders whose `deadline` lands at or before that interval. See [Market Configurations](https://docs.v2.pod.network/guides-references/market-configurations) for the live value.
 
 ### Clearing
 
@@ -78,7 +78,7 @@ The `deadline` parameter in `submitOrder` specifies the latest batch the user wa
 deadline = ceil((now + LAG) / auction_interval) * auction_interval
 ```
 
-`LAG` is the headroom you give for network and attestation propagation, capped at **10 minutes** in the future from `now_us`. Most integrators should aim for **at least 1 minute**; experts who want to target a specific upcoming batch can push it lower at the risk of missing the batch if the transaction doesn't reach enough validators in time. This 10-minute ceiling is the maximum last look duration and is expected to shorten as the network matures.
+`LAG` is the headroom you give for network and attestation propagation. Most integrators should aim for **at least 1 minute**; experts who want to target a specific upcoming batch can push it lower at the risk of missing the batch if the transaction doesn't reach enough validators in time.
 
 The protocol guarantees (via [past perfection](network-architecture/timestamping.md#past-perfection)) that if an order receives n - f attestations within the deadline - which it will if it was sent sufficiently early - it will be part of a batch up to and including the latest batch specified by the deadline.
 
@@ -88,7 +88,7 @@ Traders can set the deadline to be small to ensure they are matched quickly, but
 
 ### Solver
 
-The solver is the service responsible for settling a batch. It can be a rotating set of solvers or a single entity, configurable per market. The solver waits for the auction deadline and then settles the batch.
+The solver is the service responsible for settling a batch. It is currently a single entity: one global solver key, shared by every market. The solver waits for the auction deadline and then settles the batch.
 
 The solver does not get any additional advantage. It cannot censor transactions or include transactions that were not submitted in time. It has some flexibility on whether to include out-of-time transactions - orders submitted after the batch timestamp, or orders that received some attestations but fewer than the required n − f. These orders always lose, because they cannot claim funds even if they get matched.
 
