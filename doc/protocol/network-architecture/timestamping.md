@@ -5,13 +5,13 @@ Timestamping allows applications to make progress based on a global time referen
 Pod provides two sources of timestamps, both with microsecond precision:
 
 1. **Transaction timestamps** - each validator signs a local microsecond timestamp when attesting to a transaction.
-2. **Heartbeat timestamps** - each validator signs a heartbeat message every \~20ms. Heartbeats are sequenced in the validator's temporal log alongside transactions.
+2. **Vote batch timestamps** - each validator signs every vote batch it broadcasts, and each batch carries a microsecond timestamp and a sequence number. A validator with nothing to attest to still emits a batch with no votes in it, so time keeps advancing on an idle network. Vote batches are sequenced in the validator's temporal log alongside transactions.
 
 Both timestamps, combined with the sequence numbers in each validator's temporal log, allow the network to make time-based arguments about transactions.
 
 ## Past Perfection
 
-Applications can subscribe to a **time of interest** - for example, an auction deadline - using `pod_subscribe`. The time of interest is reached when a quorum (n - f) of validators have signed heartbeats with timestamps beyond it. At that point, the full node returns a **past perfect set** associated with that timestamp.
+Applications can subscribe to a **time of interest** - for example, an auction deadline - using `pod_subscribe`. The time of interest is reached when a quorum (n - f) of validators have signed vote batches with timestamps beyond it. At that point, the full node returns a **past perfect set** associated with that timestamp.
 
 The past perfect set provides four properties:
 
@@ -22,4 +22,4 @@ The past perfect set provides four properties:
 
 ## Past Perfect Certificate
 
-The quorum of heartbeat signatures that establishes past perfection forms a **past perfect certificate**. This certificate is verifiable outside Pod - a smart contract on Ethereum, a TEE enclave, or a ZK circuit can check the n - f heartbeat signatures to independently confirm the set is final. See [Optimistic Auctions](../optimistic-auctions.md) for how this is used in practice.
+The quorum of vote signatures that establishes past perfection forms a **past perfect certificate**. This certificate is verifiable outside Pod - a smart contract on Ethereum, a TEE enclave, or a ZK circuit can check the n - f vote signatures to independently confirm the set is final.
