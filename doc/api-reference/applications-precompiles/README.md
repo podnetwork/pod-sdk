@@ -10,7 +10,7 @@ Pod uses precompiles for enshrined applications and internal protocol operations
 | [Bridge](bridge.md) | `0x50d0000000000000000000000000000000000001` | Token bridging in and out of Pod — the only way value crosses the boundary |
 | [Recovery](recovery.md) | `0x50d0000000000000000000000000000000000003` | Recover a locked account by finalizing the target transaction chain |
 
-Each precompile's page lists its per-operation gas costs — see [Gas](../README.md#gas) for how gas works on Pod.
+Each precompile's page lists its gas cost — see [Gas](../README.md#gas) for how gas works on Pod.
 
 ## Interacting with Precompiles
 
