@@ -1728,9 +1728,10 @@ paths:
       summary: Get Bridge Claim Proof
       operationId: pod_getBridgeClaimProof
       description: |
-        Returns a proof for claiming bridged assets on an external chain. Use this after a
-        deposit transaction has been executed on Pod to obtain the committee attestations
-        and proof data needed to call `claim` on the external bridge contract.
+        Returns a proof for claiming bridged assets on an external chain, keyed by
+        transaction hash. Serves only withdrawals made through the retired
+        account-balance path; current withdrawals are keyed by `withdrawal_id` and
+        served by `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}`.
       requestBody:
         content:
           application/json:

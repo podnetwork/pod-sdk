@@ -27,7 +27,12 @@ const CLOB_ABI = parseAbi([
   "function cancelTrigger(bytes32 orderbookId, bytes32 triggerOrder, uint128 deadline)",
   "function updateTrigger(bytes32 orderbookId, bytes32 triggerOrder, int256 newSize, uint256 newLimitPrice, uint256 newTriggerPrice, uint128 deadline)",
   "function submitBatch(bytes[] inner)",
-  "function withdraw(address token, address recipient, uint256 amount, uint128 deadline)",
+]);
+
+export const BRIDGE_ADDRESS: Address = "0x50d0000000000000000000000000000000000001";
+
+const BRIDGE_ABI = parseAbi([
+  "function withdraw(address token, address to, uint256 amount, uint128 deadline)",
 ]);
 
 /** ~10 years in microseconds — default far-future expiry for resting orders. */
@@ -718,24 +723,27 @@ export function buildWaitlistWithdraw(p: WaitlistWithdrawParams): SourceChainCal
   };
 }
 
-// --- withdrawals (ADR 0033) --------------------------------------------------
+// --- withdrawals (ADR 0033, entrypoint per ADR 0036) ---------------------------
 //
-// `Clob.withdraw` settles on L1 in ONE transaction: the CLOB balance is debited
-// straight to the bridge's custody and N−F validators sign the L1 claim at
-// solution execution. Nothing is credited to a pod account on the way, so the
-// legacy `Bridge.withdraw` rules — `tx.value == amount`, a gas reserve, a second
-// signature — do not apply, and MAX is the whole withdrawable balance.
+// `withdraw` on the BRIDGE precompile settles on L1 in ONE transaction: the
+// orderbook balance is debited at the next batch auction and N−F validators
+// sign the L1 claim at solution execution. Nothing is credited to a pod account
+// on the way, the call is gas-exempt, `tx.value` must be 0, and MAX is the
+// whole withdrawable balance.
+//
+// **Withdrawals are signed by the master wallet.** The bridge precompile has no
+// delegation envelope, so a session key cannot sign one — submit through the
+// funds-owning account, not the delegated wallet.
 //
 // Two fields mean something different from the same-named ones elsewhere:
-//   - `recipient` is an address on the CLAIM chain, not on pod. Delegated calls
-//     stay pinned to the master (ADR 0018), so a session key cannot redirect it.
+//   - `recipient` is an address on the CLAIM chain, not on pod.
 //   - `amount` stays in pod's 18 decimals, but must be a whole number of
 //     claim-chain units or admission rejects it. Size it with `maxWithdrawable`
 //     / `quantizeWithdrawAmount` from `codec/bridge.ts` — this builder encodes
 //     what it is given and does no rounding of its own, because silently
 //     changing an amount a user signed for is worse than a clear rejection.
 
-export interface ClobWithdrawParams {
+export interface WithdrawParams {
   /** Pod-side token address (native USD for cash). */
   token: Address;
   /** Recipient on the **claim chain**. */
@@ -755,15 +763,15 @@ export interface ClobWithdrawParams {
   deadline?: number; // ms; default far future
 }
 
-export function buildClobWithdraw(p: ClobWithdrawParams): PodTxRequest {
+export function buildWithdraw(p: WithdrawParams): PodTxRequest {
   const nowUs = BigInt(Date.now()) * 1000n;
   const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), BigInt(p.auctionIntervalUs));
   const data = encodeFunctionData({
-    abi: CLOB_ABI,
+    abi: BRIDGE_ABI,
     functionName: "withdraw",
     args: [p.token, p.recipient, p.amount, deadline],
   }) as Hex;
-  return { to: CLOB_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
+  return { to: BRIDGE_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
 }
 
 /**
@@ -775,8 +783,10 @@ export function buildClobWithdraw(p: ClobWithdrawParams): PodTxRequest {
  *
  * **This is also the `withdrawal_id`** that `pod_withdrawals` reports and that
  * `GET /v1/bridge/withdrawals/by-id/{id}` is keyed on — same derivation, same
- * intent identity (ADR 0033 §3). `signer` is whoever signed the transaction,
- * i.e. the delegate under a session key, not the debited master.
+ * intent identity (ADR 0033 §3). For orders, `signer` is whoever signed the
+ * transaction — the delegate under a session key. For withdrawals it is always
+ * the master: the bridge precompile has no delegation, so a withdrawal is
+ * signed by the account it debits, and its `sequence` is always 0.
  */
 export function deriveOrderId(signer: Address, nonce: number, sequence = 0): Hash {
   return keccak256(

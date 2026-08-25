@@ -1,12 +1,8 @@
 # Bridge
 
-The bridge precompile allows users to initiate withdrawals from Pod to other chains. Tokens withdrawn via the bridge precompile are burned on Pod and can be claimed on the destination chain's bridge contract using a validator proof.
+The bridge precompile is how funds leave Pod. `withdraw` debits the caller's **orderbook balance** — the same balance bridge deposits credit and trading uses — burns it on Pod, and makes the same value claimable on the chain the network's bridge is configured for. One transaction, one signature, and nothing credited to a Pod account on the way.
 
 For how the bridge works end-to-end, see [Native Bridge](https://docs.v2.pod.network/documentation/native-bridge). For step-by-step guides, see [Bridge to Pod](../guides/bridge-to-pod.md) and [Bridge from Pod](../guides/bridge-from-pod.md).
-
-{% hint style="info" %}
-**This precompile withdraws a Pod account balance.** A **trading balance exits through the orderbook precompile**: its `withdraw` burns the balance on Pod and makes it claimable on the bridge chain in one transaction, with no `chainId` to pass, its amount in Pod's 18 decimals, and its claim proof keyed by `withdrawal_id` rather than by transaction hash. See [Withdrawals leave Pod](orderbook.md#withdrawals-leave-pod). The interface below is the older of the two paths and goes away with Pod account balances.
-{% endhint %}
 
 **Precompile address:** `0x50d0000000000000000000000000000000000001`
 
@@ -14,41 +10,87 @@ For how the bridge works end-to-end, see [Native Bridge](https://docs.v2.pod.net
 
 ```solidity
 interface IPodBridge {
-    /// @notice Emitted when tokens are withdrawn for bridging to another chain.
-    event Withdraw(
-        bytes32 indexed id,
-        address indexed from,
-        address indexed to,
-        address token,
-        uint256 amount,
-        uint256 chainId
-    );
-
-    /// @notice Initiate a withdrawal to another chain. Burns tokens on Pod and emits
-    ///         a Withdraw event. Use the transaction hash to obtain a claim proof
-    ///         via pod_getBridgeClaimProof.
-    /// @param token Token address on Pod. Use 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for native token.
-    /// @param amount Amount of tokens to bridge.
-    /// @param to Recipient address on the target chain.
-    /// @param chainId Target chain ID where the claim will happen. Prevents replay across chains.
-    /// @return id Unique withdraw identifier.
+    /// @notice Withdraw from the caller's orderbook balance to the claim chain.
+    /// @dev A batch-auction intent, like an order: it is included in a batch and
+    ///      the balance is debited when that batch executes. Checked before
+    ///      attestation against the bridge config served by `GET /v1/bridge/config`:
+    ///      the token must be bridged, `amount` must be a whole number of
+    ///      claim-chain units (`amount % 10^(18 - decimals) == 0`), and the
+    ///      converted amount must fall inside that token's `[min, max]`. The
+    ///      orderbook balance is checked at execution instead, so an insufficient
+    ///      balance arrives as a `pod_withdrawals` outcome rather than as a
+    ///      rejected transaction. Gas-exempt; `tx.value` must be 0.
+    /// @param token The Pod-side address of the token to withdraw. Use
+    ///        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for the native token.
+    /// @param to The address receiving the funds **on the claim chain**.
+    /// @param amount The amount to withdraw, in Pod's 18 decimals and a whole
+    ///        multiple of `10^(18 - decimals)` for the token's claim-chain decimals.
+    /// @param deadline The latest batch this withdrawal may be included in, as a
+    ///        Unix timestamp in microseconds. Must be a multiple of the `auction_interval`.
     function withdraw(
         address token,
-        uint256 amount,
         address to,
-        uint256 chainId
-    ) external returns (bytes32 id);
+        uint256 amount,
+        uint128 deadline
+    ) external;
 }
 ```
 
-## Decimal Scaling
+There is exactly one claimable chain — the one the network's bridge is configured for — so `withdraw` takes no chain id and there is nothing to name wrongly. Read the chain, the bridge contract and the per-token rules from `GET /v1/bridge/config` on any full node:
 
-All tokens on Pod are represented with 18 decimals, regardless of their decimals on the target chain (e.g. USDC has 6 decimals on Ethereum but 18 on Pod).
+```json
+{
+  "claim_chain_id": 42161,
+  "source_contract": "0x…",
+  "version": 1,
+  "tokens": [
+    { "pod_token": "0x…", "l1_token": "0x…", "decimals": 6, "min": "0xf4240", "max": "0x…" }
+  ]
+}
+```
 
-When calling `withdraw` to bridge from Pod to another chain, the `amount` must be specified in the **target chain token's units**, not in Pod's 18-decimal representation. For example, to bridge 1 USDC to Ethereum, pass `1000000` (1e6), not `1000000000000000000` (1e18).
+**What the parameters mean.**
 
-## Native Token Withdrawals
+| Parameter  | Meaning                                                                                                                                                                                                                                                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `to`       | An address on the **claim chain**, not on Pod. Same 20 bytes, different chain — check that whoever controls it there is who you mean, especially for a contract address.                                                                                                                 |
+| `amount`   | Pod's 18 decimals, and it must be a **whole number of claim-chain units**: `amount % 10^(18 - decimals) == 0`. Where a token is 6-decimal on the claim chain, every withdrawal is a multiple of `1e12` wei. Nothing is rounded for you — an inexact amount is rejected outright.          |
+| `token`    | The **Pod-side** token address. `l1_token` from `/v1/bridge/config` is the asset the claim pays out, and that list is the only source of the mapping.                                                                                                                                    |
+| `deadline` | The latest batch this intent may land in, in microseconds, aligned to the market's `auction_interval` — computed exactly as for orders (see [Orderbook](orderbook.md)).                                                                                                                  |
 
-When withdrawing the **native token**, the coin travels with the transaction: set `tx.value` to the `amount` **scaled up to Pod's 18 decimals**. Bridging 1 USDC uses `amount = 1000000` (1e6) and `tx.value = 1000000000000000000` (1e18). A native withdraw is rejected unless the two match.
+The per-token `min`/`max` from `/v1/bridge/config` are in the token's **claim-chain decimals** and are compared against the converted amount, not against the 18-decimal one you sign.
 
-**ERC20 withdrawals send no value** — set `tx.value` to `0`, and the balance is deducted internally.
+Validators check all of that before attesting. They deliberately do **not** check your orderbook balance there — pending fills can raise it before the batch executes — so an insufficient balance surfaces as an outcome after execution rather than as a rejected transaction.
+
+{% hint style="warning" %}
+**Withdrawals are signed by the account that owns the funds.** The bridge precompile has no delegation envelope, so a session key cannot sign one — submit through the master wallet. The call is **gas-exempt** (an account whose entire balance sits on the orderbook can withdraw all of it) and `tx.value` must be `0`, including for the native token.
+{% endhint %}
+
+## Following a withdrawal
+
+Every withdrawal has an id, derived like an `order_id`:
+
+```text
+withdrawal_id = keccak256(abi.encode(address signer, uint64 nonce, uint32 sequence))
+```
+
+so you can compute it before you submit — `signer` is the withdrawing account, `nonce` the withdraw transaction's nonce, and `sequence` always `0` (a withdrawal is always its own transaction). Outcomes are published once per batch:
+
+| Surface                                                        | Use                                                                                                                            |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `eth_subscribe("pod_withdrawals", { account, since })`         | Live outcomes. Each carries `withdrawal_id`, `withdrawer`, `to`, `token`, `amount` (18 decimals), `error` and `timestamp_us`.    |
+| `GET /v1/bridge/withdrawals/{account}?since=&since_id=&limit=` | Backfill after a disconnect — identical shape, and `since` is the same cursor the subscription takes.                            |
+| `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}`             | One withdrawal: its `status` (`claimable`, `pending` or `refused`) and, once assembled, the claim `proof`.                       |
+
+`withdrawer` is the **debited** account, and it is what `account` filters on.
+
+`error` is absent when the withdrawal is claimable, and otherwise names why it was refused:
+
+* `insufficient_balance` — the balance did not cover the amount when the batch executed.
+* `not_included` — the solver left the intent out of the solution its deadline pointed at.
+
+Both mean **nothing was debited**: the funds are still in your orderbook balance, no claim exists and none ever will. Resubmit — the new transaction gets a new `withdrawal_id`. This is the only place a failure reason appears, so a client watching only the claim chain waits forever for an event that cannot come.
+
+## Claiming
+
+Once `n - f` validators have signed the withdrawal, `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}` returns `status: "claimable"` and a `proof` carrying the claim hash together with the claim-chain `(token, amount, to)` to pass to the bridge contract's `claim`. The bridge relayer submits that claim for you; the call is permissionless, so anyone — including you — can submit the same proof if the relayer is unavailable. `status: "pending"` means the certificate is still being assembled: ask again rather than treating it as a failure. See [Native Bridge](../../protocol/native-bridge.md) for how the certificate is produced.

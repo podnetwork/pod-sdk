@@ -24,7 +24,7 @@ Native markets settle in periodic batches. The batch duration is configurable pe
 
 This ordering guarantees that deposited funds can be used for trading in the same batch, and that withdrawals only execute after all positions have been settled.
 
-An accepted withdrawal leaves Pod: the balance is burned and becomes claimable on the chain the bridge is configured for, rather than moving to the withdrawer's Pod account. A withdrawal the balance does not cover at this point is refused - nothing is debited and the trader can resubmit. See [Native Bridge](native-bridge.md) for the claim flow and the [Orderbook precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook) for the call itself.
+An accepted withdrawal leaves Pod: the balance is burned and becomes claimable on the chain the bridge is configured for, rather than moving to the withdrawer's Pod account. A withdrawal the balance does not cover at this point is refused - nothing is debited and the trader can resubmit. See [Native Bridge](native-bridge.md) for the claim flow and the [Bridge precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/bridge) for the call itself.
 
 The batch duration defines a tradeoff between fairness and latency of market settlement. Longer batches allow users with slower internet connections to participate, but markets settle slower - better for more illiquid markets. Shorter batches mean faster settlement but require lower latency to participate.
 

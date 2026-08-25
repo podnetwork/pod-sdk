@@ -28,36 +28,26 @@ The `callContract` must be whitelisted by the bridge admin via `setCallContractW
 
 ## Pod → Ethereum
 
-There are two ways out, and which one applies depends on where the funds sit.
+Users call `withdraw` on the Pod bridge precompile. One transaction and one signature: the orderbook balance is burned on Pod at the next batch auction and the same value becomes claimable on the chain the bridge is configured for, with nothing credited to a Pod account on the way. The call takes no `chainId` - exactly one chain is claimable, so there is nothing to name wrongly - and its `to` is an address on that chain. It is gas-exempt and signed by the account that owns the funds (delegated session keys cannot withdraw).
 
-**From an orderbook balance** - `withdraw` on the [orderbook precompile](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook). One transaction and one signature: the balance is burned on Pod and the same value becomes claimable on the chain the bridge is configured for, with nothing credited to a Pod account on the way. The call takes no `chainId` - exactly one chain is claimable, so there is nothing to name wrongly - and its `recipient` is an address on that chain. This is the path a trader takes.
+Validators sign the withdrawal using separate cold keys (KMS-backed) dedicated to bridge attestations, distinct from transaction attestation keys. These signatures are specially packed for efficient on-chain verification. The Ethereum bridge contract checks that at least `n - f` validators signed the withdrawal - the same threshold used for transaction finality.
 
-**From a Pod account balance** - `withdraw` on the Pod bridge precompile, which burns the tokens on Pod and takes a `chainId` parameter specifying the target chain where they will be claimed, preventing the same proof from being replayed on other chains the bridge is deployed to. This is the older of the two paths and it goes away with Pod account balances, so nothing new should be built on it.
+The proof comes from `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}`, which reports the withdrawal's status and attaches the proof once a certificate can be assembled. The bridge relayer watches for these and submits the claims itself; the claim is permissionless, so anyone can submit it - it does not need to come from the account that withdrew. (`pod_getBridgeClaimProof(txHash)` remains only for withdrawals made through the retired account-balance path, keyed by their transaction hash.)
 
-Both produce the same artifact. Validators sign the withdrawal using separate cold keys (KMS-backed) dedicated to bridge attestations, distinct from transaction attestation keys. These signatures are specially packed for efficient on-chain verification. The Ethereum bridge contract checks that at least `n - f` validators signed the withdrawal - the same threshold used for transaction finality.
-
-Where the proof comes from differs by path:
-
-- **Orderbook withdrawal** - `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}`, which reports the withdrawal's status and attaches the proof once a certificate can be assembled. The bridge relayer watches for these and submits the claims itself.
-- **Bridge precompile withdrawal** - `pod_getBridgeClaimProof(txHash)`, keyed by the withdrawal transaction's hash.
-
-Either way, the claim is submitted to the Ethereum bridge contract to release the tokens, and anyone can submit it - it does not need to come from the account that withdrew.
-
-See [Bridge from Pod](https://docs.v2.pod.network/guides-references/guides/bridge-from-pod) for a step-by-step guide to the bridge-precompile path, and the [Orderbook precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook) for withdrawing a trading balance.
+See [Bridge from Pod](https://docs.v2.pod.network/guides-references/guides/bridge-from-pod) for a step-by-step guide, and the [Bridge precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/bridge) for the full call semantics.
 
 ## Decimal Scaling
 
 All tokens on Pod are represented with 18 decimals internally, regardless of their decimals on the source chain (e.g. USDC has 6 decimals on Ethereum but 18 on Pod). The bridge handles the conversion automatically:
 
 - **Ethereum → Pod**: The bridge scales amounts up to 18 decimals when crediting balances on Pod.
-- **Pod → Ethereum, from an orderbook balance**: `amount` stays in Pod's 18 decimals, but it must be a whole number of claim-chain units - `amount % 10^(18 - decimals) == 0`, so a multiple of 1e12 wei for a 6-decimal token. An amount with a remainder finer than that has no faithful representation on the other chain, so it is rejected before attestation rather than truncated. The claim itself carries the converted amount, and the per-token limits are read in the claim chain's decimals.
-- **Pod → Ethereum, from a Pod account balance**: When calling `withdraw` on the Pod bridge precompile, the `amount` must be specified in the target chain token's native units (e.g. 1e6 for 1 USDC), not in Pod's 18-decimal representation. The Withdraw event also emits amounts in the target chain's decimals. For the **native token**, the coin is moved with the transaction, so `tx.value` must equal that `amount` scaled **up** to Pod's 18 decimals (ERC20 withdrawals send no value). Because the withdraw is then subject to the usual `native >= tx.value + gas` check, you cannot bridge your entire balance and leave nothing to pay for gas.
+- **Pod → Ethereum**: `amount` stays in Pod's 18 decimals, but it must be a whole number of claim-chain units - `amount % 10^(18 - decimals) == 0`, so a multiple of 1e12 wei for a 6-decimal token. An amount with a remainder finer than that has no faithful representation on the other chain, so it is rejected before attestation rather than truncated. The claim itself carries the converted amount, and the per-token limits are read in the claim chain's decimals. `tx.value` must be 0, native token included, and the call is gas-exempt - so the entire balance can be withdrawn.
 
 ## Network Upgrades
 
 When the network is upgraded (e.g. validator set changes), past certificates are invalidated because the signing domain changes. Claims from before the upgrade use a merkle inclusion proof instead - the admin commits a merkle root covering all pending claims from the previous version.
 
-`pod_getBridgeClaimProof` handles this automatically - it returns the appropriate proof type based on the current network version. Users do not need to handle this distinction.
+`GET /v1/bridge/withdrawals/by-id/{withdrawal_id}` handles this automatically - it returns the appropriate proof type based on the current network version. Users do not need to handle this distinction.
 
 ## Limits
 

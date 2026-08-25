@@ -1,6 +1,6 @@
 # Key Delegation
 
-Pod lets an account (the **master**) authorize a secondary key (the **delegate**) to trade on its behalf on the orderbook. The master signs a **single off-chain message** — it never signs a Pod transaction — and the delegate then signs and submits orders, cancels, updates, triggers, deposits, and withdrawals, while the funds and resting orders remain owned by the master.
+Pod lets an account (the **master**) authorize a secondary key (the **delegate**) to trade on its behalf on the orderbook. The master signs a **single off-chain message** — it never signs a Pod transaction — and the delegate then signs and submits orders, cancels, updates, and triggers, while the funds and resting orders remain owned by the master. Withdrawals cannot be delegated: they live on the bridge precompile, which has no delegation, so only the master can move funds off Pod.
 
 {% hint style="info" %}
 Delegation is **stateless**: the authorization travels inside every delegated transaction and is verified from the transaction alone. There is no registration transaction and no on-chain delegation state — see [How it works](key-delegation.md#how-it-works) below.
@@ -27,10 +27,9 @@ A delegated intent is **owned by the master** but **signed by the delegate**:
 
 | Aspect                                                 | Value                                    |
 | ------------------------------------------------------ | ---------------------------------------- |
-| Resting-order owner, balances, cancel/withdraw target  | master                                   |
+| Resting-order owner, balances, cancel/update target    | master                                   |
 | `order_id`                                             | keyed on the delegate (the tx signer)    |
 | Transaction signer, nonce, account lock                | delegate                                 |
-| `deposit` / `withdraw` recipient                       | forced to the master - on the claim chain, for a withdraw |
 | Gas                                                    | exempt (the delegate needs no gas funds) |
 
 Because `order_id` is derived from the delegate rather than the master, two delegates of the same master never collide on order ids. And because ownership resolves to the master, the master can always cancel a delegate-placed order directly with its own key.
@@ -41,7 +40,6 @@ Because `order_id` is derived from the delegate rather than the master, two dele
 | --- | --- | --- |
 | `submitOrder`, `cancel`, `update` | ✅ | owned by the master; `order_id` keys on the delegate |
 | `submitTrigger`, `cancelTrigger`, `updateTrigger` | ✅ | same |
-| `deposit`, `withdraw` | ✅ | `recipient` is **forced to the master** — a delegate can never send funds elsewhere, on Pod or on the claim chain |
 | `submitBatch` | ✅ | every sub-intent is owned by the master; the certificate must cover the batch's `deadline` |
 | `submitSolutions`, `createOrderBook`, nested `delegated` | ❌ | rejected at validation |
 
@@ -50,5 +48,5 @@ The set of delegatable calls is fixed by the protocol — a delegation certifica
 ## Security model
 
 * **Expiry.** A delegated intent is honored only while `validUntil >= deadline` of the intent. Expired or malformed certificates make the transaction invalid.
-* **No exfiltration.** A delegated `withdraw` or `deposit` can only move funds to the master, so a leaked delegate key can trade the master's balance but never steal it.
+* **No exfiltration.** A delegate cannot withdraw at all — the bridge precompile's `withdraw` has no delegation envelope and must be signed by the master — so a leaked delegate key can trade the master's balance but never move it off Pod.
 * **No revocation.** There is no explicit revoke: a certificate stays valid until its `validUntil`. Keep `validUntil` short and rotate — to replace a delegate, stop using the old key and sign a new `DelegationAuth` for a new one.
