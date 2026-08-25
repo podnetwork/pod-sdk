@@ -49,7 +49,7 @@ const outcome = (n: number, timeUs: number): Withdrawal => ({
 
 /** The wire form of an outcome, as `pod_withdrawals` pushes it. */
 const wire = (n: number, timeUs: number): WireWithdrawal => ({
-  withdrawal_id: id(n),
+  tx_hash: id(n),
   withdrawer: ACCOUNT,
   to: TO,
   token: TOKEN,

@@ -91,7 +91,7 @@ What that means in practice:
 
 ### Withdrawals leave Pod
 
-Withdrawing an orderbook balance is a **bridge precompile** call: `withdraw(token, to, amount, deadline)` at `0x50d0000000000000000000000000000000000001` debits the orderbook balance at the next batch auction and makes the same value claimable on the bridge's claim chain — nothing is credited anywhere on Pod along the way. The parameters, the `withdrawal_id`, the outcome surfaces (`pod_withdrawals`, `GET /v1/bridge/withdrawals/…`) and the claim flow are documented on the [Bridge precompile page](bridge.md).
+Withdrawing an orderbook balance is a **bridge precompile** call: `withdraw(token, to, amount, deadline)` at `0x50d0000000000000000000000000000000000001` debits the orderbook balance at the next batch auction and makes the same value claimable on the bridge's claim chain — nothing is credited anywhere on Pod along the way. The parameters, the outcome surfaces (`pod_withdrawals`, `GET /v1/bridge/withdrawals/…`) and the claim flow are documented on the [Bridge precompile page](bridge.md).
 
 ### Batch envelope
 

@@ -407,7 +407,10 @@ export interface WireBridgeConfig {
  * serves the identical shape, so a backfilled outcome is indistinguishable
  * from one that arrived live. */
 export interface WireWithdrawal {
-  withdrawal_id: Hex;
+  /** The withdraw transaction's hash — the withdrawal's identity (ADR 0036)
+   * and the by-id lookup key. For withdrawals made before ADR 0036 this is
+   * the derived ADR-0033 withdrawal id their rows are keyed by. */
+  tx_hash: Hex;
   withdrawer: Hex;
   to: Hex;
   token: Hex;

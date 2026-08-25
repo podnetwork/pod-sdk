@@ -68,19 +68,13 @@ Validators check all of that before attesting. They deliberately do **not** chec
 
 ## Following a withdrawal
 
-Every withdrawal has an id, derived like an `order_id`:
-
-```text
-withdrawal_id = keccak256(abi.encode(address signer, uint64 nonce, uint32 sequence))
-```
-
-so you can compute it before you submit — `signer` is the withdrawing account, `nonce` the withdraw transaction's nonce, and `sequence` always `0` (a withdrawal is always its own transaction). Outcomes are published once per batch:
+A withdrawal is identified by its **own transaction hash** — the value your receipt already carries; nothing is derived. Outcomes are published once per batch:
 
 | Surface                                                        | Use                                                                                                                            |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `eth_subscribe("pod_withdrawals", { account, since })`         | Live outcomes. Each carries `withdrawal_id`, `withdrawer`, `to`, `token`, `amount` (18 decimals), `error` and `timestamp_us`.    |
+| `eth_subscribe("pod_withdrawals", { account, since })`         | Live outcomes. Each carries `tx_hash`, `withdrawer`, `to`, `token`, `amount` (18 decimals), `error` and `timestamp_us`.          |
 | `GET /v1/bridge/withdrawals/{account}?since=&since_id=&limit=` | Backfill after a disconnect — identical shape, and `since` is the same cursor the subscription takes.                            |
-| `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}`             | One withdrawal: its `status` (`claimable`, `pending` or `refused`) and, once assembled, the claim `proof`.                       |
+| `GET /v1/bridge/withdrawals/by-id/{tx_hash}`                   | One withdrawal: its `status` (`claimable`, `pending` or `refused`) and, once assembled, the claim `proof`.                       |
 
 `withdrawer` is the **debited** account, and it is what `account` filters on.
 
@@ -89,8 +83,8 @@ so you can compute it before you submit — `signer` is the withdrawing account,
 * `insufficient_balance` — the balance did not cover the amount when the batch executed.
 * `not_included` — the solver left the intent out of the solution its deadline pointed at.
 
-Both mean **nothing was debited**: the funds are still in your orderbook balance, no claim exists and none ever will. Resubmit — the new transaction gets a new `withdrawal_id`. This is the only place a failure reason appears, so a client watching only the claim chain waits forever for an event that cannot come.
+Both mean **nothing was debited**: the funds are still in your orderbook balance, no claim exists and none ever will. Resubmit — the new transaction is a new withdrawal. This is the only place a failure reason appears, so a client watching only the claim chain waits forever for an event that cannot come.
 
 ## Claiming
 
-Once `n - f` validators have signed the withdrawal, `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}` returns `status: "claimable"` and a `proof` carrying the claim hash together with the claim-chain `(token, amount, to)` to pass to the bridge contract's `claim`. The bridge relayer submits that claim for you; the call is permissionless, so anyone — including you — can submit the same proof if the relayer is unavailable. `status: "pending"` means the certificate is still being assembled: ask again rather than treating it as a failure. See [Native Bridge](../../protocol/native-bridge.md) for how the certificate is produced.
+Once `n - f` validators have signed the withdrawal, `GET /v1/bridge/withdrawals/by-id/{tx_hash}` returns `status: "claimable"` and a `proof` carrying the claim hash together with the claim-chain `(token, amount, to)` to pass to the bridge contract's `claim`. The bridge relayer submits that claim for you; the call is permissionless, so anyone — including you — can submit the same proof if the relayer is unavailable. `status: "pending"` means the certificate is still being assembled: ask again rather than treating it as a failure. See [Native Bridge](../../protocol/native-bridge.md) for how the certificate is produced.

@@ -43,7 +43,7 @@ const claimLog = { transactionHash: L1_TX, blockNumber: "0x64" };
 const detail = (status: string, withProof = status === "claimable") => ({
   ok: true,
   json: async () => ({
-    withdrawal: { withdrawal_id: ID, amount: "0x0", timestamp_us: 1 },
+    withdrawal: { tx_hash: ID, amount: "0x0", timestamp_us: 1 },
     status,
     ...(withProof ? { proof: { claim_hash: CLAIM_HASH } } : {}),
   }),
@@ -293,7 +293,7 @@ describe("watchClaims", () => {
   const detailFor = (status: string, claimHash?: Hash) => ({
     ok: true,
     json: async () => ({
-      withdrawal: { withdrawal_id: ID, amount: "0x0", timestamp_us: 1 },
+      withdrawal: { tx_hash: ID, amount: "0x0", timestamp_us: 1 },
       status,
       ...(claimHash ? { proof: { claim_hash: claimHash } } : {}),
     }),

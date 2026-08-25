@@ -13,12 +13,11 @@ The Ethereum-side `claim` is denominated in the **Ethereum token's units** (1e6 
 ## Steps
 
 1. Call `withdraw(token, to, amount, deadline)` on the Pod bridge precompile. `to` is the recipient on Ethereum; `deadline` is a microsecond timestamp aligned to the auction interval, computed exactly as for orders (see [Orderbook](../applications-precompiles/orderbook.md)). There is no `chainId` — exactly one chain is claimable.
-2. Compute your `withdrawal_id = keccak256(abi.encode(signer, nonce, uint32(0)))`, where `nonce` is the withdraw transaction's nonce.
-3. Poll `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}` until `status` is `claimable`; the response then carries the `proof` and the claim-chain `amount`. (`refused` means the balance did not cover it at execution — nothing was debited; resubmit under a new nonce.)
-4. Call `claim(token, amount, to, proof, auxTxSuffix)` on the Ethereum bridge contract, with `auxTxSuffix = withdrawal_id`.
+2. Poll `GET /v1/bridge/withdrawals/by-id/{tx_hash}` — the withdrawal is identified by its own transaction hash — until `status` is `claimable`; the response then carries the `proof` and the claim-chain `amount`. (`refused` means the balance did not cover it at execution — nothing was debited; resubmit.)
+3. Call `claim(token, amount, to, proof, auxTxSuffix)` on the Ethereum bridge contract, with `auxTxSuffix` = the withdraw tx hash.
 
 {% hint style="info" %}
-Networks run a relayer that claims withdrawals on Ethereum automatically, so step 4 usually happens for you — the funds simply arrive at `to`. Claiming yourself is the permissionless fallback; a duplicate claim of the same withdrawal reverts harmlessly.
+Networks run a relayer that claims withdrawals on Ethereum automatically, so step 3 usually happens for you — the funds simply arrive at `to`. Claiming yourself is the permissionless fallback; a duplicate claim of the same withdrawal reverts harmlessly.
 {% endhint %}
 
 ## Examples for bridging 100 tokens (e.g. USDC) from Pod to Ethereum (assuming 6 decimals on Ethereum):
@@ -54,24 +53,16 @@ const podBridge = new ethers.Contract(
 const withdrawTx = await podBridge.withdraw(POD_TOKEN, ethRecipient, amount, deadline);
 const receipt = await withdrawTx.wait();
 
-// 2. Compute the withdrawal id from (signer, nonce, sequence = 0)
-const tx = await podProvider.getTransaction(receipt.hash);
-const withdrawalId = ethers.keccak256(
-  ethers.AbiCoder.defaultAbiCoder().encode(
-    ["address", "uint64", "uint32"],
-    [podWallet.address, tx.nonce, 0]
-  )
-);
-
-// 3. Poll for the claim proof (the withdrawal settles at the next batch auction)
+// 2. Poll for the claim proof, keyed by the withdraw tx hash (the withdrawal
+// settles at the next batch auction)
 let detail;
 do {
   await new Promise((r) => setTimeout(r, 500));
-  const res = await fetch(`https://rpc.podtestnet.dev/v1/bridge/withdrawals/by-id/${withdrawalId}`);
+  const res = await fetch(`https://rpc.podtestnet.dev/v1/bridge/withdrawals/by-id/${receipt.hash}`);
   detail = res.ok ? await res.json() : undefined;
 } while (detail?.status !== "claimable");
 
-// 4. Claim on Ethereum (usually the network's relayer has already done this)
+// 3. Claim on Ethereum (usually the network's relayer has already done this)
 const ethBridge = new ethers.Contract(
   ETH_BRIDGE,
   ["function claim(address token, uint256 amount, address to, bytes proof, bytes auxTxSuffix)"],
@@ -93,8 +84,7 @@ await claimTx.wait();
 use alloy::providers::{Provider, ProviderBuilder};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
-use alloy::sol_types::SolValue;
-use alloy::primitives::{keccak256, U256};
+use alloy::primitives::U256;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 sol! {
@@ -143,18 +133,13 @@ let withdraw_receipt = pod_bridge
     .send().await?
     .get_receipt().await?;
 
-// 2. Compute the withdrawal id from (signer, nonce, sequence = 0)
-let tx = pod_provider
-    .get_transaction_by_hash(withdraw_receipt.transaction_hash)
-    .await?
-    .expect("withdraw tx");
-let withdrawal_id = keccak256((signer.address(), tx.nonce(), 0u32).abi_encode());
-
-// 3. Poll for the claim proof (the withdrawal settles at the next batch auction)
+// 2. Poll for the claim proof, keyed by the withdraw tx hash (the withdrawal
+// settles at the next batch auction)
+let withdrawal_tx = withdraw_receipt.transaction_hash;
 let detail = loop {
     tokio::time::sleep(Duration::from_millis(500)).await;
     let res = reqwest::get(format!(
-        "https://rpc.podtestnet.dev/v1/bridge/withdrawals/by-id/{withdrawal_id}"
+        "https://rpc.podtestnet.dev/v1/bridge/withdrawals/by-id/{withdrawal_tx}"
     ))
     .await?;
     if !res.status().is_success() {
@@ -166,7 +151,7 @@ let detail = loop {
     }
 };
 
-// 4. Claim on Ethereum (usually the network's relayer has already done this)
+// 3. Claim on Ethereum (usually the network's relayer has already done this)
 let proof = &detail["proof"];
 let proof_bytes: Vec<u8> =
     proof["proof"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u8).collect();

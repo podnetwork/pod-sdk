@@ -307,7 +307,7 @@ export function decodeBridgeConfig(w: WireBridgeConfig): BridgeConfig {
  */
 export function decodeWithdrawal(w: WireWithdrawal): Withdrawal {
   return {
-    id: w.withdrawal_id,
+    id: w.tx_hash,
     withdrawer: w.withdrawer,
     to: w.to,
     token: w.token,

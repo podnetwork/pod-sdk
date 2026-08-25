@@ -781,12 +781,10 @@ export function buildWithdraw(p: WithdrawParams): PodTxRequest {
  * nonce, so it's only known up-front in managed mode; in advisory mode reconcile
  * by `tx` from the `pod_orders_v2` stream instead.
  *
- * **This is also the `withdrawal_id`** that `pod_withdrawals` reports and that
- * `GET /v1/bridge/withdrawals/by-id/{id}` is keyed on — same derivation, same
- * intent identity (ADR 0033 §3). For orders, `signer` is whoever signed the
- * transaction — the delegate under a session key. For withdrawals it is always
- * the master: the bridge precompile has no delegation, so a withdrawal is
- * signed by the account it debits, and its `sequence` is always 0.
+ * Orders only. A withdrawal's identity is its **transaction hash** (ADR 0036) —
+ * what `pod_withdrawals` reports as `tx_hash` and what
+ * `GET /v1/bridge/withdrawals/by-id/{id}` is keyed on — so nothing is derived
+ * for it.
  */
 export function deriveOrderId(signer: Address, nonce: number, sequence = 0): Hash {
   return keccak256(

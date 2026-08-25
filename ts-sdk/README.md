@@ -114,7 +114,7 @@ does no rounding of its own, because silently changing a signed amount is worse
 than a clear rejection.
 
 Track the outcome on `client.withdrawals(account)` (live, REST-backfilled),
-matching on the id derived above. `error` is the **only** place a failure reason
+matching on the withdraw transaction's hash — the withdrawal's identity. `error` is the **only** place a failure reason
 exists: both `insufficient_balance` and `not_included` produce no L1 event at
 all, so a client watching only the claim chain waits forever.
 

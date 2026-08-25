@@ -32,7 +32,7 @@ Users call `withdraw` on the Pod bridge precompile. One transaction and one sign
 
 Validators sign the withdrawal using separate cold keys (KMS-backed) dedicated to bridge attestations, distinct from transaction attestation keys. These signatures are specially packed for efficient on-chain verification. The Ethereum bridge contract checks that at least `n - f` validators signed the withdrawal - the same threshold used for transaction finality.
 
-The proof comes from `GET /v1/bridge/withdrawals/by-id/{withdrawal_id}`, which reports the withdrawal's status and attaches the proof once a certificate can be assembled. The bridge relayer watches for these and submits the claims itself; the claim is permissionless, so anyone can submit it - it does not need to come from the account that withdrew. (`pod_getBridgeClaimProof(txHash)` remains only for withdrawals made through the retired account-balance path, keyed by their transaction hash.)
+The proof comes from `GET /v1/bridge/withdrawals/by-id/{tx_hash}` — keyed by the withdraw transaction's hash — which reports the withdrawal's status and attaches the proof once a certificate can be assembled. The bridge relayer watches for these and submits the claims itself; the claim is permissionless, so anyone can submit it - it does not need to come from the account that withdrew. (`pod_getBridgeClaimProof(txHash)` remains only for withdrawals made through the retired account-balance path, keyed by their transaction hash.)
 
 See [Bridge from Pod](https://docs.v2.pod.network/guides-references/guides/bridge-from-pod) for a step-by-step guide, and the [Bridge precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/bridge) for the full call semantics.
 
@@ -47,7 +47,7 @@ All tokens on Pod are represented with 18 decimals internally, regardless of the
 
 When the network is upgraded (e.g. validator set changes), past certificates are invalidated because the signing domain changes. Claims from before the upgrade use a merkle inclusion proof instead - the admin commits a merkle root covering all pending claims from the previous version.
 
-`GET /v1/bridge/withdrawals/by-id/{withdrawal_id}` handles this automatically - it returns the appropriate proof type based on the current network version. Users do not need to handle this distinction.
+`GET /v1/bridge/withdrawals/by-id/{tx_hash}` handles this automatically - it returns the appropriate proof type based on the current network version. Users do not need to handle this distinction.
 
 ## Limits
 
