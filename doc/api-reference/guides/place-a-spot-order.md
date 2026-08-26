@@ -2,16 +2,13 @@
 
 This guide walks through placing a limit order on one of Pod's spot markets. For background, see [Orderbook](https://docs.v2.pod.network/documentation/markets/orderbook).
 
-Spot orders use the same `submitOrder` call as perpetual orders. Its `flags` argument carries the order's execution properties as a bitfield — pass `0` for a plain resting limit order. Deposit the quote token (USD) before submitting.
+Spot orders use the same `submitOrder` call as perpetual orders. Its `flags` argument carries the order's execution properties as a bitfield — pass `0` for a plain resting limit order.
 
 The example below trades the NVDAx-USD spot market — see [Market Configurations](../market-configurations.md) for the full live list.
 
 See the [Orderbook precompile reference](../applications-precompiles/orderbook.md) for the timestamp unit, deadline-alignment, and TTL rules that apply to every call below.
 
-## Steps
-
-1. Deposit the quote token into the orderbook contract.
-2. Submit a limit order with price, size, deadline, and TTL.
+Submit a limit order with price, size, deadline, and TTL. The account needs a balance of the quote token to cover it.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -23,7 +20,6 @@ const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
-  "function deposit(address token, address recipient, uint256 amount, uint128 deadline)",
   "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, uint8 flags)",
 ];
 
@@ -44,11 +40,7 @@ const AUCTION_INTERVAL = 500_000n; // microseconds
 const deadlineAfter = (lagUs: bigint): bigint =>
   ((BigInt(Date.now()) * 1000n + lagUs + AUCTION_INTERVAL - 1n) / AUCTION_INTERVAL) * AUCTION_INTERVAL;
 
-// 1. Deposit USD (the quote token) into the orderbook
-const depositAmount = ethers.parseEther("1000");
-await (await orderbook.deposit(USD, wallet.address, depositAmount, deadlineAfter(60_000_000n))).wait();
-
-// 2. Submit a buy limit order: 1 NVDAx at 200 USD
+// Submit a buy limit order: 1 NVDAx at 200 USD
 const size = ethers.parseEther("1");         // buy 1 NVDAx (positive = buy)
 const price = ethers.parseEther("200");      // limit price in USD
 const orderType = 0;                         // 0 = Limit, 1 = Market
@@ -73,7 +65,6 @@ use alloy::primitives::{Address, U256, I256, FixedBytes};
 sol! {
     #[sol(rpc)]
     contract Orderbook {
-        function deposit(address token, address recipient, uint256 amount, uint128 deadline) public;
         enum OrderType { Limit, Market }
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
@@ -111,14 +102,9 @@ let now_us = std::time::SystemTime::now()
 let deadline_after =
     |lag_us: u128| (now_us + lag_us).div_ceil(AUCTION_INTERVAL_US) * AUCTION_INTERVAL_US;
 
-// 1. Deposit USD (the quote token) into the orderbook
 let one_e18 = U256::from(10).pow(U256::from(18));
-let deposit_amount = U256::from(1000) * one_e18;
-orderbook
-    .deposit(pusd, signer.address(), deposit_amount, deadline_after(60_000_000))
-    .send().await?.watch().await?;
 
-// 2. Submit a buy limit order: 1 NVDAx at 200 USD
+// Submit a buy limit order: 1 NVDAx at 200 USD
 let size = I256::from_raw(one_e18); // buy 1 NVDAx
 let price = U256::from(200) * one_e18; // limit price in USD
 let deadline = deadline_after(10_000_000); // include in batches within the next ~10 seconds

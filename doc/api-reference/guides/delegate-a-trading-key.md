@@ -9,7 +9,7 @@ The master signs a single EIP-712 `DelegationAuth { delegate, validUntil }` mess
 1. The master signs the `DelegationAuth` typed-data message authorizing the delegate (once, off-chain).
 2. The delegate ABI-encodes the orderbook call it wants to perform, wraps it in `delegated(master, validUntil, signature, inner)`, and signs the transaction with its own key.
 
-The example authorizes a fresh delegate key for one week, then has the delegate place a 5 NVDA long at $140 owned by the master. The order rests under the master and draws on the master's orderbook balance; the master can cancel it directly with its own key at any time. Delegated calls are gas-exempt, so the delegate key needs no funds.
+The example authorizes a fresh delegate key for one week, then has the delegate place a 5 NVDA long at $140 owned by the master. The order rests under the master and draws on the master's balance; the master can cancel it directly with its own key at any time. Delegated calls are gas-exempt, so the delegate key needs no funds.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -144,7 +144,7 @@ println!("Delegated order tx: {:?}", tx.tx_hash());
 
 ## Notes
 
-* **Reuse the certificate.** Step 1 runs once; the delegate reuses the same `signature` and `validUntil` on every delegated call until expiry. Any single-intent call (`submitOrder`, `cancel`, `update`, triggers, `deposit`, `withdraw`) or a whole `submitBatch` can be wrapped the same way — see [What can be delegated](../../protocol/key-delegation.md#what-can-be-delegated).
+* **Reuse the certificate.** Step 1 runs once; the delegate reuses the same `signature` and `validUntil` on every delegated call until expiry. Any single-intent call (`submitOrder`, `cancel`, `update`, triggers) or a whole `submitBatch` can be wrapped the same way — see [What can be delegated](../../protocol/key-delegation.md#what-can-be-delegated).
 * **Deadlines.** The usual orderbook rules apply to the inner call unchanged (microsecond timestamps, `deadline` aligned to the market's `auction_interval` — see the [Orderbook precompile reference](../applications-precompiles/orderbook.md)), plus one more: the certificate must satisfy `validUntil >= deadline`.
-* **Funds stay with the master.** A delegated `deposit` or `withdraw` has its `recipient` overridden to the master, so the delegate can never direct funds elsewhere. A delegated orderbook `withdraw` leaves Pod for the claim chain like any other, and lands at the master's own address there — see [Withdrawals leave Pod](../applications-precompiles/orderbook.md#withdrawals-leave-pod).
+* **Funds stay with the master.** A delegate can trade the master's balance but cannot move it: `transfer` is rejected as a delegated call and inside a delegated `submitBatch`, so moving funds remains the master key's alone — see [Transfers between accounts](../applications-precompiles/orderbook.md#transfers-between-accounts).
 * **Rotation.** There is no on-chain revocation — to replace a delegate, stop using the old key and sign a new `DelegationAuth` for a new one. Keep `validUntil` short.

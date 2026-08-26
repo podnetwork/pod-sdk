@@ -3,7 +3,7 @@
 Pod has an enshrined central limit order book (CLOB) built into the protocol as a precompile.
 
 {% hint style="info" %}
-**Orderbook precompile address:** `0x50d0000000000000000000000000000000000002` (same on every Pod network). All `submitOrder` / `cancel` / `update` / `deposit` / `withdraw` calls target this address — see the [Orderbook precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook) for the full ABI.
+**Orderbook precompile address:** `0x50d0000000000000000000000000000000000002` (same on every Pod network). All `submitOrder` / `cancel` / `update` / `transfer` calls target this address (funds enter and leave the network through the [bridge precompile](https://docs.v2.pod.network/api-reference/applications-precompiles/bridge) instead) — see the [Orderbook precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook) for the full ABI.
 {% endhint %}
 
 Orders are immediately added to the order book as soon as they are finalized through the standard attestation flow - they do not wait for the current batch to conclude. This means cancellations and modifications are also applied responsively, before the next matching round. This is better than systems that execute cancels and modifications at the top of a block, because in Pod the liquidity from cancels and updates can already be reflected in the book before waiting for batch confirmation.
@@ -82,7 +82,7 @@ deadline = ceil((now + LAG) / auction_interval) * auction_interval
 
 The protocol guarantees (via [past perfection](network-architecture/timestamping.md#past-perfection)) that if an order receives n - f attestations within the deadline - which it will if it was sent sufficiently early - it will be part of a batch up to and including the latest batch specified by the deadline.
 
-Transactions that do not receive a finality certificate may still be used for matching, but they do not get to settle - the user cannot withdraw funds even if their order is matched. This is by design, to prevent last look attacks.
+Transactions that do not receive a finality certificate may still be used for matching, but they do not get to settle - the user cannot move or withdraw funds even if their order is matched. This is by design, to prevent last look attacks.
 
 Traders can set the deadline to be small to ensure they are matched quickly, but they open up the risk of not being able to claim funds if they do not receive sufficient attestations in time. Traders setting recent deadlines should estimate their network latency to honest validators.
 

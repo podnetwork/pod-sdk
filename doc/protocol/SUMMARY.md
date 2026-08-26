@@ -18,7 +18,6 @@
 * [Key Delegation](key-delegation.md)
 * [Perpetuals](perpetuals.md)
 * [Margin](margin.md)
-* [Tokens](fungible-tokens.md)
 
 ## More Resources
 

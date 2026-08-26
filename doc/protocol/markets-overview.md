@@ -8,21 +8,24 @@ Transactions are added to the network without any central party - there is no le
 
 ## Native Markets
 
-Native markets are accessed through the Market precompile. Users deposit funds into the market contract and trade against a central limit order book (CLOB) with batch auction matching. Balances are unified across all native markets - a single deposit can be used for both spot and perpetual trading.
+Native markets are accessed through the Market precompile. Funds arrive on Pod through the [native bridge](native-bridge.md), which credits the market balance directly, and traders then trade against a central limit order book (CLOB) with batch auction matching. Balances are unified across all native markets - a single deposit can be used for both spot and perpetual trading.
 
 ### Batch Settlement
 
 Native markets settle in periodic batches. The batch duration is configurable per market and is expected to be 100-200ms. Within each batch, operations are processed in a fixed sequence:
 
-1. **Deposits** - all deposit operations are processed first, ensuring funds are available before any trading activity.
+1. **Deposits** - deposits are credited first, so the funds are available before any trading activity.
 2. **Order updates and cancellations** - modifications and cancellations are applied, updating the order book state.
 3. **Liquidations** - liquidation checks and executions are performed against the updated book.
 4. **Matching** - the matching engine runs the clearing algorithm over the resulting order book.
-5. **Withdrawals** - withdrawal requests are processed last, after all trading and settlement is complete.
+5. **Transfers** - account-to-account transfers are applied after matching, so a debit sees the tick's settled fills.
+6. **Withdrawals** - withdrawal requests are processed last, after all trading and settlement is complete.
 
-This ordering guarantees that deposited funds can be used for trading in the same batch, and that withdrawals only execute after all positions have been settled.
+This ordering guarantees that deposited funds can be used for trading in the same batch, that a transfer's recipient can withdraw what it received within that same batch, and that withdrawals only execute after all positions have been settled.
 
-An accepted withdrawal leaves Pod: the balance is burned and becomes claimable on the chain the bridge is configured for, rather than moving to the withdrawer's Pod account. A withdrawal the balance does not cover at this point is refused - nothing is debited and the trader can resubmit. See [Native Bridge](native-bridge.md) for the claim flow and the [Orderbook precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook) for the call itself.
+The two ends of the batch cross the network boundary and the middle does not. A deposit enters only from the bridge; an accepted withdrawal leaves Pod entirely - the balance is burned and becomes claimable on the chain the bridge is configured for, rather than moving to another balance on Pod. A [`transfer`](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook) stays put: both sides are market balances on this ledger.
+
+Neither transfers nor withdrawals have their balance checked at admission, because pending fills can raise it before the batch executes. One the balance does not cover at execution is refused - nothing is debited and the trader can resubmit. See [Native Bridge](native-bridge.md) for the claim flow and the [Bridge precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/bridge) for the withdraw call itself.
 
 The batch duration defines a tradeoff between fairness and latency of market settlement. Longer batches allow users with slower internet connections to participate, but markets settle slower - better for more illiquid markets. Shorter batches mean faster settlement but require lower latency to participate.
 

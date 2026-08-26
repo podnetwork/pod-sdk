@@ -39,10 +39,10 @@ Full nodes are the entry point to the network. They accept JSON-RPC requests fro
 
 Validators form the core of Pod's protocol. Each validator independently receives transactions, validates them, timestamps them, and signs an attestation. Validators do not coordinate with each other before attesting - they respond directly and in parallel. A transaction is final once the client collects attestations from a supermajority (4/5) of the validator set by stake.
 
-Validators also observe deposit events from the native bridge contract on Ethereum and credit balances accordingly.
+Validators also observe deposit events from the native bridge contract on Ethereum and credit the recipient's balance accordingly.
 
 ## Native Bridge
 
-The Pod native bridge is a smart contract deployed on Ethereum. Users deposit ETH or ERC-20 tokens into the bridge contract, which emits deposit events. Validators observe these events and increase the user's balance on Pod. Withdrawals follow the reverse flow - the user initiates a withdrawal on Pod, and once finalized, can claim their tokens from the bridge contract on Ethereum.
+The Pod native bridge is a smart contract deployed on Ethereum. Users deposit ETH or ERC-20 tokens into the bridge contract, which emits deposit events. Validators observe these events and increase the user's balance on Pod. Withdrawals follow the reverse flow - the user calls `withdraw` on the Pod bridge precompile, which burns the balance on Pod, and once the withdrawal is finalized anyone can claim the tokens from the bridge contract on Ethereum. This is the path in and out; no other Pod precompile moves value across the boundary.
 
 See [Native Bridge](../native-bridge.md) for the full deposit and withdrawal flow.

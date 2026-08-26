@@ -6,10 +6,10 @@ Pod uses cross margin. There is a single collateral asset, USD, shared between p
 
 Each account is summarized by a handful of quantities.
 
-Start with **cash** - the part of the account not tied to any position's PnL. It accumulates deposits and incoming funding, and decreases on withdrawals and outgoing funding:
+Start with **cash** - the part of the account not tied to any position's PnL. It accumulates bridge deposits, incoming transfers and incoming funding, and decreases on withdrawals, outgoing transfers and outgoing funding:
 
 ```
-cash = deposits − withdrawals + funding_payments
+cash = deposits − withdrawals + transfers_in − transfers_out + funding_payments
 ```
 
 (See [Per-position payment](perpetuals.md#per-position-payment) for how funding settles.)
@@ -50,7 +50,7 @@ The maximum cash that can be withdrawn at any time is capped both by available m
 withdrawable_cash = min(available_margin, cash)
 ```
 
-That is the ceiling the account imposes. What actually leaves is further bounded by the bridge: a withdrawal is claimed on another chain, so its amount must be a whole number of that chain's token units and must fall inside the token's `[min, max]`. See [Withdrawals leave Pod](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook) for the exact rules.
+That is the ceiling the account imposes, and it bounds transfers to other accounts as well as withdrawals. What actually *leaves the network* is further bounded by the bridge: a withdrawal is claimed on another chain, so its amount must be a whole number of that chain's token units and must fall inside the token's `[min, max]`. See the [Bridge precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/bridge) for the exact rules.
 
 When `equity < liquidation_margin`, positions become eligible for liquidation.
 
