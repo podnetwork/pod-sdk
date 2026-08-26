@@ -36,7 +36,7 @@ Every error is returned as a JSON-RPC 2.0 error object:
 
 ### `3` — execution reverted
 
-Returned when an enshrined application (the order book, ERC-20 tokens, the bridge, or minting) rejects a transaction at execution time. The response mirrors the EIP-1474 / geth-style execution revert so that standard wallets and libraries (viem, ethers, alloy) decode the reason automatically.
+Returned when an enshrined application (the order book, the bridge, or minting) rejects a transaction at execution time. The response mirrors the EIP-1474 / geth-style execution revert so that standard wallets and libraries (viem, ethers, alloy) decode the reason automatically.
 
 `data` is a hex string: the 4-byte `Error(string)` selector (`0x08c379a0`) followed by the ABI-encoded reason string.
 
@@ -184,7 +184,6 @@ The reason carried in `data` (for code `-32000`) or encoded inside the revert (f
 | Message                                          | When it occurs                                  |
 | ------------------------------------------------ | ----------------------------------------------- |
 | `CLOB validation failed: {reason}`               | Order book transaction validation failed.       |
-| `ERC20 validation failed: {reason}`              | ERC-20 token operation validation failed.       |
 | `Bridge validation failed: {reason}`             | Bridge / cross-chain operation validation failed. |
 | `Mint validation failed: {reason}`               | Mint operation validation failed.               |
 

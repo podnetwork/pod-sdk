@@ -2,14 +2,11 @@
 
 This guide walks through opening a leveraged perpetual position on one of Pod's perp markets. For background, see [Perpetuals](https://docs.v2.pod.network/documentation/markets/perpetuals) and [Market Configurations](../market-configurations.md) for the live perp market list.
 
-Perpetual markets are quoted in **USD** and use cross-margin: a single USD deposit serves as collateral for all open perp positions on the account. `size` is the order quantity in **base-asset units** and is signed — positive opens a long, negative opens a short. Margin is computed by the market from `|size| × price / maxLeverage`.
+Perpetual markets are quoted in **USD** and use cross-margin: a single USD balance serves as collateral for all open perp positions on the account. `size` is the order quantity in **base-asset units** and is signed — positive opens a long, negative opens a short. Margin is computed by the market from `|size| × price / maxLeverage`.
 
 See the [Orderbook precompile reference](../applications-precompiles/orderbook.md) for the timestamp unit, deadline-alignment, and TTL rules that apply to every call below.
 
-## Steps
-
-1. Deposit USD as margin into the orderbook contract.
-2. Submit a limit order for the perp market (e.g. NVDA-USD).
+Submit a limit order for the perp market (e.g. NVDA-USD). The account needs a USD balance to cover the margin the market computes.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -21,7 +18,6 @@ const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const abi = [
-  "function deposit(address token, address recipient, uint256 amount, uint128 deadline)",
   "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, uint8 flags)",
 ];
 
@@ -42,11 +38,7 @@ const AUCTION_INTERVAL = 500_000n; // microseconds
 const deadlineAfter = (lagUs: bigint): bigint =>
   ((BigInt(Date.now()) * 1000n + lagUs + AUCTION_INTERVAL - 1n) / AUCTION_INTERVAL) * AUCTION_INTERVAL;
 
-// 1. Deposit USD margin
-const margin = ethers.parseEther("1000"); // 1,000 USD
-await (await orderbook.deposit(USD, wallet.address, margin, deadlineAfter(60_000_000n))).wait();
-
-// 2. Open a long on NVDA-USD: 5 NVDA at $140 limit
+// Open a long on NVDA-USD: 5 NVDA at $140 limit
 const size = ethers.parseEther("5");          // +5 NVDA long (negative = short)
 const price = ethers.parseEther("140");       // limit price in USD
 const orderType = 0;                          // 0 = Limit
@@ -71,7 +63,6 @@ use alloy::primitives::{U256, I256, FixedBytes};
 sol! {
     #[sol(rpc)]
     contract Orderbook {
-        function deposit(address token, address recipient, uint256 amount, uint128 deadline) public;
         enum OrderType { Limit, Market }
         function submitOrder(
             bytes32 orderbookId, int256 size, uint256 price,
@@ -110,13 +101,7 @@ let now_us = std::time::SystemTime::now()
 let deadline_after =
     |lag_us: u128| (now_us + lag_us).div_ceil(AUCTION_INTERVAL_US) * AUCTION_INTERVAL_US;
 
-// 1. Deposit USD margin
-let margin = U256::from(1000) * one_e18;
-orderbook
-    .deposit(pusd, signer.address(), margin, deadline_after(60_000_000))
-    .send().await?.watch().await?;
-
-// 2. Open a long on NVDA-USD: 5 NVDA at $140 limit
+// Open a long on NVDA-USD: 5 NVDA at $140 limit
 let size = I256::from_raw(U256::from(5) * one_e18);   // +5 NVDA long
 let price = U256::from(140) * one_e18;                // limit price in USD
 let deadline = deadline_after(10_000_000); // include in batches within the next ~10 seconds

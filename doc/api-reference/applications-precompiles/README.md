@@ -7,7 +7,7 @@ Pod uses precompiles for enshrined applications and internal protocol operations
 | Signature | Address | Description |
 | --------- | ------- | ----------- |
 | [Orderbook](orderbook.md) | `0x50d0000000000000000000000000000000000002` | Central limit order book for spot and perpetual markets |
-| [Bridge](bridge.md) | `0x50d0000000000000000000000000000000000001` | ERC-20 token bridging between Pod and Ethereum |
+| [Bridge](bridge.md) | `0x50d0000000000000000000000000000000000001` | Token bridging in and out of Pod — the only way value crosses the boundary |
 | [Recovery](recovery.md) | `0x50d0000000000000000000000000000000000003` | Recover a locked account by finalizing the target transaction chain |
 
 ## Interacting with Precompiles
@@ -16,7 +16,7 @@ You interact with Pod's precompiles the same way you would interact with any sma
 
 ### Reading State
 
-Query the deposited balance of a token in the orderbook contract using `eth_call`.
+Query an account's token balance in the orderbook contract using `eth_call`.
 
 {% tabs %}
 {% tab title="JavaScript (ethers.js)" %}
