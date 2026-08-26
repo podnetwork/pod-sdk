@@ -41,7 +41,7 @@ View transactions and accounts
 
 ## Gas
 
-Gas pricing on Pod is fixed for now: the gas price is a constant **1 gwei**, and transactions are charged a flat **21,000 gas**, so a typical transaction costs 21,000 gwei. Variable gas pricing may be introduced later — see [Gas Pricing Without Consensus](https://pod.network/blog/gas-pricing-in-a-world-without-consensus).
+Gas pricing on Pod is fixed for now: the gas price is a constant **1 gwei**, and transactions are metered at a flat **21,000 gas**. Variable gas pricing may be introduced later — see [Gas Pricing Without Consensus](https://pod.network/blog/gas-pricing-in-a-world-without-consensus).
 
 Even though the price is constant, clients don't need to hardcode it — the usual fee RPCs keep working:
 

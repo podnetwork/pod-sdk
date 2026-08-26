@@ -167,7 +167,7 @@ interface IPodBridge {
 
 ## Gas
 
-Bridge calls such as `withdraw` are charged a flat **21,000 gas** (see [Gas](../README.md#gas)). Deposits are credited by the network and cost the user nothing on Pod.
+Bridge calls cost the user nothing. `withdraw` is **gas-exempt** (see [Withdrawing](#withdrawing)), so a balance that arrived over the bridge can be withdrawn in full without holding anything back for fees. `processDeposits` is gas-exempt for the bridge relayer that submits it, so incoming deposits are credited by the network and cost the recipient nothing on Pod. See [Gas](../README.md#gas) for how gas works elsewhere on Pod.
 
 ## Decimal Scaling
 
