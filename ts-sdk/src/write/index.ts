@@ -507,18 +507,21 @@ export function buildClosePosition(p: ClosePositionParams): PodTxRequest {
   });
 }
 
-/** A mined transaction receipt (the fields a consumer typically needs). */
+/** A transaction receipt (the fields a consumer typically needs). */
 export interface TxReceipt {
   /** `success` when the tx executed (status `0x1`); `reverted` on `0x0`. */
   status: "success" | "reverted";
   transactionHash: Hash;
-  blockNumber: bigint;
+  /** The height the tx was sequenced at, or `null` when it is in no block —
+   * `submitSolutions`, recovery txs, and an intent whose auction tick has not
+   * run yet. A null height is not a pending state: the receipt is still final. */
+  blockNumber: bigint | null;
   gasUsed: bigint;
 }
 
 /**
- * Poll `eth_getTransactionReceipt` until the tx is mined, then report whether it
- * executed or reverted. A hash from {@link sendRawTransaction} only means the
+ * Poll `eth_getTransactionReceipt` until a receipt exists, then report whether
+ * the tx executed or reverted. A hash from {@link sendRawTransaction} only means the
  * node accepted the tx into its pool — it is NOT yet confirmed. Await this to
  * know the on-chain outcome. Throws on timeout. Like the rest of this module
  * it's transport-only (raw JSON-RPC), so it needs no viem client.
@@ -539,14 +542,19 @@ export async function waitForReceipt(
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionReceipt", params: [hash] }),
     });
     const json = (await res.json()) as {
-      result?: { status: string; transactionHash: Hash; blockNumber: string; gasUsed: string } | null;
+      result?: {
+        status: string;
+        transactionHash: Hash;
+        blockNumber?: string | null;
+        gasUsed: string;
+      } | null;
     };
     const r = json.result;
     if (r) {
       return {
         status: r.status === "0x1" ? "success" : "reverted",
         transactionHash: r.transactionHash,
-        blockNumber: BigInt(r.blockNumber),
+        blockNumber: r.blockNumber == null ? null : BigInt(r.blockNumber),
         gasUsed: BigInt(r.gasUsed),
       };
     }

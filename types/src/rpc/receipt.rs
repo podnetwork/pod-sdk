@@ -44,13 +44,11 @@ impl ReceiptResponse for PodReceiptResponse {
     }
 
     fn block_hash(&self) -> Option<BlockHash> {
-        // todo
-        Some(BlockHash::default())
+        self.receipt.block_hash()
     }
 
     fn block_number(&self) -> Option<u64> {
-        // todo
-        None
+        self.receipt.block_number()
     }
 
     fn transaction_hash(&self) -> TxHash {
@@ -58,8 +56,7 @@ impl ReceiptResponse for PodReceiptResponse {
     }
 
     fn transaction_index(&self) -> Option<u64> {
-        // todo
-        None
+        self.receipt.transaction_index()
     }
 
     fn gas_used(&self) -> u64 {
