@@ -114,10 +114,15 @@ impl From<Receipt> for TransactionReceipt {
                 },
             }),
             transaction_hash: val.tx_hash,
-            transaction_index: Some(0),
-            block_hash: Some(Hash::default()), // Need hash for tx confirmation on Metamask
-            block_number: Some(1),             // Need number of tx confirmation on Metamask
-            gas_used: val.actual_gas_used,     // Gas used by the transaction alone.
+            // A `Receipt` carries no height, so this conversion cannot know the
+            // block. Absent, not fabricated: these used to be `Some(0)`/`Some(1)`
+            // so MetaMask counted a transaction as confirmed, which meant every
+            // receipt pointed at a block that does not exist. The producer that
+            // knows the block stamps it afterwards.
+            transaction_index: None,
+            block_hash: None,
+            block_number: None,
+            gas_used: val.actual_gas_used, // Gas used by the transaction alone.
             effective_gas_price: val.max_fee_per_gas, // Use max_fee_per_gas for EIP-1559 transactions
             blob_gas_used: None,                      // This is none for non EIP-4844 transactions.
             blob_gas_price: None,                     // This is none for non EIP-4844 transactions.

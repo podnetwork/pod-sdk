@@ -390,8 +390,10 @@ export interface TxExplorer {
   chainId?: string;
   maxFeePerGas?: string;
   effectiveGasPrice?: string;
-  blockNumber?: string;
-  transactionIndex?: string;
+  /** Null when the tx is in no block (solutions, recovery, an intent whose
+   * auction tick has not run yet); a height once it is sequenced. */
+  blockNumber?: string | null;
+  transactionIndex?: string | null;
   contractAddress?: string | null;
   [k: string]: unknown;
 }

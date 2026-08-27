@@ -1182,8 +1182,8 @@ paths:
                   logsBloom: "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                   transactionHash: "0x63dfbb7b3294d3d9aedb9bd1a306ec40156d0da1c374b2348f60c57186704fcd"
                   transactionIndex: "0x0"
-                  blockHash: "0x0000000000000000000000000000000000000000000000000000000000000000"
-                  blockNumber: "0x1"
+                  blockHash: "0x9f2e1c0a4b7d6835f1a0c9d8e7b6a5948372615f0e9d8c7b6a594837261504f3"
+                  blockNumber: "0x1a4"
                   gasUsed: "0xf4240"
                   effectiveGasPrice: "0x1"
                   from: "0xe51e549231219c35040efcf784f58776d5065d26"
@@ -3005,12 +3005,20 @@ components:
           $ref: '#/components/schemas/Bytes32'
         transactionIndex:
           type: string
-          description: Transaction index in block (hex-encoded)
+          nullable: true
+          description: Transaction index in block (hex-encoded); null when the transaction is in no block
         blockHash:
-          $ref: '#/components/schemas/Bytes32'
+          nullable: true
+          description: Hash of the block the transaction was sequenced in; null when it is in no block
+          allOf:
+            - $ref: '#/components/schemas/Bytes32'
         blockNumber:
           type: string
-          description: Block number (hex-encoded)
+          nullable: true
+          description: |
+            Block number (hex-encoded), or null when the transaction is in no block - `submitSolutions`,
+            recovery transactions, and an orderbook intent whose auction tick has not executed yet. A null
+            block is not a pending state: the receipt is final either way.
         gasUsed:
           $ref: '#/components/schemas/HexUint256'
         effectiveGasPrice:

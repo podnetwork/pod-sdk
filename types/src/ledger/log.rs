@@ -23,11 +23,14 @@ use super::Receipt;
 pub fn to_rpc_format(inner_log: Log, tx_hash: Hash) -> RPCLog {
     RPCLog {
         inner: inner_log,
-        block_hash: Some(Hash::default()),
-        block_number: Some(1),
+        // Absent rather than fabricated, for the same reason as the receipt's
+        // fields: a `Log` carries no height, and these were a zero hash and
+        // block 1 on every log ever returned. Stamped by whoever knows the block.
+        block_hash: None,
+        block_number: None,
         block_timestamp: None,
         transaction_hash: Some(tx_hash),
-        transaction_index: Some(0),
+        transaction_index: None,
         log_index: Some(0),
         removed: false,
     }
