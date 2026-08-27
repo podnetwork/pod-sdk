@@ -109,7 +109,8 @@ impl From<Receipt> for TransactionReceipt {
                     logs: val
                         .logs
                         .into_iter()
-                        .map(|l| log::to_rpc_format(l, val.tx_hash))
+                        .enumerate()
+                        .map(|(i, l)| log::to_rpc_format(l, val.tx_hash, i as u64))
                         .collect(),
                 },
             }),
@@ -118,7 +119,8 @@ impl From<Receipt> for TransactionReceipt {
             // block. Absent, not fabricated: these used to be `Some(0)`/`Some(1)`
             // so MetaMask counted a transaction as confirmed, which meant every
             // receipt pointed at a block that does not exist. The producer that
-            // knows the block stamps it afterwards.
+            // knows the block stamps the block fields afterwards; the index has
+            // nothing to stamp, since pod does not order a block's transactions.
             transaction_index: None,
             block_hash: None,
             block_number: None,

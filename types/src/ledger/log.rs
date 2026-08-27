@@ -20,7 +20,12 @@ use crate::{
 
 use super::Receipt;
 
-pub fn to_rpc_format(inner_log: Log, tx_hash: Hash) -> RPCLog {
+/// `log_index` is the log's position within its transaction, which is what
+/// identifies it: pod does not order a block's transactions, so there is no
+/// `transaction_index` to pair with, and `(tx_hash, log_index)` is a log's only
+/// unique key. It was `Some(0)` for every log, which made the logs of a
+/// multi-log transaction indistinguishable.
+pub fn to_rpc_format(inner_log: Log, tx_hash: Hash, log_index: u64) -> RPCLog {
     RPCLog {
         inner: inner_log,
         // Absent rather than fabricated, for the same reason as the receipt's
@@ -31,7 +36,7 @@ pub fn to_rpc_format(inner_log: Log, tx_hash: Hash) -> RPCLog {
         block_timestamp: None,
         transaction_hash: Some(tx_hash),
         transaction_index: None,
-        log_index: Some(0),
+        log_index: Some(log_index),
         removed: false,
     }
 }
