@@ -151,6 +151,9 @@ fn join_prefix(prefix: &str, sub: &str) -> String {
         (true, true) => "".to_string(),
         (true, false) => sub.to_string(),
         (false, true) => prefix.to_string(),
+        // An index segment attaches directly, consistent with `index_prefix`:
+        // "log_hashes" + "[0]" must equal index_prefix("log_hashes", 0).
+        (false, false) if sub.starts_with('[') => format!("{prefix}{sub}"),
         (false, false) => format!("{prefix}.{sub}"),
     }
 }
@@ -423,8 +426,16 @@ impl MerkleTree {
         let mut cursor = 0;
 
         for flag in proof.flags {
+            if stack.is_empty() {
+                tracing::debug!("invalid multiproof: ran out of leaves/inner nodes");
+                return false;
+            }
             let a = stack.remove(0);
             let b = if flag {
+                if stack.is_empty() {
+                    tracing::debug!("invalid multiproof: ran out of leaves/inner nodes");
+                    return false;
+                }
                 stack.remove(0)
             } else {
                 let value = path[cursor];
@@ -464,6 +475,33 @@ mod test {
         let leaf = leaves[1];
         let proof = tree.generate_proof(leaf).unwrap();
         assert!(MerkleTree::verify_proof(tree.root(), leaf, proof.clone()));
+    }
+
+    // Found by fuzzing: these shapes pass the up-front count checks but used
+    // to panic on `stack.remove(0)`. Malformed proofs must return false.
+    #[test]
+    pub fn test_verify_multi_proof_malformed_proof_rejected() {
+        let h = |b: u8| Hash::repeat_byte(b);
+
+        // 0 leaves + 2 path hashes == 1 flag + 1, but the true-flag pops an empty stack.
+        assert!(!MerkleTree::verify_multi_proof(
+            h(1),
+            &[],
+            MerkleMultiProof {
+                path: vec![h(2), h(3)],
+                flags: vec![true],
+            }
+        ));
+
+        // Same, with a false flag: `a` is popped from an empty stack.
+        assert!(!MerkleTree::verify_multi_proof(
+            h(1),
+            &[],
+            MerkleMultiProof {
+                path: vec![h(2), h(3)],
+                flags: vec![false],
+            }
+        ));
     }
 
     #[test]
