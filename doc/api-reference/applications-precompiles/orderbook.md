@@ -64,7 +64,6 @@ Combinations are checked when the intent is validated:
 | ------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `submitOrder(bytes32,int256,uint256,uint8,uint128,uint128,uint8)`                      | `0x1e416275` | **Current.** The `flags` form; the only one that can request post-only.                                                              |
 | `submitOrder(bytes32,int256,uint256,uint8,uint128,uint128,bool,bool)`                  | `0x435f7e71` | Deprecated. The old `reduceOnly, ioc` pair, still accepted; equivalent to setting bit 0 from `reduceOnly` and bit 1 from `ioc`.                         |
-| `submitOrder(bytes32,int256,uint256,uint8,uint128,uint128,bool)`                       | `0xc06f0480` | Retired. The `reduceOnly`-only form, rejected for any `deadline` at or after the network's configured legacy cutoff.                 |
 
 The `flags` overload can only be decoded by nodes that ship it, so a client that must also work against a network running an older build can keep emitting the deprecated `bool, bool` form — it is accepted unchanged, and it simply cannot request post-only.
 
@@ -204,8 +203,6 @@ contract Orderbook {
      *         written against it still decodes. It cannot request POST_ONLY.
      *         Equivalent to the current form with bit 0 set from `reduceOnly`
      *         and bit 1 from `ioc`.
-     * @dev A third, retired overload — the same call without `ioc` — is rejected
-     *      for any `deadline` at or after the network's legacy cutoff.
      */
     function submitOrder(
         bytes32 orderbookId,
