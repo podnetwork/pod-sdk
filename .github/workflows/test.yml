@@ -101,34 +101,3 @@ jobs:
           make check
         working-directory: protocol
         id: bindings
-
-  solidity-sdk:
-    name: solidity-sdk
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: v1.5.0
-
-      - name: Run Forge fmt
-        run: |
-          forge fmt --check
-        id: fmt
-        working-directory: solidity-sdk
-
-      - name: Run Forge build
-        run: |
-          forge build --sizes
-        id: build
-        working-directory: solidity-sdk
-
-      - name: Run Forge tests
-        run: |
-          forge test -vvv
-        id: test
-        working-directory: solidity-sdk

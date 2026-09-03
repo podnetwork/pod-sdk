@@ -79,8 +79,7 @@ Claims reconstruct the deposit tx hash: `keccak256(domainSeparator || bridgeCont
 
 ### External Dependencies
 
-- OpenZeppelin Contracts & Contracts-Upgradeable (via `lib/`)
-- `pod-sdk/` remaps to `../solidity-sdk/src/` — a sibling directory providing shared SDK utilities
+- OpenZeppelin Contracts & Contracts-Upgradeable and forge-std (git submodules under `lib/`)
 
 ### Test Structure
 
@@ -104,6 +103,5 @@ The `bindings/` directory contains auto-generated Alloy-based Rust bindings for 
 ```
 @openzeppelin/contracts/ → lib/openzeppelin-contracts/contracts/
 @openzeppelin/contracts-upgradeable/ → lib/openzeppelin-contracts-upgradeable/contracts/
-pod-sdk/ → ../solidity-sdk/src/
 pod-protocol/ → ./src/
 ```
