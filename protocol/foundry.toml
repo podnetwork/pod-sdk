@@ -9,10 +9,8 @@ cbor_metadata = false
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
     "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
-    "pod-sdk/=../solidity-sdk/src/",
     "pod-protocol/=./src/",
 ]
-allow_paths = ["../solidity-sdk"]
 via_ir = true
 optimizer = true
 optimizer_runs = 4294967295 

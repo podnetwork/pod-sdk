@@ -12,7 +12,6 @@ This repository contains the Software Development Kit for the pod Network. It pr
 
 ## Repository Structure
 - **rust-sdk/**: Custom alloy provider to support pod-specific features.
-- **solidity-sdk/**: Solidity contracts to build a verifying pod client.
 - **types/**: Common types.
 
 ## Key Types

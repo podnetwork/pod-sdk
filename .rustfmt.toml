@@ -1,4 +1,3 @@
 ignore = [
-  "solidity-sdk/bindings", 
-  "protocol/bindings"
+"protocol/bindings"
 ]
