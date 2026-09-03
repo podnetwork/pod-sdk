@@ -30,6 +30,7 @@ export function decodeMarketStatic(w: WireMarketStatic): Market {
     tickPrecision: dec(w.tick_precision),
     lotSize: dec(w.lot_size),
     maxLeverage: w.max_leverage,
+    maintenanceLeverage: w.maintenance_leverage ?? undefined,
     fundingWindowUs: w.funding_window_us,
     makerFee: dec(w.maker_fee),
     takerFee: dec(w.taker_fee),

@@ -15,7 +15,8 @@
 //   mul(a,b)            = (a*b)/1e18 truncated toward zero          (Decimal `*`)
 //   mulFloor(a,b)       = (a*b)/1e18 rounded toward -infinity       (`mul_floor`)
 //   mulDivCeil(a,b,d)   = (a*b)/d, positive results rounded up      (`mul_div_ceil`)
-//   im = 1e18 / max_leverage ; mm = im / 2
+//   im = 1e18 / max_leverage
+//   mm = 1e18 / maintenance_leverage, or im / 2 when the field is absent (older nodes)
 //   funding_accrued = mulDivCeil(funding_index - entry_funding, size, window_us*1e18)
 //   cash_with_funding = native_cash - Σ funding_accrued
 
@@ -48,9 +49,14 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
       const mark = liveMark > 0n ? liveMark : p.entryPrice;
       const upnl = mulFloor(mark - p.entryPrice, p.size); // pure price drift (signed)
       const sizeQuote = mul(absB(p.size), mark); // = notional
+      // Maintenance rate from the served multiplier (same floor division as
+      // the engine's 1/maintenance_leverage); older nodes don't send it, so
+      // fall back to the historical mm = im/2 — identical to the implicit
+      // 2 × max_leverage multiplier.
       const imr = imRate(market?.maxLeverage ?? 0);
+      const mmr = market?.maintenanceLeverage ? imRate(market.maintenanceLeverage) : imr / 2n;
       im += mul(sizeQuote, imr);
-      mm += mul(sizeQuote, imr / 2n);
+      mm += mul(sizeQuote, mmr);
       priceUpnl += upnl;
       priceUpnlSnap += p.unrealizedPnl;
 
