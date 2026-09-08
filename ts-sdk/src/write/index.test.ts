@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { waitForReceipt } from "./index.js";
+import { decodeFunctionData, getAddress, parseAbi } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+
+import { createDelegatedWallet } from "./delegation.js";
+import { BRIDGE_ADDRESS, buildSubmitBatch, buildWithdraw, waitForReceipt } from "./index.js";
 import type { Hash } from "../types/public.js";
 
 const TX = `0x${"ab".repeat(32)}` as Hash;
@@ -34,5 +38,53 @@ describe("waitForReceipt", () => {
     await expect(waitForReceipt("http://rpc", TX, { fetch: fetchFn, timeoutMs: 10, pollMs: 1 })).rejects.toThrow(
       /timed out/,
     );
+  });
+});
+
+const WITHDRAW_ABI = parseAbi([
+  "function withdraw(address token, address to, uint256 amount, uint128 deadline)",
+]);
+const TOKEN = getAddress("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+const RECIPIENT = getAddress("0x000000000000000000000000000000000c1a1111");
+
+function withdrawTx() {
+  return buildWithdraw({
+    token: TOKEN,
+    recipient: RECIPIENT,
+    amount: 10n ** 18n,
+    auctionIntervalUs: 500_000,
+    deadline: 1_700_000_000_000,
+  });
+}
+
+describe("buildWithdraw", () => {
+  it("calls the bridge precompile, not the CLOB (ADR 0042)", () => {
+    const tx = withdrawTx();
+    expect(tx.to).toBe(BRIDGE_ADDRESS);
+    expect(decodeFunctionData({ abi: WITHDRAW_ABI, data: tx.data })).toEqual({
+      functionName: "withdraw",
+      args: [TOKEN, RECIPIENT, 10n ** 18n, 1_700_000_000_000_000n],
+    });
+  });
+});
+
+describe("buildSubmitBatch", () => {
+  it("refuses a leg aimed off the CLOB precompile", () => {
+    expect(() => buildSubmitBatch([withdrawTx()])).toThrow(/CLOB calls only/);
+  });
+});
+
+describe("delegated submit", () => {
+  it("refuses a transaction aimed off the CLOB precompile", async () => {
+    const master = privateKeyToAccount(generatePrivateKey());
+    const wallet = await createDelegatedWallet({
+      master: master.address,
+      chainId: 1293,
+      rpcUrl: "http://rpc.invalid",
+      ttlMs: 60 * 60_000,
+      signTypedData: (td) => master.signTypedData(td as never),
+    });
+    // Rejected before any RPC call: an unreachable rpcUrl would throw otherwise.
+    await expect(wallet.submit(withdrawTx())).rejects.toThrow(/master wallet/);
   });
 });

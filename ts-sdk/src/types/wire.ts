@@ -407,7 +407,7 @@ export interface WireBridgeConfig {
  * serves the identical shape, so a backfilled outcome is indistinguishable
  * from one that arrived live. */
 export interface WireWithdrawal {
-  withdrawal_id: Hex;
+  tx_hash: Hex;
   withdrawer: Hex;
   to: Hex;
   token: Hex;

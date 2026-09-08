@@ -14,7 +14,7 @@ import { createWalletClient, defineChain, encodeFunctionData, http, parseAbi, re
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Address, Hash, Hex } from "../types/public.js";
 import { rpc } from "../transport/jsonrpc.js";
-import { sendRawTransaction, type PodTxRequest } from "./index.js";
+import { CLOB_ADDRESS, sendRawTransaction, type PodTxRequest } from "./index.js";
 
 /** EIP-712 payload the master signs (domain "pod delegation" v1). */
 export function delegationTypedData(delegate: Address, validUntil: bigint, chainId: number) {
@@ -83,6 +83,9 @@ export async function createDelegatedWallet(p: CreateDelegatedWalletParams): Pro
   const doFetch = p.fetch ?? fetch;
 
   const submit = async (tx: PodTxRequest): Promise<Hash> => {
+    if (tx.to.toLowerCase() !== CLOB_ADDRESS) {
+      throw new Error(`delegation covers CLOB calls only, not ${tx.to} — sign this with the master wallet`);
+    }
     // Refuse to sign with a cert that can't cover a fresh intent deadline
     // (~15 min out) — the node would reject the tx as expired anyway.
     if (validUntil <= (BigInt(Date.now()) + 20n * 60_000n) * 1000n) {

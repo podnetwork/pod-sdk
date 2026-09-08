@@ -197,8 +197,7 @@ export class PodTradeClient {
    * This account's terminal withdrawal outcomes, newest first — live off
    * `pod_withdrawals`, gap-filled over REST on every reconnect.
    *
-   * Scoped to the **debited** account, which is the master for a delegated
-   * withdrawal, so pass the master address rather than the session key.
+   * Scoped to the **debited** account.
    */
   withdrawals(account: Address): Resource<Withdrawal[]> {
     return this.memo(`withdrawals:${account}`, () =>
