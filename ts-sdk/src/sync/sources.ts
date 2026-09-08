@@ -126,22 +126,26 @@ export function marketsSource(
     // Last session's static list (never dynamics — those stay live-only):
     // seeded synchronously so market-keyed UI mounts without a round trip.
     // The REST seed below overwrites it field-for-field when it lands.
-    const fromCache = new Set<MarketId>();
+    const staticIds = new Set<MarketId>();
     try {
       const cached = marketsCache && parseCachedMarkets(marketsCache.get());
-      cached?.forEach((m, i) => { orderIndex.set(m.id, i); byId.set(m.id, m); fromCache.add(m.id); });
+      cached?.forEach((m, i) => { orderIndex.set(m.id, i); byId.set(m.id, m); staticIds.add(m.id); });
       if (byId.size) publish();
     } catch { /* absent/corrupt cache — plain cold start */ }
 
     const seedStatic = () => rest.markets().then((markets) => {
       if (!alive) return;
-      // Fresh static truth: drop cache-seeded markets that no longer exist,
-      // so a delisting can't outlive the first seed. (Dynamics-only entries
-      // buffered from the WS stream are untouched, as before.)
+      // Fresh static truth: drop previously listed markets that no longer
+      // exist, so a delisting cannot survive a reconnect seed. Dynamics-only
+      // entries buffered from the WS stream are deliberately untouched.
       const fresh = new Set(markets.map((m) => m.id));
-      for (const id of fromCache) if (!fresh.has(id)) { byId.delete(id); orderIndex.delete(id); }
-      fromCache.clear();
-      markets.forEach((m, i) => { orderIndex.set(m.id, i); byId.set(m.id, { ...byId.get(m.id), ...m }); });
+      for (const id of staticIds) if (!fresh.has(id)) { byId.delete(id); orderIndex.delete(id); }
+      staticIds.clear();
+      markets.forEach((m, i) => {
+        staticIds.add(m.id);
+        orderIndex.set(m.id, i);
+        byId.set(m.id, { ...byId.get(m.id), ...m });
+      });
       publish();
       try { marketsCache?.set(serializeMarkets(markets)); } catch { /* storage denied/full */ }
     }).catch((e) => { if (!byId.size) h.fail(e); });
