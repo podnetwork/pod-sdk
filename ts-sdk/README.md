@@ -68,14 +68,17 @@ also the resume cursor for `pod_withdrawals` and its REST backfill, both of whic
 compare it in micros. The `Us` suffix is the only marker, so treating it as
 milliseconds silently reads a timestamp a thousand times too large.
 
-## Withdrawals (ADR 0033)
+## Withdrawals (ADR 0042)
 
-`Clob.withdraw` moves a CLOB balance straight to the claim chain in **one**
+`Bridge.withdraw` moves a CLOB balance straight to the claim chain in **one**
 transaction — nothing is credited to a pod account on the way, so there is no
 second signature and no half-finished state to recover.
 
+The bridge precompile carries no delegation, so this is the one trading action a
+session key cannot sign: prompt the master wallet for it.
+
 ```ts
-import { buildClobWithdraw, NATIVE_USD_ADDRESS } from "@pod-network/trade-sdk/write";
+import { buildWithdraw, NATIVE_USD_ADDRESS } from "@pod-network/trade-sdk/write";
 import { bridgeTokenFor, checkWithdrawAmount, maxWithdrawable } from "@pod-network/trade-sdk";
 
 const config = await client.bridgeConfig.ready();
@@ -86,7 +89,7 @@ const amount = maxWithdrawable(balances.withdrawableCash, token);
 const rejection = checkWithdrawAmount(amount, token); // undefined = admissible
 if (rejection) return render(rejection); // e.g. a balance below the token's minimum
 
-await wallet.submit(buildClobWithdraw({
+await masterWallet.sendTransaction(buildWithdraw({
   token: token.podToken,
   recipient,
   amount,

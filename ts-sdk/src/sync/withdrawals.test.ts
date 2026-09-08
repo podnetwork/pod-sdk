@@ -39,7 +39,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 const id = (n: number) => `0x${n.toString(16).padStart(64, "0")}` as Hash;
 
 const outcome = (n: number, timeUs: number): Withdrawal => ({
-  id: id(n),
+  txHash: id(n),
   withdrawer: ACCOUNT,
   to: TO,
   token: TOKEN,
@@ -49,7 +49,7 @@ const outcome = (n: number, timeUs: number): Withdrawal => ({
 
 /** The wire form of an outcome, as `pod_withdrawals` pushes it. */
 const wire = (n: number, timeUs: number): WireWithdrawal => ({
-  withdrawal_id: id(n),
+  tx_hash: id(n),
   withdrawer: ACCOUNT,
   to: TO,
   token: TOKEN,
@@ -120,7 +120,7 @@ async function started(pages: Withdrawal[][], holdCall?: number) {
 describe("withdrawalsSource", () => {
   it("seeds from REST without waiting for the socket", async () => {
     const { resource } = await started([[outcome(1, 5_000)]]);
-    expect(resource.get()?.map((w) => w.id)).toEqual([id(1)]);
+    expect(resource.get()?.map((w) => w.txHash)).toEqual([id(1)]);
   });
 
   // Live-only, with no `since`. This is a replay channel: the server accepts a
@@ -187,13 +187,13 @@ describe("withdrawalsSource", () => {
   it("dedupes an outcome delivered by both REST and the stream", async () => {
     const { resource, push } = await started([[outcome(1, 5_000)]]);
     await push([wire(1, 5_000)]);
-    expect(resource.get()?.map((w) => w.id)).toEqual([id(1)]);
+    expect(resource.get()?.map((w) => w.txHash)).toEqual([id(1)]);
   });
 
   it("merges live outcomes newest-first", async () => {
     const { resource, push } = await started([[outcome(1, 5_000)]]);
     await push([wire(2, 9_000), wire(3, 7_000)]);
-    expect(resource.get()?.map((w) => w.id)).toEqual([id(2), id(3), id(1)]);
+    expect(resource.get()?.map((w) => w.txHash)).toEqual([id(2), id(3), id(1)]);
   });
 
   it("carries a failure reason through from the stream", async () => {

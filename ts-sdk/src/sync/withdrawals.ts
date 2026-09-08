@@ -32,28 +32,28 @@ export function withdrawalsSource(
 ): ResourceSource<Withdrawal[]> {
   return (h) => {
     let alive = true;
-    const byId = new Map<string, Withdrawal>();
+    const byHash = new Map<string, Withdrawal>();
     // Cursor into the outcome log: the newest tick fully absorbed, plus the last
     // id seen inside it. Both are needed because one tick can span a page — the
     // deadline alone can only re-serve the tick's earlier rows or skip its later
     // ones.
     let sinceUs = 0;
-    let sinceId: Withdrawal["id"] | undefined;
+    let sinceId: Withdrawal["txHash"] | undefined;
     let retries = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
     const publish = () => {
       // Newest first: a user reads their most recent withdrawal at the top, and
-      // the id tiebreak keeps a same-tick pair from reordering between renders.
-      h.set([...byId.values()].sort((a, b) => b.timeUs - a.timeUs || b.id.localeCompare(a.id)));
+      // the hash tiebreak keeps a same-tick pair from reordering between renders.
+      h.set([...byHash.values()].sort((a, b) => b.timeUs - a.timeUs || b.txHash.localeCompare(a.txHash)));
     };
 
     const absorb = (items: Withdrawal[]) => {
       for (const w of items) {
-        byId.set(w.id, w);
+        byHash.set(w.txHash, w);
         // Never move the cursor backwards: an out-of-order arrival would
         // otherwise re-serve ticks we already hold.
-        if (w.timeUs >= sinceUs) { sinceUs = w.timeUs; sinceId = w.id; }
+        if (w.timeUs >= sinceUs) { sinceUs = w.timeUs; sinceId = w.txHash; }
       }
     };
 
@@ -90,7 +90,7 @@ export function withdrawalsSource(
           // Non-empty by the check above.
           const last = rows[rows.length - 1]!;
           pageSince = last.timeUs;
-          pageSinceId = last.id;
+          pageSinceId = last.txHash;
           if (rows.length < PAGE_LIMIT) break;
         }
         // Once, after paging: publishing per page re-copies and re-sorts
@@ -112,7 +112,7 @@ export function withdrawalsSource(
         publish();
         // Only surface the failure when there is nothing to show; otherwise the
         // stream is still feeding a usable list and a toast would be noise.
-        if (byId.size === 0) h.fail(e as Error);
+        if (byHash.size === 0) h.fail(e as Error);
       }
     };
 

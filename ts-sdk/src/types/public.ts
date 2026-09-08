@@ -528,10 +528,8 @@ export type WithdrawalError =
 
 /** One terminal withdrawal outcome, from `pod_withdrawals` or its REST backfill. */
 export interface Withdrawal {
-  /** `keccak(abi.encode(signer, nonce, sequence))` — derivable client-side
-   * before submitting, which is what lets a client match its own withdrawal. */
-  id: Hash;
-  /** The debited account: the master, for a delegated withdrawal. */
+  txHash: Hash;
+  /** The debited account. */
   withdrawer: Address;
   /** Recipient on the **claim chain**. Nothing is credited on pod. */
   to: Address;
@@ -557,7 +555,7 @@ export interface Withdrawal {
 export interface WithdrawalsQuery {
   /** Batch deadline in microseconds; strictly greater. */
   since?: number;
-  /** Last id already seen *within* the `since` tick, to resume mid-tick. */
+  /** Last tx hash already seen *within* the `since` tick, to resume mid-tick. */
   sinceId?: Hash;
   /** Server default 500, capped at 1000. */
   limit?: number;

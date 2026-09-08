@@ -9,7 +9,7 @@ export type Channel =
   | "pod_orderbook" | "pod_orders_v2" | "pod_candles"
   | "pod_markets" | "pod_positions" | "pod_triggers"
   /** Terminal withdrawal outcomes; one array per tick, `account`-filtered on the
-   * debited account (the master, under delegation). ADR 0033 §6. */
+   * debited account. ADR 0033 §6. */
   | "pod_withdrawals";
 
 export interface SubParams {

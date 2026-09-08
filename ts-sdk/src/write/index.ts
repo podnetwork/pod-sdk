@@ -1,4 +1,4 @@
-// Write helpers: build unsigned CLOB transactions and derive order ids. These
+// Write helpers: build unsigned pod transactions and derive order ids. These
 // are pure encoding — no wallet, no key, no nonce ownership. The consumer signs
 // + broadcasts the returned request with whatever wallet it has
 // (walletClient.sendTransaction / eth_sendTransaction / Privy).
@@ -18,6 +18,9 @@ import { rpc } from "../transport/jsonrpc.js";
 /** The CLOB precompile (chain id 1293 / 0x50d). */
 export const CLOB_ADDRESS: Address = "0x50d0000000000000000000000000000000000002";
 
+/** The bridge precompile. */
+export const BRIDGE_ADDRESS: Address = "0x50d0000000000000000000000000000000000001";
+
 const CLOB_ABI = parseAbi([
   "function submitOrder(bytes32 orderbookId, int256 size, uint256 price, uint8 orderType, uint128 deadline, uint128 ttl, bool reduceOnly, bool ioc)",
   "function cancel(bytes32 orderbookId, bytes32 canceledOrder, uint128 deadline)",
@@ -27,7 +30,10 @@ const CLOB_ABI = parseAbi([
   "function cancelTrigger(bytes32 orderbookId, bytes32 triggerOrder, uint128 deadline)",
   "function updateTrigger(bytes32 orderbookId, bytes32 triggerOrder, int256 newSize, uint256 newLimitPrice, uint256 newTriggerPrice, uint128 deadline)",
   "function submitBatch(bytes[] inner)",
-  "function withdraw(address token, address recipient, uint256 amount, uint128 deadline)",
+]);
+
+const BRIDGE_ABI = parseAbi([
+  "function withdraw(address token, address to, uint256 amount, uint128 deadline)",
 ]);
 
 /** ~10 years in microseconds — default far-future expiry for resting orders. */
@@ -367,7 +373,13 @@ export function buildSubmitBatch(
   legs: Array<PodTxRequest | Hex>,
   opts?: { gas?: bigint },
 ): PodTxRequest {
-  const inner = legs.map((l) => (typeof l === "string" ? l : l.data));
+  const inner = legs.map((l) => {
+    if (typeof l === "string") return l;
+    if (l.to.toLowerCase() !== CLOB_ADDRESS) {
+      throw new Error(`submitBatch carries CLOB calls only, not a call to ${l.to}`);
+    }
+    return l.data;
+  });
   const data = encodeFunctionData({
     abi: CLOB_ABI,
     functionName: "submitBatch",
@@ -726,24 +738,20 @@ export function buildWaitlistWithdraw(p: WaitlistWithdrawParams): SourceChainCal
   };
 }
 
-// --- withdrawals (ADR 0033) --------------------------------------------------
+// --- withdrawals (ADR 0042) --------------------------------------------------
 //
-// `Clob.withdraw` settles on L1 in ONE transaction: the CLOB balance is debited
-// straight to the bridge's custody and N−F validators sign the L1 claim at
-// solution execution. Nothing is credited to a pod account on the way, so the
-// legacy `Bridge.withdraw` rules — `tx.value == amount`, a gas reserve, a second
-// signature — do not apply, and MAX is the whole withdrawable balance.
+// `Bridge.withdraw` settles on L1 in ONE transaction: the CLOB balance is
+// debited and N−F validators sign the L1 claim at solution execution. Nothing is
+// credited to a pod account on the way, so `tx.value` is zero for every token,
+// native included, and MAX is the whole withdrawable balance.
 //
 // Two fields mean something different from the same-named ones elsewhere:
-//   - `recipient` is an address on the CLAIM chain, not on pod. Delegated calls
-//     stay pinned to the master (ADR 0018), so a session key cannot redirect it.
-//   - `amount` stays in pod's 18 decimals, but must be a whole number of
-//     claim-chain units or admission rejects it. Size it with `maxWithdrawable`
-//     / `quantizeWithdrawAmount` from `codec/bridge.ts` — this builder encodes
-//     what it is given and does no rounding of its own, because silently
-//     changing an amount a user signed for is worse than a clear rejection.
+//   - `recipient` is an address on the CLAIM chain, not on pod.
+//   - `amount` stays in pod's 18 decimals but must be a whole number of
+//     claim-chain units; size it with `maxWithdrawable` from `codec/bridge.ts`,
+//     because this builder rounds nothing of its own.
 
-export interface ClobWithdrawParams {
+export interface WithdrawParams {
   /** Pod-side token address (native USD for cash). */
   token: Address;
   /** Recipient on the **claim chain**. */
@@ -763,15 +771,15 @@ export interface ClobWithdrawParams {
   deadline?: number; // ms; default far future
 }
 
-export function buildClobWithdraw(p: ClobWithdrawParams): PodTxRequest {
+export function buildWithdraw(p: WithdrawParams): PodTxRequest {
   const nowUs = BigInt(Date.now()) * 1000n;
   const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), BigInt(p.auctionIntervalUs));
   const data = encodeFunctionData({
-    abi: CLOB_ABI,
+    abi: BRIDGE_ABI,
     functionName: "withdraw",
     args: [p.token, p.recipient, p.amount, deadline],
   }) as Hex;
-  return { to: CLOB_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
+  return { to: BRIDGE_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
 }
 
 /**
@@ -780,11 +788,6 @@ export function buildClobWithdraw(p: ClobWithdrawParams): PodTxRequest {
  * of the intent within a `submitBatch` (0 for a single-intent tx). Needs the
  * nonce, so it's only known up-front in managed mode; in advisory mode reconcile
  * by `tx` from the `pod_orders_v2` stream instead.
- *
- * **This is also the `withdrawal_id`** that `pod_withdrawals` reports and that
- * `GET /v1/bridge/withdrawals/by-id/{id}` is keyed on — same derivation, same
- * intent identity (ADR 0033 §3). `signer` is whoever signed the transaction,
- * i.e. the delegate under a session key, not the debited master.
  */
 export function deriveOrderId(signer: Address, nonce: number, sequence = 0): Hash {
   return keccak256(
