@@ -14,6 +14,8 @@ export interface WireStatus {
 export interface WireMarketStatic {
   id: Hex;
   name: string;
+  /** Open, not an enum: a newer node's value must not be a type error. */
+  status: "active" | (string & {});
   base_token_address: Hex;
   quote_token_address: Hex;
   base_token_symbol: string;
@@ -25,7 +27,8 @@ export interface WireMarketStatic {
   maker_fee: WireDecimal;
   taker_fee: WireDecimal;
   tick_precision: WireDecimal; // 1e18-scaled price increment (decimal string)
-  lot_size: WireDecimal;
+  lot_size: WireDecimal; // 1e18-scaled size increment
+  min_notional: WireDecimal; // 1e18-scaled notional floor ("0" = none)
   max_leverage: number;
   funding_window_us: number; // funding-accrual divisor (micros)
 }
@@ -355,8 +358,11 @@ export interface WireOrderEvent {
   tq?: WireDecimal;
   /** Total fee charged so far; travels with `tb`. There is no per-fill counterpart. */
   tf?: WireDecimal;
-  /** `fill`: present only on the fill that closed the order, carrying its terminal status. */
-  st?: "filled" | "canceled" | "margin_canceled" | "expired";
+  /**
+   * The terminal status an event closed the order with. On `fill`, only on the fill that
+   * closed it. On `cancel`, only when the engine removed the order rather than the owner.
+   */
+  st?: "filled" | "canceled" | "margin_canceled" | "expired" | "post_only_refused";
   /**
    * `fill` on a perp market: the owner's position after this fill, signed and
    * 1e18-scaled. Omitted on spot, which has no position.

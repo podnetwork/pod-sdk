@@ -14,6 +14,10 @@ import { decodeAbiParameters, encodeAbiParameters, encodeFunctionData, keccak256
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Address, Hash, Hex, MarketId } from "../types/public.js";
 import { rpc } from "../transport/jsonrpc.js";
+// In codec/ so the read entry reaches it too; re-exported so all three align* are here.
+import { alignSize } from "../codec/units.js";
+
+export { alignSize };
 
 /** The CLOB precompile (chain id 1293 / 0x50d). */
 export const CLOB_ADDRESS: Address = "0x50d0000000000000000000000000000000000002";
@@ -51,6 +55,11 @@ export interface SubmitOrderParams {
    * like 49999.99999999999). Pass `market.tickPrecision`.
    */
   tickPrecision?: bigint;
+  /**
+   * Market `lot_size`. When given, `size` is floored to a multiple of it — the CLOB
+   * rejects a size off the lot grid (`size_off_lot`). Pass `market.lotSize`.
+   */
+  lotSize?: bigint;
   /**
    * Market auction interval in microseconds (`market.auctionIntervalMs * 1000`).
    * The CLOB requires `deadline` to be a multiple of it ("Deadline is not aligned
@@ -96,7 +105,9 @@ function us(ms: number | undefined, fallback: bigint): bigint {
 
 export function buildSubmitOrder(p: SubmitOrderParams): PodTxRequest {
   const nowUs = BigInt(Date.now()) * 1000n;
-  const signedSize = p.side === "sell" ? -p.size : p.size;
+  // Align the magnitude before the sign: flooring a negative rounds it the wrong way.
+  const size = p.lotSize ? alignSize(p.size, p.lotSize) : p.size;
+  const signedSize = p.side === "sell" ? -size : size;
   const price = p.tickPrecision ? alignPrice(p.price, p.tickPrecision) : p.price;
   const interval = p.auctionIntervalUs ? BigInt(p.auctionIntervalUs) : 0n;
   const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), interval);
@@ -149,9 +160,13 @@ export function buildCancelOrder(
 /** Solidity `Error(string)` selector — `bytes4(keccak256("Error(string)"))`. */
 const ERROR_SELECTOR = "0x08c379a0";
 
-/** A reverted pod transaction, carrying the decoded CLOB reason. */
+/**
+ * A rejected pod transaction. `data`'s shape follows `code`: −32000 validation (string),
+ * 3 execution revert (`Error(string)`, decoded into `reason`), −32003 rejection quorum
+ * (array), 999 account locked (object).
+ */
 export class PodTxRevertError extends Error {
-  constructor(public reason: string, public data?: string) {
+  constructor(public reason: string, public data?: unknown, public code?: number) {
     super(reason);
     this.name = "PodTxRevertError";
   }
@@ -162,9 +177,11 @@ export class PodTxRevertError extends Error {
  * "Deadline is not aligned to auction interval"). Returns undefined when `data`
  * isn't an `Error(string)` payload — use this directly if you broadcast through
  * your own provider and just want to translate the revert data.
+ *
+ * `unknown` because only code 3 sends a string; the other shapes reach this too.
  */
-export function decodeRevertReason(data: string | null | undefined): string | undefined {
-  if (!data || !data.startsWith(ERROR_SELECTOR)) return undefined;
+export function decodeRevertReason(data: unknown): string | undefined {
+  if (typeof data !== "string" || !data.startsWith(ERROR_SELECTOR)) return undefined;
   try {
     return decodeAbiParameters([{ type: "string" }], `0x${data.slice(10)}` as Hex)[0];
   } catch {
@@ -189,10 +206,10 @@ export async function sendRawTransaction(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_sendRawTransaction", params: [signedTx] }),
   });
-  const json = (await res.json()) as { result?: Hash; error?: { message?: string; data?: string } };
+  const json = (await res.json()) as { result?: Hash; error?: { code?: number; message?: string; data?: unknown } };
   if (json.error) {
     const reason = decodeRevertReason(json.error.data) ?? json.error.message ?? "transaction failed";
-    throw new PodTxRevertError(reason, json.error.data);
+    throw new PodTxRevertError(reason, json.error.data, json.error.code);
   }
   return json.result!;
 }
@@ -215,6 +232,7 @@ export interface UpdateOrderParams {
    */
   token: Address;
   tickPrecision?: bigint;
+  lotSize?: bigint;
   auctionIntervalUs?: number;
   deadline?: number; // ms; default far future
 }
@@ -222,13 +240,14 @@ export interface UpdateOrderParams {
 /**
  * Amend a resting order's price and/or size in place via the CLOB's native
  * `update` (no cancel+resubmit, so the order keeps its id and queue identity).
- * Aligns price to the tick and deadline to the auction interval, like
- * {@link buildSubmitOrder}.
+ * Aligns price to the tick, size to the lot and deadline to the auction interval,
+ * like {@link buildSubmitOrder}.
  */
 export function buildUpdateOrder(p: UpdateOrderParams): PodTxRequest {
   const nowUs = BigInt(Date.now()) * 1000n;
   const price = p.tickPrecision ? alignPrice(p.price, p.tickPrecision) : p.price;
-  const size = p.size < 0n ? -p.size : p.size; // contract takes an unsigned magnitude
+  const mag = p.size < 0n ? -p.size : p.size; // contract takes an unsigned magnitude
+  const size = p.lotSize ? alignSize(mag, p.lotSize) : mag;
   const interval = p.auctionIntervalUs ? BigInt(p.auctionIntervalUs) : 0n;
   const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), interval);
   const data = encodeFunctionData({
@@ -271,6 +290,7 @@ export interface SubmitTriggerParams {
   reduceOnly?: boolean; // default true
   ioc?: boolean;
   tickPrecision?: bigint;
+  lotSize?: bigint;
   auctionIntervalUs?: number;
   deadline?: number; // ms; default far future
   /** Armed lifetime as a duration in ms (capped at ~30d by the CLOB); default 29d. */
@@ -279,7 +299,8 @@ export interface SubmitTriggerParams {
 
 export function buildSubmitTrigger(p: SubmitTriggerParams): PodTxRequest {
   const nowUs = BigInt(Date.now()) * 1000n;
-  const signedSize = p.side === "sell" ? -p.size : p.size;
+  const size = p.lotSize ? alignSize(p.size, p.lotSize) : p.size;
+  const signedSize = p.side === "sell" ? -size : size;
   const align = (v: bigint) => (p.tickPrecision ? alignPrice(v, p.tickPrecision) : v);
   const triggerPrice = align(p.triggerPrice);
   const limitPrice = align(p.limitPrice ?? p.triggerPrice);
@@ -330,13 +351,15 @@ export interface UpdateTriggerParams {
   triggerPrice: bigint;
   limitPrice?: bigint;
   tickPrecision?: bigint;
+  lotSize?: bigint;
   auctionIntervalUs?: number;
   deadline?: number;
 }
 
 export function buildUpdateTrigger(p: UpdateTriggerParams): PodTxRequest {
   const nowUs = BigInt(Date.now()) * 1000n;
-  const signedSize = p.side === "sell" ? -p.size : p.size;
+  const size = p.lotSize ? alignSize(p.size, p.lotSize) : p.size;
+  const signedSize = p.side === "sell" ? -size : size;
   const align = (v: bigint) => (p.tickPrecision ? alignPrice(v, p.tickPrecision) : v);
   const interval = p.auctionIntervalUs ? BigInt(p.auctionIntervalUs) : 0n;
   const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), interval);
@@ -360,10 +383,15 @@ export function buildUpdateTrigger(p: UpdateTriggerParams): PodTxRequest {
 /** ~10 years in ms — default far-future deadline shared by batched legs. */
 const FAR_MS = 10 * 365 * 24 * 3600 * 1000;
 
-/** Scale a 1e18 size by a 0..1 fraction (e.g. close 50% of a position). */
-function scaleSize(size: bigint, fraction: number): bigint {
+/**
+ * Scale a 1e18 size by a 0..1 fraction (e.g. close 50% of a position), floored to the lot.
+ * The fraction's own 1e-6 resolution is no substitute — that is a proportion, the lot is
+ * an absolute step, and only the lot is what the CLOB checks.
+ */
+function scaleSize(size: bigint, fraction: number, lot?: bigint): bigint {
   const f = Math.max(0, Math.min(1, fraction));
-  return (size * BigInt(Math.round(f * 1_000_000))) / 1_000_000n;
+  const scaled = (size * BigInt(Math.round(f * 1_000_000))) / 1_000_000n;
+  return lot ? alignSize(scaled, lot) : scaled;
 }
 
 /** Wrap already-built legs into one `submitBatch` tx. Pass leg requests (their
@@ -414,6 +442,7 @@ export interface OrderWithTriggersParams {
   takeProfit?: OrderTrigger;
   stopLoss?: OrderTrigger;
   tickPrecision?: bigint;
+  lotSize?: bigint;
   auctionIntervalUs?: number;
   reduceOnly?: boolean; // entry reduceOnly (rare); triggers are always reduceOnly
   ioc?: boolean;
@@ -433,13 +462,17 @@ export interface OrderWithTriggersParams {
  */
 export function buildOrderWithTriggers(p: OrderWithTriggersParams): PodTxRequest {
   const deadline = p.deadline ?? Date.now() + FAR_MS;
+  // Align once and hand the same size to entry and triggers: flooring only inside
+  // `buildSubmitOrder` would leave a whole-size trigger one lot over the position.
+  const size = p.lotSize ? alignSize(p.size, p.lotSize) : p.size;
   const order = buildSubmitOrder({
     orderbookId: p.orderbookId,
     side: p.side,
     orderType: p.orderType,
     price: p.price,
-    size: p.size,
+    size,
     tickPrecision: p.tickPrecision,
+    lotSize: p.lotSize,
     auctionIntervalUs: p.auctionIntervalUs,
     reduceOnly: p.reduceOnly,
     ioc: p.ioc,
@@ -451,13 +484,14 @@ export function buildOrderWithTriggers(p: OrderWithTriggersParams): PodTxRequest
     buildSubmitTrigger({
       orderbookId: p.orderbookId,
       side: closeSide,
-      size: scaleSize(p.size, t.sizeFraction ?? 1),
+      size: scaleSize(size, t.sizeFraction ?? 1, p.lotSize),
       triggerType,
       triggerPrice: t.triggerPrice,
       limitPrice: t.limitPrice,
       grouping: "position",
       reduceOnly: true,
       tickPrecision: p.tickPrecision,
+      lotSize: p.lotSize,
       auctionIntervalUs: p.auctionIntervalUs,
       deadline,
       ttlMs: p.triggerTtlMs,
@@ -491,6 +525,10 @@ export interface ClosePositionParams {
   /** Slippage bound in basis points for the market close. Default 500 (5%). */
   slippageBps?: number;
   tickPrecision?: bigint;
+  /** Market `lot_size`. A partial close is a fraction of the position and lands off the
+   * lot grid for most fractions; flooring leaves at most one lot open, which `reduceOnly`
+   * already makes the safe direction. */
+  lotSize?: bigint;
   auctionIntervalUs?: number;
   deadline?: number; // ms; pass a shared value when batching closes
 }
@@ -514,6 +552,7 @@ export function buildClosePosition(p: ClosePositionParams): PodTxRequest {
     size: p.size < 0n ? -p.size : p.size,
     reduceOnly: true,
     tickPrecision: p.tickPrecision,
+    lotSize: p.lotSize,
     auctionIntervalUs: p.auctionIntervalUs,
     deadline: p.deadline,
   });
