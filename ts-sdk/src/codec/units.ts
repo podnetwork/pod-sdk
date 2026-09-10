@@ -100,6 +100,15 @@ export function decimalsForTick(tick: bigint): number {
   return Math.max(0, Math.min(8, WAD_DECIMALS + 1 - tick.toString().length));
 }
 
+/**
+ * Floor a size to a multiple of the market's lot (`size_off_lot`). Here rather than
+ * beside `alignPrice` so `previewOrder` reaches it without the signing entry behind it.
+ * A sub-lot size floors to `0n`; rounding up would spend money the caller did not offer.
+ */
+export function alignSize(size: bigint, lot: bigint): bigint {
+  return lot > 0n ? (size / lot) * lot : size;
+}
+
 /** Format a price with fixed decimals derived from the market's tick precision. */
 export function formatPrice(value: bigint, tickPrecision: bigint): string {
   return formatAmount(value, WAD_DECIMALS, decimalsForTick(tickPrecision), { trim: false });

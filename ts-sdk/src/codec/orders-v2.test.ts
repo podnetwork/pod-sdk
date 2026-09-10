@@ -190,6 +190,15 @@ describe("applyOrdersFrame — events", () => {
     expect(apply(frame, [resting()]).get("0xa9a5")!.status).toBe("canceled");
   });
 
+  it("keeps an engine removal distinguishable from a cancel the owner sent", () => {
+    // Flattening the engine's `st` to "canceled" loses the one bit telling them apart.
+    const frame: WireOrdersFrame = {
+      ...MODIFY_FRAME,
+      events: [{ k: "cancel", id: "0xa9a5", st: "post_only_refused" }],
+    };
+    expect(apply(frame, [resting()]).get("0xa9a5")!.status).toBe("post_only_refused");
+  });
+
   it("takes the life-to-date totals a terminal event reports", () => {
     const frame: WireOrdersFrame = {
       ...MODIFY_FRAME,

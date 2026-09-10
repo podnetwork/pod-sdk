@@ -9,7 +9,7 @@
 
 import type { Market, PerpPosition, PositionsSnapshot, Trigger } from "../types/public.js";
 import { div, imRate, mul } from "../codec/fixed.js";
-import { parseAmount, toNumber, WAD } from "../codec/units.js";
+import { alignSize, parseAmount, toNumber, WAD } from "../codec/units.js";
 
 export interface ReturnPriceInput {
   entryPrice: bigint; // 1e18
@@ -70,8 +70,11 @@ export interface OrderPreviewInput {
 }
 
 export interface OrderPreview {
-  /** Signed order size = notional / price (+ long, − short). */
+  /** Signed order size = notional / price, floored to `market.lotSize` (+ long, − short). */
   size: bigint;
+  /** What `size` is worth at `price` — at most one lot under the requested notional.
+   * Every money figure below derives from it, so preview and transaction agree. */
+  notional: bigint;
   /** Free cross margin = withdrawable cash. */
   availableMargin: bigint;
   /** Initial margin this order locks = notional · initial_margin_rate. */
@@ -95,28 +98,32 @@ export function previewOrder(
   // Perps use the market's initial-margin rate (1 / max_leverage).
   const im = market.type === "spot" ? WAD : imRate(market.maxLeverage);
   const availableMargin = snap.withdrawableCash;
-  const marginRequired = mul(input.notional, im);
+  // An inverse, so it stays on the requested basis: callers clamp the request with it.
   const maxNotional = im > 0n ? div(availableMargin, im) : 0n;
 
-  const magnitude = input.price > 0n ? div(input.notional, input.price) : 0n;
+  // Whole lots only, so the money below is priced off what is actually submitted.
+  const magnitude = alignSize(input.price > 0n ? div(input.notional, input.price) : 0n, market.lotSize);
   const size = input.side === "short" ? -magnitude : magnitude;
+  const notional = mul(magnitude, input.price);
+  const marginRequired = mul(notional, im);
 
   const currentPerpNotional = snap.positions.reduce(
     (acc, p) => (p.kind === "perp" ? acc + p.notional : acc),
     0n,
   );
   const impliedLeverage = snap.perpsEquity > 0n
-    ? toNumber(currentPerpNotional + input.notional) / toNumber(snap.perpsEquity)
+    ? toNumber(currentPerpNotional + notional) / toNumber(snap.perpsEquity)
     : 0;
 
   return {
     size,
+    notional,
     availableMargin,
     marginRequired,
     maxNotional,
     impliedLeverage,
     sufficientMargin: marginRequired <= availableMargin,
-    estimatedFee: mul(input.notional, input.orderType === "limit" ? market.makerFee : market.takerFee),
+    estimatedFee: mul(notional, input.orderType === "limit" ? market.makerFee : market.takerFee),
   };
 }
 

@@ -151,7 +151,8 @@ function applyEvent(
       order.rejectReason = event.why;
       return {};
     case "cancel":
-      order.status = "canceled";
+      // An engine removal states its own status (`post_only_refused`); an owner's omits it.
+      order.status = event.st ?? "canceled";
       applyTotals(event, order);
       return {};
     case "expire":

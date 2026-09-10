@@ -42,7 +42,8 @@ export * from "./types/public.js";
 
 // Codec helpers
 export {
-  formatAmount, formatPrice, decimalsForTick, toNumber, parseAmount, dec, WAD, WAD_DECIMALS,
+  formatAmount, formatPrice, decimalsForTick, alignSize, toNumber, parseAmount, dec,
+  WAD, WAD_DECIMALS,
 } from "./codec/units.js";
 export {
   RESOLUTION_SECONDS, RESOLUTION_PAGE_BUCKETS, RESOLUTIONS, isResolution,

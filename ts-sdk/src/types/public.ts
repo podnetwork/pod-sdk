@@ -20,7 +20,7 @@ export type OrderSide = "buy" | "sell";
 export type OrderType = "limit" | "market";
 export type OrderStatus =
   | "pending" | "active" | "filled" | "expired"
-  | "canceled" | "margin_canceled" | "invalid";
+  | "canceled" | "margin_canceled" | "invalid" | "post_only_refused";
 export type OrderKind =
   | "user_signed" | "liquidation" | "triggered" | "adl" | "adl_counterparty"
   /** A backstop transfer merged into the order feed as a synthetic terminal row. */
@@ -89,7 +89,7 @@ export type OrderEventKind =
  * covers the states a live order passes through — so a `switch` over this one can be
  * exhaustive.
  */
-export type TerminalStatus = Extract<OrderStatus, "filled" | "canceled" | "margin_canceled" | "expired">;
+export type TerminalStatus = Extract<OrderStatus, "filled" | "canceled" | "margin_canceled" | "expired" | "post_only_refused">;
 
 /** One fill, plus the status it closed the order with when it did. */
 export interface OrderEventFill extends PartialFill {
@@ -160,11 +160,15 @@ export interface TokenInfo {
 export interface Market {
   id: MarketId;
   name: string; // "BASE/QUOTE"
+  status: "active" | (string & {});
   type: MarketType;
   base: TokenInfo;
   quote: TokenInfo;
   tickPrecision: bigint;
+  /** Minimum size increment; sizes must be whole multiples (`size_off_lot`). */
   lotSize: bigint;
+  /** Floor on an order's notional, 0 when the market sets none. */
+  minNotional: bigint;
   maxLeverage: number;
   fundingWindowUs: number; // funding-accrual divisor (micros)
   makerFee: bigint;

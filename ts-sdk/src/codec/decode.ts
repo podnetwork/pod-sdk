@@ -13,7 +13,13 @@ import type {
   WirePerpPosition, WirePosition, WirePositionsSnapshot, WireSpotHolding, WireSpotPosition,
   WireStatus, WireTrigger, WireWithdrawal,
 } from "../types/wire.js";
-import { dec, decOpt, endMsFromUs, toNumber, usToMs, usToMsOpt } from "./units.js";
+import { dec, decOpt, endMsFromUs, parseAmount, toNumber, usToMs, usToMsOpt } from "./units.js";
+
+/** A wire *rate* — a human fraction like "0.000150" — into 1e18 scale. `parseAmount`,
+ * but tolerating an absent value like `dec` does: one bad fee must not take out the
+ * whole markets list. */
+const decRate = (value: string | null | undefined): bigint =>
+  value === null || value === undefined || value === "" ? 0n : parseAmount(value);
 
 export function decodeStatus(w: WireStatus): Status {
   return { solutionNow: usToMs(w.solution_now) };
@@ -24,15 +30,18 @@ export function decodeMarketStatic(w: WireMarketStatic): Market {
   return {
     id: w.id,
     name: w.name,
+    status: w.status,
     type: w.market_type,
     base: { address: w.base_token_address, symbol: w.base_token_symbol, name: w.base_token_name },
     quote: { address: w.quote_token_address, symbol: w.quote_token_symbol, name: w.quote_token_name },
     tickPrecision: dec(w.tick_precision),
     lotSize: dec(w.lot_size),
+    minNotional: dec(w.min_notional),
     maxLeverage: w.max_leverage,
     fundingWindowUs: w.funding_window_us,
-    makerFee: dec(w.maker_fee),
-    takerFee: dec(w.taker_fee),
+    // Sent as a human fraction ("0.000150"), not 1e18-scaled: `dec` truncates it to 0.
+    makerFee: decRate(w.maker_fee),
+    takerFee: decRate(w.taker_fee),
     auctionIntervalMs: usToMs(w.auction_interval_us),
   };
 }

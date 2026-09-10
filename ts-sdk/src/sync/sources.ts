@@ -52,7 +52,8 @@ export interface MarketsCache {
 // Static-list serialization for MarketsCache. Version is embedded in the
 // payload: a mismatch after an SDK format change just falls back to a cold
 // start. bigints round-trip as "<digits>n" strings.
-const MARKETS_CACHE_VERSION = 1;
+// 2: `status`/`minNotional` became required and the fees stopped decoding to 0.
+const MARKETS_CACHE_VERSION = 2;
 const serializeMarkets = (markets: Market[]): string =>
   JSON.stringify({ v: MARKETS_CACHE_VERSION, markets }, (_k, v: unknown) => (typeof v === "bigint" ? `${v}n` : v));
 const parseCachedMarkets = (raw: string | null): Market[] | undefined => {
