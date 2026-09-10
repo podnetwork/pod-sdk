@@ -125,8 +125,8 @@ paths:
                     high_24h: "0x1158e460913d00000"
                     low_24h: "0x6f05b59d3b200000"
                     price_change_24h: 0
-                    maker_fee: "0x0"
-                    taker_fee: "0x0"
+                    maker_fee: "0.000150"
+                    taker_fee: "0.000450"
                     tick_precision: "0x1"
                     lot_size: "0x1"
                     max_leverage: 1
@@ -151,8 +151,8 @@ paths:
                     high_24h: "0x0"
                     low_24h: "0x0"
                     price_change_24h: 0
-                    maker_fee: "0x0"
-                    taker_fee: "0x0"
+                    maker_fee: "0.000150"
+                    taker_fee: "0.000450"
                     tick_precision: "0x1"
                     lot_size: "0x1"
                     max_leverage: 20
@@ -2835,11 +2835,13 @@ components:
           $ref: '#/components/schemas/HexUint256'
           description: Minimum order size increment, hex-encoded with `1e18` scale. Order sizes must be multiples of this value.
         maker_fee:
-          $ref: '#/components/schemas/HexUint256'
-          description: Maker fee rate (1e18-scaled)
+          type: string
+          description: Maker fee rate, a decimal fraction of the quote amount; `"0.010000"` is 1%.
+          example: "0.000150"
         taker_fee:
-          $ref: '#/components/schemas/HexUint256'
-          description: Taker fee rate (1e18-scaled)
+          type: string
+          description: Taker fee rate, a decimal fraction of the quote amount; `"0.010000"` is 1%.
+          example: "0.000450"
         max_leverage:
           type: integer
           description: Maximum allowed leverage. Returned for both spot and perp markets, but only meaningful for perp.
