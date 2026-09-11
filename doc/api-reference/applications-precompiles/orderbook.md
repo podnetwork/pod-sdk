@@ -136,7 +136,26 @@ All three mean **nothing moved on either side**. The nonce is spent either way, 
 
 `delegated` lets a **delegate** key perform an orderbook call on behalf of a **master** account. The transaction is signed by the delegate; `signature` is the master's 65-byte `r ‖ s ‖ v` EIP-712 signature over `DelegationAuth { delegate, validUntil }` (domain `{ name: "pod delegation", version: "1", chainId }`), where `delegate` must equal the transaction's signer, and `inner` is the full ABI-encoded calldata of the wrapped call, including its 4-byte selector. The certificate is verified statelessly on every transaction — no registration, no on-chain state — and the intent is accepted only while `validUntil >= deadline` of the inner call (both in microseconds).
 
-The inner intent is **owned by the master** (balances, resting-order owner, cancel/update target) while its `order_id` keys on the delegate (the tx signer). Any deadline-bearing call can be wrapped — single intents or a whole `submitBatch` — but `submitSolutions`, the market-lifecycle calls (`createMarket`, `disableMarket`, `settleMarket`), and nested `delegated` are rejected, and so is `transfer`, both directly and inside a wrapped `submitBatch` (see [Transfers between accounts](#transfers-between-accounts)). Delegated calls are gas-exempt. For the concept and security model see [Key Delegation](../../protocol/key-delegation.md) in the protocol reference; for a worked example see [Delegate a trading key](../guides/delegate-a-trading-key.md).
+The inner intent is **owned by the master** (balances, resting-order owner, cancel/update target) while its `order_id` keys on the delegate (the tx signer). Any deadline-bearing call can be wrapped — single intents or a whole `submitBatch` — but `submitSolutions`, the market-lifecycle calls (`createMarket`, `disableMarket`, `settleMarket`, `updateMarketOracle`), and nested `delegated` are rejected, and so is `transfer`, both directly and inside a wrapped `submitBatch` (see [Transfers between accounts](#transfers-between-accounts)). Delegated calls are gas-exempt. For the concept and security model see [Key Delegation](../../protocol/key-delegation.md) in the protocol reference; for a worked example see [Delegate a trading key](../guides/delegate-a-trading-key.md).
+
+### Market lifecycle
+
+Markets are created, halted, settled and re-pointed at their price feeds with four **admin-only** calls on this precompile. `createMarket` may be sent by any address on the network's market-admin allowlist and makes the signer the market's **owner**; the other three are accepted only from that owner. All four carry a `deadline` like every other intent, ride the solver's solutions, and are applied inside a batch, so every node moves the market through the same states at the same tick.
+
+| Call | Effect |
+| --- | --- |
+| `createMarket(params, deadline, liveAt)` | Mints a market from a self-describing `MarketParams`. The orderbook id is **assigned by the protocol** (a counter) and returned as `bytes32`; nothing lets the caller pick it. The market is born `pending` at `deadline` and goes `active` at the first batch at or after `liveAt` that has seen an oracle price (spot markets flip unconditionally). |
+| `disableMarket(orderbookId, deadline, disableAt)` | Schedules a halt. `disableAt` must be tick-aligned and at least the network's minimum notice past `deadline`. Until it, the book trades normally so users can exit; from that tick the market is `disabled` and **every** intent on it is refused. Resting orders and positions stay where they are, and the oracle price of the halt tick is captured as the settlement price. |
+| `settleMarket(orderbookId, deadline)` | Closes a `disabled` market: every resting order is refunded and every position closed at the captured settlement price. The market stays listed as `settled` for history. Disable to settle is one-way; a "revived" market is a new `createMarket`. |
+| `updateMarketOracle(orderbookId, deadline, oracleSpec, midSources)` | Rebinds the feeds of an `active` or `pending` market without touching orders or positions. `oracleSpec` is the comma-separated `<source>/<asset>` list with the first entry primary; empty is legal only for spot. A perp created against a feed that never served a price stays `pending` until this call points it at one. |
+
+`ob_getMarkets` reports every market with its lifecycle `status` (`pending`, `active`, `disabled`, `settled`) plus `live_at`, `disable_at` and `settlement_price` when they apply, so a client can hide a halted book or warn users during a notice window.
+
+{% hint style="warning" %}
+**Intents due after a scheduled halt are refused up front.** Once `disable_at` is set, any order, cancel or update on that book whose `deadline` lies past the halt is rejected at submission with `market disables at …: an intent with deadline … could never execute`. Bots that stamp long deadlines should shorten them, or drop the book, as soon as `disable_at` appears, and a `submitBatch` that spans several books fails as a whole when one sub-intent trips this rule.
+{% endhint %}
+
+The lifecycle calls cannot be wrapped in `delegated` or carried inside `submitBatch`, and they pay flat gas with no exemption.
 
 ### Solidity interface (ABI)
 
@@ -389,6 +408,86 @@ contract Orderbook {
      */
     function submitBatch(bytes[] calldata inner) public {}
 
+    // --- Market lifecycle (admin-only; see "Market lifecycle" above) ---
+
+    /**
+     * @notice Full self-describing market definition for `createMarket`. The
+     *         perp-only fields are ignored for `MarketType.Spot`.
+     * @dev `oracleSpec` is the comma-separated `"<source>/<asset>"` list with the
+     *      first entry primary; required for `Perp`, empty for `Spot`.
+     *      `midSources` are external mid-price feeds and may be empty. Durations
+     *      are microseconds; amounts and prices are 1e18-scaled.
+     */
+    struct MarketParams {
+        address baseToken;
+        address quoteToken;
+        string baseSymbol;
+        string quoteSymbol;
+        string baseName;
+        string quoteName;
+        MarketType marketType;
+        uint256 tickPrecision;
+        uint256 lotSize;
+        uint256 minNotional;
+        uint256 maxPrice;
+        uint256 maxPositionSize;
+        string oracleSpec;
+        string[] midSources;
+        // -- perp-only --
+        uint32 maxLeverage;
+        int32 interestRate;
+        uint32 maxFundingRate;
+        uint32 maxPremium;
+        uint32 markPriceClamp;
+        uint64 fundingWindowMicros;
+        uint64 emaWindowMicros;
+        uint256 impactNotional;
+    }
+
+    /**
+     * @notice Creates a market owned by the signer, who must be a market admin.
+     * @dev The orderbook id is protocol-assigned and returned; it is never chosen
+     *      by the caller. `deadline` is the inclusion batch (microseconds) that
+     *      creates the market in `pending` status; `liveAt` (>= `deadline`,
+     *      tick-aligned) is the batch from which it may go `active` — at the
+     *      first executed batch at/after it that has seen an oracle price, or
+     *      unconditionally for a spot market.
+     */
+    function createMarket(
+        MarketParams calldata params,
+        uint128 deadline,
+        uint128 liveAt
+    ) public returns (bytes32) {}
+
+    /**
+     * @notice Schedules a halt of `orderbookId`. Owner-only.
+     * @dev `disableAt` must be tick-aligned and at least the network's minimum
+     *      notice past `deadline`. The book trades normally until the halt; from
+     *      that batch every intent on it is refused and the oracle price is
+     *      captured as the settlement price.
+     */
+    function disableMarket(bytes32 orderbookId, uint128 deadline, uint128 disableAt) public {}
+
+    /**
+     * @notice Settles a `disabled` market: refunds every resting order and closes
+     *         every position at the captured settlement price. Owner-only.
+     */
+    function settleMarket(bytes32 orderbookId, uint128 deadline) public {}
+
+    /**
+     * @notice Rebinds the oracle feeds of an `active` or `pending` market.
+     *         Owner-only.
+     * @dev `oracleSpec` is the comma-separated `"<source>/<asset>"` list, first
+     *      entry primary; empty is legal only for a spot market, a perp must keep
+     *      one. Orders, positions and the mark price are untouched.
+     */
+    function updateMarketOracle(
+        bytes32 orderbookId,
+        uint128 deadline,
+        string calldata oracleSpec,
+        string[] calldata midSources
+    ) public {}
+
     // --- Delegation envelope ---
 
     /**
@@ -402,8 +501,9 @@ contract Orderbook {
      *      - `validUntil` must be >= the inner call's `deadline` (both microseconds).
      *      - `inner` must be a deadline-bearing call — a single intent or a
      *        `submitBatch`. `submitSolutions`, the market-lifecycle calls
-     *        (`createMarket`, `disableMarket`, `settleMarket`), and nested
-     *        `delegated` are rejected; view functions cannot be wrapped.
+     *        (`createMarket`, `disableMarket`, `settleMarket`,
+     *        `updateMarketOracle`), and nested `delegated` are rejected; view
+     *        functions cannot be wrapped.
      *      - `transfer` is rejected, both as `inner` and inside a wrapped
      *        `submitBatch`: a delegate must not be able to name the recipient.
      *      The inner intent is owned by `master` (balances, resting-order owner,

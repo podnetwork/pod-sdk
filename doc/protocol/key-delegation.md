@@ -43,7 +43,7 @@ Because `order_id` is derived from the delegate rather than the master, two dele
 | `submitTrigger`, `cancelTrigger`, `updateTrigger` | ✅ | same |
 | `submitBatch` | ✅ | every sub-intent is owned by the master; the certificate must cover the batch's `deadline` |
 | `transfer` | ❌ | rejected as the inner call **and** inside a wrapped `submitBatch` |
-| `submitSolutions`, `createMarket`, `disableMarket`, `settleMarket`, nested `delegated` | ❌ | rejected at validation |
+| `submitSolutions`, `createMarket`, `disableMarket`, `settleMarket`, `updateMarketOracle`, nested `delegated` | ❌ | rejected at validation |
 
 The set of delegatable calls is fixed by the protocol — a delegation certificate cannot narrow it further. Scope a delegation in time instead, with a short `validUntil`.
 

@@ -2787,6 +2787,27 @@ components:
           type: string
           description: Market name in format `{base_token}/{quote_token}` (e.g. "NVDAx/USD")
           example: "NVDAx/USD"
+        status:
+          type: string
+          enum: [pending, active, disabled, settled]
+          description: |
+            Lifecycle status. `pending`: created, not yet trading (waiting for `live_at`
+            and, for perps, a first oracle price). `active`: trading. `disabled`: halted
+            at `disable_at`; every intent is refused, orders and positions stay put.
+            `settled`: orders refunded and positions closed at `settlement_price`; kept
+            for history.
+          example: "active"
+        live_at:
+          type: integer
+          format: int64
+          description: Batch deadline (microseconds) from which a `pending` market may go `active`. Absent for markets that were live from genesis.
+        disable_at:
+          type: integer
+          format: int64
+          description: Batch deadline (microseconds) of a scheduled halt. Present from the moment the `disableMarket` intent applies, i.e. throughout the notice window.
+        settlement_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Price every position was (or will be) closed at, 1e18-scaled. Present once the market is `disabled`.
         base_token_address: 
           $ref: '#/components/schemas/Address'
           description: Contract address of the base token
