@@ -1,0 +1,46 @@
+name: Fuzz
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fuzz-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      # Pinned nightly (matches the version the fuzz suite was developed
+      # against) so upstream nightly breakage can't fail CI.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-12-04
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: types/fuzz
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install cargo-fuzz
+        run: cargo binstall --no-confirm cargo-fuzz
+
+      - name: Build fuzz targets
+        run: cargo fuzz build
+        working-directory: types
+
+      # Short smoke run per target: catches regressions on shallow inputs.
+      # Longer exploratory runs are meant to be done locally (see fuzz/README.md).
+      - name: Smoke-run fuzz targets
+        working-directory: types
+        run: |
+          for target in $(cargo fuzz list); do
+            echo "::group::${target}"
+            cargo fuzz run "$target" -- -max_total_time=15
+            echo "::endgroup::"
+          done
