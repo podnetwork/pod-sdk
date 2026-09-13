@@ -1063,6 +1063,12 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidAdverserialResilience.selector));
         // forge-lint: disable-next-line(unsafe-typecast)
         _bridge.updateValidatorConfig(uint64(NUMBER_OF_VALIDATORS + 1), 1, bytes32(0), addValidators, removeValidators);
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidAdverserialResilience.selector));
+        // f == n is also invalid (required certificate weight would be 0)
+        // forge-lint: disable-next-line(unsafe-typecast)
+        _bridge.updateValidatorConfig(uint64(NUMBER_OF_VALIDATORS), 1, bytes32(0), addValidators, removeValidators);
     }
 
     function test_ComputeTxWeight_RevertIfSignatureOrderInvalid() public {
@@ -1807,14 +1813,15 @@ contract BridgeUpdateValidatorSetTest is Test {
         add[1] = validator2;
         harness.exposed_updateValidatorSet(add, new address[](0), 1);
 
-        // Then remove one
+        // Then remove one (resilience must stay strictly below the new count)
         address[] memory remove = new address[](1);
         remove[0] = validator1;
-        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+        harness.exposed_updateValidatorSet(new address[](0), remove, 0);
 
         assertFalse(harness.activeValidators(validator1));
         assertTrue(harness.activeValidators(validator2));
         assertEq(harness.validatorCount(), 1);
+        assertEq(harness.adversarialResilience(), 0);
     }
 
     function test_UpdateValidatorSet_AddsAndRemovesAtomically() public {
@@ -1849,11 +1856,11 @@ contract BridgeUpdateValidatorSetTest is Test {
         // First add a validator
         address[] memory add = new address[](1);
         add[0] = validator1;
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
 
         // Try to add the same validator again
         vm.expectRevert(Bridge.DuplicateValidator.selector);
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
     }
 
     function test_UpdateValidatorSet_RevertIfValidatorDoesNotExist() public {
@@ -1872,29 +1879,44 @@ contract BridgeUpdateValidatorSetTest is Test {
         harness.exposed_updateValidatorSet(add, new address[](0), 2);
     }
 
+    function test_UpdateValidatorSet_RevertIfResilienceEqualsValidatorCount() public {
+        address[] memory add = new address[](1);
+        add[0] = validator1;
+
+        // f == n makes required certificate weight 0 (empty proofs would be accepted)
+        vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
+        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+    }
+
+    function test_UpdateValidatorSet_RevertIfEmptyValidatorSet() public {
+        // n == 0 also yields required weight 0; reject even with f == 0
+        vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
+        harness.exposed_updateValidatorSet(new address[](0), new address[](0), 0);
+    }
+
     function test_UpdateValidatorSet_ResilienceCheckedAfterCountUpdate() public {
-        // Add 3 validators with resilience 3
+        // Add 3 validators with resilience 2 (strictly below count)
         address[] memory add = new address[](3);
         add[0] = validator1;
         add[1] = validator2;
         add[2] = validator3;
-        harness.exposed_updateValidatorSet(add, new address[](0), 3);
+        harness.exposed_updateValidatorSet(add, new address[](0), 2);
 
         assertEq(harness.validatorCount(), 3);
-        assertEq(harness.adversarialResilience(), 3);
+        assertEq(harness.adversarialResilience(), 2);
 
-        // Remove one validator - resilience must be reduced too
+        // Remove one validator - resilience must stay strictly below the new count
         address[] memory remove = new address[](1);
         remove[0] = validator1;
 
-        // This should fail because new count would be 2 but resilience 3
+        // This should fail because new count would be 2 but resilience 2 (f == n)
         vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
-        harness.exposed_updateValidatorSet(new address[](0), remove, 3);
+        harness.exposed_updateValidatorSet(new address[](0), remove, 2);
 
         // This should succeed with reduced resilience
-        harness.exposed_updateValidatorSet(new address[](0), remove, 2);
+        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
         assertEq(harness.validatorCount(), 2);
-        assertEq(harness.adversarialResilience(), 2);
+        assertEq(harness.adversarialResilience(), 1);
     }
 
     function test_UpdateValidatorSet_EmitsEvents() public {
@@ -1903,7 +1925,7 @@ contract BridgeUpdateValidatorSetTest is Test {
 
         vm.expectEmit(true, false, false, false);
         emit Bridge.ValidatorAdded(validator1);
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
 
         address[] memory remove = new address[](1);
         remove[0] = validator1;
@@ -1914,7 +1936,7 @@ contract BridgeUpdateValidatorSetTest is Test {
         emit Bridge.ValidatorRemoved(validator1);
         vm.expectEmit(true, false, false, false);
         emit Bridge.ValidatorAdded(validator2);
-        harness.exposed_updateValidatorSet(addNew, remove, 1);
+        harness.exposed_updateValidatorSet(addNew, remove, 0);
     }
 
     // ========== Property Tests (Fuzz) ==========
@@ -1930,8 +1952,9 @@ contract BridgeUpdateValidatorSetTest is Test {
             add[i] = address(uint160(i + 1));
         }
 
-        // Add validators
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        // Add validators (f must stay strictly below n)
+        uint64 addResilience = numAdd > 1 ? 1 : 0;
+        harness.exposed_updateValidatorSet(add, new address[](0), addResilience);
         assertEq(harness.validatorCount(), numAdd);
 
         // Remove some validators
@@ -1941,11 +1964,12 @@ contract BridgeUpdateValidatorSetTest is Test {
         }
 
         uint64 expectedCount = uint64(numAdd - numRemove);
-        uint64 newResilience = expectedCount > 0 ? 1 : 0;
+        // f must stay strictly below n (and empty sets are always rejected)
+        uint64 newResilience = expectedCount > 1 ? 1 : 0;
 
         if (expectedCount == 0) {
             vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
-            harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+            harness.exposed_updateValidatorSet(new address[](0), remove, 0);
         } else {
             harness.exposed_updateValidatorSet(new address[](0), remove, newResilience);
             assertEq(harness.validatorCount(), expectedCount);
@@ -1960,14 +1984,14 @@ contract BridgeUpdateValidatorSetTest is Test {
             add[i] = address(uint160(i + 1));
         }
 
-        // Test invalid resilience values
-        if (resilience > numValidators) {
+        // Test invalid resilience values (must be strictly less than count)
+        if (resilience >= numValidators) {
             vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
             harness.exposed_updateValidatorSet(add, new address[](0), resilience);
         } else {
             harness.exposed_updateValidatorSet(add, new address[](0), resilience);
-            // Invariant: resilience <= validatorCount
-            assertLe(harness.adversarialResilience(), harness.validatorCount());
+            // Invariant: resilience < validatorCount (required weight >= 1)
+            assertLt(harness.adversarialResilience(), harness.validatorCount());
         }
     }
 
@@ -1979,7 +2003,9 @@ contract BridgeUpdateValidatorSetTest is Test {
             add[i] = address(uint160(i + 1));
         }
 
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        // f must stay strictly below n
+        uint64 resilience = numValidators > 1 ? 1 : 0;
+        harness.exposed_updateValidatorSet(add, new address[](0), resilience);
 
         // All added validators should be active
         for (uint256 i = 0; i < numValidators; i++) {
@@ -2003,7 +2029,9 @@ contract BridgeUpdateValidatorSetTest is Test {
             remove[i] = add[i];
         }
 
-        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+        uint64 remaining = uint64(numAdd - numRemove);
+        uint64 newResilience = remaining > 1 ? 1 : 0;
+        harness.exposed_updateValidatorSet(new address[](0), remove, newResilience);
 
         // All removed validators should be inactive
         for (uint256 i = 0; i < numRemove; i++) {
@@ -2021,7 +2049,7 @@ contract BridgeUpdateValidatorSetTest is Test {
         // Add validator
         address[] memory add = new address[](1);
         add[0] = validator;
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
 
         assertTrue(harness.activeValidators(validator));
         assertEq(harness.validatorCount(), 1);
@@ -2030,12 +2058,12 @@ contract BridgeUpdateValidatorSetTest is Test {
         address other = address(uint160(uint256(keccak256(abi.encode(validator)))));
         vm.assume(other != address(0) && other != validator);
         add[0] = other;
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
 
         // Remove original validator
         address[] memory remove = new address[](1);
         remove[0] = validator;
-        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+        harness.exposed_updateValidatorSet(new address[](0), remove, 0);
 
         assertFalse(harness.activeValidators(validator));
         assertTrue(harness.activeValidators(other));
@@ -2052,12 +2080,13 @@ contract BridgeUpdateValidatorSetTest is Test {
         // Need at least one validator remaining or being added
         vm.assume(numInitial - numRemove + numAdd > 0);
 
-        // Setup initial validators
+        // Setup initial validators (f must be < n)
         address[] memory initial = new address[](numInitial);
         for (uint256 i = 0; i < numInitial; i++) {
             initial[i] = address(uint160(i + 1));
         }
-        harness.exposed_updateValidatorSet(initial, new address[](0), 1);
+        uint64 initialResilience = numInitial > 1 ? 1 : 0;
+        harness.exposed_updateValidatorSet(initial, new address[](0), initialResilience);
 
         // Prepare adds and removes
         address[] memory toRemove = new address[](numRemove);
@@ -2071,7 +2100,8 @@ contract BridgeUpdateValidatorSetTest is Test {
         }
 
         uint64 expectedCount = uint64(numInitial - numRemove + numAdd);
-        harness.exposed_updateValidatorSet(toAdd, toRemove, 1);
+        uint64 newResilience = expectedCount > 1 ? 1 : 0;
+        harness.exposed_updateValidatorSet(toAdd, toRemove, newResilience);
 
         assertEq(harness.validatorCount(), expectedCount);
 
@@ -2109,7 +2139,7 @@ contract BridgeUpdateValidatorSetTest is Test {
 
         address[] memory add = new address[](1);
         add[0] = validator;
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
 
         // Try to add same validator in same array
         address[] memory addDuplicate = new address[](2);
@@ -2118,7 +2148,7 @@ contract BridgeUpdateValidatorSetTest is Test {
         addDuplicate[1] = validator; // Already exists
 
         vm.expectRevert(Bridge.DuplicateValidator.selector);
-        harness.exposed_updateValidatorSet(addDuplicate, new address[](0), 1);
+        harness.exposed_updateValidatorSet(addDuplicate, new address[](0), 0);
     }
 }
 

@@ -55,7 +55,7 @@ make generate
 **Bridge.sol** — Upgradeable cross-chain token bridge (TransparentUpgradeableProxy + AccessControlUpgradeable). Key concepts:
 - **Deposits**: Three types — simple `deposit()`, `depositAndCall()` (with contract call on destination), and `batchDepositAndCall()` (relayer-only bulk operation). Each deposit gets a sequential `depositIndex`.
 - **Claims**: Two proof types, determined by the first byte of the proof parameter:
-  - **Certificate (0x00)**: Aggregated validator signatures verified against current `domainSeparator`. Requires weight ≥ `validatorCount - adversarialResilience`.
+  - **Certificate (0x00)**: Aggregated validator signatures verified against current `domainSeparator`. Requires weight ≥ `validatorCount - adversarialResilience`, with `adversarialResilience < validatorCount` enforced so the threshold is always at least 1.
   - **Merkle (0x01)**: Merkle inclusion proof for claims from previous versions, verified against a stored `merkleRoot`.
 - **Contract states**: `Public`, `Private`, `Paused`, `Migrated`.
 - **Daily limits**: Per-token deposit and claim limits with boundary-aware reset logic (handles transactions spanning period boundaries without losing capacity).
