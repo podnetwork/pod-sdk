@@ -35,6 +35,7 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
   let fundingSnapTotal = 0n; // Σ funding accrued in the snapshot
   let im = 0n; // Σ initial-margin requirement at live notional
   let mm = 0n; // Σ maintenance-margin requirement at live notional
+  let openNotional = 0n; // Σ |size|·mark across perps (total open notional)
   let dSpot = 0n; // change in spot mark value vs snapshot (slope = balance)
 
   const positions: Position[] = snap.positions.map((p) => {
@@ -51,6 +52,7 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
       const imr = imRate(market?.maxLeverage ?? 0);
       im += mul(sizeQuote, imr);
       mm += mul(sizeQuote, imr / 2n);
+      openNotional += sizeQuote;
       priceUpnl += upnl;
       priceUpnlSnap += p.unrealizedPnl;
 
@@ -82,9 +84,12 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
   const cashWithFunding = nativeCash - fundingLiveTotal;
 
   // EXACT (perp-only, integer-faithful): equity = cash_with_funding + Σ price PnL;
-  // withdrawable = max(0, equity - Σ IM), forced to 0 below maintenance margin.
+  // withdrawable = max(0, equity - margin floor), forced to 0 below maintenance
+  // margin. The margin deduction is floored at 10% of total open notional, so it
+  // is max(Σ IM, open_notional / 10) — dividing by 10 is 10% on WAD-scaled ints.
   const perpsEquity = cashWithFunding + priceUpnl;
-  const withdrawableCash = perpsEquity < mm ? 0n : maxB(0n, perpsEquity - im);
+  const marginFloor = maxB(im, openNotional / 10n);
+  const withdrawableCash = perpsEquity < mm ? 0n : maxB(0n, perpsEquity - marginFloor);
 
   // account_value moves with perp equity (incl. funding) AND spot mark; total
   // uPnL is pure price drift only (funding is reported separately). Re-baseline
