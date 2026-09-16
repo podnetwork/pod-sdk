@@ -321,6 +321,7 @@ export interface PositionsSnapshot {
   accountValue: bigint;
   cash: bigint;
   withdrawableCash: bigint;
+  maintenanceMargin?: bigint;
 }
 
 export interface Trigger {
