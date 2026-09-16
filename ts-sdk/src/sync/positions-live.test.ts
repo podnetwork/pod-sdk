@@ -77,6 +77,23 @@ describe("enrichPositions withdrawable floor", () => {
     expect(out.perpsEquity).toBe(500n * WAD);
     expect(out.withdrawableCash).toBe(300n * WAD);
   });
+
+  it("rounds the 10%-of-notional floor UP when notional is not divisible by 10", () => {
+    // Mark carries a 7-wei tail, so open notional = 100·1e18 + 7, which is not
+    // divisible by 10. mark == entry → zero price uPnL. IM (5% = ~5·1e18) is well
+    // under the 10% term (~10·1e18), so the ratio floor binds. It must round UP:
+    // ceil((100·1e18 + 7) / 10) locks 1 wei more than truncation would, so
+    // withdrawable is exactly 1 wei below the round 490·1e18. A max-withdraw at the
+    // boundary is then admitted by the venue rather than rejected.
+    const ODD = 100n * WAD + 7n;
+    const out = enrichPositions(
+      snap([perp(1n * WAD, { entryPrice: ODD })], 500n * WAD),
+      [market({ markPrice: ODD, maxLeverage: 20 })],
+    );
+
+    expect(out.perpsEquity).toBe(500n * WAD);
+    expect(out.withdrawableCash).toBe(490n * WAD - 1n);
+  });
 });
 
 describe("enrichPositions maintenanceMargin", () => {

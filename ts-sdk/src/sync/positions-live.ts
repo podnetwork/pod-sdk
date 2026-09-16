@@ -86,9 +86,13 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
   // EXACT (perp-only, integer-faithful): equity = cash_with_funding + Σ price PnL;
   // withdrawable = max(0, equity - margin floor), forced to 0 below maintenance
   // margin. The margin deduction is floored at 10% of total open notional, so it
-  // is max(Σ IM, open_notional / 10) — dividing by 10 is 10% on WAD-scaled ints.
+  // is max(Σ IM, ceil(open_notional / 10)). The 10%-of-notional term ROUNDS UP: it
+  // is a requirement against the holder, so a fractional wei is met, not forgiven —
+  // matching how the venue computes the same floor. Truncating would over-report
+  // withdrawable by up to 1 wei, so a max-withdraw at the boundary gets rejected.
+  // (openNotional + 9) / 10 is ceil(openNotional / 10) for the non-negative sum.
   const perpsEquity = cashWithFunding + priceUpnl;
-  const marginFloor = maxB(im, openNotional / 10n);
+  const marginFloor = maxB(im, (openNotional + 9n) / 10n);
   const withdrawableCash = perpsEquity < mm ? 0n : maxB(0n, perpsEquity - marginFloor);
 
   // account_value moves with perp equity (incl. funding) AND spot mark; total
