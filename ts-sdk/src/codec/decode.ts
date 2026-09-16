@@ -38,6 +38,7 @@ export function decodeMarketStatic(w: WireMarketStatic): Market {
     lotSize: dec(w.lot_size),
     minNotional: dec(w.min_notional),
     maxLeverage: w.max_leverage,
+    maintenanceLeverage: w.maintenance_leverage ?? undefined,
     fundingWindowUs: w.funding_window_us,
     // Sent as a human fraction ("0.000150"), not 1e18-scaled: `dec` truncates it to 0.
     makerFee: decRate(w.maker_fee),

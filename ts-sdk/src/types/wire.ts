@@ -30,6 +30,11 @@ export interface WireMarketStatic {
   lot_size: WireDecimal; // 1e18-scaled size increment
   min_notional: WireDecimal; // 1e18-scaled notional floor ("0" = none)
   max_leverage: number;
+  /**
+   * Maintenance leverage multiplier, same convention as max_leverage
+   * (maintenance margin = 1e18 / value). Absent on older nodes.
+   */
+  maintenance_leverage?: number | null;
   funding_window_us: number; // funding-accrual divisor (micros)
 }
 
