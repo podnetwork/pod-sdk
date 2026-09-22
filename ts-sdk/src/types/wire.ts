@@ -30,6 +30,9 @@ export interface WireMarketStatic {
   lot_size: WireDecimal; // 1e18-scaled size increment
   min_notional: WireDecimal; // 1e18-scaled notional floor ("0" = none)
   max_leverage: number;
+  /** Initial-margin rate as the engine charges it (maintenance is half of
+   * it); absent on older nodes. */
+  initial_margin?: WireDecimal;
   funding_window_us: number; // funding-accrual divisor (micros)
 }
 
@@ -44,6 +47,10 @@ export interface WireMarketDynamics {
   mark_price?: WireDecimal | null;
   funding_rate?: WireDecimal | null;
   funding_index?: WireDecimal | null;
+  /** The index positions settle against; pairs with a position's
+   * `funding_basis`. Absent on older nodes, and until the market's first perp
+   * batch after a node start. */
+  funding_settling_index?: WireDecimal | null;
   funding_last_updated_us?: number | null;
   open_interest?: WireDecimal | null;
 }
@@ -172,6 +179,10 @@ export interface WirePerpPosition {
   margin: WireDecimal;
   leverage: WireDecimal;
   funding_accrued: WireDecimal;
+  /** `Σ settling_index × Δsize`; absent on older nodes. */
+  funding_basis?: WireDecimal;
+  /** `Σ clearing × Δsize`; absent on older nodes. */
+  cost_basis?: WireDecimal;
   entry_funding: WireDecimal;
   liquidation_price: WireDecimal;
   unrealized_pnl: WireDecimal;
