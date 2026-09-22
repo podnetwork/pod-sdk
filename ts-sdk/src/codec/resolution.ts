@@ -40,3 +40,12 @@ export const RESOLUTIONS = Object.keys(RESOLUTION_SECONDS) as Resolution[];
 export function isResolution(x: string): x is Resolution {
   return x in RESOLUTION_SECONDS;
 }
+
+/** The node spells the weekly resolution `1w`; the SDK keeps TradingView's `1W`. */
+export function wireResolution(r: Resolution): string {
+  return r === "1W" ? "1w" : r;
+}
+
+export function sdkResolution(wire: string): Resolution {
+  return (wire === "1w" ? "1W" : wire) as Resolution;
+}

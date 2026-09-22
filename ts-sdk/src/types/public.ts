@@ -170,9 +170,6 @@ export interface Market {
   /** Floor on an order's notional, 0 when the market sets none. */
   minNotional: bigint;
   maxLeverage: number;
-  /** Initial-margin rate as the engine charges it, maintenance being half of
-   * it; `maxLeverage` is rounded to an integer, this is not. */
-  initialMargin?: bigint;
   fundingWindowUs: number; // funding-accrual divisor (micros)
   makerFee: bigint;
   takerFee: bigint;
@@ -188,10 +185,6 @@ export interface Market {
   markPrice?: bigint;
   fundingRate?: bigint;
   fundingIndex?: bigint;
-  /** The index positions settle against: `mul(fundingSettlingIndex, size) −
-   * fundingBasis` is a position's accrual. `fundingIndex` is a different
-   * base and cannot stand in for it. */
-  fundingSettlingIndex?: bigint;
   fundingLastUpdatedMs?: number;
   openInterest?: bigint;
 }
@@ -313,12 +306,7 @@ export interface PerpPosition {
   margin: bigint;
   leverage: number;
   fundingAccrued: bigint;
-  /** `Σ settlingIndex × Δsize`; absent on older nodes. */
-  fundingBasis?: bigint;
-  /** `Σ clearing × Δsize`; absent on older nodes. */
-  costBasis?: bigint;
-  /** Funding accumulator at entry, on `fundingIndex`'s base. Truncating, so
-   * estimates from it are within a grid step × size. */
+  /** Funding accumulator at entry; with the live fundingIndex + fundingWindowUs, recompute fundingAccrued. */
   entryFunding: bigint;
   liquidationPrice: bigint;
   unrealizedPnl: bigint;
@@ -576,4 +564,65 @@ export interface WithdrawalsQuery {
   sinceId?: Hash;
   /** Server default 500, capped at 1000. */
   limit?: number;
+}
+
+/** `GET /clob/pnl-history/{account}` (ADR 0054). `from`/`to` in ms, half-open
+ * `[from, to)`; `to` defaults to solution time, `from` to 500 steps before it. */
+export interface PnlQuery {
+  resolution: Resolution;
+  from?: number;
+  to?: number;
+}
+
+/** The account's banked PnL, perp and spot together, after the batch at `timeUs`. */
+export interface PnlRealizedRow {
+  timeUs: number;
+  realized: bigint;
+}
+
+/** A leg or holding after the batch at `timeUs`. A holding carries its
+ * quantity as `size`, its cost as `costBasis` and a zero `fundingBasis`. */
+export interface PnlPositionRow {
+  timeUs: number;
+  size: bigint;
+  costBasis: bigint;
+  fundingBasis: bigint;
+}
+
+export interface PnlTick {
+  timeUs: number;
+  markPrice: bigint;
+  clearingPrice?: bigint;
+  fundingIndex?: bigint;
+}
+
+export interface PnlMarketHistoricalData {
+  orderbookId: MarketId;
+  marketType: "perp" | "spot";
+  fundingWindowUs: number;
+  fundingGrid?: bigint;
+  positions: PnlPositionRow[];
+  ticks: PnlTick[];
+}
+
+/** The graph's historical data: everything `pnlSeries` needs for the grid `[fromUs, toUs)` at `stepUs`:
+ * for each grid point the newest row at or before it, per stream, without
+ * repeats. Timestamps stay in microseconds so the fold matches the node. */
+export interface PnlHistoricalData {
+  fromUs: number;
+  toUs: number;
+  stepUs: number;
+  solutionNowUs: number;
+  realized: PnlRealizedRow[];
+  markets: PnlMarketHistoricalData[];
+}
+
+/** One point of the PnL graph, 1e18-scaled. `funding` is owed (positive when
+ * the legs pay), as `fundingAccrued` is, and `pnl = realized + unrealized - funding`. */
+export interface PnlPoint {
+  time: number;
+  realized: bigint;
+  unrealized: bigint;
+  funding: bigint;
+  pnl: bigint;
 }

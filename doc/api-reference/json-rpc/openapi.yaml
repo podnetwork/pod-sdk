@@ -2867,12 +2867,6 @@ components:
           type: integer
           description: Maximum allowed leverage. Returned for both spot and perp markets, but only meaningful for perp.
           example: 10
-        initial_margin:
-          type: string
-          description: |
-            Initial-margin rate as the engine charges it (`1 / max_leverage`),
-            hex-encoded 1e18-scaled; the maintenance rate is half of it. Use it
-            rather than re-deriving from the integer `max_leverage`.
         oracle_price:
           type: string
           nullable: true
@@ -2897,21 +2891,8 @@ components:
           nullable: true
           description: |
             Perp markets only. Cumulative per-unit-size funding accumulator as
-            a signed decimal string (1e18-scaled, may be negative), undivided
-            and unquantized — see `funding_settling_index` for the base a
-            position's `funding_basis` uses. `null` for spot markets.
-        funding_settling_index:
-          type: string
-          nullable: true
-          description: |
-            Perp markets only. The index positions settle against: the
-            `funding_index` accumulator divided by `funding_window_us` and
-            quantized to the market's funding grid, as a signed decimal string
-            (1e18-scaled). With a position's `funding_basis` this gives accrual
-            exactly: `funding_settling_index × size − funding_basis`.
-            `funding_index` is a DIFFERENT base and cannot be subtracted from a
-            position's basis. `null` for spot markets, and until the market's
-            first perp batch after a node start.
+            a signed decimal string (1e18-scaled, may be negative). `null` for
+            spot markets.
         funding_last_updated:
           type: integer
           format: int64
@@ -3376,20 +3357,7 @@ components:
           description: Per-`funding_window` funding rate (signed decimal int256, 1e18; may be negative).
         funding_index:
           type: string
-          description: |
-            Cumulative per-unit-size funding accumulator (signed decimal
-            int256, 1e18; may be negative), undivided and unquantized. A
-            position's `funding_basis` is NOT on this base — see
-            `funding_settling_index`.
-        funding_settling_index:
-          type: string
-          description: |
-            The index positions settle against: `funding_index` divided by the
-            market's `funding_window_us` and quantized to its funding grid
-            (signed decimal int256, 1e18). `funding_settling_index × size −
-            funding_basis` is a position's `funding_accrued`, exactly. Omitted
-            until the orderbook's first perp batch after a node start — treat
-            a missing value as unknown, never as zero.
+          description: Cumulative per-unit-size funding accumulator (signed decimal int256, 1e18; may be negative).
         mark_price:
           $ref: '#/components/schemas/HexUint256'
           description: Most recent mark price for the pair (1e18).
@@ -3961,30 +3929,13 @@ components:
           description: '`notional × 1e18 / margin`. Effective leverage (0 if `margin` is 0).'
         funding_accrued:
           type: string
-          description: '`funding_settling_index × size − funding_basis` (signed, 1e18 USD). Authoritative and exact.'
-        funding_basis:
-          type: string
-          description: |
-            The position's funding ledger, `Σ settling_index × Δsize` (signed,
-            1e18 USD). Pair it with the market's live `funding_settling_index`
-            to recompute `funding_accrued` exactly between snapshots.
-        cost_basis:
-          type: string
-          description: |
-            The position's price ledger, `Σ clearing × Δsize` (signed, 1e18
-            USD). `mark × size − cost_basis` is `unrealized_pnl`, exactly.
-        entry_funding:
-          type: string
-          description: |
-            Funding accumulator at entry, on `funding_index`'s base (undivided
-            by the funding window). Truncating and approximate — the exact pair
-            is `funding_basis` with `funding_settling_index`.
+          description: '`(market.funding − position.entry_funding) × size` (signed, 1e18 USD).'
         liquidation_price:
           $ref: '#/components/schemas/HexUint256'
           description: Mark price at which this position would be liquidated against its own `margin` and the market's maintenance-margin rate. Funding ignored. 0 when position is empty.
         unrealized_pnl:
           type: string
-          description: '`mark × size − cost_basis` — pure price drift (signed, 1e18 USD); funding is reported separately as `funding_accrued`.'
+          description: '`((mark − entry) − (funding − entry_funding)) × size` (signed, 1e18 USD).'
         realized_pnl:
           type: string
           description: Lifetime realized PnL on this position (signed, 1e18 USD). Resets to 0 when the position closes — the next open of the same pair starts fresh.

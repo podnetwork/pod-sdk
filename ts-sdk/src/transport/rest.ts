@@ -6,16 +6,20 @@ import type {
   Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery, LeaderboardPage,
   LeaderboardQuery, Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status,
   Trigger, TxExplorer, Withdrawal, WithdrawalsQuery,
+  PnlHistoricalData, PnlQuery,
 } from "../types/public.js";
 import type {
   WireBackstopPage, WireBalances, WireBridgeConfig, WireCandlesEnvelope, WireLeaderboard,
   WireMarketStatic, WireMarketStatsPage, WireOrderbook, WireOrdersPage, WirePositionsSnapshot,
   WireStatus, WireTriggersPage, WireWithdrawal,
+  WirePnlHistoricalData,
 } from "../types/wire.js";
+import { sdkResolution, wireResolution } from "../codec/resolution.js";
 import {
   decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle, decodeLeaderboard,
   decodeMarketDynamics, decodeMarketStatic, decodeOrder, decodeOrderbook, decodePositions,
   decodeStatus, decodeTrigger, decodeWithdrawal,
+  decodePnlHistoricalData,
 } from "../codec/decode.js";
 import { msToSecs, usToMs } from "../codec/units.js";
 
@@ -149,7 +153,7 @@ export class PodRestClient {
 
   async candles(id: MarketId, q: CandleQuery): Promise<CandlesPage> {
     const w = await this.get<WireCandlesEnvelope>(`/clob/candles/${id}`, {
-      resolution: q.resolution,
+      resolution: wireResolution(q.resolution),
       from: q.from !== undefined ? msToSecs(q.from) : undefined,
       to: q.to !== undefined ? msToSecs(q.to) : undefined,
       limit: q.limit,
@@ -157,7 +161,7 @@ export class PodRestClient {
     return {
       // Wire is newest-first; return oldest-first for chart consumption.
       bars: w.candles.map(decodeCandle).reverse(),
-      resolution: w.resolution as Resolution,
+      resolution: sdkResolution(w.resolution),
       range: w.range ? { from: usToMs(w.range.from_us), to: usToMs(w.range.to_us) } : null,
       solutionNow: usToMs(w.solution_now_us),
     };
@@ -204,6 +208,17 @@ export class PodRestClient {
    * decoded calldata). Returned as-is (hex fields raw). */
   async transaction(hash: string): Promise<TxExplorer> {
     return this.get<TxExplorer>(`/tx/${hash}`);
+  }
+
+  /** The inputs of an account's PnL history on the `resolution` grid; fold
+   * them with `pnlSeries`. Windows whose last point is settled are immutable. */
+  async pnlHistoricalData(account: Address, q: PnlQuery): Promise<PnlHistoricalData> {
+    const w = await this.get<WirePnlHistoricalData>(`/clob/pnl-history/${account}`, {
+      resolution: wireResolution(q.resolution),
+      from: q.from !== undefined ? msToSecs(q.from) : undefined,
+      to: q.to !== undefined ? msToSecs(q.to) : undefined,
+    });
+    return decodePnlHistoricalData(w);
   }
 
   /** Accounts ranked by net PnL (realized + unrealized), descending. Paginate

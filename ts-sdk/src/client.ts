@@ -2,7 +2,9 @@ import type {
   Address, BackstopTransfer, Balances, Bar, BridgeConfig, LeaderboardPage, LeaderboardQuery, Market,
   MarketId, PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery, TxExplorer,
   OrdersQuery, Withdrawal,
+  PnlPoint, PnlQuery,
 } from "./types/public.js";
+import { pnlSeries } from "./pnl.js";
 import { PodRestClient } from "./transport/rest.js";
 import { PodWsClient, type WebSocketCtor } from "./transport/ws.js";
 import { BaseResource, combineResources, derivedResource, type Resource } from "./stores/resource.js";
@@ -209,6 +211,12 @@ export class PodTradeClient {
    * `{ limit, offset }`. Not a stream — call again to refresh. */
   leaderboard(query?: LeaderboardQuery): Promise<LeaderboardPage> {
     return this.rest.leaderboard(query);
+  }
+
+  /** An account's PnL graph on a step grid, folded client-side from the
+   * node's sampled inputs. One-shot REST; call again to refresh. */
+  async pnlHistory(account: Address, query: PnlQuery): Promise<PnlPoint[]> {
+    return pnlSeries(await this.rest.pnlHistoricalData(account, query));
   }
 
   /** Explorer view of a transaction by hash. One-shot. */

@@ -31,4 +31,18 @@ describe("PodRestClient request timeout", () => {
     );
     await expect(rest.status()).rejects.toThrow();
   });
+
+  it("spells the weekly resolution the node's way and sends seconds", async () => {
+    let seen = "";
+    const rest = clientWith((url: string) => {
+      seen = url;
+      const body = { resolution: "1w", from_us: 60_000_000, to_us: 120_000_000, step_us: 604_800_000_000,
+        solution_now_us: 0, realized: [], markets: [] };
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+    });
+    const account = `0x${"11".repeat(20)}` as const;
+    const data = await rest.pnlHistoricalData(account, { resolution: "1W", from: 60_000, to: 120_000 });
+    expect(seen).toBe(`http://node.test/v1/clob/pnl-history/${account}?resolution=1w&from=60&to=120`);
+    expect(data.stepUs).toBe(604_800_000_000);
+  });
 });

@@ -6,12 +6,14 @@ import type {
   Orderbook, PartialFill, PerpPosition, Position, PositionsSnapshot, SpotHolding,
   SpotPosition, Status, Trigger, MarketType, OrderDirection, OrderKind, OrderStatus, TriggerType,
   Withdrawal,
+  PnlHistoricalData, PnlMarketHistoricalData,
 } from "../types/public.js";
 import type {
   WireBackstopTransfer, WireBalances, WireBridgeConfig, WireCandle, WireLeaderboard,
   WireMarketDynamics, WireMarketStatic, WireOrder, WireOrderbook, WirePartialFill,
   WirePerpPosition, WirePosition, WirePositionsSnapshot, WireSpotHolding, WireSpotPosition,
   WireStatus, WireTrigger, WireWithdrawal,
+  WirePnlHistoricalData, WirePnlMarket,
 } from "../types/wire.js";
 import { dec, decOpt, endMsFromUs, parseAmount, toNumber, usToMs, usToMsOpt } from "./units.js";
 
@@ -38,7 +40,6 @@ export function decodeMarketStatic(w: WireMarketStatic): Market {
     lotSize: dec(w.lot_size),
     minNotional: dec(w.min_notional),
     maxLeverage: w.max_leverage,
-    initialMargin: decOpt(w.initial_margin),
     fundingWindowUs: w.funding_window_us,
     // Sent as a human fraction ("0.000150"), not 1e18-scaled: `dec` truncates it to 0.
     makerFee: decRate(w.maker_fee),
@@ -60,7 +61,6 @@ export function decodeMarketDynamics(w: WireMarketDynamics): Partial<Market> & {
     markPrice: decOpt(w.mark_price),
     fundingRate: decOpt(w.funding_rate),
     fundingIndex: decOpt(w.funding_index),
-    fundingSettlingIndex: decOpt(w.funding_settling_index),
     fundingLastUpdatedMs: usToMsOpt(w.funding_last_updated_us),
     openInterest: decOpt(w.open_interest),
   };
@@ -189,8 +189,6 @@ function decodePerpPosition(w: WirePerpPosition): PerpPosition {
     margin: dec(w.margin),
     leverage: toNumber(dec(w.leverage)), // wire is 1e18-scaled, not a plain int
     fundingAccrued: dec(w.funding_accrued),
-    fundingBasis: decOpt(w.funding_basis),
-    costBasis: decOpt(w.cost_basis),
     entryFunding: dec(w.entry_funding),
     liquidationPrice: dec(w.liquidation_price),
     unrealizedPnl: dec(w.unrealized_pnl),
@@ -330,5 +328,37 @@ export function decodeWithdrawal(w: WireWithdrawal): Withdrawal {
     // reads as success while `error !== undefined` reads as failure.
     error: w.error || undefined,
     timeUs: w.timestamp_us,
+  };
+}
+
+function decodePnlMarket(w: WirePnlMarket): PnlMarketHistoricalData {
+  return {
+    orderbookId: w.orderbook_id,
+    marketType: w.market_type === "perp" ? "perp" : "spot",
+    fundingWindowUs: w.funding_window_us,
+    fundingGrid: decOpt(w.funding_grid),
+    positions: (w.positions ?? []).map((p) => ({
+      timeUs: p.timestamp_us,
+      size: dec(p.size),
+      costBasis: dec(p.cost_basis),
+      fundingBasis: dec(p.funding_basis),
+    })),
+    ticks: (w.ticks ?? []).map((t) => ({
+      timeUs: t.timestamp_us,
+      markPrice: dec(t.mark_price),
+      clearingPrice: decOpt(t.clearing_price),
+      fundingIndex: decOpt(t.funding_index),
+    })),
+  };
+}
+
+export function decodePnlHistoricalData(w: WirePnlHistoricalData): PnlHistoricalData {
+  return {
+    fromUs: w.from_us,
+    toUs: w.to_us,
+    stepUs: w.step_us,
+    solutionNowUs: w.solution_now_us,
+    realized: (w.realized ?? []).map((r) => ({ timeUs: r.timestamp_us, realized: dec(r.realized) })),
+    markets: (w.markets ?? []).map(decodePnlMarket),
   };
 }
