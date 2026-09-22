@@ -52,7 +52,7 @@ const ob = useSyncExternalStore(
   history (resolves with the whole window or rejects — a partial answer is worse
   than an error, because a chart never re-asks) and `.candleTail(id, resolution,
   range)` for the still-forming bucket, plus `.leaderboard(query)`,
-  `.transaction(hash)`.
+  `.pnlHistory(account, query)` (see below), `.transaction(hash)`.
 - **Layer 2 (resources):** `client.status`, `.markets`, `.market(id)`,
   `.orderbook(id,{depth})`, `.positions(account)`, `.triggers(account)`,
   `.backstopTransfers(account)`, `.candles(id, resolution, range)` (a
@@ -62,11 +62,55 @@ const ob = useSyncExternalStore(
   object for the TradingView Charting Library (framework-agnostic, no React).
 
 All monetary values are `bigint` (1e18-scaled; use `formatAmount`/`toNumber`/
-`parseAmount`); all timestamps are millisecond `number`s — with one deliberate
-exception, `Withdrawal.timeUs`, which stays in **microseconds** because it is
+`parseAmount`); all timestamps are millisecond `number`s — with two deliberate
+exceptions that stay in **microseconds**: `Withdrawal.timeUs`, because it is
 also the resume cursor for `pod_withdrawals` and its REST backfill, both of which
-compare it in micros. The `Us` suffix is the only marker, so treating it as
-milliseconds silently reads a timestamp a thousand times too large.
+compare it in micros; and the `Us` fields of `PnlHistoricalData`, because the PnL fold
+compares them against batch deadlines exactly as the node does. The `Us` suffix
+is the only marker, so treating one as milliseconds silently reads a timestamp a
+thousand times too large.
+
+## PnL history
+
+The node keeps, per account, one row per batch in which a position or a
+realized-PnL counter changed, and prices them on request. It does not compute
+the graph: `GET /clob/pnl-history/{account}` returns the graph's historical data on a time
+grid, and the SDK folds it.
+
+```ts
+const points = await client.pnlHistory(account, {
+  resolution: "1h",                 // grid step; same set as candles
+  from: Date.now() - 7 * 86_400_000, // ms, optional — defaults to 500 steps before `to`
+  to: Date.now(),                   // ms, optional — defaults to solution time
+});
+// points: { time, realized, unrealized, funding, pnl }[]
+//   time        ms, on a multiple of the step inside [from, to)
+//   realized    banked PnL, perp and spot together, as of that time
+//   unrealized  price drift of open legs and holdings, at the last mark / clearing
+//   funding     funding owed on open perp legs (positive when they pay)
+//   pnl         realized + unrealized - funding — the value to plot
+```
+
+What a point means: the account as of the newest batch at or before its time, so
+a point that lands exactly on a batch deadline includes that batch, and between
+two batches the graph is flat. Points sit on multiples of the step, not at
+`from`, so overlapping windows agree wherever they share a time and a window
+whose last point is already settled is served `immutable`. Points before the
+account's first batch, and points at which an open leg or holding cannot be
+valued yet (a spot book that has never cleared, a perp with no tick), are
+omitted rather than priced at zero: a gap in the graph means missing data,
+never a stale value. A window may hold at most 500 points; a wider one is
+rejected.
+
+The two halves are also available separately: `client.rest.pnlHistoricalData(account, query)`
+returns the decoded `PnlHistoricalData` (realized rows, and per market the position rows
+and ticks, each the newest at or before every grid point, plus the market's
+funding window and grid), and `pnlSeries(data)` is the pure fold. It uses the
+engine's own arithmetic — `mul` for `price · size / 1e18` and `settlingIndex`,
+the published funding accumulator divided by the funding window and quantized
+to the market's grid with ties away from zero — so its output equals the node's
+live `positions` read at the same batch; the node asserts exactly that in its
+tests.
 
 ## Withdrawals (ADR 0042)
 

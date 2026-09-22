@@ -30,9 +30,6 @@ export interface WireMarketStatic {
   lot_size: WireDecimal; // 1e18-scaled size increment
   min_notional: WireDecimal; // 1e18-scaled notional floor ("0" = none)
   max_leverage: number;
-  /** Initial-margin rate as the engine charges it (maintenance is half of
-   * it); absent on older nodes. */
-  initial_margin?: WireDecimal;
   funding_window_us: number; // funding-accrual divisor (micros)
 }
 
@@ -47,10 +44,6 @@ export interface WireMarketDynamics {
   mark_price?: WireDecimal | null;
   funding_rate?: WireDecimal | null;
   funding_index?: WireDecimal | null;
-  /** The index positions settle against; pairs with a position's
-   * `funding_basis`. Absent on older nodes, and until the market's first perp
-   * batch after a node start. */
-  funding_settling_index?: WireDecimal | null;
   funding_last_updated_us?: number | null;
   open_interest?: WireDecimal | null;
 }
@@ -179,10 +172,6 @@ export interface WirePerpPosition {
   margin: WireDecimal;
   leverage: WireDecimal;
   funding_accrued: WireDecimal;
-  /** `Σ settling_index × Δsize`; absent on older nodes. */
-  funding_basis?: WireDecimal;
-  /** `Σ clearing × Δsize`; absent on older nodes. */
-  cost_basis?: WireDecimal;
   entry_funding: WireDecimal;
   liquidation_price: WireDecimal;
   unrealized_pnl: WireDecimal;
@@ -447,4 +436,40 @@ export interface WireWithdrawalDetail {
   withdrawal: WireWithdrawal;
   status: "claimable" | "pending" | "refused";
   proof?: { claim_hash?: Hex | null };
+}
+
+/** `GET /clob/pnl-history/{account}` (ADR 0054): the inputs of an account's PnL
+ * history, sampled at the step grid. */
+export interface WirePnlRealized {
+  timestamp_us: number;
+  realized: WireDecimal;
+}
+export interface WirePnlPosition {
+  timestamp_us: number;
+  size: WireDecimal;
+  cost_basis: WireDecimal;
+  funding_basis: WireDecimal;
+}
+export interface WirePnlTick {
+  timestamp_us: number;
+  mark_price: WireDecimal;
+  clearing_price?: WireDecimal | null;
+  funding_index?: WireDecimal | null;
+}
+export interface WirePnlMarket {
+  orderbook_id: Hex;
+  market_type: string;
+  funding_window_us: number;
+  funding_grid?: WireDecimal | null;
+  positions: WirePnlPosition[];
+  ticks: WirePnlTick[];
+}
+export interface WirePnlHistoricalData {
+  resolution: string;
+  from_us: number;
+  to_us: number;
+  step_us: number;
+  solution_now_us: number;
+  realized: WirePnlRealized[];
+  markets: WirePnlMarket[];
 }
