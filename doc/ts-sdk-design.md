@@ -58,7 +58,7 @@ watermark.
 | `GET /clob/orderbook/{ob}` | — | `OrderbookSnapshot` | `no-store` |
 | `GET /clob/positions/{acct}` | — | `GetPositionsResponse` | `no-store` |
 | `GET /clob/triggers/{acct}` | `orderbook`, `limit` | `GetTriggersResponse` | `no-store` |
-| `GET /clob/pnl-history/{acct}` | `resolution`(req), `from`, `to` (≤500 points) | `{resolution, from_us, to_us, step_us, solution_now_us, realized[], markets[{positions[], ticks[], …}]}` — inputs, folded by `pnlSeries` | **`immutable`** if the last grid point ≤ solution time, else `no-store` |
+| `GET /clob/pnl-history/{acct}` | `resolution`(req), `from`, `to` (≤500 points) | `{resolution, from_us, to_us, step_us, solution_now_us, accounts[], markets[{positions[], ticks[], …}]}` — historical data, folded by `pnlSeries` | **`immutable`** if the last grid point ≤ solution time, else `no-store` |
 
 Header constants: `immutable` = `public, max-age=31536000, immutable`;
 `max-age=900` (static markets); `max-age=60` (live stats); `no-store`. **Cache

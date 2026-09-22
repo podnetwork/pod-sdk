@@ -27,18 +27,20 @@ export function settlingIndex(fundingIndex: bigint, fundingWindowUs: number, gri
 const newestAtOrBefore = <T extends { timeUs: number }>(rows: readonly T[], t: number) =>
   rows.filter((r) => r.timeUs <= t).at(-1);
 
-/** PnL at every multiple of `stepUs` inside `[fromUs, toUs)`. A point is the
- * account as of the newest batch at or before its time. Points before the
- * account's first record, and points at which an open leg or holding has no
- * price yet, are omitted rather than priced at zero: a gap means missing data. */
+/** PnL and account value at every multiple of `stepUs` inside `[fromUs, toUs)`.
+ * A point is the account as of the newest batch at or before its time. Points
+ * before the account's first record, and points at which an open leg or
+ * holding has no price yet, are omitted rather than priced at zero: a gap
+ * means missing data. */
 export function pnlSeries(data: PnlHistoricalData): PnlPoint[] {
   const { fromUs, toUs, stepUs } = data;
   if (!Number.isInteger(stepUs) || stepUs <= 0) throw new RangeError("stepUs must be a positive integer");
   const out: PnlPoint[] = [];
   points: for (let t = Math.ceil(fromUs / stepUs) * stepUs; t < toUs; t += stepUs) {
-    const realizedRow = newestAtOrBefore(data.realized, t);
+    const account = newestAtOrBefore(data.accounts, t);
     let unrealized = 0n;
     let funding = 0n;
+    let accountValue = account ? account.cash + account.escrow : 0n;
     let anyLeg = false;
     for (const market of data.markets) {
       const row = newestAtOrBefore(market.positions, t);
@@ -49,17 +51,22 @@ export function pnlSeries(data: PnlHistoricalData): PnlPoint[] {
       if (!tick) continue points;
       if (market.marketType === "perp") {
         if (tick.fundingIndex === undefined || market.fundingGrid === undefined) continue points;
-        unrealized += mul(tick.markPrice, row.size) - row.costBasis;
+        const markValue = mul(tick.markPrice, row.size);
         const f = settlingIndex(tick.fundingIndex, market.fundingWindowUs, market.fundingGrid);
-        funding += mul(f, row.size) - row.fundingBasis;
+        const pending = mul(f, row.size) - row.fundingBasis;
+        unrealized += markValue - row.costBasis;
+        funding += pending;
+        accountValue += markValue - row.costBasis - pending;
       } else {
         if (tick.clearingPrice === undefined) continue points;
-        unrealized += mul(tick.clearingPrice, row.size) - row.costBasis;
+        const markValue = mul(tick.clearingPrice, row.size);
+        unrealized += markValue - row.costBasis;
+        accountValue += markValue;
       }
     }
-    if (realizedRow || anyLeg) {
-      const realized = realizedRow?.realized ?? 0n;
-      out.push({ time: t / 1000, realized, unrealized, funding, pnl: realized + unrealized - funding });
+    if (account || anyLeg) {
+      const realized = account?.realized ?? 0n;
+      out.push({ time: t / 1000, realized, unrealized, funding, pnl: realized + unrealized - funding, accountValue });
     }
   }
   return out;

@@ -37,7 +37,7 @@ describe("PodRestClient request timeout", () => {
     const rest = clientWith((url: string) => {
       seen = url;
       const body = { resolution: "1w", from_us: 60_000_000, to_us: 120_000_000, step_us: 604_800_000_000,
-        solution_now_us: 0, realized: [], markets: [] };
+        solution_now_us: 0, accounts: [], markets: [] };
       return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
     });
     const account = `0x${"11".repeat(20)}` as const;

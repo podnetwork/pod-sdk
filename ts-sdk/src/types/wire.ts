@@ -440,9 +440,11 @@ export interface WireWithdrawalDetail {
 
 /** `GET /clob/pnl-history/{account}` (ADR 0054): the inputs of an account's PnL
  * history, sampled at the step grid. */
-export interface WirePnlRealized {
+export interface WirePnlAccount {
   timestamp_us: number;
   realized: WireDecimal;
+  cash: WireDecimal;
+  escrow: WireDecimal;
 }
 export interface WirePnlPosition {
   timestamp_us: number;
@@ -470,6 +472,6 @@ export interface WirePnlHistoricalData {
   to_us: number;
   step_us: number;
   solution_now_us: number;
-  realized: WirePnlRealized[];
+  accounts: WirePnlAccount[];
   markets: WirePnlMarket[];
 }

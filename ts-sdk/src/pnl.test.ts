@@ -8,13 +8,14 @@ const sec = (s: number) => s * 1_000_000;
 const WINDOW_US = 8 * 3_600 * 1_000_000;
 
 // ADR 0054 §4 worked example: one perp long and one spot holding, the perp
-// partially closed at 150s; realized 50, drift 240, funding 20 at every point.
+// partially closed at 150s; realized 50, drift 240, funding 20 at every point,
+// and with 1000 cash and 5 escrowed the account is worth 1005 + (600 − 400 − 20) + 240.
 const data: PnlHistoricalData = {
   fromUs: sec(30),
   toUs: sec(240),
   stepUs: sec(60),
   solutionNowUs: sec(1000),
-  realized: [{ timeUs: sec(50), realized: e18(50) }],
+  accounts: [{ timeUs: sec(50), realized: e18(50), cash: e18(1000), escrow: e18(5) }],
   markets: [
     {
       orderbookId: "0x07",
@@ -50,6 +51,7 @@ describe("pnlSeries", () => {
       expect(p.unrealized).toBe(e18(240));
       expect(p.funding).toBe(e18(20));
       expect(p.pnl).toBe(e18(270));
+      expect(p.accountValue).toBe(e18(1425));
     }
   });
 
@@ -74,6 +76,7 @@ describe("pnlSeries", () => {
     const points = pnlSeries({ ...data, markets: [...data.markets, cleared] });
     expect(points.map((p) => p.time)).toEqual([180_000]);
     expect(points[0]?.pnl).toBe(e18(270));
+    expect(points[0]?.accountValue).toBe(e18(1435));
   });
 
   it("includes the batch that lands exactly on a point", () => {
