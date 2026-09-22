@@ -72,9 +72,10 @@ thousand times too large.
 
 ## PnL history
 
-The node keeps, per account, one row per batch in which a position or a
-realized-PnL counter changed, and prices them on request. It does not compute
-the graph: `GET /clob/pnl-history/{account}` returns the graph's historical data on a time
+The node keeps, per account, one row per batch in which a position changed and
+one per batch in which its realized PnL, cash or escrowed quote changed, and
+prices them on request. It does not compute the graph:
+`GET /clob/pnl-history/{account}` returns the graph's historical data on a time
 grid, and the SDK folds it.
 
 ```ts
@@ -83,12 +84,14 @@ const points = await client.pnlHistory(account, {
   from: Date.now() - 7 * 86_400_000, // ms, optional — defaults to 500 steps before `to`
   to: Date.now(),                   // ms, optional — defaults to solution time
 });
-// points: { time, realized, unrealized, funding, pnl }[]
-//   time        ms, on a multiple of the step inside [from, to)
-//   realized    banked PnL, perp and spot together, as of that time
-//   unrealized  price drift of open legs and holdings, at the last mark / clearing
-//   funding     funding owed on open perp legs (positive when they pay)
-//   pnl         realized + unrealized - funding — the value to plot
+// points: { time, realized, unrealized, funding, pnl, accountValue }[]
+//   time          ms, on a multiple of the step inside [from, to)
+//   realized      banked PnL, perp and spot together, as of that time
+//   unrealized    price drift of open legs and holdings, at the last mark / clearing
+//   funding       funding owed on open perp legs (positive when they pay)
+//   pnl           realized + unrealized - funding — the PnL graph
+//   accountValue  cash + escrowed quote + perp legs at mark net of funding
+//                 + holdings at the last clearing — the equity graph
 ```
 
 What a point means: the account as of the newest batch at or before its time, so
@@ -103,14 +106,14 @@ never a stale value. A window may hold at most 500 points; a wider one is
 rejected.
 
 The two halves are also available separately: `client.rest.pnlHistoricalData(account, query)`
-returns the decoded `PnlHistoricalData` (realized rows, and per market the position rows
-and ticks, each the newest at or before every grid point, plus the market's
-funding window and grid), and `pnlSeries(data)` is the pure fold. It uses the
-engine's own arithmetic — `mul` for `price · size / 1e18` and `settlingIndex`,
-the published funding accumulator divided by the funding window and quantized
-to the market's grid with ties away from zero — so its output equals the node's
-live `positions` read at the same batch; the node asserts exactly that in its
-tests.
+returns the decoded `PnlHistoricalData` (account rows with realized PnL, cash
+and escrowed quote, and per market the position rows and ticks, each the newest
+at or before every grid point, plus the market's funding window and grid), and
+`pnlSeries(data)` is the pure fold. It uses the engine's own arithmetic — `mul`
+for `price · size / 1e18` and `settlingIndex`, the published funding
+accumulator divided by the funding window and quantized to the market's grid
+with ties away from zero — so `pnl` and `accountValue` equal the node's live
+`positions` read at the same batch; the node asserts exactly that in its tests.
 
 ## Withdrawals (ADR 0042)
 

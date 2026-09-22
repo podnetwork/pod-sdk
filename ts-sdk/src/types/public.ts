@@ -575,9 +575,13 @@ export interface PnlQuery {
 }
 
 /** The account's banked PnL, perp and spot together, after the batch at `timeUs`. */
-export interface PnlRealizedRow {
+/** The account after the batch at `timeUs`: banked PnL, native cash, and the
+ * quote its resting spot buys escrow out of that cash. */
+export interface PnlAccountRow {
   timeUs: number;
   realized: bigint;
+  cash: bigint;
+  escrow: bigint;
 }
 
 /** A leg or holding after the batch at `timeUs`. A holding carries its
@@ -613,16 +617,19 @@ export interface PnlHistoricalData {
   toUs: number;
   stepUs: number;
   solutionNowUs: number;
-  realized: PnlRealizedRow[];
+  accounts: PnlAccountRow[];
   markets: PnlMarketHistoricalData[];
 }
 
-/** One point of the PnL graph, 1e18-scaled. `funding` is owed (positive when
- * the legs pay), as `fundingAccrued` is, and `pnl = realized + unrealized - funding`. */
+/** One point of the graph, 1e18-scaled. `funding` is owed (positive when the
+ * legs pay), as `fundingAccrued` is, and `pnl = realized + unrealized - funding`.
+ * `accountValue` is the live read's: cash, escrowed quote, perp legs at mark
+ * net of funding, and holdings at the last clearing. */
 export interface PnlPoint {
   time: number;
   realized: bigint;
   unrealized: bigint;
   funding: bigint;
   pnl: bigint;
+  accountValue: bigint;
 }

@@ -358,7 +358,12 @@ export function decodePnlHistoricalData(w: WirePnlHistoricalData): PnlHistorical
     toUs: w.to_us,
     stepUs: w.step_us,
     solutionNowUs: w.solution_now_us,
-    realized: (w.realized ?? []).map((r) => ({ timeUs: r.timestamp_us, realized: dec(r.realized) })),
+    accounts: (w.accounts ?? []).map((r) => ({
+      timeUs: r.timestamp_us,
+      realized: dec(r.realized),
+      cash: dec(r.cash),
+      escrow: dec(r.escrow),
+    })),
     markets: (w.markets ?? []).map(decodePnlMarket),
   };
 }
