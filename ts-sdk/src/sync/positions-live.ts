@@ -9,19 +9,20 @@
 //
 // EXACT replication of pod — see the cross-reference notes in pod at:
 //   trading/src/perps/mod.rs `cross_budgets`     (withdrawable / equity)
-//   trading/src/perps/mod.rs `funding_accrued`    (funding)
-//   trading/src/perps/config.rs `into_market`     (margin-rate derivation)
+//   trading/src/perps/mod.rs `pending_funding`   (funding)
 // Integer semantics match trading/src/decimal.rs:
 //   mul(a,b)            = (a*b)/1e18 truncated toward zero          (Decimal `*`)
 //   mulFloor(a,b)       = (a*b)/1e18 rounded toward -infinity       (`mul_floor`)
-//   mulDivCeil(a,b,d)   = (a*b)/d, positive results rounded up      (`mul_div_ceil`)
-//   im = 1e18 / max_leverage ; mm = im / 2
-//   funding_accrued = mulDivCeil(funding_index - entry_funding, size, window_us*1e18)
+//   funding_accrued = mul(funding_settling_index, size) - funding_basis
+//   unrealized_pnl  = mul(mark, size) - cost_basis
 //   cash_with_funding = native_cash - Σ funding_accrued
+//
+// Nothing is reconstructed here. `funding_index` is a different base — the
+// undivided accumulator, window_us times the index positions settle on — so it
+// can never be subtracted from a position's entry figure.
 
 import type { Market, MarketId, Position, PositionsSnapshot } from "../types/public.js";
-import { WAD } from "../codec/units.js";
-import { imRate, mul, mulDivCeil, mulFloor } from "../codec/fixed.js";
+import { imRate, mul, mulFloor } from "../codec/fixed.js";
 
 const absB = (x: bigint) => (x < 0n ? -x : x);
 const maxB = (a: bigint, b: bigint) => (a > b ? a : b);
@@ -46,24 +47,22 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
       // than a spurious −entry·size that would wrongly zero withdrawable cash.
       const liveMark = market?.markPrice && market.markPrice > 0n ? market.markPrice : p.markPrice;
       const mark = liveMark > 0n ? liveMark : p.entryPrice;
-      const upnl = mulFloor(mark - p.entryPrice, p.size); // pure price drift (signed)
+      // The entry-price fallback rounds against the holder.
+      const upnl = p.costBasis !== undefined
+        ? mul(mark, p.size) - p.costBasis
+        : mulFloor(mark - p.entryPrice, p.size); // pure price drift (signed)
       const sizeQuote = mul(absB(p.size), mark); // = notional
-      const imr = imRate(market?.maxLeverage ?? 0);
+      const imr = market?.initialMargin ?? imRate(market?.maxLeverage ?? 0);
       im += mul(sizeQuote, imr);
       mm += mul(sizeQuote, imr / 2n);
       priceUpnl += upnl;
       priceUpnlSnap += p.unrealizedPnl;
 
-      // Live funding: mul_div_ceil(funding_index - entry_funding, size, window_us*1e18).
-      // funding_index (= market.funding) streams via pod_markets; if unavailable,
-      // hold the snapshot value (re-aligned by the periodic REST resync).
+      // The settling index streams via pod_markets, the basis is frozen in the
+      // snapshot. Without both, hold the snapshot's figure.
       let funding = p.fundingAccrued;
-      if (market?.fundingIndex !== undefined && market.fundingWindowUs) {
-        funding = mulDivCeil(
-          market.fundingIndex - p.entryFunding,
-          p.size,
-          BigInt(market.fundingWindowUs) * WAD,
-        );
+      if (market?.fundingSettlingIndex !== undefined && p.fundingBasis !== undefined) {
+        funding = mul(market.fundingSettlingIndex, p.size) - p.fundingBasis;
       }
       fundingLiveTotal += funding;
       fundingSnapTotal += p.fundingAccrued;

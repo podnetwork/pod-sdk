@@ -38,6 +38,7 @@ export function decodeMarketStatic(w: WireMarketStatic): Market {
     lotSize: dec(w.lot_size),
     minNotional: dec(w.min_notional),
     maxLeverage: w.max_leverage,
+    initialMargin: decOpt(w.initial_margin),
     fundingWindowUs: w.funding_window_us,
     // Sent as a human fraction ("0.000150"), not 1e18-scaled: `dec` truncates it to 0.
     makerFee: decRate(w.maker_fee),
@@ -59,6 +60,7 @@ export function decodeMarketDynamics(w: WireMarketDynamics): Partial<Market> & {
     markPrice: decOpt(w.mark_price),
     fundingRate: decOpt(w.funding_rate),
     fundingIndex: decOpt(w.funding_index),
+    fundingSettlingIndex: decOpt(w.funding_settling_index),
     fundingLastUpdatedMs: usToMsOpt(w.funding_last_updated_us),
     openInterest: decOpt(w.open_interest),
   };
@@ -187,6 +189,8 @@ function decodePerpPosition(w: WirePerpPosition): PerpPosition {
     margin: dec(w.margin),
     leverage: toNumber(dec(w.leverage)), // wire is 1e18-scaled, not a plain int
     fundingAccrued: dec(w.funding_accrued),
+    fundingBasis: decOpt(w.funding_basis),
+    costBasis: decOpt(w.cost_basis),
     entryFunding: dec(w.entry_funding),
     liquidationPrice: dec(w.liquidation_price),
     unrealizedPnl: dec(w.unrealized_pnl),
