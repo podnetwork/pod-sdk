@@ -423,8 +423,21 @@ impl MerkleTree {
         let mut cursor = 0;
 
         for flag in proof.flags {
+            // The length checks above bound the work but do not guarantee the
+            // stack never runs dry mid-fold (e.g. a `true` flag with a single
+            // leaf left). A proof that underflows the stack is malformed, not
+            // fatal: report it as unverified instead of panicking on data that
+            // may come from an untrusted peer.
+            if stack.is_empty() {
+                tracing::debug!("invalid multiproof: stack underflow");
+                return false;
+            }
             let a = stack.remove(0);
             let b = if flag {
+                if stack.is_empty() {
+                    tracing::debug!("invalid multiproof: stack underflow");
+                    return false;
+                }
                 stack.remove(0)
             } else {
                 let value = path[cursor];
@@ -480,5 +493,95 @@ mod test {
             &leaves,
             proof.clone()
         ));
+    }
+
+    // A `true` flag folds two stack entries; with a single leaf only one
+    // exists. Regression: this used to panic on `stack.remove(0)` when
+    // verifying a hand-crafted proof instead of reporting it as invalid.
+    #[test]
+    pub fn verify_multi_proof_rejects_flag_true_with_single_leaf_stack() {
+        let proof = MerkleMultiProof {
+            path: vec![Hash::repeat_byte(0x01)],
+            flags: vec![true],
+        };
+        assert!(!MerkleTree::verify_multi_proof(
+            Hash::repeat_byte(0x02),
+            &[Hash::repeat_byte(0x03)],
+            proof
+        ));
+    }
+
+    // A `false` flag folds one stack entry; with no leaves the stack starts
+    // empty. Regression: this used to panic on `stack.remove(0)`.
+    #[test]
+    pub fn verify_multi_proof_rejects_false_flag_with_no_leaves() {
+        let proof = MerkleMultiProof {
+            path: vec![Hash::repeat_byte(0x01), Hash::repeat_byte(0x02)],
+            flags: vec![false],
+        };
+        assert!(!MerkleTree::verify_multi_proof(
+            Hash::repeat_byte(0x03),
+            &[],
+            proof
+        ));
+    }
+
+    // Any single path hash swapped for a different one must break the proof:
+    // tampering with a proof fetched from an untrusted peer cannot verify.
+    #[test]
+    pub fn verify_multi_proof_rejects_tampered_path_hashes() {
+        for leaves_len in 2usize..=8 {
+            let leaves: Vec<Hash> = (0..leaves_len)
+                .map(|i| Hash::repeat_byte(i as u8 + 1))
+                .collect();
+            let tree = StandardMerkleTree::new(leaves.clone());
+
+            for leaf in &leaves {
+                let proof = tree.generate_multi_proof(&[*leaf]).unwrap();
+                assert!(MerkleTree::verify_multi_proof(
+                    tree.root(),
+                    &[*leaf],
+                    proof.clone()
+                ));
+
+                for i in 0..proof.path.len() {
+                    let mut tampered = proof.clone();
+                    tampered.path[i] = Hash::repeat_byte(0xff);
+                    assert!(
+                        !MerkleTree::verify_multi_proof(tree.root(), &[*leaf], tampered),
+                        "tampered path hash {i} must not verify ({leaves_len} leaves)"
+                    );
+                }
+            }
+        }
+    }
+
+    // Proofs of arbitrary shape — as they might arrive from an untrusted
+    // peer — must never panic the verifier, whatever the (path, flags) pair
+    // claims. Valid proofs generated from the same tree still verify.
+    #[test]
+    pub fn fuzz_verify_multi_proof_never_panics() {
+        use arbitrary::Arbitrary;
+
+        for _ in 0..256 {
+            let bytes: [u8; 1024] = rand::random();
+            let mut u = arbitrary::Unstructured::new(&bytes);
+
+            let mut leaves: Vec<Hash> = Vec::arbitrary(&mut u).unwrap_or_default();
+            let mut path: Vec<Hash> = Vec::arbitrary(&mut u).unwrap_or_default();
+            let mut flags: Vec<bool> = Vec::arbitrary(&mut u).unwrap_or_default();
+            leaves.truncate(16);
+            path.truncate(16);
+            flags.truncate(64);
+
+            let root = StandardMerkleTree::new(leaves.clone()).root();
+            let _ = MerkleTree::verify_multi_proof(root, &leaves, MerkleMultiProof { path, flags });
+        }
+
+        // and a proof generated from the tree it describes still verifies
+        let leaves: Vec<Hash> = (0..8).map(|i| Hash::repeat_byte(i as u8 + 1)).collect();
+        let tree = StandardMerkleTree::new(leaves.clone());
+        let proof = tree.generate_multi_proof(&leaves).unwrap();
+        assert!(MerkleTree::verify_multi_proof(tree.root(), &leaves, proof));
     }
 }
