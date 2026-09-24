@@ -52,3 +52,26 @@ export async function tryRpc<T>(
     return undefined;
   }
 }
+
+/** One HTTP round trip carrying many calls; results come back in call order. */
+export async function rpcBatch<T>(
+  rpcUrl: string,
+  calls: { method: string; params: unknown[] }[],
+  opts?: RpcOptions,
+): Promise<T[]> {
+  const doFetch = opts?.fetch ?? fetch;
+  const res = await doFetch(rpcUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(calls.map((c, id) => ({ jsonrpc: "2.0", id, ...c }))),
+    signal: opts?.signal,
+  });
+  const json = (await res.json()) as { id: number; result?: T; error?: { code?: number; message?: string } }[];
+  if (!Array.isArray(json)) throw new PodRpcError(undefined, "batch response is not an array");
+  const out = new Array<T>(calls.length);
+  for (const r of json) {
+    if (r.error) throw new PodRpcError(r.error.code, r.error.message ?? `${calls[r.id]?.method} failed`);
+    out[r.id] = r.result as T;
+  }
+  return out;
+}

@@ -33,6 +33,10 @@ export {
 export type { SeriesResource } from "./sync/candles.js";
 export { CandleSeries } from "./sync/candles.js";
 export { OrderHistory } from "./sync/orders.js";
+export {
+  fetchPnlHistory, streamPnlHistory, PnlHistoryCache,
+  type PnlHistory, type PnlHistoryChunk, type PnlHistoryDeps, type PnlHistoryQuery, type PnlPoint,
+} from "./sync/pnl-history.js";
 
 // Framework-agnostic TradingView Charting Library datafeed (no React needed).
 export { createPodDatafeed } from "./datafeed.js";

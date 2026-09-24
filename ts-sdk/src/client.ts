@@ -14,6 +14,7 @@ import { withdrawalsSource } from "./sync/withdrawals.js";
 import { CandleSeries, candleTailFrom, fetchCandleHistory } from "./sync/candles.js";
 import { OrderHistory } from "./sync/orders.js";
 import { enrichPositions } from "./sync/positions-live.js";
+import { fetchPnlHistory, streamPnlHistory, PnlHistoryCache, type PnlHistory, type PnlHistoryChunk, type PnlHistoryQuery } from "./sync/pnl-history.js";
 
 export interface PodTradeClientOptions {
   restUrl: string;
@@ -110,6 +111,7 @@ export class PodTradeClient {
   }
 
   close(): void {
+    this.pnlCaches.clear();
     for (const r of this.cache.values()) r.destroy();
     this.cache.clear();
     this.ws.close();
@@ -226,6 +228,36 @@ export class PodTradeClient {
         return () => { alive = false; };
       }),
     );
+  }
+
+  /**
+   * PnL change over a past window, sampled at up to `points` (default and
+   * maximum 500) evenly spaced batch ticks, starting at 0 at `from`. Folded
+   * backwards from the live snapshot over the account's fills, backstop sweeps
+   * and spot withdrawals. Requires `rpcUrl`.
+   */
+  pnlHistory(account: Address, query: PnlHistoryQuery): Promise<PnlHistory> {
+    return fetchPnlHistory(this.pnlDeps("pnlHistory", account), account, query);
+  }
+
+  /**
+   * {@link pnlHistory} delivered as it is built: chunks of up to 50 points,
+   * newest first, each yielded once its fills are in. Points are relative to
+   * the current tick; the oldest chunk arrives last with `done`.
+   */
+  pnlHistoryStream(account: Address, query: PnlHistoryQuery): AsyncGenerator<PnlHistoryChunk> {
+    return streamPnlHistory(this.pnlDeps("pnlHistoryStream", account), account, query);
+  }
+
+  /** Per-account cache of fills and ticks, shared by every window size and
+   * refresh; only uncovered ranges are fetched again. */
+  private readonly pnlCaches = new Map<Address, PnlHistoryCache>();
+
+  private pnlDeps(method: string, account: Address) {
+    if (!this.rpcUrl) throw new Error(`PodTradeClient.${method} requires \`rpcUrl\` in the client options`);
+    let cache = this.pnlCaches.get(account);
+    if (!cache) this.pnlCaches.set(account, cache = new PnlHistoryCache());
+    return { rest: this.rest, rpcUrl: this.rpcUrl, fetch: this.fetchFn, cache };
   }
 
   candles(id: MarketId, resolution: Resolution, range?: TimeRange): CandleSeries {
