@@ -192,7 +192,9 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
         validatorCount = uint64(uint256(validatorCount) + addValidators.length - removeValidators.length);
 
-        if (_adversarialResilience > validatorCount) {
+        // Require f < n so certificate claims need weight >= n - f >= 1.
+        // f == n (or n == 0) would make the threshold 0 and accept empty proofs.
+        if (_adversarialResilience >= validatorCount) {
             revert InvalidAdverserialResilience();
         }
         adversarialResilience = _adversarialResilience;
@@ -550,8 +552,12 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
     function _verifyProof(ProofLib.ProofType proofType, bytes32 txHash, bytes calldata proofData) internal view {
         if (proofType == ProofLib.ProofType.Certificate) {
+            // Belt-and-suspenders for misconfigured legacy state where f >= n
+            // would otherwise accept an empty aggregate signature (weight 0).
+            uint256 requiredWeight = validatorCount - adversarialResilience;
+            if (requiredWeight == 0) revert InsufficientValidatorWeight();
             uint256 weight = ProofLib.computeTxWeight(txHash, proofData, activeValidators);
-            if (weight < validatorCount - adversarialResilience) revert InsufficientValidatorWeight();
+            if (weight < requiredWeight) revert InsufficientValidatorWeight();
         } else if (proofType == ProofLib.ProofType.Merkle) {
             if (!ProofLib.verifyMerkleProof(txHash, proofData, merkleRoot)) revert InvalidMerkleProof();
         } else {
