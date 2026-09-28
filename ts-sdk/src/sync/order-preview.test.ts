@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { Market, PositionsSnapshot } from "../types/public.js";
-import { mul } from "../codec/fixed.js";
+import type { Market, PerpPosition, PositionsSnapshot } from "../types/public.js";
+import { div, imRate, mul } from "../codec/fixed.js";
 import { WAD } from "../codec/units.js";
 import { previewOrder } from "./order-preview.js";
 
@@ -78,5 +78,101 @@ describe("previewOrder", () => {
     // An inverse: callers clamp the requested notional with it.
     const p = previewOrder(snap(), market(), { side: "long", price: PRICE, notional: 0n });
     expect(p.maxNotional).toBe(10_000n * WAD * 20n);
+  });
+});
+
+const MM = imRate(20) / 2n; // mm = im/2 = 2.5% at 20x
+
+const perp = (over: Partial<PerpPosition> = {}): PerpPosition => ({
+  kind: "perp",
+  orderbookId: `0x${"00".repeat(31)}07`,
+  side: "long",
+  size: 10n * LOT,
+  notional: mul(10n * LOT, PRICE),
+  entryPrice: PRICE,
+  markPrice: PRICE,
+  margin: 0n,
+  leverage: 20,
+  fundingAccrued: 0n,
+  entryFunding: 0n,
+  liquidationPrice: 0n,
+  unrealizedPnl: 0n,
+  realizedPnl: 0n,
+  ...over,
+});
+
+describe("previewOrder liquidationPrice", () => {
+  // 20 units at 100 = 2,000 notional, whose initial margin at 20x is 100.
+  const SIZE = 20n * WAD;
+  const NOTIONAL = mul(SIZE, PRICE);
+
+  it("solves equity = maintenance margin for a fresh long", () => {
+    // Flat account, so equity is cash.
+    const equity = 100n * WAD;
+    const p = previewOrder(snap(equity), market(), { side: "long", price: PRICE, notional: NOTIONAL });
+    expect(p.liquidationPrice).toBe(div(NOTIONAL - equity, SIZE - mul(SIZE, MM)));
+    expect(p.liquidationPrice!).toBeLessThan(PRICE); // a long liquidates below the fill
+    const thicker = previewOrder(snap(equity * 2n), market(), {
+      side: "long", price: PRICE, notional: NOTIONAL,
+    });
+    expect(thicker.liquidationPrice!).toBeLessThan(p.liquidationPrice!);
+  });
+
+  it("puts a short's liquidation above the fill", () => {
+    const p = previewOrder(snap(100n * WAD), market(), { side: "short", price: PRICE, notional: NOTIONAL });
+    expect(p.liquidationPrice!).toBeGreaterThan(PRICE);
+  });
+
+  it("nets against an existing position in the same market", () => {
+    const held = perp({ size: SIZE });
+    const s: PositionsSnapshot = {
+      ...snap(300n * WAD),
+      positions: [held],
+      maintenanceMargin: mul(NOTIONAL, MM),
+    };
+
+    // Shorting the whole holding leaves the account flat: no mark can liquidate it.
+    expect(previewOrder(s, market(), { side: "short", price: PRICE, notional: NOTIONAL }).liquidationPrice)
+      .toBeUndefined();
+
+    // Doubling it instead puts liquidation nearer the mark than the same order on
+    // an empty account — the same equity now carries twice the size.
+    const doubled = previewOrder(s, market(), { side: "long", price: PRICE, notional: NOTIONAL });
+    const fresh = previewOrder(snap(300n * WAD), market(), { side: "long", price: PRICE, notional: NOTIONAL });
+    expect(doubled.liquidationPrice!).toBeGreaterThan(fresh.liquidationPrice!);
+  });
+
+  it("charges the maintenance margin of positions in other markets", () => {
+    const s: PositionsSnapshot = {
+      ...snap(300n * WAD),
+      positions: [perp({ orderbookId: `0x${"00".repeat(31)}09`, size: SIZE })],
+      maintenanceMargin: mul(NOTIONAL, MM),
+    };
+    // Their requirement is equity this order cannot draw on: liquidation sits closer.
+    const p = previewOrder(s, market(), { side: "long", price: PRICE, notional: NOTIONAL });
+    const alone = previewOrder(snap(300n * WAD), market(), { side: "long", price: PRICE, notional: NOTIONAL });
+    expect(p.liquidationPrice!).toBeGreaterThan(alone.liquidationPrice!);
+  });
+
+  it("declines to guess when another market's requirement is unknown", () => {
+    // A raw REST snapshot has no maintenanceMargin, and the other market's rate is
+    // unknowable here — report nothing rather than a too-forgiving price.
+    const s: PositionsSnapshot = {
+      ...snap(300n * WAD),
+      positions: [perp({ orderbookId: `0x${"00".repeat(31)}09`, size: SIZE })],
+    };
+    expect(previewOrder(s, market(), { side: "long", price: PRICE, notional: NOTIONAL }).liquidationPrice)
+      .toBeUndefined();
+  });
+
+  it("reports nothing for a long the rest of the account fully covers", () => {
+    // Equity far above the notional: the root is negative, i.e. unreachable.
+    const p = previewOrder(snap(1_000_000n * WAD), market(), { side: "long", price: PRICE, notional: NOTIONAL });
+    expect(p.liquidationPrice).toBeUndefined();
+  });
+
+  it("reports nothing on spot, which has no liquidation", () => {
+    const p = previewOrder(snap(), market({ type: "spot" }), { side: "long", price: PRICE, notional: NOTIONAL });
+    expect(p.liquidationPrice).toBeUndefined();
   });
 });

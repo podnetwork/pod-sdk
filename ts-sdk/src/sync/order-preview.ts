@@ -6,6 +6,7 @@
 //   available_margin = withdrawable_cash                     (free cross margin)
 //   max_notional     = available_margin / initial_margin_rate (≈ available · max_leverage)
 //   implied_leverage = (Σ current perp notional + notional) / perps_equity
+//   liquidation      = mark where equity falls to Σ maintenance margin (im/2)
 
 import type { Market, PerpPosition, PositionsSnapshot, Trigger } from "../types/public.js";
 import { div, imRate, mul } from "../codec/fixed.js";
@@ -87,6 +88,67 @@ export interface OrderPreview {
   sufficientMargin: boolean;
   /** Estimated fee = notional · fee rate (taker for market, maker for limit). */
   estimatedFee: bigint;
+  /** Mark at which the account is liquidated once this order fills; undefined
+   * when this market's mark alone can never trigger one. */
+  liquidationPrice?: bigint;
+}
+
+const absB = (x: bigint) => (x < 0n ? -x : x);
+const maxB = (a: bigint, b: bigint) => (a > b ? a : b);
+
+/**
+ * Mark at which the account is liquidated once an order for signed `size` fills
+ * at `price`. Margin is cross, so this is an account-level number in one
+ * market's mark: the engine liquidates at `perps_equity < Σ maintenance margin`,
+ * and both sides are linear in this market's mark X (others held still) —
+ *
+ *   equity(X) = equity_now + (X − mark)·size_existing + (X − price)·size
+ *   mm(X)     = mm_other + |size_total|·X·mm_rate
+ *   root      = (mm_other − C) / (size_total − |size_total|·mm_rate),
+ *               C = equity_now − mark·size_existing − price·size
+ *
+ * Undefined when no such mark exists (spot, flat after the fill, or a root at or
+ * below zero), or when `maintenanceMargin` is absent while perps elsewhere need
+ * it — one `market` cannot supply their rates, and `enrichPositions` sets the
+ * field. Prices the fill only: fees and funding shift the real number.
+ */
+function liquidationPriceAfter(
+  snap: PositionsSnapshot,
+  market: Market,
+  size: bigint,
+  price: bigint,
+): bigint | undefined {
+  if (market.type !== "perp") return undefined;
+  const mmRate = imRate(market.maxLeverage) / 2n; // mm = im/2, as in enrichPositions
+  if (mmRate <= 0n) return undefined;
+
+  // Split the book: this market's perps move with X, every other one is constant.
+  let sizeExisting = 0n;
+  let markedExisting = 0n; // Σ mark·size here — the uPnL already in equity_now
+  let mmHere = 0n;
+  let mmElsewhere = false;
+  for (const p of snap.positions) {
+    if (p.kind !== "perp" || p.size === 0n) continue;
+    if (p.orderbookId === market.id) {
+      sizeExisting += p.size;
+      markedExisting += mul(p.markPrice, p.size);
+      mmHere += mul(mul(absB(p.size), p.markPrice), mmRate);
+    } else {
+      mmElsewhere = true;
+    }
+  }
+  if (snap.maintenanceMargin === undefined && mmElsewhere) return undefined;
+  const mmOther = snap.maintenanceMargin === undefined
+    ? 0n
+    : maxB(0n, snap.maintenanceMargin - mmHere);
+
+  const sizeTotal = sizeExisting + size;
+  const denom = sizeTotal - mul(absB(sizeTotal), mmRate);
+  if (denom === 0n) return undefined; // flat after the fill
+
+  const c = snap.perpsEquity - markedExisting - mul(price, size);
+  const liq = div(mmOther - c, denom);
+  return liq > 0n ? liq : undefined;
 }
 
 export function previewOrder(
@@ -124,6 +186,7 @@ export function previewOrder(
     impliedLeverage,
     sufficientMargin: marginRequired <= availableMargin,
     estimatedFee: mul(notional, input.orderType === "limit" ? market.makerFee : market.takerFee),
+    liquidationPrice: liquidationPriceAfter(snap, market, size, input.price),
   };
 }
 
