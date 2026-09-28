@@ -170,6 +170,9 @@ export interface Market {
   /** Floor on an order's notional, 0 when the market sets none. */
   minNotional: bigint;
   maxLeverage: number;
+  /** Initial-margin rate as the engine charges it, maintenance being half of
+   * it; `maxLeverage` is rounded to an integer, this is not. */
+  initialMargin?: bigint;
   fundingWindowUs: number; // funding-accrual divisor (micros)
   makerFee: bigint;
   takerFee: bigint;
@@ -185,6 +188,10 @@ export interface Market {
   markPrice?: bigint;
   fundingRate?: bigint;
   fundingIndex?: bigint;
+  /** The index positions settle against: `mul(fundingSettlingIndex, size) −
+   * fundingBasis` is a position's accrual. `fundingIndex` is a different
+   * base and cannot stand in for it. */
+  fundingSettlingIndex?: bigint;
   fundingLastUpdatedMs?: number;
   openInterest?: bigint;
 }
@@ -306,7 +313,12 @@ export interface PerpPosition {
   margin: bigint;
   leverage: number;
   fundingAccrued: bigint;
-  /** Funding accumulator at entry; with the live fundingIndex + fundingWindowUs, recompute fundingAccrued. */
+  /** `Σ settlingIndex × Δsize`; absent on older nodes. */
+  fundingBasis?: bigint;
+  /** `Σ clearing × Δsize`; absent on older nodes. */
+  costBasis?: bigint;
+  /** Funding accumulator at entry, on `fundingIndex`'s base. Truncating, so
+   * estimates from it are within a grid step × size. */
   entryFunding: bigint;
   liquidationPrice: bigint;
   unrealizedPnl: bigint;
