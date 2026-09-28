@@ -82,11 +82,10 @@ impl VerifiableLog {
     // returns none if RPC did not provide `log_index` or if the provided `log_index` does not correspond to any log on the receipt
     // result can be proven with MerkleTree::verify_multi_proof(leaves, proof)
     pub fn generate_multi_proof(&self) -> Option<(Vec<Hash>, MerkleMultiProof)> {
-        self.inner.log_index.and_then(|i| {
-            self.pod_metadata
-                .receipt
-                .generate_multi_proof_for_log(i.try_into().unwrap())
-        })
+        let log_index = usize::try_from(self.inner.log_index?).ok()?;
+        self.pod_metadata
+            .receipt
+            .generate_multi_proof_for_log(log_index)
     }
     pub fn verify(&self, committee: &Committee) -> Result<(), CommitteeError> {
         committee.verify_certificate(&Certificate {
@@ -99,21 +98,30 @@ impl VerifiableLog {
             certified: self.pod_metadata.receipt.clone(),
         })
     }
-    pub fn confirmation_time(&self) -> Timestamp {
-        let num_attestations = self.pod_metadata.attestations.len();
-        self.pod_metadata.attestations[num_attestations / 2].timestamp
+    /// Median attestation timestamp: attestations are ordered and the middle
+    /// one taken. `None` when the item carries no attestations, which data
+    /// deserialized from the network can look like at any time — the count is
+    /// not guaranteed by the type, so the median is simply absent rather than
+    /// a panic.
+    pub fn confirmation_time(&self) -> Option<Timestamp> {
+        let attestations = &self.pod_metadata.attestations;
+        attestations
+            .get(attestations.len() / 2)
+            .map(|a| a.timestamp)
     }
 
     pub fn generate_proof(&self) -> Option<MerkleProof> {
-        self.inner.log_index.and_then(|i| {
-            self.pod_metadata
-                .receipt
-                .generate_proof_for_log_hash(i.try_into().unwrap())
-        })
+        let log_index = usize::try_from(self.inner.log_index?).ok()?;
+        self.pod_metadata
+            .receipt
+            .generate_proof_for_log_hash(log_index)
     }
 
     pub fn get_leaf(&self) -> Hash {
-        let log_index = self.inner.log_index.unwrap_or(0).try_into().unwrap();
+        // Saturate rather than panic on indices that do not fit the platform's
+        // `usize` (wasm32): a log claiming such an index can never match a real
+        // proof, and the index itself comes from RPC data.
+        let log_index = usize::try_from(self.inner.log_index.unwrap_or(0)).unwrap_or(usize::MAX);
         StandardMerkleTree::hash_leaf(
             &index_prefix("log_hashes", log_index),
             self.inner.inner.hash_custom(),
@@ -385,5 +393,122 @@ mod test {
 
         assert!(verifiable_log.verify_proof(receipt_root, proof));
         assert_eq!(verifiable_log.inner.log_index, Some(1));
+    }
+
+    // A minimal `VerifiableLog` shaped like what an RPC response or a
+    // subscription event deserializes into, with caller-controlled knobs for
+    // the parts a node can set freely.
+    fn verifiable_log_with(attestations_len: usize, log_index: Option<u64>) -> VerifiableLog {
+        use alloy_signer::SignerSync;
+
+        let signature = PrivateKeySigner::random()
+            .sign_hash_sync(&Hash::default())
+            .unwrap();
+
+        VerifiableLog {
+            inner: RPCLog {
+                inner: Log {
+                    address: Address::default(),
+                    data: LogData::default(),
+                },
+                block_hash: None,
+                block_number: None,
+                block_timestamp: None,
+                transaction_hash: None,
+                transaction_index: None,
+                log_index,
+                removed: false,
+            },
+            pod_metadata: PodLogMetadata {
+                attestations: (0..attestations_len)
+                    .map(|i| TimestampedHeadlessAttestation {
+                        timestamp: Timestamp::from_micros_u64(i as u64),
+                        public_key: Address::default(),
+                        signature,
+                    })
+                    .collect(),
+                receipt: Receipt {
+                    status: true,
+                    actual_gas_used: 0,
+                    max_fee_per_gas: 0,
+                    logs: vec![],
+                    logs_root: Hash::default(),
+                    tx_hash: Hash::default(),
+                    attested_tx: AttestedTx::new(Hash::default(), 0),
+                    signer: Address::default(),
+                    to: None,
+                    contract_address: None,
+                },
+            },
+        }
+    }
+
+    // `attestations` deserializes from the network as a plain vector, and an
+    // empty one is a valid payload: the median is then absent, not a panic.
+    // Regression: this used to panic on `attestations[0]`.
+    #[test]
+    fn confirmation_time_is_none_without_attestations() {
+        let verifiable_log = verifiable_log_with(0, Some(0));
+        assert_eq!(verifiable_log.confirmation_time(), None);
+    }
+
+    #[test]
+    fn confirmation_time_is_median_attestation() {
+        let verifiable_log = verifiable_log_with(2, Some(0));
+        let median = verifiable_log.pod_metadata.attestations[1].timestamp;
+        assert_eq!(verifiable_log.confirmation_time(), Some(median));
+    }
+
+    // An RPC peer can report any `log_index`; one pointing past the receipt's
+    // logs must surface as `None`, per these methods' documented contract.
+    // Regression: `generate_multi_proof` used to panic on `logs[log_index]`.
+    #[test]
+    fn proof_generation_is_none_when_rpc_log_index_is_outside_receipt() {
+        let verifiable_log = verifiable_log_with(0, Some(3));
+        assert!(verifiable_log.generate_multi_proof().is_none());
+        assert!(verifiable_log.generate_proof().is_none());
+    }
+
+    // End to end over the wire format: the JSON a node sends is accepted, and
+    // its hostile fields (no attestations, `logIndex` past the receipt's logs)
+    // produce `None` instead of panicking the consumer.
+    #[test]
+    fn network_json_with_hostile_metadata_returns_none_instead_of_panicking() {
+        let json = r#"{
+            "address": "0x0000000000000000000000000000000000000001",
+            "topics": [],
+            "data": "0x01",
+            "blockHash": null,
+            "blockNumber": null,
+            "blockTimestamp": null,
+            "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "transactionIndex": null,
+            "logIndex": "0x3",
+            "removed": false,
+            "pod_metadata": {
+                "attestations": [],
+                "receipt": {
+                    "status": true,
+                    "actual_gas_used": 1,
+                    "max_fee_per_gas": 1,
+                    "logs": [],
+                    "logs_root": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                    "tx_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                    "attested_tx": {
+                        "hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                        "committee_epoch": 0
+                    },
+                    "signer": "0x0000000000000000000000000000000000000002",
+                    "to": null,
+                    "contract_address": null
+                }
+            }
+        }"#;
+
+        let verifiable_log: VerifiableLog = serde_json::from_str(json).unwrap();
+
+        assert_eq!(verifiable_log.confirmation_time(), None);
+        assert!(verifiable_log.generate_multi_proof().is_none());
+        assert!(verifiable_log.generate_proof().is_none());
     }
 }
