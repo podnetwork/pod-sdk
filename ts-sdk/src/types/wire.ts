@@ -221,22 +221,6 @@ export interface WireBalances {
   net_deposits: WireDecimal;
 }
 
-/** `/clob/leaderboard` (and RPC ob_getRankedPositions) share this shape. Only
- * the aggregate PnL fields of each account's positions block are read. */
-export interface WireRankedAccount {
-  account: Hex;
-  positions: {
-    total_unrealized_pnl: WireDecimal;
-    total_realized_pnl: WireDecimal;
-    account_value: WireDecimal;
-  };
-}
-
-export interface WireLeaderboard {
-  ranked: WireRankedAccount[];
-  total: number;
-}
-
 export interface WireTrigger {
   orderbook_id: Hex;
   order_id: Hex;

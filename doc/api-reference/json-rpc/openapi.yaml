@@ -675,53 +675,6 @@ paths:
                   next_cursor: null
                 id: 1
 
-  /ob_getRankedPositions:
-    post:
-      tags: [Orderbook Data (ob_)]
-      summary: Get Ranked Positions (Leaderboard)
-      operationId: ob_getRankedPositions
-      description: |
-        Returns accounts ranked by combined realized + unrealized PnL
-        (`total_realized_pnl + total_unrealized_pnl`) descending, paginated by `offset`/`limit`.
-
-        Because the unrealized component moves with mark prices, the ordering can shift between
-        calls even without trades. When an `address` is supplied, the response also includes that
-        account's own positions and rank (`queried`), independent of the returned page.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [jsonrpc, method, id]
-              properties:
-                jsonrpc: { type: string, default: "2.0" }
-                method: { type: string, default: "ob_getRankedPositions" }
-                id: { type: integer, default: 1 }
-                params:
-                  type: array
-                  description: |
-                    Positional parameters (all optional):
-                    1. `limit` (integer, nullable): Page size
-                    2. `offset` (integer, nullable): Number of ranked accounts to skip
-                    3. `address` (Address, nullable): When supplied, also return this account's positions and rank in `queried`
-                  items:
-                    oneOf:
-                      - type: integer
-                        nullable: true
-                      - $ref: '#/components/schemas/Address'
-                  example: [10, 0, "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"]
-      responses:
-        '200':
-          description: Ranked window of accounts plus the total count and optional queried account
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  jsonrpc: { type: string }
-                  result: { $ref: '#/components/schemas/GetRankedPositionsResponse' }
-                  id: { type: integer }
-
   /ob_getOraclePrices:
     post:
       tags: [Orderbook Data (ob_)]
@@ -3399,43 +3352,6 @@ components:
         as_of:
           $ref: '#/components/schemas/Timestamp'
           description: Deadline of the batch that produced this funding update (microseconds). Epoch until the orderbook has run a perp batch.
-
-    RankedPosition:
-      type: object
-      description: One account's full positions snapshot, as an entry in `GetRankedPositionsResponse.ranked`.
-      properties:
-        account:
-          $ref: '#/components/schemas/Address'
-        positions:
-          $ref: '#/components/schemas/PositionsResponse'
-
-    RankedAccount:
-      type: object
-      description: An account's positions plus its zero-based rank (0 = top) in the full combined-PnL ordering.
-      properties:
-        account:
-          $ref: '#/components/schemas/Address'
-        rank:
-          type: integer
-          description: Zero-based rank in the full ordering (0 = top), independent of the returned page.
-        positions:
-          $ref: '#/components/schemas/PositionsResponse'
-
-    GetRankedPositionsResponse:
-      type: object
-      description: Paginated leaderboard of accounts ordered by combined realized + unrealized PnL descending.
-      properties:
-        ranked:
-          type: array
-          items: { $ref: '#/components/schemas/RankedPosition' }
-          description: The requested `[offset, offset + limit)` window, ordered by combined PnL descending.
-        total:
-          type: integer
-          description: Full count of ranked accounts before pagination.
-        queried:
-          $ref: '#/components/schemas/RankedAccount'
-          nullable: true
-          description: Populated only when the request supplies an `address` — that account's positions and rank. Null if no address was given, or the account has no PnL-bearing state.
 
     SubscriptionParams:
       type: object

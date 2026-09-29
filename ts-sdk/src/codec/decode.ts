@@ -2,13 +2,13 @@
 // representations are normalized into bigint + millisecond numbers.
 
 import type {
-  Bar, BackstopTransfer, Balances, BridgeConfig, LeaderboardEntry, LeaderboardPage, Market, Order,
+  Bar, BackstopTransfer, Balances, BridgeConfig, Market, Order,
   Orderbook, PartialFill, PerpPosition, Position, PositionsSnapshot, SpotHolding,
   SpotPosition, Status, Trigger, MarketType, OrderDirection, OrderKind, OrderStatus, TriggerType,
   Withdrawal,
 } from "../types/public.js";
 import type {
-  WireBackstopTransfer, WireBalances, WireBridgeConfig, WireCandle, WireLeaderboard,
+  WireBackstopTransfer, WireBalances, WireBridgeConfig, WireCandle,
   WireMarketDynamics, WireMarketStatic, WireOrder, WireOrderbook, WirePartialFill,
   WirePerpPosition, WirePosition, WirePositionsSnapshot, WireSpotHolding, WireSpotPosition,
   WireStatus, WireTrigger, WireWithdrawal,
@@ -236,31 +236,6 @@ export function decodeBalances(w: WireBalances): Balances {
     withdrawableCash: dec(w.withdrawable_cash),
     netDeposits: dec(w.net_deposits),
   };
-}
-
-/** Decode a ranked-accounts page (REST `/clob/leaderboard`). `offset` makes the
- * ranks 1-based over the full ordering. PnL = unrealized + realized (the rank
- * key); `%` is suppressed to 0 when the basis (accountValue − unrealized) is dust. */
-export function decodeLeaderboard(w: WireLeaderboard, offset = 0): LeaderboardPage {
-  const entries: LeaderboardEntry[] = (w.ranked ?? []).map((r, i) => {
-    const unrealizedPnl = dec(r.positions.total_unrealized_pnl);
-    const realizedPnl = dec(r.positions.total_realized_pnl);
-    const accountValue = dec(r.positions.account_value);
-    const pnl = unrealizedPnl + realizedPnl;
-    const basis = accountValue - unrealizedPnl;
-    const absAv = accountValue < 0n ? -accountValue : accountValue;
-    const safe = basis > 0n && absAv > 0n && basis * 1000n >= absAv * 5n; // basis ≥ 0.5% of |av|
-    return {
-      rank: offset + i + 1,
-      account: r.account,
-      accountValue,
-      unrealizedPnl,
-      realizedPnl,
-      pnl,
-      pnlPercent: safe ? (Number(pnl) / Number(basis)) * 100 : 0,
-    };
-  });
-  return { entries, total: w.total ?? 0 };
 }
 
 export function decodeTrigger(w: WireTrigger): Trigger {
