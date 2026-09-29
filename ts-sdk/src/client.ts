@@ -1,5 +1,5 @@
 import type {
-  Address, BackstopTransfer, Balances, Bar, BridgeConfig, LeaderboardPage, LeaderboardQuery, Market,
+  Address, BackstopTransfer, Balances, Bar, BridgeConfig, Market,
   MarketId, PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery, TxExplorer,
   OrdersQuery, Withdrawal,
 } from "./types/public.js";
@@ -205,12 +205,6 @@ export class PodTradeClient {
     return this.memo(`withdrawals:${account}`, () =>
       new BaseResource(withdrawalsSource(this.ctx, account)),
     );
-  }
-
-  /** Leaderboard (ranked accounts by net PnL). One-shot REST; paginate via
-   * `{ limit, offset }`. Not a stream — call again to refresh. */
-  leaderboard(query?: LeaderboardQuery): Promise<LeaderboardPage> {
-    return this.rest.leaderboard(query);
   }
 
   /** Explorer view of a transaction by hash. One-shot. */

@@ -3,17 +3,17 @@
 // ms in, decoded (bigint / ms) out.
 
 import type {
-  Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery, LeaderboardPage,
-  LeaderboardQuery, Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status,
+  Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery,
+  Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status,
   Trigger, TxExplorer, Withdrawal, WithdrawalsQuery,
 } from "../types/public.js";
 import type {
-  WireBackstopPage, WireBalances, WireBridgeConfig, WireCandlesEnvelope, WireLeaderboard,
+  WireBackstopPage, WireBalances, WireBridgeConfig, WireCandlesEnvelope,
   WireMarketStatic, WireMarketStatsPage, WireOrderbook, WireOrdersPage, WirePositionsSnapshot,
   WireStatus, WireTriggersPage, WireWithdrawal,
 } from "../types/wire.js";
 import {
-  decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle, decodeLeaderboard,
+  decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle,
   decodeMarketDynamics, decodeMarketStatic, decodeOrder, decodeOrderbook, decodePositions,
   decodeStatus, decodeTrigger, decodeWithdrawal,
 } from "../codec/decode.js";
@@ -204,15 +204,6 @@ export class PodRestClient {
    * decoded calldata). Returned as-is (hex fields raw). */
   async transaction(hash: string): Promise<TxExplorer> {
     return this.get<TxExplorer>(`/tx/${hash}`);
-  }
-
-  /** Accounts ranked by net PnL (realized + unrealized), descending. Paginate
-   * with `{ limit, offset }`; ranks are 1-based over the full ordering. */
-  async leaderboard(q?: LeaderboardQuery): Promise<LeaderboardPage> {
-    const w = await this.get<WireLeaderboard>("/clob/leaderboard", {
-      limit: q?.limit, offset: q?.offset, address: q?.account,
-    });
-    return decodeLeaderboard(w, q?.offset ?? 0);
   }
 
   /** Static bridge config: the claim chain, the bridge contract, and every
