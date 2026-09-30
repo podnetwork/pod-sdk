@@ -21,22 +21,40 @@ const tickAt = (market: MarketId, timeUs: number): PnlTick => {
 function simulate(schedule: { tick: number; run: (e: Engine) => void }[], lastTick: number) {
   const e = new Engine();
   const pnl: bigint[] = [];
+  const av: bigint[] = [];
   for (let i = 0; i <= lastTick; i++) {
     for (const s of schedule) if (s.tick === i) s.run(e.at(i));
     pnl.push(e.pnl(i));
+    av.push(e.accountValue(i));
   }
-  return { pnl, e };
+  return { pnl, av, e };
 }
 
 class Engine {
   s = 0n; cb = 0n; fb = 0n; R = 0n;
   q = 0n; c = 0n; Rs = 0n;
+  cash = 0n;
   events: PnlEvent[] = [];
   private i = 0;
   at(i: number) { this.i = i; return this; }
   private get F() { return tickAt(PERP, this.i * TICK_US).funding; }
+  private get clearing() { return tickAt(SPOT, this.i * TICK_US).mark; }
   private move(d: bigint, p: bigint) { this.cb += mul(p, d); this.fb += mul(this.F, d); this.s += d; }
-  private bank() { this.R += this.fb - this.cb; this.cb = 0n; this.fb = 0n; }
+  private bank() { const banked = this.fb - this.cb; this.R += banked; this.cash += banked; this.cb = 0n; this.fb = 0n; }
+  cashIn(amount: bigint) {
+    this.cash += amount;
+    this.events.push({ timeUs: this.i * TICK_US, deltaSize: amount, price: 0n, kind: "cash" });
+  }
+  tokenIn(qty: bigint) {
+    this.c += mul(this.clearing, qty);
+    this.q += qty;
+    this.events.push({ market: SPOT, timeUs: this.i * TICK_US, deltaSize: qty, price: 0n, kind: "deposit" });
+  }
+  accountValue(i: number) {
+    const pt = tickAt(PERP, i * TICK_US);
+    const st = tickAt(SPOT, i * TICK_US);
+    return this.cash + (mul(pt.mark, this.s) - this.cb) - (mul(pt.funding, this.s) - this.fb) + mul(st.mark, this.q);
+  }
   perp(ds: bigint, p: bigint) {
     const target = this.s + ds;
     if (this.s !== 0n && target !== 0n && (this.s > 0n) !== (target > 0n)) { this.move(-this.s, p); this.bank(); }
@@ -45,6 +63,7 @@ class Engine {
     this.events.push({ market: PERP, timeUs: this.i * TICK_US, deltaSize: ds, price: p, kind: "fill" });
   }
   spot(dq: bigint, p: bigint) {
+    this.cash -= mul(p, dq);
     if (dq > 0n) this.c += mul(p, dq);
     else { const a = div(this.c, this.q); this.Rs += mul(p - a, -dq); this.c -= mul(a, -dq); }
     this.q += dq;
@@ -66,6 +85,7 @@ class Engine {
 }
 
 const schedule = [
+  { tick: 0, run: (e: Engine) => e.cashIn(W(1000)) },
   { tick: 1, run: (e: Engine) => e.perp(W(2), W(101)) },
   { tick: 2, run: (e: Engine) => e.spot(W(10), W(54)) },
   { tick: 3, run: (e: Engine) => e.perp(W(1), W(103)) },
@@ -78,6 +98,9 @@ const schedule = [
   { tick: 8, run: (e: Engine) => e.perp(W(3), W(108)) },
   { tick: 9, run: (e: Engine) => e.spot(W(-8), W(68)) },
   { tick: 10, run: (e: Engine) => e.perp(W(-2), W(110)) },
+  // a token deposit lands with a fill in the same tick, and cash leaves later
+  { tick: 11, run: (e: Engine) => { e.tokenIn(W(2)); e.spot(W(1), W(72)); } },
+  { tick: 12, run: (e: Engine) => e.cashIn(W(-50)) },
 ];
 const LAST = 12;
 
@@ -90,13 +113,14 @@ const foldFrom = (e: Engine, gridTicks: number[]) => foldPnlHistory({
   events: e.events,
   gridUs: gridTicks.map((t) => t * TICK_US),
   tickAt,
+  accountValueRef: e.accountValue(LAST),
 });
 
 const close = (a: bigint, b: bigint) => (a > b ? a - b : b - a) <= 10n ** 6n;
 
 describe("foldPnlHistory", () => {
   it("reproduces the forward engine on every tick, starting at 0", () => {
-    const { pnl, e } = simulate(schedule, LAST);
+    const { pnl, av, e } = simulate(schedule, LAST);
     const grid = Array.from({ length: LAST + 1 }, (_, i) => i);
     const out = foldFrom(e, grid);
     expect(out.warnings).toEqual([]);
@@ -104,6 +128,7 @@ describe("foldPnlHistory", () => {
     expect(out.points[0]?.pnl).toBe(0n);
     out.points.forEach((p, i) => {
       expect(close(p.pnl, (pnl[i] ?? 0n) - (pnl[0] ?? 0n)), `tick ${i}`).toBe(true);
+      expect(close(p.accountValue ?? 0n, av[i] ?? 0n), `account value at tick ${i}`).toBe(true);
     });
   });
 
@@ -165,16 +190,24 @@ const stubTickAt = (_m: MarketId, tUs: number): PnlTick => { const t = Math.floo
 const stubEvents = (): PnlEvent[] => fillRows.map((r) => ({ market: PERP, timeUs: r.timestamp, deltaSize: r.initial_size === "-1" ? -(10n ** 16n) : 10n ** 16n, price: BigInt(r.price), kind: "fill" }));
 
 /** A fake node: one perp market, the fill rows above, ticks from the functions above. Counts fills calls. */
-function stubDeps(cache?: PnlHistoryCache) {
+const STUB_ACCOUNT_VALUE = W(5_000);
+function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRoute?: boolean } = {}) {
   const calls = { fills: 0 };
   const rest = {
     markets: async () => [{ id: PERP, type: "perp", base: { address: "0x01" }, fundingWindowUs: 1, auctionIntervalMs: 500 }],
     // no bases: the synthetic fills are not engine-consistent, so the residual check must stay off
-    positions: async () => ({ positions: [{ kind: "perp", orderbookId: PERP, size: perpSize }] }),
+    positions: async () => ({ positions: [{ kind: "perp", orderbookId: PERP, size: perpSize }], accountValue: STUB_ACCOUNT_VALUE }),
     balances: async () => ({ holdings: [] }),
     status: async () => ({ solutionNow: NOW_US / 1000 }),
     backstopTransfers: async () => ({ transfers: [] }),
     bridgeWithdrawals: async () => [],
+    activity: opts.activityRoute === false
+      ? async () => { throw new Error("404"); }
+      : async (_a: string, q: { from: number; to: number }) => ({
+          activity: (opts.flows ?? []).filter((f) => (f as { timeMs: number }).timeMs >= q.from && (f as { timeMs: number }).timeMs < q.to),
+          nextCursor: null,
+          solutionNow: NOW_US / 1000,
+        }),
   };
   const fakeFetch = (async (_url: string, init: { body: string }) => {
     const body = JSON.parse(init.body);
@@ -265,5 +298,38 @@ describe("PnlHistoryCache eviction", () => {
     expect([...c.tickTimes]).toEqual([50]);
     c.clear();
     expect(c.missing(0, 60)).toEqual([{ from: 0, to: 60 }]);
+  });
+});
+
+describe("account value", () => {
+  it("carries the deposits and transfers through as non-PnL money", async () => {
+    const flows = [
+      { activityType: "bridge_transfer", timeMs: 1_900 * TICK_US / 1000, txHash: "0x1", token: "0xee", amount: W(100) },
+      { activityType: "transfer", timeMs: 1_850 * TICK_US / 1000, transferId: "0x2", token: "0xee", amount: W(-30) },
+      { activityType: "bridge_transfer", timeMs: 1_800 * TICK_US / 1000, txHash: "0x3", token: "0xee", amount: W(7), error: "not_included" },
+      { activityType: "backstop", timeMs: 1_700 * TICK_US / 1000, size: 0n, cash: W(40), markPrice: 0n, equity: 0n, time: 0 },
+    ];
+    const { deps } = stubDeps(undefined, { flows });
+    const r = await fetchPnlHistory(deps, "0x1", { from: 0, points: 200 });
+    expect(r.warnings).toEqual([]);
+    const events = stubEvents().concat([
+      { timeUs: 1_900 * TICK_US, deltaSize: W(100), price: 0n, kind: "cash" },
+      { timeUs: 1_850 * TICK_US, deltaSize: W(-30), price: 0n, kind: "cash" },
+      { timeUs: 1_700 * TICK_US, deltaSize: W(-40), price: 0n, kind: "cash" },
+    ]);
+    const oneShot = foldPnlHistory({ refTimeUs: NOW_US, legs: [{ market: PERP, kind: "perp", size: perpSize }], events, gridUs: r.points.map((p) => p.time * 1000), tickAt: stubTickAt, accountValueRef: STUB_ACCOUNT_VALUE });
+    expect(r.points.map((p) => p.accountValue)).toEqual(oneShot.points.map((p) => p.accountValue));
+    expect(r.points.at(-1)?.accountValue).toBe(STUB_ACCOUNT_VALUE);
+    const at = (tick: number) => r.points.find((p) => p.time * 1000 >= tick * TICK_US)?.accountValue ?? 0n;
+    // before the 100 deposit the account was worth 100 less, all else equal
+    const pnlAt = (tick: number) => r.points.find((p) => p.time * 1000 >= tick * TICK_US)?.pnl ?? 0n;
+    expect((at(1_950) - pnlAt(1_950)) - (at(1_890) - pnlAt(1_890))).toBe(W(100));
+  });
+
+  it("omits account value and warns when the node has no activity feed", async () => {
+    const { deps } = stubDeps(undefined, { activityRoute: false });
+    const r = await fetchPnlHistory(deps, "0x1", { from: 0, points: 50 });
+    expect(r.points.every((p) => p.accountValue === undefined)).toBe(true);
+    expect(r.warnings.some((w) => w.includes("activity feed"))).toBe(true);
   });
 });
