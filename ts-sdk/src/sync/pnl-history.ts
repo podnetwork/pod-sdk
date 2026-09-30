@@ -11,13 +11,19 @@
 // Fills page newest-first, so the walk streams: the newest points only need
 // the newest pages, and each chunk is yielded as soon as its fills are in.
 
-import type { Address, MarketId } from "../types/public.js";
+import type { Address, MarketId, MoneyActivity } from "../types/public.js";
 import { div, mul } from "../codec/fixed.js";
 import { dec } from "../codec/units.js";
 import { rpc, rpcBatch, type RpcOptions } from "../transport/jsonrpc.js";
 import type { PodRestClient } from "../transport/rest.js";
 
-export interface PnlPoint { time: number; pnl: bigint }
+export interface PnlPoint {
+  time: number;
+  pnl: bigint;
+  /** Absolute account value at the point; absent when the node does not
+   * serve the activity feed the deposits and transfers come from. */
+  accountValue?: bigint;
+}
 export interface PnlHistory { points: PnlPoint[]; warnings: string[] }
 export interface PnlHistoryQuery {
   /** ms */
@@ -43,12 +49,17 @@ export interface PnlLeg {
   basis?: bigint;
 }
 export interface PnlEvent {
-  market: MarketId;
+  /** Absent on a cash movement. */
+  market?: MarketId;
   timeUs: number;
+  /** Signed size for a market event; the signed native amount for `cash`. */
   deltaSize: bigint;
-  /** Fill price; unused for withdrawals. */
+  /** Fill price; unused for withdrawals, deposits and cash. */
   price: bigint;
-  kind: "fill" | "withdraw" | "sweep";
+  /** `withdraw` and `deposit` are spot token movements: a withdrawal leaves at
+   * the average cost, a deposit arrives marked at the tick's clearing price.
+   * `cash` is native money in or out, which moves account value only. */
+  kind: "fill" | "withdraw" | "deposit" | "sweep" | "cash";
 }
 export interface PnlTick { mark: bigint; funding: bigint }
 export interface PnlFoldInput {
@@ -60,12 +71,15 @@ export interface PnlFoldInput {
   gridUs: number[];
   /** Newest tick at or before `timeUs`. */
   tickAt: (market: MarketId, timeUs: number) => PnlTick | undefined;
+  /** Account value at the reference tick; points carry `accountValue` when given. */
+  accountValueRef?: bigint;
 }
 
 const RESIDUAL_TOLERANCE = 10n ** 12n;
-// Within a tick the engine runs sweeps, then matching, then withdrawals;
-// walking backwards undoes them in the opposite order.
-const RANK = { withdraw: 0, fill: 1, sweep: 2 } as const;
+// Within a tick the engine runs sweeps, then deposits, then matching, then
+// transfers and withdrawals; walking backwards undoes them in the opposite
+// order. Cash never touches a size, so its place only has to be consistent.
+const RANK = { withdraw: 0, cash: 1, fill: 2, deposit: 3, sweep: 4 } as const;
 const newestFirst = (a: PnlEvent, b: PnlEvent) => b.timeUs - a.timeUs || RANK[a.kind] - RANK[b.kind];
 
 interface LegState { kind: "perp" | "spot"; size: bigint; basis: bigint; basisKnown: boolean }
@@ -77,12 +91,14 @@ export class PnlWalker {
   private readonly state = new Map<MarketId, LegState>();
   private pending: PnlEvent[] = [];
   private acc = 0n;
+  private flows = 0n;
   private refValue?: bigint;
 
   constructor(
     legs: PnlLeg[],
     private readonly tickAt: (market: MarketId, timeUs: number) => PnlTick | undefined,
     private readonly refTimeUs: number,
+    private readonly accountValueRef?: bigint,
   ) {
     for (const l of legs) this.state.set(l.market, { kind: l.kind, size: l.size, basis: l.basis ?? 0n, basisKnown: l.basis !== undefined });
   }
@@ -100,9 +116,15 @@ export class PnlWalker {
     this.refValue ??= this.value(this.refTimeUs);
     for (let e = this.pending[0]; e && e.timeUs > t; e = this.pending[0]) {
       this.pending.shift();
-      this.acc += this.unapply(e);
+      const u = this.unapply(e);
+      this.acc += u.pnl;
+      this.flows += u.flow;
     }
-    return { time: t / 1000, pnl: this.value(t) - this.refValue - this.acc };
+    const pnl = this.value(t) - this.refValue - this.acc;
+    const point: PnlPoint = { time: t / 1000, pnl };
+    // Account value is PnL plus every movement that is not PnL.
+    if (this.accountValueRef !== undefined) point.accountValue = this.accountValueRef + pnl - this.flows;
+    return point;
   }
 
   private value(t: number): bigint {
@@ -116,13 +138,16 @@ export class PnlWalker {
     return sum;
   }
 
-  private unapply(e: PnlEvent): bigint {
+  /** The PnL adjustment and the non-PnL money value carried by the event. */
+  private unapply(e: PnlEvent): { pnl: bigint; flow: bigint } {
+    if (e.kind === "cash" || e.market === undefined) return { pnl: 0n, flow: e.deltaSize };
     const st = this.state.get(e.market);
     if (!st) throw new Error(`pnlHistory: event on unknown market ${e.market}`);
     const tick = this.tickAt(e.market, e.timeUs);
     const F = tick?.funding ?? 0n;
     const sizeBefore = st.size - e.deltaSize;
     let price = e.price;
+    let flow = 0n;
 
     if (st.kind === "spot") {
       const average = st.size !== 0n && st.basisKnown ? div(st.basis, st.size) : undefined;
@@ -132,8 +157,12 @@ export class PnlWalker {
           price = tick?.mark ?? 0n;
         } else price = average;
       }
+      if (e.kind === "deposit") price = tick?.mark ?? 0n;
+      // Tokens leave at their cost and arrive at the clearing price; either
+      // way the value that moved is what the event is priced at.
+      if (e.kind === "withdraw" || e.kind === "deposit") flow = mul(price, e.deltaSize);
       if (sizeBefore === 0n) { st.basis = 0n; st.basisKnown = true; }
-      else if (e.deltaSize > 0n) st.basis -= mul(e.price, e.deltaSize);
+      else if (e.deltaSize > 0n) st.basis -= mul(price, e.deltaSize);
       else if (average !== undefined) st.basis = mul(average, sizeBefore);
       else st.basisKnown = false;
     } else {
@@ -148,16 +177,16 @@ export class PnlWalker {
     }
 
     st.size = sizeBefore;
-    return mul(F - price, e.deltaSize);
+    return { pnl: mul(F - price, e.deltaSize), flow };
   }
 }
 
 export function foldPnlHistory(input: PnlFoldInput): PnlHistory {
-  const walker = new PnlWalker(input.legs, input.tickAt, input.refTimeUs);
+  const walker = new PnlWalker(input.legs, input.tickAt, input.refTimeUs, input.accountValueRef);
   walker.feed(input.events);
   const points = [...input.gridUs].reverse().map((t) => walker.point(t)).reverse();
   const base = points[0]?.pnl ?? 0n;
-  return { points: points.map((p) => ({ time: p.time, pnl: p.pnl - base })), warnings: walker.warnings };
+  return { points: points.map((p) => ({ ...p, pnl: p.pnl - base })), warnings: walker.warnings };
 }
 
 // --- fetch ---
@@ -291,6 +320,25 @@ export async function fetchFills(rpcUrl: string, account: Address, fromUs: numbe
   return (await drainFills(rpcUrl, account, fromUs, toUs, opts)).fills;
 }
 
+const FLOW_TYPES = ["backstop", "bridge_transfer", "transfer"] as const;
+
+/** Money movements in [fromUs, toUs) from the activity feed, or `undefined`
+ * when the node does not serve it. */
+async function drainFlows(rest: PodRestClient, account: Address, fromUs: number, toUs: number): Promise<MoneyActivity[] | undefined> {
+  const out: MoneyActivity[] = [];
+  let cursor: string | undefined;
+  try {
+    do {
+      const page = await rest.activity(account, { types: [...FLOW_TYPES], from: fromUs / 1000, to: toUs / 1000, limit: 200, cursor });
+      for (const e of page.activity) if (e.activityType !== "order") out.push(e);
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+  } catch {
+    return undefined;
+  }
+  return out;
+}
+
 export async function* streamPnlHistory(
   deps: PnlHistoryDeps,
   account: Address,
@@ -359,7 +407,7 @@ export async function* streamPnlHistory(
   const cache = deps.cache ?? new PnlHistoryCache();
   const ticks = cache.ticks;
   const key = (m: MarketId, t: number) => `${m}:${t}`;
-  const walker = new PnlWalker(legs, (m, t) => ticks.get(key(m, t)), nowUs);
+  const walker = new PnlWalker(legs, (m, t) => ticks.get(key(m, t)), nowUs, snap.accountValue);
   const known = new Set<MarketId>(legs.map((l) => l.market));
   const use = (id: MarketId) => { if (!known.has(id)) { known.add(id); walker.touch(id, kindOf(id)); } };
 
@@ -409,12 +457,32 @@ export async function* streamPnlHistory(
   for (const w of withdrawals) {
     if (w.error || w.timeUs < fromUs || w.timeUs > nowUs) continue;
     const m = spotByToken.get(w.token);
-    if (!m) continue;
+    if (!m) { fixed.push({ timeUs: w.timeUs, deltaSize: -w.amount, price: 0n, kind: "cash" }); continue; }
     use(m.id);
     fixed.push({ market: m.id, timeUs: w.timeUs, deltaSize: -w.amount, price: 0n, kind: "withdraw" });
   }
   walker.feed(fixed);
-  const preface = Promise.all([fetchTicks([nowUs]), fetchPairs(fixed.map((e) => ({ market: e.market, timeUs: e.timeUs })))]);
+  // Deposits, transfers and backstop cash sweeps come from the activity feed;
+  // withdrawals and sweep legs already arrived above, so those rows are skipped.
+  let flowsAvailable = true;
+  const toFlowEvents = (rows: MoneyActivity[]): PnlEvent[] => {
+    const out: PnlEvent[] = [];
+    for (const r of rows) {
+      const timeUs = r.timeMs * 1000;
+      if (r.activityType === "backstop") {
+        if (!r.orderbookId) out.push({ timeUs, deltaSize: -r.cash, price: 0n, kind: "cash" });
+        continue;
+      }
+      if (r.error || (r.activityType === "bridge_transfer" && r.amount < 0n)) continue;
+      const m = spotByToken.get(r.token);
+      if (!m) { out.push({ timeUs, deltaSize: r.amount, price: 0n, kind: "cash" }); continue; }
+      use(m.id);
+      out.push({ market: m.id, timeUs, deltaSize: r.amount, price: 0n, kind: r.amount < 0n ? "withdraw" : "deposit" });
+    }
+    return out;
+  };
+  const pairsOf = (events: PnlEvent[]) => events.flatMap((e) => (e.market ? [{ market: e.market, timeUs: e.timeUs }] : []));
+  const preface = Promise.all([fetchTicks([nowUs]), fetchPairs(pairsOf(fixed))]);
 
   const toEvent = (f: WireFill): PnlEvent => {
     const base = dec(f.base_amount);
@@ -431,12 +499,13 @@ export async function* streamPnlHistory(
     const bound = k === 0 ? nowUs : (chunks[k - 1]?.at(-1) ?? nowUs);
     const warnings: string[] = [];
     await Promise.all(cache.missing(oldest + 1, bound + 1).map(async (r) => {
-      const page = await drainFills(deps.rpcUrl, account, r.from, r.to, rpcOpts);
-      cache.add(r.from, r.to, page.fills.map(toEvent));
+      const [page, flows] = await Promise.all([drainFills(deps.rpcUrl, account, r.from, r.to, rpcOpts), drainFlows(deps.rest, account, r.from, r.to)]);
+      if (flows === undefined) flowsAvailable = false;
+      cache.add(r.from, r.to, page.fills.map(toEvent).concat(toFlowEvents(flows ?? [])));
       warnings.push(...page.warnings);
     }));
     const events = cache.slice(oldest + 1, bound + 1);
-    await Promise.all([fetchTicks(pts), fetchPairs(events.map((e) => ({ market: e.market, timeUs: e.timeUs })))]);
+    await Promise.all([fetchTicks(pts), fetchPairs(pairsOf(events))]);
     return { events, warnings };
   };
   const queue: Promise<{ events: PnlEvent[]; warnings: string[] }>[] = [];
@@ -449,11 +518,15 @@ export async function* streamPnlHistory(
     }
     const { events, warnings } = await (queue.shift() as Promise<{ events: PnlEvent[]; warnings: string[] }>);
     await preface;
-    for (const e of events) use(e.market);
+    for (const e of events) if (e.market) use(e.market);
     walker.feed(events);
     const pts = chunks[k] ?? [];
     await fetchPairs(pts.flatMap((t) => [...known].map((market) => ({ market, timeUs: t }))));
     const out = pts.map((t) => walker.point(t)).reverse();
+    if (!flowsAvailable) {
+      for (const p of out) delete p.accountValue;
+      if (k === 0) warnings.push("account value unavailable: the node does not serve the activity feed");
+    }
     yield { points: out, done: k === chunks.length - 1, warnings: [...walker.warnings.splice(0), ...warnings] };
   }
 }
@@ -466,5 +539,5 @@ export async function fetchPnlHistory(deps: PnlHistoryDeps, account: Address, q:
     warnings.push(...c.warnings);
   }
   const base = points[0]?.pnl ?? 0n;
-  return { points: points.map((p) => ({ time: p.time, pnl: p.pnl - base })), warnings };
+  return { points: points.map((p) => ({ ...p, pnl: p.pnl - base })), warnings };
 }
