@@ -82,11 +82,12 @@ function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: numbe
   return {
     id: e.id,
     txHash: e.tx,
-    // The frame names the book, so this is exact rather than inferred. Whether
-    // that book is spot or perp is static market metadata, joined at read time by
-    // whoever needs it — freezing it here would strand every order decoded before
-    // the markets list loaded.
-    orderbookId: frame.book,
+    // Named by the entity on `pod_activity_v2` and by the frame on
+    // `pod_orders_v2`, so this is exact rather than inferred. Whether that book is
+    // spot or perp is static market metadata, joined at read time by whoever needs
+    // it — freezing it here would strand every order decoded before the markets
+    // list loaded.
+    orderbookId: e.book ?? frame.book,
     side: initialSize < 0n ? "sell" : "buy",
     orderType: e.type === "market" ? "market" : "limit",
     // Not on the entity: an order that rests is `active`, and the events below

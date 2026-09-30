@@ -1,5 +1,5 @@
 import type {
-  Address, BackstopTransfer, Balances, Bar, BridgeConfig, Market,
+  ActivityQuery, Address, BackstopTransfer, Balances, Bar, BridgeConfig, Market,
   MarketId, PositionsSnapshot, Resolution, Status, TimeRange, Trigger, TriggersQuery, TxExplorer,
   OrdersQuery, Withdrawal,
 } from "./types/public.js";
@@ -13,6 +13,7 @@ import {
 import { withdrawalsSource } from "./sync/withdrawals.js";
 import { CandleSeries, candleTailFrom, fetchCandleHistory } from "./sync/candles.js";
 import { OrderHistory } from "./sync/orders.js";
+import { ActivityHistory } from "./sync/activity.js";
 import { enrichPositions } from "./sync/positions-live.js";
 import { fetchPnlHistory, streamPnlHistory, PnlHistoryCache, type PnlHistory, type PnlHistoryChunk, type PnlHistoryQuery } from "./sync/pnl-history.js";
 
@@ -304,6 +305,16 @@ export class PodTradeClient {
     } finally {
       release();
     }
+  }
+
+  /**
+   * One account's whole activity, newest first (ADR 0057): its orders, the
+   * backstop legs it was swept into, and every bridge transfer and transfer that
+   * moved its money. `orders` is the same feed restricted to the order rows.
+   */
+  activity(account: Address, query?: ActivityQuery): ActivityHistory {
+    const key = `activity:${account.toLowerCase()}:${JSON.stringify(query ?? {})}`;
+    return this.memo(key, () => new ActivityHistory(this.ctx, account, query));
   }
 
   orders(account: Address, query?: OrdersQuery): OrderHistory {

@@ -10,7 +10,11 @@ export type Channel =
   | "pod_markets" | "pod_positions" | "pod_triggers"
   /** Terminal withdrawal outcomes; one array per tick, `account`-filtered on the
    * debited account. ADR 0033 §6. */
-  | "pod_withdrawals";
+  | "pod_withdrawals"
+  /** One account's whole activity: `pod_orders_v2` for every book the tick
+   * cleared, plus the money it moved. One frame per tick, so `since` alone
+   * resumes it. ADR 0057 §6. */
+  | "pod_activity_v2";
 
 export interface SubParams {
   clobIds?: MarketId[];

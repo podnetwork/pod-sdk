@@ -8,7 +8,8 @@ export type { MarketsCache } from "./sync/sources.js";
 export { PodRestClient, PodHttpError } from "./transport/rest.js";
 export type {
   MarketDynamicsPatch, MarketStatsPage, OrdersPage, BackstopPage, TriggersPage,
-  CandlesPage, OrdersQueryRest, TriggersQueryRest, RestClientOptions,
+  CandlesPage, ActivityPage, OrdersQueryRest, ActivityQueryRest, TriggersQueryRest,
+  RestClientOptions,
 } from "./transport/rest.js";
 export { PodWsClient, PodSubscriptionClosedError } from "./transport/ws.js";
 export type {
@@ -33,6 +34,7 @@ export {
 export type { SeriesResource } from "./sync/candles.js";
 export { CandleSeries } from "./sync/candles.js";
 export { OrderHistory } from "./sync/orders.js";
+export { ActivityHistory } from "./sync/activity.js";
 export {
   fetchPnlHistory, streamPnlHistory, PnlHistoryCache,
   type PnlHistory, type PnlHistoryChunk, type PnlHistoryDeps, type PnlHistoryQuery, type PnlPoint,

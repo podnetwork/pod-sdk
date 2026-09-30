@@ -1,35 +1,15 @@
 // OrderHistory: a SeriesResource<Order> seeded from the warm first page, kept
 // live by the pod_orders_v2 stream (bidder-filtered, resumed from a (batch, book)
-// cursor), and paged backwards by cursor for deep history.
-//
-// Reconnect: on every (re)connect we re-seed the first page (authoritative open
-// orders) and refresh the cursor from its watermark; the WS auto-resubscribes,
-// and if the cursor is too old (down too long) `onError` re-seeds and
-// resubscribes. A server-initiated close is not the same as a rejection: it
-// reports where delivery stopped, so resuming from one is a bare `resubscribe()`
-// with no re-seed.
+// cursor by `ResumableStream`), and paged backwards by cursor for deep history.
 
 import type { Address, MarketId, Order, OrderEvent, OrdersQuery } from "../types/public.js";
 import type { WireOrdersFrame } from "../types/wire.js";
 import { applyOrdersFrame } from "../codec/orders-v2.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
-import { PodSubscriptionClosedError, type SubParams, type Subscription } from "../transport/ws.js";
+import type { SubParams } from "../transport/ws.js";
 import type { SeriesResource } from "./candles.js";
 import type { SyncContext } from "./sources.js";
-
-/**
- * Consecutive server closes we resume from before falling back to the re-seed
- * path. A lagged close is recoverable by resubscribing, so the fast path is the
- * right default — but a stream that keeps closing is one we are not keeping up
- * with, and re-seeding beats replaying a growing backlog on every attempt.
- */
-const FAST_RESUMES_BEFORE_RESEED = 3;
-
-/**
- * Re-seed attempts that keep the cursor before we conclude the cursor is what the
- * server is rejecting, drop it, and settle for streaming live.
- */
-const RETRIES_BEFORE_DROPPING_CURSOR = 2;
+import { ResumableStream } from "./stream.js";
 
 /** The largest book id, which is what an absent `sinceBook` means. */
 const WHOLE_BATCH = `0x${"ff".repeat(32)}` as MarketId;
@@ -61,49 +41,30 @@ export class OrderHistory implements SeriesResource<Order> {
   private handle: ResourceHandle<Order[]> | undefined;
   private readonly byId = new Map<string, Order>();
   private nextCursor: string | null = null;
-  private sub: Subscription | undefined;
-  private alive = false;
   private _hasMore = true;
   private _loading = false;
-  private subRetries = 0;
-  private fastResumes = 0;
-  private retryTimer?: ReturnType<typeof setTimeout>;
   private readonly eventListeners = new Set<(events: OrderEvent[]) => void>();
-  /**
-   * Where the stream is: the last frame accepted, as the `(batch, book)` pair the
-   * channel resumes from. Replaced whole rather than patched half at a time —
-   * `sinceBook` names a book *within* `since`, so the two are one fact and a
-   * mismatched pair asks the server to skip books we never saw.
-   */
-  private cursor: SubParams = { since: 0, sinceBook: undefined };
-
-  /**
-   * Push the cursor to the transport, both halves.
-   *
-   * `update` merges, so sending `{ since }` alone would leave whatever `sinceBook` was
-   * there before — a book from an older batch beside a newer `since`, which asks the
-   * server to skip less than it should and re-send the difference.
-   */
-  private pushCursor(): void {
-    this.sub?.update({ since: this.cursor.since, sinceBook: this.cursor.sinceBook });
-  }
+  private readonly stream: ResumableStream;
 
   constructor(
     private readonly ctx: SyncContext,
     private readonly account: Address,
     private readonly query: OrdersQuery = {},
   ) {
+    this.stream = new ResumableStream({
+      ws: ctx.ws,
+      channel: "pod_orders_v2",
+      params: { account },
+      cursor: { since: 0, sinceBook: undefined },
+      compare: compareCursor,
+      reseed: () => this.fetchFirstPage(),
+      onFrame: (r) => this.onFrame(r),
+    });
     this.base = new BaseResource<Order[]>((h) => {
       this.handle = h;
-      this.alive = true;
-      const offOpen = this.ctx.ws.on("open", () => { if (this.alive) this.seed(); });
-      this.seed(); // initial paint (REST is independent of the socket being open)
+      this.stream.start();
       return () => {
-        this.alive = false;
-        offOpen();
-        if (this.retryTimer) clearTimeout(this.retryTimer);
-        this.sub?.unsubscribe();
-        this.sub = undefined;
+        this.stream.stop();
         this.handle = undefined;
       };
     });
@@ -160,16 +121,16 @@ export class OrderHistory implements SeriesResource<Order> {
   // --- internals ---
 
   private async fetchFirstPage(): Promise<boolean> {
-    const before = this.cursor;
+    const before = this.stream.cursor;
     try {
       const page = await this.ctx.rest.orders(this.account, { limit: this.query.limit ?? 100 });
-      if (!this.alive) return false;
+      if (!this.stream.running) return false;
       // The transport resubscribes synchronously right after the `open` event that
       // starts this fetch, so replayed frames can land while it is still in flight —
       // and the indexer trails the stream by design. Overwriting a row the stream has
-      // already advanced would revert it, permanently: the cursor below refuses to
-      // rewind and `onFrame` drops a re-delivery, so nothing would repair it.
-      const streamMovedOn = compareCursor(this.cursor, before) > 0;
+      // already advanced would revert it, permanently: the cursor refuses to rewind
+      // and `onFrame` drops a re-delivery, so nothing would repair it.
+      const streamMovedOn = compareCursor(this.stream.cursor, before) > 0;
       for (const o of page.orders) {
         if (streamMovedOn && this.byId.has(o.id)) continue;
         this.byId.set(o.id, o);
@@ -179,8 +140,7 @@ export class OrderHistory implements SeriesResource<Order> {
       // Only ever forward, and a page settles whole batches, so its watermark
       // carries no book — which makes it *ahead* of a stream position in the same
       // batch, not equal to it.
-      const settled: SubParams = { since: page.solutionNow * 1000, sinceBook: undefined };
-      if (compareCursor(settled, this.cursor) > 0) this.cursor = settled;
+      this.stream.raise({ since: page.solutionNow * 1000, sinceBook: undefined });
       this.rebuild();
       return true;
     } catch (e) {
@@ -189,114 +149,20 @@ export class OrderHistory implements SeriesResource<Order> {
     }
   }
 
-  private seed(): void {
-    void this.fetchFirstPage().then((ok) => {
-      if (!ok || !this.alive) return;
-      if (!this.sub) {
-        this.sub = this.ctx.ws.subscribe(
-          "pod_orders_v2",
-          { account: this.account, ...this.cursor },
-          (r) => this.onFrame(r),
-          (e) => this.onSubError(e),
-        );
-      } else {
-        this.pushCursor(); // refresh for the next reconnect
-      }
-    });
-  }
-
-  /**
-   * The subscription is not running: `eth_subscribe` was rejected, or the server
-   * closed it.
-   *
-   * A resumable close needs neither a re-seed nor a delay: the server reports where
-   * it stopped, so resubscribing from that delivers exactly the frames we never got.
-   * That fast path is only taken while the socket is actually open — `resubscribe()`
-   * is a no-op otherwise, which would spend the budget without an attempt and leave
-   * nothing scheduled, and `-32021` (node shutting down) arrives exactly as the
-   * socket goes away.
-   *
-   * Everything else (a rejection, a server bug, a close with the socket already
-   * gone, or closes that keep coming) takes the slow path: backed off and capped, so
-   * a server that keeps refusing cannot spin this into a tight re-seed loop, and
-   * eventually the cursor is dropped (the likely culprit) to just stream live. Both
-   * counters reset once live data flows (`onFrame`).
-   */
-  private onSubError(err: unknown): void {
-    if (!this.alive) return;
-    const canFastResume = err instanceof PodSubscriptionClosedError && err.resumable
-      && this.fastResumes < FAST_RESUMES_BEFORE_RESEED && this.ctx.ws.state === "open";
-    if (canFastResume) {
-      this.fastResumes++;
-      // Adopt the server's watermark only when it is ahead of ours: it knows which
-      // frames it handed over, but a re-seed may already have carried us past it,
-      // and rewinding would re-deliver frames we have applied.
-      const reported: SubParams = { since: err.resumeSince, sinceBook: err.resumeSinceBook };
-      if (err.resumeSince !== undefined && compareCursor(reported, this.cursor) > 0) this.cursor = reported;
-      // The transport rewrote `sub.params` from the close before this ran, so without
-      // pushing our own decision back the wire resumes from the server's point
-      // regardless and the guard above protects nothing.
-      this.pushCursor();
-      this.sub?.resubscribe();
-      return;
-    }
-    // The slow path, and the one that answers "what if we fell behind the server's
-    // replay buffer": `eth_subscribe` rejects a `since` older than what the buffer
-    // retains, and the prescribed recovery is to backfill over REST and resubscribe.
-    // That is what this is. `fetchFirstPage` also *replaces the cursor* with the
-    // page's watermark, so the position that was too old is gone by the first retry
-    // and the resubscribe is accepted with no gap — the server replays from the page
-    // forward. Dropping the cursor below is the backstop for when even that fresh
-    // watermark is refused (the indexer further behind than the buffer retains):
-    // live-only resubscribe, trading the unreplayable window for a working stream.
-    this.scheduleReseed();
-  }
-
-  /**
-   * Back off, re-seed over REST, then resubscribe — and keep trying.
-   *
-   * The re-seed can fail too (the same node is usually behind both the stream and the
-   * indexer), and a failure has to re-arm here: not resubscribing means no further
-   * close or rejection arrives, so nothing else would ever schedule another attempt and
-   * the stream would stay down with no error surfaced. Capped, so a node that keeps
-   * refusing cannot spin this.
-   */
-  private scheduleReseed(): void {
-    this.subRetries++;
-    const delay = Math.min(30_000, 500 * 2 ** (this.subRetries - 1));
-    if (this.retryTimer) clearTimeout(this.retryTimer);
-    this.retryTimer = setTimeout(() => {
-      void this.fetchFirstPage().then((ok) => {
-        if (!this.alive) return;
-        if (!ok) { this.scheduleReseed(); return; }
-        const tooOld = this.subRetries > RETRIES_BEFORE_DROPPING_CURSOR;
-        if (tooOld) this.sub?.update({ since: undefined, sinceBook: undefined });
-        else this.pushCursor();
-        this.sub?.resubscribe();
-      });
-    }, delay);
-  }
-
   /** One frame: everything that happened to one book in one auction batch. */
   private onFrame(result: unknown): void {
-    // Live data flowing → the subscription is healthy on both paths.
-    this.subRetries = 0;
-    this.fastResumes = 0;
     const frame = result as WireOrdersFrame;
     if (!frame || !Array.isArray(frame.orders) || !Array.isArray(frame.events)) return;
 
     // Drop what we already hold. Applying a frame is not idempotent — a fill event
     // appends to `order.fills`, and re-creating an entity resets its totals — and
     // re-delivery is designed in: a resumed subscription replays from a cursor, and
-    // the replay boundary is a whole batch. Same predicate as the server's
-    // `already_delivered`, so client and server agree on what "already sent" means.
+    // the replay boundary is a whole batch.
     const at: SubParams = { since: frame.batch, sinceBook: frame.book };
-    if (compareCursor(at, this.cursor) <= 0) return;
+    if (this.stream.delivered(at)) return;
 
     const events = applyOrdersFrame(frame, this.byId, { account: this.account });
-    // A socket-level reconnect resubscribes from whatever is stored here.
-    this.cursor = at;
-    this.sub?.update(at);
+    this.stream.advance(at);
     this.rebuild();
     // Strictly after `rebuild()`: a listener that reads the resource in response to an
     // event must see the state that event produced, not the state before it.
