@@ -13,7 +13,7 @@ import {
 import { withdrawalsSource } from "./sync/withdrawals.js";
 import { CandleSeries, candleTailFrom, fetchCandleHistory } from "./sync/candles.js";
 import { OrderHistory } from "./sync/orders.js";
-import { ActivityHistory } from "./sync/activity.js";
+import { ActivityHistory, normalizeActivityQuery } from "./sync/activity.js";
 import { enrichPositions } from "./sync/positions-live.js";
 import { fetchPnlHistory, streamPnlHistory, PnlHistoryCache, type PnlHistory, type PnlHistoryChunk, type PnlHistoryQuery } from "./sync/pnl-history.js";
 
@@ -317,7 +317,11 @@ export class PodTradeClient {
    * favour of this one, so new code should start here.
    */
   activity(account: Address, query?: ActivityQuery): ActivityHistory {
-    const key = `activity:${account.toLowerCase()}:${JSON.stringify(query ?? {})}`;
+    // The constructor normalises too, so the key must — otherwise `{}` and
+    // `{ types: [] }` ask for the same feed and get two of them, each with its own
+    // socket subscription. Sorted, since key order is an argument's accident.
+    const q = normalizeActivityQuery(query);
+    const key = `activity:${account.toLowerCase()}:${JSON.stringify(q, Object.keys(q).sort())}`;
     return this.memo(key, () => new ActivityHistory(this.ctx, account, query));
   }
 

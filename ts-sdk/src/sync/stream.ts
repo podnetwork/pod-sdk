@@ -7,6 +7,8 @@
 // rejection: it reports where delivery stopped, so resuming from one is a bare
 // `resubscribe()` with no re-seed.
 
+import type { MarketId } from "../types/public.js";
+import { PodHttpError } from "../transport/rest.js";
 import type { Channel, PodWsClient, SubParams, Subscription } from "../transport/ws.js";
 import { PodSubscriptionClosedError } from "../transport/ws.js";
 
@@ -24,18 +26,51 @@ const FAST_RESUMES_BEFORE_RESEED = 3;
  */
 const RETRIES_BEFORE_DROPPING_CURSOR = 2;
 
+/** The largest book id, which is what an absent `sinceBook` means. */
+const WHOLE_BATCH = `0x${"ff".repeat(32)}` as MarketId;
+
+/**
+ * Order two positions in the stream, the way the server does.
+ *
+ * A batch is delivered as one frame per book, so a position is the pair
+ * `(batch, book)` — and an absent book means the whole batch, which sorts *above*
+ * every book in it. This mirrors `already_delivered` in
+ * `node/src/rpc/orders_v2.rs`: `(frame_batch, frame_book) <= (since,
+ * since_book.unwrap_or(0xff…))`. Getting the absent case wrong turns "all of batch
+ * N" into "up to book B of batch N", which asks the server to re-send the rest.
+ *
+ * `pod_activity` sends one frame per tick and names no book, so the pair collapses
+ * to the batch there — the same comparison, with both books absent.
+ *
+ * Book ids are fixed-width lowercase hex, so comparing them as strings is
+ * comparing their bytes.
+ */
+export function compareCursor(a: SubParams, b: SubParams): number {
+  const aBatch = a.since ?? 0;
+  const bBatch = b.since ?? 0;
+  if (aBatch !== bBatch) return aBatch < bBatch ? -1 : 1;
+  const aBook = a.sinceBook ?? WHOLE_BATCH;
+  const bBook = b.sinceBook ?? WHOLE_BATCH;
+  return aBook === bBook ? 0 : aBook < bBook ? -1 : 1;
+}
+
+/**
+ * A seed the server refused on its own terms. Retrying reproduces it, so the
+ * backoff would be an infinite loop against an answer that will not change.
+ */
+const permanent = (err: unknown): boolean =>
+  err instanceof PodHttpError && err.status >= 400 && err.status < 500;
+
 export interface ResumableStreamOptions {
   ws: PodWsClient;
   channel: Channel;
   /** Everything that identifies the subscription except the cursor. */
   params: SubParams;
-  /** Where the cursor starts, before any page or frame has landed. */
-  cursor: SubParams;
-  /** Orders two stream positions the way the server does. */
-  compare(a: SubParams, b: SubParams): number;
   /**
-   * Re-seed over REST; `false` when the seed failed. Owns raising the cursor to
-   * the page's watermark.
+   * Re-seed over REST, and raise the cursor to the page's watermark. `true` when
+   * the page was applied, `false` when it was abandoned (the stream stopped, or a
+   * fresher seed overtook it); a rejection is a failed fetch, which is what decides
+   * between backing off and giving up.
    */
   reseed(): Promise<boolean>;
   onFrame(result: unknown): void;
@@ -48,7 +83,7 @@ export class ResumableStream {
    * `since`, so the two are one fact and a mismatched pair asks the server to skip
    * books we never saw.
    */
-  cursor: SubParams;
+  cursor: SubParams = {};
   private sub: Subscription | undefined;
   private alive = false;
   private subRetries = 0;
@@ -56,9 +91,7 @@ export class ResumableStream {
   private retryTimer?: ReturnType<typeof setTimeout>;
   private offOpen?: () => void;
 
-  constructor(private readonly opts: ResumableStreamOptions) {
-    this.cursor = opts.cursor;
-  }
+  constructor(private readonly opts: ResumableStreamOptions) {}
 
   /** Whether the owner's resource is still running; guards its async seeds. */
   get running(): boolean { return this.alive; }
@@ -73,14 +106,14 @@ export class ResumableStream {
     this.alive = false;
     this.offOpen?.();
     this.offOpen = undefined;
-    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.clearRetry();
     this.sub?.unsubscribe();
     this.sub = undefined;
   }
 
   /** The server's `already_delivered`: is this frame at or behind where we are? */
   delivered(at: SubParams): boolean {
-    return this.opts.compare(at, this.cursor) <= 0;
+    return compareCursor(at, this.cursor) <= 0;
   }
 
   /** Move to `at` and tell the transport, so a reconnect resumes from there. */
@@ -91,24 +124,31 @@ export class ResumableStream {
 
   /** Move to `at` only when it is ahead. Never rewinds — a re-delivered frame is dropped. */
   raise(at: SubParams): void {
-    if (this.opts.compare(at, this.cursor) > 0) this.cursor = at;
+    if (compareCursor(at, this.cursor) > 0) this.cursor = at;
   }
 
   seed(): void {
-    const done = (ok: boolean) => {
-      if (!this.alive) return;
-      if (!ok) {
+    // A seed that lands supersedes whatever the last failure armed; leaving the
+    // timer would re-seed and resubscribe a stream that is already healthy.
+    const armed = this.retryTimer !== undefined;
+    this.clearRetry();
+    void this.opts.reseed().then(
+      (ok) => { if (ok) this.resume(); },
+      (err) => {
         // Nothing is subscribed yet, so no close or rejection can arrive to schedule
         // another attempt — a failed first paint has to re-arm itself or the resource
         // stays empty for good. With a subscription up, the live stream is unaffected
-        // and its own error path owns the recovery.
-        if (!this.sub) this.scheduleReseed();
-        return;
-      }
-      if (!this.sub) this.subscribe();
-      else this.pushCursor(); // refresh for the next reconnect
-    };
-    void this.opts.reseed().then(done, () => done(false));
+        // and its own error path owns the recovery; the exception is a retry this call
+        // just disarmed, which nothing else would re-arm.
+        if (this.alive && (!this.sub || armed) && !permanent(err)) this.scheduleReseed();
+      },
+    );
+  }
+
+  private resume(): void {
+    if (!this.alive) return;
+    if (!this.sub) this.subscribe();
+    else this.pushCursor(); // refresh for the next reconnect
   }
 
   private subscribe(): void {
@@ -131,10 +171,16 @@ export class ResumableStream {
     this.sub?.update({ since: this.cursor.since, sinceBook: this.cursor.sinceBook });
   }
 
+  private clearRetry(): void {
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = undefined; }
+  }
+
   private onFrame(result: unknown): void {
-    // Live data flowing → the subscription is healthy on both paths.
+    // Live data flowing → the subscription is healthy on both paths, and a retry
+    // armed by whatever went wrong before has nothing left to recover.
     this.subRetries = 0;
     this.fastResumes = 0;
+    this.clearRetry();
     this.opts.onFrame(result);
   }
 
@@ -197,18 +243,27 @@ export class ResumableStream {
   private scheduleReseed(): void {
     this.subRetries++;
     const delay = Math.min(30_000, 500 * 2 ** (this.subRetries - 1));
-    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.clearRetry();
     this.retryTimer = setTimeout(() => {
+      this.retryTimer = undefined;
       void this.opts.reseed().then((ok) => {
-        if (!this.alive) return;
-        if (!ok) { this.scheduleReseed(); return; }
-        // Retrying the first paint: there is no subscription to resume, and no
-        // cursor the server has refused — open one from the page we just landed.
-        if (!this.sub) { this.subscribe(); return; }
+        if (!this.alive || !ok) return;
+        if (!this.sub) {
+          // Retrying the first paint: there is no subscription to resume, and no
+          // cursor the server has refused — open one from the page we just landed,
+          // and let the live stream start on a full budget rather than inheriting
+          // the attempts the indexer's outage cost.
+          this.subRetries = 0;
+          this.fastResumes = 0;
+          this.subscribe();
+          return;
+        }
         const tooOld = this.subRetries > RETRIES_BEFORE_DROPPING_CURSOR;
-        if (tooOld) this.sub?.update({ since: undefined, sinceBook: undefined });
+        if (tooOld) this.sub.update({ since: undefined, sinceBook: undefined });
         else this.pushCursor();
-        this.sub?.resubscribe();
+        this.sub.resubscribe();
+      }, (err) => {
+        if (this.alive && !permanent(err)) this.scheduleReseed();
       });
     }, delay);
   }

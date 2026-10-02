@@ -91,8 +91,7 @@ const TRANSFER_ENTRY: WireActivityEntry = {
 describe("decodeActivityEntry", () => {
   it("carries an order through with its fills", () => {
     const entry = decodeActivityEntry(ORDER_ENTRY);
-    expect(entry.activityType).toBe("order");
-    if (entry.activityType !== "order") return;
+    if (entry?.activityType !== "order") throw new Error("expected an order");
     // The node timestamps an order entry by its SIGNED deadline, not the batch it
     // landed in, so `timeMs` and `order.includedMs` are deliberately different.
     expect(entry.timeMs).toBe(8_000);
@@ -105,8 +104,7 @@ describe("decodeActivityEntry", () => {
 
   it("carries a backstop leg with its realized PnL", () => {
     const entry = decodeActivityEntry(BACKSTOP_ENTRY);
-    expect(entry.activityType).toBe("backstop");
-    if (entry.activityType !== "backstop") return;
+    if (entry?.activityType !== "backstop") throw new Error("expected a backstop");
     expect(entry.timeMs).toBe(5_000);
     expect(entry.orderbookId).toBe(BOOK);
     expect(entry.size).toBe(-units(2n));
@@ -117,8 +115,7 @@ describe("decodeActivityEntry", () => {
 
   it("keeps money signed from the account's side, with its refusal", () => {
     const bridge = decodeActivityEntry(BRIDGE_ENTRY);
-    expect(bridge.activityType).toBe("bridge_transfer");
-    if (bridge.activityType !== "bridge_transfer") return;
+    if (bridge?.activityType !== "bridge_transfer") throw new Error("expected a bridge transfer");
     expect(bridge.txHash).toBe(BRIDGE_ENTRY.tx);
     // One tx can carry several deposits, so the hash alone does not identify a row.
     expect(bridge.idx).toBe(1);
@@ -126,8 +123,7 @@ describe("decodeActivityEntry", () => {
     expect(bridge.error).toBe("insufficient_balance");
 
     const transfer = decodeActivityEntry(TRANSFER_ENTRY);
-    expect(transfer.activityType).toBe("transfer");
-    if (transfer.activityType !== "transfer") return;
+    if (transfer?.activityType !== "transfer") throw new Error("expected a transfer");
     expect(transfer.transferId).toBe(TRANSFER_ENTRY.id);
     expect(transfer.amount).toBe(1700n);
     expect(transfer.error).toBeUndefined();
@@ -242,5 +238,44 @@ describe("applyActivityFrame", () => {
     expect(state.entries).toEqual([]);
     // The entity still lands: the frame said the order exists.
     expect(state.orders.size).toBe(1);
+  });
+});
+
+const BOOK_B = "0x000000000000000000000000000000000000000000000000000000000000000b" as MarketId;
+
+const sweep = (book: MarketId) => ({
+  k: "backstop" as const,
+  book,
+  size: (-units(2n)).toString(),
+  cash: "0",
+  mark: units(100n).toString(),
+  equity: (-units(5n)).toString(),
+  pnl: (-units(1n)).toString(),
+});
+
+describe("applyActivityFrame interleaving", () => {
+  it("emits order and money events in the node's wire order", () => {
+    const state = emptyState();
+    const events = applyActivityFrame({
+      batch: TICK,
+      orders: [
+        { id: "0x0a", tx: "0xaa", book: BOOK, n: 1, px: units(100n).toString(), sz: units(1n).toString() },
+        { id: "0x0b", tx: "0xbb", book: BOOK_B, n: 2, px: units(100n).toString(), sz: units(1n).toString() },
+      ],
+      events: [{ k: "new", o: 0 }, sweep(BOOK), { k: "new", o: 1 }, sweep(BOOK_B)],
+    }, state, { account: ALICE });
+
+    // Folding the orders first and appending the money would report the tick as
+    // two placements followed by two sweeps, which is not what happened.
+    expect(events.map((e) => ("activityType" in e ? e.activityType : e.kind)))
+      .toEqual(["new", "backstop", "new", "backstop"]);
+    expect(state.entries.map((e) => e.activityType === "backstop" ? e.orderbookId : e.activityType))
+      .toEqual([BOOK, BOOK_B]);
+  });
+});
+
+describe("decodeActivityEntry on an unknown kind", () => {
+  it("returns undefined rather than an untagged row", () => {
+    expect(decodeActivityEntry({ activity_type: "airdrop", ts: TICK } as never)).toBeUndefined();
   });
 });

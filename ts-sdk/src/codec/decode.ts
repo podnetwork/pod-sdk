@@ -309,18 +309,21 @@ export function decodeMoneyEvent(event: WireMoneyEvent, timeMs: number): MoneyAc
 }
 
 /**
- * One activity row (ADR 0057), reusing the decoder its kind already had.
+ * One activity row (ADR 0057), reusing the decoder its kind already had, or
+ * `undefined` for a kind this version does not know — the same silence the frame
+ * path keeps, rather than a row with no tag a consumer could act on.
  *
  * `timeMs` is the node's own sort key, which for an order is its **signed
  * deadline** rather than the batch it landed in — `order.includedMs` is that.
  */
-export function decodeActivityEntry(w: WireActivityEntry): ActivityEntry {
+export function decodeActivityEntry(w: WireActivityEntry): ActivityEntry | undefined {
   const timeMs = usToMs(w.ts);
   switch (w.activity_type) {
     case "order": return { activityType: "order", timeMs, order: decodeOrder(w) };
     case "backstop": return decodeMoneyEvent({ ...w, k: "backstop" }, timeMs);
     case "bridge_transfer": return decodeMoneyEvent({ ...w, k: "bridge_transfer" }, timeMs);
     case "transfer": return decodeMoneyEvent({ ...w, k: "transfer" }, timeMs);
+    default: return undefined;
   }
 }
 

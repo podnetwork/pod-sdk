@@ -2,45 +2,24 @@
 // live by the pod_orders_v2 stream (bidder-filtered, resumed from a (batch, book)
 // cursor by `ResumableStream`), and paged backwards by cursor for deep history.
 
-import type { Address, MarketId, Order, OrderEvent, OrdersQuery } from "../types/public.js";
+import type { Address, Order, OrderEvent, OrdersQuery } from "../types/public.js";
 import type { WireOrdersFrame } from "../types/wire.js";
 import { applyOrdersFrame } from "../codec/orders-v2.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
 import type { SubParams } from "../transport/ws.js";
 import type { SeriesResource } from "./candles.js";
 import type { SyncContext } from "./sources.js";
-import { ResumableStream } from "./stream.js";
+import { compareCursor, ResumableStream } from "./stream.js";
 
-/** The largest book id, which is what an absent `sinceBook` means. */
-const WHOLE_BATCH = `0x${"ff".repeat(32)}` as MarketId;
-
-/**
- * Order two positions in the stream, the way the server does.
- *
- * A batch is delivered as one frame per book, so a position is the pair
- * `(batch, book)` — and an absent book means the whole batch, which sorts *above*
- * every book in it. This mirrors `already_delivered` in
- * `node/src/rpc/orders_v2.rs`: `(frame_batch, frame_book) <= (since,
- * since_book.unwrap_or(0xff…))`. Getting the absent case wrong turns "all of batch
- * N" into "up to book B of batch N", which asks the server to re-send the rest.
- *
- * Book ids are fixed-width lowercase hex, so comparing them as strings is
- * comparing their bytes.
- */
-export function compareCursor(a: SubParams, b: SubParams): number {
-  const aBatch = a.since ?? 0;
-  const bBatch = b.since ?? 0;
-  if (aBatch !== bBatch) return aBatch < bBatch ? -1 : 1;
-  const aBook = a.sinceBook ?? WHOLE_BATCH;
-  const bBook = b.sinceBook ?? WHOLE_BATCH;
-  return aBook === bBook ? 0 : aBook < bBook ? -1 : 1;
-}
+export { compareCursor } from "./stream.js";
 
 export class OrderHistory implements SeriesResource<Order> {
   private readonly base: BaseResource<Order[]>;
   private handle: ResourceHandle<Order[]> | undefined;
   private readonly byId = new Map<string, Order>();
   private nextCursor: string | null = null;
+  private painted = false;
+  private seedGen = 0;
   private _hasMore = true;
   private _loading = false;
   private readonly eventListeners = new Set<(events: OrderEvent[]) => void>();
@@ -55,8 +34,6 @@ export class OrderHistory implements SeriesResource<Order> {
       ws: ctx.ws,
       channel: "pod_orders_v2",
       params: { account },
-      cursor: { since: 0, sinceBook: undefined },
-      compare: compareCursor,
       reseed: () => this.fetchFirstPage(),
       onFrame: (r) => this.onFrame(r),
     });
@@ -121,10 +98,13 @@ export class OrderHistory implements SeriesResource<Order> {
   // --- internals ---
 
   private async fetchFirstPage(): Promise<boolean> {
+    const gen = ++this.seedGen;
     const before = this.stream.cursor;
     try {
       const page = await this.ctx.rest.orders(this.account, { limit: this.query.limit ?? 100 });
-      if (!this.stream.running) return false;
+      // A seed overtaken by a fresher one is dropped whole: it would absorb rows the
+      // newer page has already corrected, and raise the cursor to an older watermark.
+      if (!this.stream.running || gen !== this.seedGen) return false;
       // The transport resubscribes synchronously right after the `open` event that
       // starts this fetch, so replayed frames can land while it is still in flight —
       // and the indexer trails the stream by design. Overwriting a row the stream has
@@ -135,8 +115,14 @@ export class OrderHistory implements SeriesResource<Order> {
         if (streamMovedOn && this.byId.has(o.id)) continue;
         this.byId.set(o.id, o);
       }
-      this.nextCursor = page.nextCursor;
-      this._hasMore = page.nextCursor !== null;
+      // Paging is the consumer's position in history, not the seed's: a reconnect
+      // re-paints the first page, and taking its cursor again would hand back pages
+      // `loadOlder` has already walked past.
+      if (!this.painted) {
+        this.painted = true;
+        this.nextCursor = page.nextCursor;
+        this._hasMore = page.nextCursor !== null;
+      }
       // Only ever forward, and a page settles whole batches, so its watermark
       // carries no book — which makes it *ahead* of a stream position in the same
       // batch, not equal to it.
@@ -144,8 +130,10 @@ export class OrderHistory implements SeriesResource<Order> {
       this.rebuild();
       return true;
     } catch (e) {
-      if (this.byId.size === 0) this.handle?.fail(e as Error);
-      return false;
+      // Only before the first paint: an account whose history is genuinely empty has
+      // a resource, and reporting a later transient failure on it would blank the view.
+      if (this.handle && this.handle.current() === undefined) this.handle.fail(e as Error);
+      throw e;
     }
   }
 

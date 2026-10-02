@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ActivityHistory } from "./activity.js";
-import type { ActivityEvent, ActivityQuery, Address, Hex, MarketId } from "../types/public.js";
+import type { ActivityEntry, ActivityEvent, ActivityQuery, Address, Hex, MarketId } from "../types/public.js";
 import type { WireActivityEntry, WireActivityFrame } from "../types/wire.js";
 import { decodeActivityEntry } from "../codec/decode.js";
 import { WAD } from "../codec/units.js";
@@ -86,7 +86,8 @@ const SEED: WireActivityEntry[] = [
 ];
 
 function page(entries: WireActivityEntry[], nextCursor: string | null = null): ActivityPage {
-  return { activity: entries.map(decodeActivityEntry), nextCursor, solutionNow: SEED_TICK / 1000 };
+  const activity = entries.map(decodeActivityEntry).filter((e): e is ActivityEntry => e !== undefined);
+  return { activity, nextCursor, solutionNow: SEED_TICK / 1000 };
 }
 
 /**
@@ -94,8 +95,10 @@ function page(entries: WireActivityEntry[], nextCursor: string | null = null): A
  * whose `subscribe` hands us the frame and error callbacks so a test can deliver
  * what the transport would.
  */
-function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuery }) {
+function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuery; defer?: boolean }) {
   const pages = [...(opts?.pages ?? [page(SEED)])];
+  const pending: ((p: ActivityPage) => void)[] = [];
+  let onOpen: (() => void) | undefined;
   let deliver: ((r: unknown) => void) | undefined;
   let refuse: ((e: unknown) => void) | undefined;
   const subscribed: SubParams[] = [];
@@ -103,7 +106,7 @@ function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuer
   let resubscribes = 0;
   const ws = {
     state: "open",
-    on: () => () => {},
+    on: (_event: string, handler: () => void) => { onOpen = handler; return () => { onOpen = undefined; }; },
     subscribe: (
       _channel: string,
       params: SubParams,
@@ -122,11 +125,11 @@ function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuer
   };
   const queries: unknown[] = [];
   const rest = {
-    activity: vi.fn(async (_account: Address, q?: unknown) => {
+    activity: vi.fn((_account: Address, q?: unknown) => {
       queries.push(q);
+      if (opts?.defer) return new Promise<ActivityPage>((resolve) => { pending.push(resolve); });
       const next = pages.shift() ?? page([]);
-      if (next instanceof Error) throw next;
-      return next;
+      return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
     }),
   };
   const history = new ActivityHistory(
@@ -141,6 +144,9 @@ function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuer
     updates,
     frame: (f: unknown) => deliver?.(f),
     close: (e: unknown) => refuse?.(e),
+    open: () => onOpen?.(),
+    pending,
+    settle: (i: number, p: ActivityPage) => pending[i]!(p),
     restCalls: () => rest.activity.mock.calls.length,
     resubscribes: () => resubscribes,
   };
@@ -407,5 +413,111 @@ describe("ActivityHistory.onEvent", () => {
     await flush();
     expect(seen).toEqual([]);
     off();
+  });
+});
+
+const moneyId = (e: ActivityEntry) => e.activityType === "transfer" ? e.transferId : e.activityType;
+
+describe("ActivityHistory window", () => {
+  it("drops a live frame outside the query's window", async () => {
+    const { history, frame } = harness({ query: { from: 0, to: 3_000 } });
+    await history.ready();
+    await flush();
+    const before = history.get()!.length;
+
+    // REST filters server-side; nothing stops the stream from pushing a later tick.
+    frame({ ...FRAME, batch: 3_500_000 });
+    expect(history.get()).toHaveLength(before);
+  });
+});
+
+describe("ActivityHistory re-seed", () => {
+  it("keeps a streamed order's time when a re-seed reports a later one", async () => {
+    const later = SEED_TICK + 9_000_000;
+    const { history, frame, open } = harness({
+      pages: [page([]), page([wireOrder(9, SEED_TICK, later)])],
+    });
+    history.subscribe(() => {});
+    await flush();
+    frame(FRAME);
+
+    open();
+    await flush();
+    const row = history.get()!.find((e) => e.activityType === "order");
+    expect(row?.timeMs).toBe(FRAME.batch / 1000);
+  });
+
+  it("keeps the paging state across a reconnect re-seed", async () => {
+    const { history, open } = harness({
+      pages: [page(SEED, "c1"), page([wireOrder(4, SEED_TICK - 500_000)]), page(SEED, "c1")],
+    });
+    await history.ready();
+    await history.loadOlder();
+    expect(history.hasMore()).toBe(false);
+
+    open();
+    await flush();
+    expect(history.hasMore(), "a re-seed re-paints the first page, not the paging state").toBe(false);
+  });
+
+  it("ignores a seed that lands after a fresher one", async () => {
+    const { history, open, pending, settle, subscribed } = harness({ defer: true });
+    history.subscribe(() => {});
+    await flush();
+    open();
+    await flush();
+    expect(pending).toHaveLength(2);
+
+    settle(1, page([wireTransfer(3, SEED_TICK)]));
+    await flush();
+    settle(0, {
+      activity: [decodeActivityEntry(wireTransfer(9, SEED_TICK))!],
+      nextCursor: null,
+      solutionNow: (SEED_TICK + 5_000_000) / 1000,
+    });
+    await flush();
+
+    expect(history.get()!.map(moneyId)).toEqual([id(3)]);
+    expect(subscribed).toEqual([{ account: ACCOUNT, since: SEED_TICK }]);
+  });
+
+  it("does not report an error once an empty first page has painted", async () => {
+    vi.useFakeTimers();
+    try {
+      const { history, close } = harness({ pages: [page([]), new Error("indexer down")] });
+      history.subscribe(() => {});
+      await vi.advanceTimersByTimeAsync(0);
+      expect(history.get()).toEqual([]);
+
+      close(new PodSubscriptionClosedError({ code: -32023, data: { resumable: false } }));
+      await vi.advanceTimersByTimeAsync(1_000);
+      // An account with no activity is a painted resource, not a failed one.
+      expect(history.error).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("ActivityHistory ordering", () => {
+  it("breaks a same-tick tie the same way from a page and from a frame", async () => {
+    const seeded = harness({
+      pages: [page([wireTransfer(31, SEED_TICK), wireTransfer(32, SEED_TICK)])],
+    });
+    const fromPage = (await seeded.history.ready()).map(moneyId);
+
+    const streamed = harness({ pages: [page([])] });
+    streamed.history.subscribe(() => {});
+    await flush();
+    streamed.frame({
+      batch: SEED_TICK + 500_000,
+      orders: [],
+      events: [
+        { k: "transfer", id: id(32), token: TOKEN, amount: "1700" },
+        { k: "transfer", id: id(31), token: TOKEN, amount: "1700" },
+      ],
+    });
+
+    expect(streamed.history.get()!.map(moneyId)).toEqual(fromPage);
   });
 });

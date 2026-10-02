@@ -203,7 +203,7 @@ export class PodRestClient {
       to: q?.to !== undefined ? msToUs(q.to) : undefined,
     });
     return {
-      activity: w.activity.map(decodeActivityEntry),
+      activity: w.activity.map(decodeActivityEntry).filter((e): e is ActivityEntry => e !== undefined),
       nextCursor: w.next_cursor,
       solutionNow: usToMs(w.solution_now),
     };
