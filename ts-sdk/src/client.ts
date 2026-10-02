@@ -237,9 +237,10 @@ export class PodTradeClient {
   }
 
   /**
-   * {@link pnlHistory} delivered as it is built: chunks of up to 50 points,
-   * newest first, each yielded once its fills are in. Points are relative to
-   * the current tick; the oldest chunk arrives last with `done`.
+   * {@link pnlHistory} delivered as it is built: chunks newest first, the
+   * first ones small (10, 20, 40 points) and then 50, each yielded once its
+   * fills are in. Points are relative to the current tick; the oldest chunk
+   * arrives last with `done`.
    */
   pnlHistoryStream(account: Address, query: PnlHistoryQuery): AsyncGenerator<PnlHistoryChunk> {
     return streamPnlHistory(this.pnlDeps("pnlHistoryStream", account), account, query);

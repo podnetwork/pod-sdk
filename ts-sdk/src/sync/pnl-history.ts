@@ -282,12 +282,26 @@ export class PnlHistoryCache {
   slice(from: number, to: number): PnlEvent[] {
     return this.events.filter((e) => e.timeUs >= from && e.timeUs < to);
   }
+
+  /** Drop a range so it is fetched again. */
+  forget(from: number, to: number): void {
+    this.events = this.events.filter((e) => e.timeUs < from || e.timeUs >= to);
+    this.coverage = this.coverage.flatMap((c) => {
+      if (c.to <= from || c.from >= to) return [c];
+      const kept: { from: number; to: number }[] = [];
+      if (c.from < from) kept.push({ from: c.from, to: from });
+      if (c.to > to) kept.push({ from: to, to: c.to });
+      return kept;
+    });
+  }
 }
 
 export interface PnlHistoryDeps { rest: PodRestClient; rpcUrl: string; fetch?: typeof fetch; cache?: PnlHistoryCache }
 
 const MAX_POINTS = 500;
-const CHUNK_POINTS = 50;
+// The first chunks are small so the newest points draw after one window's
+// fetch; later ones grow to keep the call count down.
+const CHUNK_SIZES = [10, 20, 40, 50];
 const IN_FLIGHT = 4;
 const WIDE_ACCOUNT_MARKETS = 10;
 const RPC_BATCH = 200;
@@ -377,24 +391,30 @@ export async function* streamPnlHistory(
       if (before === after || attempt >= 4) return { nowUs: before, snap, balances };
     }
   };
-  const [markets, snapshot] = await Promise.all([deps.rest.markets(), readSnapshot()]);
+  const [markets, snapshot, backstop, withdrawals] = await Promise.all([
+    deps.rest.markets(),
+    readSnapshot(),
+    deps.rest.backstopTransfers(account),
+    deps.rest.bridgeWithdrawals(account, { since: q.from * 1000 - 1 }),
+  ]);
   const { snap, balances } = snapshot;
   let nowUs = snapshot.nowUs;
   const batchUs = Math.max(500, ...markets.map((m) => m.auctionIntervalMs)) * 1000;
   // Grid points sit on batch ticks so one range call per point serves every market.
   const fromUs = Math.ceil((q.from * 1000) / batchUs) * batchUs;
+  if (nowUs === 0) nowUs = (await deps.rest.status()).solutionNow * 1000;
 
-  const indexerCaughtUp = async () => {
-    if (nowUs === 0) { nowUs = (await deps.rest.status()).solutionNow * 1000; return; }
+  // The indexer is normally at the engine's tick already, so the first windows
+  // are fetched while this checks; if it was behind, the newest window is
+  // fetched again once it has caught up.
+  const indexerLagged = (async () => {
+    let lagged = false;
     for (let i = 0; i < 30 && (await deps.rest.status()).solutionNow * 1000 < nowUs; i++) {
+      lagged = true;
       await new Promise((r) => setTimeout(r, 100));
     }
-  };
-  const [backstop, withdrawals] = await Promise.all([
-    deps.rest.backstopTransfers(account),
-    deps.rest.bridgeWithdrawals(account, { since: fromUs - 1 }),
-    indexerCaughtUp(),
-  ]);
+    return lagged;
+  })();
   const toUs = Math.min(q.to === undefined ? nowUs : Math.floor((q.to * 1000) / batchUs) * batchUs, nowUs);
   if (fromUs >= toUs) throw new Error("pnlHistory: from must be before to");
 
@@ -519,7 +539,11 @@ export async function* streamPnlHistory(
   // an explicit window, so the next windows load while earlier ones are folded.
   const chunks: number[][] = [];
   const newestFirstGrid = [...gridUs].reverse();
-  for (let i = 0; i < newestFirstGrid.length; i += CHUNK_POINTS) chunks.push(newestFirstGrid.slice(i, i + CHUNK_POINTS));
+  for (let i = 0, n = 0; i < newestFirstGrid.length; n++) {
+    const size = CHUNK_SIZES[Math.min(n, CHUNK_SIZES.length - 1)] ?? 50;
+    chunks.push(newestFirstGrid.slice(i, i + size));
+    i += size;
+  }
   const prep = async (k: number): Promise<{ events: PnlEvent[]; warnings: string[] }> => {
     const pts = chunks[k] ?? [];
     const oldest = pts[pts.length - 1] ?? 0;
@@ -543,7 +567,12 @@ export async function* streamPnlHistory(
       p.catch(() => {});
       queue.push(p);
     }
-    const { events, warnings } = await (queue.shift() as Promise<{ events: PnlEvent[]; warnings: string[] }>);
+    let first = await (queue.shift() as Promise<{ events: PnlEvent[]; warnings: string[] }>);
+    if (k === 0 && (await indexerLagged)) {
+      cache.forget((chunks[0]?.at(-1) ?? 0) + 1, nowUs + 1);
+      first = await prep(0);
+    }
+    const { events, warnings } = first;
     await preface;
     for (const e of events) if (e.market) use(e.market);
     walker.feed(events);

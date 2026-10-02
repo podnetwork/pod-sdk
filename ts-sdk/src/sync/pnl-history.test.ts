@@ -263,6 +263,8 @@ describe("PnlHistoryCache", () => {
     expect(c.missing(120, 180)).toEqual([]);
     c.add(200, 300, []);
     expect(c.missing(100, 400)).toEqual([]);
+    c.forget(150, 250);
+    expect(c.missing(100, 400)).toEqual([{ from: 150, to: 250 }]);
   });
 
   it("makes a wider window reuse the narrower one's fills and still match the one-shot fold", async () => {
