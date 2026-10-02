@@ -359,6 +359,8 @@ export interface BackstopTransfer {
   cash: bigint;
   markPrice: bigint;
   equity: bigint;
+  /** Crystallized by the forced close; `0n` on the terminal cash sweep. */
+  realizedPnl: bigint;
   time: number;
 }
 
@@ -446,6 +448,66 @@ export interface CandleQuery {
   resolution: Resolution;
   from?: number; // ms
   to?: number; // ms
+  limit?: number;
+}
+
+export type ActivityType = "order" | "backstop" | "bridge_transfer" | "transfer";
+
+/**
+ * One row of an account's activity (ADR 0057): an order at its placement tick,
+ * or money that moved.
+ *
+ * `timeMs` is what the row is ordered by. Fills, cancels and amendments are not
+ * rows — they are events on the stream, and the order an `order` row carries
+ * already reflects them.
+ *
+ * Money amounts are signed from the account's side — negative left, positive
+ * arrived — and say nothing about the other end.
+ */
+export type ActivityEntry =
+  | { activityType: "order"; timeMs: number; order: Order }
+  | (BackstopTransfer & { activityType: "backstop"; timeMs: number })
+  | {
+      activityType: "bridge_transfer";
+      timeMs: number;
+      txHash: Hash;
+      /** Position within the transaction: one tx can bridge several amounts, so
+       * the hash alone does not identify the row. */
+      idx: number;
+      token: Address;
+      amount: bigint;
+      /** Absent when the movement settled. */
+      error?: string;
+    }
+  | {
+      activityType: "transfer";
+      timeMs: number;
+      transferId: Hash;
+      token: Address;
+      amount: bigint;
+      error?: string;
+    };
+
+/** The activity rows that are not orders. */
+export type MoneyActivity = Exclude<ActivityEntry, { activityType: "order" }>;
+
+/**
+ * What the stream reported in one tick: the order transitions, and the money
+ * that moved, which is reported as the entry it produced.
+ *
+ * Discriminate with `"activityType" in event` — an order event is tagged by
+ * `kind` and a money one by `activityType`.
+ */
+export type ActivityEvent = OrderEvent | MoneyActivity;
+
+/**
+ * `from` and `to` are milliseconds; `limit` is a row count, not a span of time.
+ * `types` names the kinds to keep — absent or empty keeps every kind.
+ */
+export interface ActivityQuery {
+  types?: ActivityType[];
+  from?: number;
+  to?: number;
   limit?: number;
 }
 

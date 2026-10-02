@@ -15,9 +15,15 @@ import { dec, endMsFromUs, usToMs } from "./units.js";
 import { div } from "./fixed.js";
 import { classifyPerpDirection } from "./direction.js";
 
-export interface OrdersFrameContext {
+export interface OrdersFrameContext<X = never> {
   /** The account the subscription is filtered to, used when the frame omits `accts`. */
   account: Address;
+  /**
+   * Events this codec applied nothing for, offered back in wire order — how a
+   * superset channel (`pod_activity`) folds its own kinds without a second pass
+   * that would report the tick's money after all of its order flow.
+   */
+  foreign?(event: WireOrderEvent): X | undefined;
 }
 
 /** Per-frame facts the events need. */
@@ -37,13 +43,17 @@ interface FrameFacts {
  * mid-frame: they are collected while applying but the rows are mutated in place, so a
  * consumer never sees a half-applied order.
  */
-export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order>, ctx: OrdersFrameContext): OrderEvent[] {
+export function applyOrdersFrame<X = never>(
+  frame: WireOrdersFrame,
+  byId: Map<string, Order>,
+  ctx: OrdersFrameContext<X>,
+): (OrderEvent | X)[] {
   // The book and the batch are frame constants: resolved once, not per entity.
   const batchMs = usToMs(frame.batch);
   const facts: FrameFacts = { batchMs, accts: frame.accts };
   const created = frame.orders.map((e) => decodeEntity(e, frame, batchMs, ctx.account));
 
-  const applied: OrderEvent[] = [];
+  const applied: (OrderEvent | X)[] = [];
   for (const event of frame.events) {
     // `o` indexes this frame's entities and `id` names one resting from an earlier
     // batch — but an event kind added later (ADR 0029 §6 reserves several) may name
@@ -53,12 +63,11 @@ export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order
     const target = event.o !== undefined
       ? created[event.o]
       : byId.get(event.id ?? "") ?? created.find((o) => o.id === event.id);
-    if (!target) continue;
     // `undefined` means a kind this version does not know, which is ignored rather than
     // handed on as an event a consumer cannot act on (ADR 0029 §6). The switch is the
     // only list of what is recognised — a separate one could disagree with it.
-    const outcome = applyEvent(event, target, facts);
-    if (outcome) {
+    const outcome = target ? applyEvent(event, target, facts) : undefined;
+    if (outcome && target) {
       applied.push({
         kind: event.k as OrderEventKind,
         order: target,
@@ -66,7 +75,10 @@ export function applyOrdersFrame(frame: WireOrdersFrame, byId: Map<string, Order
         fill: outcome.fill,
         amendRejection: outcome.amendRejection,
       });
+      continue;
     }
+    const foreign = ctx.foreign?.(event);
+    if (foreign !== undefined) applied.push(foreign);
   }
 
   // After the events, not before: an entity's own `new`/`reject` decides the
@@ -82,11 +94,12 @@ function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: numbe
   return {
     id: e.id,
     txHash: e.tx,
-    // The frame names the book, so this is exact rather than inferred. Whether
-    // that book is spot or perp is static market metadata, joined at read time by
-    // whoever needs it — freezing it here would strand every order decoded before
-    // the markets list loaded.
-    orderbookId: frame.book,
+    // Named by the entity on `pod_activity` and by the frame on
+    // `pod_orders_v2`, so this is exact rather than inferred. Whether that book is
+    // spot or perp is static market metadata, joined at read time by whoever needs
+    // it — freezing it here would strand every order decoded before the markets
+    // list loaded.
+    orderbookId: e.book ?? frame.book,
     side: initialSize < 0n ? "sell" : "buy",
     orderType: e.type === "market" ? "market" : "limit",
     // Not on the entity: an order that rests is `active`, and the events below
