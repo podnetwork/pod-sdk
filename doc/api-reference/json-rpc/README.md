@@ -14,17 +14,17 @@ The API is Ethereum-compatible - existing tooling and libraries work out of the 
 
 ### Differences with Ethereum RPC
 
-Pod is not a blockchain and has no blocks. Most `eth_` methods work as expected, but a few differ:
+A pod block is one auction tick: its height counts ticks and its `timestamp` is the tick's deadline (in seconds). `transactions` lists the intent transactions the tick sequenced, but most header fields (`parentHash`, the roots, `logsBloom`, `miner`, `gasLimit`, `gasUsed`, …) are zero. Most `eth_` methods work as expected, but a few differ:
 
-| RPC Method                | Ethereum                             | Pod                                                          |
-| ------------------------- | ------------------------------------ | ------------------------------------------------------------ |
-| **eth\_blockNumber**      | Returns the most recent block number | Returns the latest past perfection timestamp in microseconds |
-| **eth\_getBlockByHash**   | Returns block information by hash    | Returns an empty block structure                             |
-| **eth\_getBlockByNumber** | Returns block information by number  | Returns an empty block structure                             |
+| RPC Method                | Ethereum                             | Pod                                                                                                                              |
+| ------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| **eth\_blockNumber**      | Returns the most recent block number | Returns the chain-tip height (hex). Before the first block it fails with `-32002` `Chain has no block yet`.                       |
+| **eth\_getBlockByHash**   | Returns block information by hash    | Returns the block, or `null` if there is none with that hash.                                                                    |
+| **eth\_getBlockByNumber** | Returns block information by number  | Returns the block, or `null` past the tip, below the oldest retained block, or before the first block. `latest`, `pending`, `safe` and `finalized` all resolve to the tip; `earliest` to the oldest retained block. Unknown tags and malformed numbers are rejected with `-32602`. |
 
-**Timestamps are in microseconds.** Pod uses microsecond-precision Unix timestamps wherever Ethereum uses block numbers - including `eth_blockNumber`, transaction deadlines, and TTLs.
+**Timestamps are in microseconds.** Pod uses microsecond-precision Unix timestamps for transaction deadlines, TTLs and subscription cursors (`since`). Block `timestamp` is the Ethereum-style value in seconds.
 
-**Block-related fields are zeroed.** Since Pod has no blocks, EVM opcodes that reference block properties (`block.number`, `block.coinbase`, `block.difficulty`, `block.basefee`) return 0. `block.timestamp` returns the local validator's timestamp at execution time.
+**Block-related fields are zeroed.** EVM opcodes that reference block properties (`block.number`, `block.coinbase`, `block.difficulty`, `block.basefee`) return 0. `block.timestamp` returns the local validator's timestamp at execution time.
 
 **Transaction responses include `pod_metadata`.** Responses to `eth_getTransactionReceipt` and similar methods include an additional `pod_metadata` field containing the attestations and finality information for the transaction.
 

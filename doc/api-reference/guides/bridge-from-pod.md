@@ -4,7 +4,7 @@ This guide walks through moving tokens off Pod: `withdraw` on the bridge precomp
 
 ## Before you start
 
-Read `GET /v1/bridge/config` on any full node. It names the bridged chain, the contract the claim is submitted to, and the per-token rules — there is no `chainId` parameter to pass, and this list is the only source of the Pod-token → bridged-chain-token mapping:
+Read `GET /v1/bridge/config` on any full node. It names the bridged chain, the contract the claim is submitted to, and the per-token rules — there is no `chainId` parameter to pass, and this list is the only source of the Pod-token → bridged-chain-token mapping. A `claim_chain_id` of `0` with an empty `tokens` list means the node has no bridge configured, and no withdrawal is admissible:
 
 ```json
 {
@@ -30,7 +30,7 @@ Read `GET /v1/bridge/config` on any full node. It names the bridged chain, the c
 ## Steps
 
 1. Call `withdraw(token, to, amount, deadline)` on the Pod bridge precompile. `to` is an address on the **bridged chain**, and `deadline` is an auction-aligned batch deadline in microseconds, exactly like an order's.
-2. Poll `GET /v1/bridge/withdrawals/by-id/{txHash}` — keyed by the withdraw transaction's own hash — until a `proof` appears. The route 404s until the withdrawal executes, a tick after admission. `pending` means the certificate is still assembling; `refused` means nothing was debited.
+2. Poll `GET /v1/bridge/withdrawals/by-id/{txHash}` — keyed by the withdraw transaction's own hash — until a `proof` appears. The route 404s until the withdrawal executes, a tick after admission. It then answers `{ withdrawal, status, proof }`: `proof` is present exactly when `status` is `claimable`; `pending` means the node holds fewer than `n - f` signatures and is fetching the rest from its peers itself, so keep polling (or ask another node); `refused` means nothing was debited. See the [REST API reference](../rest/README.md) for the full schema.
 3. Call `claim(token, amount, to, proof, auxTxSuffix)` on the bridged chain's bridge contract. Take `amount` and `to` **from the proof response** — that amount is in the bridged chain's decimals, not the 18-decimal value you signed. Do **not** take `token` from it: the proof reports the Pod-side address, and `claim` needs the bridged-chain one, which is `l1_token` in `/v1/bridge/config`.
 
 The bridge relayer performs step 3 for you. The call is permissionless, so submit it yourself only if the relayer is unavailable.
@@ -176,20 +176,26 @@ let withdraw_receipt = pod_bridge
     .send().await?
     .get_receipt().await?;
 
-// 2. Poll for the claim proof by the withdraw tx hash. The withdrawal settles a
-// tick after admission, so the first attempts legitimately come back empty.
+// 2. Poll for the claim proof, keyed by the withdraw tx hash. The route 404s
+// until the withdrawal executes (a tick after admission), so a non-200 means
+// "not yet". Branch on the presence of `proof`, not on `status`: an unfamiliar
+// status must mean "retry", never "failed".
+let url = format!(
+    "https://rpc.podtestnet.dev/v1/bridge/withdrawals/by-id/{}",
+    withdraw_receipt.transaction_hash
+);
 let claim_proof = loop {
-    let got: Option<serde_json::Value> = pod_provider
-        .raw_request(
-            "pod_getBridgeClaimProof".into(),
-            vec![withdraw_receipt.transaction_hash],
-        )
-        .await
-        .ok();
-    if let Some(p) = got.filter(|p| !p["proof"].is_null()) {
-        break p;
+    let res = reqwest::get(&url).await?;
+    if res.status().is_success() {
+        let detail: serde_json::Value = res.json().await?;
+        if !detail["proof"].is_null() {
+            break detail["proof"].clone();
+        }
+        if detail["status"] == "refused" {
+            return Err(format!("refused: {}", detail["withdrawal"]["error"]).into());
+        }
     }
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await; // 404, "pending", or anything unfamiliar
 };
 
 // 3. Claim. `amount` and `to` come from the proof: that amount is in the claim
@@ -215,7 +221,7 @@ claim_bridge
 
 ## If the withdrawal is refused
 
-Admission deliberately does **not** check your balance — pending fills can raise it before the batch executes — so a shortfall arrives as an outcome, not as a rejected transaction. Watch `eth_subscribe("pod_withdrawals", { account })`, or read `error` from the REST detail:
+Admission deliberately does **not** check your balance — pending fills can raise it before the batch executes — so a shortfall arrives as an outcome, not as a rejected transaction. Watch `eth_subscribe("pod_withdrawals", { account })`, or read `withdrawal.error` from the by-id response:
 
 * `insufficient_balance` — the balance did not cover the amount when the batch executed.
 * `not_included` — the solver left the intent out of the solution its deadline pointed at.
