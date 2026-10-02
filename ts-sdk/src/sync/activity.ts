@@ -1,8 +1,8 @@
 // ActivityHistory: one account's whole activity (ADR 0057) — `OrderHistory`
 // widened to the money the account moved. Seeded from the first REST page, kept
-// live by `pod_activity_v2`, paged backwards by cursor.
+// live by `pod_activity`, paged backwards by cursor.
 //
-// The cursor is the batch alone. `pod_activity_v2` sends one frame per tick,
+// The cursor is the batch alone. `pod_activity` sends one frame per tick,
 // covering every book, so a frame is already delivered exactly when its batch is
 // at or below `since` — there is no `sinceBook` to resume inside a tick with.
 
@@ -10,7 +10,7 @@ import type {
   ActivityEntry, ActivityEvent, ActivityQuery, Address, MoneyActivity, Order,
 } from "../types/public.js";
 import type { WireActivityFrame, WireMoneyEvent } from "../types/wire.js";
-import { applyActivityFrame } from "../codec/activity-v2.js";
+import { applyActivityFrame } from "../codec/activity.js";
 import { msToUs, usToMs } from "../codec/units.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
 import type { SubParams } from "../transport/ws.js";
@@ -69,7 +69,7 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
     this.query = query.types?.length ? query : { ...query, types: undefined };
     this.stream = new ResumableStream({
       ws: ctx.ws,
-      channel: "pod_activity_v2",
+      channel: "pod_activity",
       params: { account },
       cursor: { since: 0 },
       compare: compareBatch,

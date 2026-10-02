@@ -1,10 +1,10 @@
-// The activity seed's entry union and the `pod_activity_v2` frame fold. None of
+// The activity seed's entry union and the `pod_activity` frame fold. None of
 // it is reachable from `typecheck`: an entry is `unknown` off REST and a frame is
 // `unknown` off the socket, so every field mapping is only ever checked here.
 //
 // Shapes are written from the node: `ActivityEntry` in `node/src/rpc/types.rs`,
-// `ActivityFrame`/`MoneyEvent` in `node/src/rpc/activity_v2.rs`, and the JSON its
-// own tests assert (`node/tests/activity_v2_frame.rs`, `clob_indexer::rest::tests`).
+// `ActivityFrame`/`MoneyEvent` in `node/src/rpc/activity.rs`, and the JSON its
+// own tests assert (`node/tests/activity_frame.rs`, `clob_indexer::rest::tests`).
 // Encodings follow from those types: a `U256` is `0x` hex, an `I256` a signed
 // decimal string, a `WireDec` a signed decimal string, and an absent field is
 // absent rather than null.
@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import type { ActivityEntry, Address, MarketId } from "../types/public.js";
 import type { WireActivityEntry, WireActivityFrame } from "../types/wire.js";
 import { decodeActivityEntry } from "./decode.js";
-import { applyActivityFrame } from "./activity-v2.js";
+import { applyActivityFrame } from "./activity.js";
 import { WAD } from "./units.js";
 
 const ALICE = "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1" as Address;

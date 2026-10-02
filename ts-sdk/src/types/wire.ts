@@ -270,7 +270,7 @@ export interface WireBackstopPage {
 
 export interface WireOrdersFrame {
   /** The orderbook these actions happened on; constant for the frame. Absent on
-   * `pod_activity_v2`, which is one frame per tick and names the book per entity. */
+   * `pod_activity`, which is one frame per tick and names the book per entity. */
   book?: Hex;
   /** Deadline (micros) of the batch the actions **landed in**. Half of the resume cursor; `book` is the other half. */
   batch: number;
@@ -289,7 +289,7 @@ export interface WireOrderEntity {
   id: Hex;
   /** Creating transaction, or its parent `submitBatch` envelope. */
   tx: Hex;
-  /** The order's book. Sent here by `pod_activity_v2`, which covers a whole
+  /** The order's book. Sent here by `pod_activity`, which covers a whole
    * account; `pod_orders_v2` names it once on the frame instead. */
   book?: Hex;
   /** Index into the frame's `accts`; present iff `accts` is. */
@@ -441,9 +441,9 @@ export interface WireWithdrawalDetail {
 
 // --- account activity (ADR 0057) ---
 //
-// `GET /clob/activity/{account}` serves the seed and `pod_activity_v2` streams it.
+// `GET /clob/activity/{account}` serves the seed and `pod_activity` streams it.
 // The seed is a union tagged by `activity_type`, each variant flattening the wire
-// type its kind already had; the channel is `pod_activity_v2`, which is
+// type its kind already had; the channel is `pod_activity`, which is
 // `pod_orders_v2`'s frame for a whole account — one frame per tick, with the
 // money the tick moved as extra event kinds.
 

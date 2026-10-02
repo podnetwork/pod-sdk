@@ -82,7 +82,7 @@ function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: numbe
   return {
     id: e.id,
     txHash: e.tx,
-    // Named by the entity on `pod_activity_v2` and by the frame on
+    // Named by the entity on `pod_activity` and by the frame on
     // `pod_orders_v2`, so this is exact rather than inferred. Whether that book is
     // spot or perp is static market metadata, joined at read time by whoever needs
     // it — freezing it here would strand every order decoded before the markets

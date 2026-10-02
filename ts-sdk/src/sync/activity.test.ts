@@ -1,4 +1,4 @@
-// `ActivityHistory`: the REST seed, the `pod_activity_v2` fold on top of it, and
+// `ActivityHistory`: the REST seed, the `pod_activity` fold on top of it, and
 // the resume rules. None of it is reachable from `typecheck` — a frame is
 // `unknown` off the socket — and the cursor rule differs from the order feed's:
 // one frame per tick, so the batch alone says whether a frame was delivered.

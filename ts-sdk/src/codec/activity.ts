@@ -1,4 +1,4 @@
-// `pod_activity_v2` frames -> the order map plus the account's money rows (ADR 0057).
+// `pod_activity` frames -> the order map plus the account's money rows (ADR 0057).
 //
 // A frame is `pod_orders_v2` for one whole account: the order half folds through
 // `applyOrdersFrame` unchanged, and the money half is a set of extra event kinds

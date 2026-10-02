@@ -14,7 +14,7 @@ export type Channel =
   /** One account's whole activity: `pod_orders_v2` for every book the tick
    * cleared, plus the money it moved. One frame per tick, so `since` alone
    * resumes it. ADR 0057 §6. */
-  | "pod_activity_v2";
+  | "pod_activity";
 
 export interface SubParams {
   clobIds?: MarketId[];

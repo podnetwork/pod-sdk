@@ -191,7 +191,7 @@ export class PodRestClient {
 
   /**
    * One account's activity, newest first: orders at their placement tick, and the
-   * money that moved (ADR 0057 §5). The seed behind `pod_activity_v2`; page it
+   * money that moved (ADR 0057 §5). The seed behind `pod_activity`; page it
    * with `cursor`.
    */
   async activity(account: Address, q?: ActivityQueryRest): Promise<ActivityPage> {
