@@ -129,6 +129,7 @@ paths:
                     taker_fee: "0.000450"
                     tick_precision: "0x1"
                     lot_size: "0x1"
+                    min_notional: "0x0"
                     max_leverage: 1
                     oracle_price: null
                     mark_price: null
@@ -155,6 +156,7 @@ paths:
                     taker_fee: "0.000450"
                     tick_precision: "0x1"
                     lot_size: "0x1"
+                    min_notional: "0x0"
                     max_leverage: 20
                     oracle_price: "0x796e3ea3f8ab00000"
                     mark_price: "0x796e3ea3f8ab00000"
@@ -173,7 +175,11 @@ paths:
         Retrieves the current orderbook snapshot for a specified market, showing buy and sell orders aggregated by price level.
         
         Orders are grouped by price and include the total volume resting at each level.
-        Buy orders are sorted by price descending (best bid first), sell orders by price ascending (best ask first).
+        Both `buys` and `sells` are keyed by price in **ascending** order, so the best bid is the
+        **last** key of `buys` and the best ask the first key of `sells`.
+
+        `depth` must be at least 1 (`0` is rejected). Before the orderbook's first snapshot exists
+        (e.g. right after a node start) the call returns an invalid-params error; retry later.
       requestBody:
         content:
           application/json:
@@ -189,7 +195,7 @@ paths:
                   description: |
                     Parameters:
                     1. `orderbook_id` (bytes32): The 32-byte orderbook identifier
-                    2. `depth` (integer, optional): Maximum number of price levels to return for each side. If omitted, all available price levels are returned.
+                    2. `depth` (integer, optional, at least 1): Maximum number of price levels to return for each side — the best `depth` levels. If omitted, all available price levels are returned.
                   items:
                     oneOf:
                       - $ref: '#/components/schemas/Bytes32'
@@ -212,10 +218,10 @@ paths:
                 result:
                   orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
                   buys:
-                    "5000000000000000000":
-                      volume: "0xde0b6b3a7640000"
                     "4900000000000000000":
                       volume: "0x1bc16d674ec80000"
+                    "5000000000000000000":
+                      volume: "0xde0b6b3a7640000"
                   sells:
                     "5100000000000000000":
                       volume: "0x14d1120d7b160000"
@@ -242,8 +248,10 @@ paths:
         Retrieves historical candle (OHLCV) data for a specified orderbook.
         
         Candles represent aggregated price and volume data over specified time intervals.
-        Results are returned sorted by timestamp in descending order (newest first).
-        
+        Results are returned sorted by timestamp in descending order (newest first). The window is
+        half-open, `[from_ts, to_ts)`: a candle starting exactly at `to_ts` belongs to the next window.
+        `limit` defaults to 500, and a `limit` above 500 is rejected.
+
         All prices are in quote/base units with 1e18 scale (hex-encoded).
       requestBody:
         content:
@@ -293,12 +301,14 @@ paths:
                     high: "0x6f05b59d3b200000"
                     low: "0x6f05b59d3b200000"
                     volume: "0x2386f26fc10000"
+                    quote_volume: "0x11c37937e080000"
                   - timestamp: 1704150000000000
                     open: "0x6f05b59d3b200000"
                     close: "0x6f05b59d3b200000"
                     high: "0x6f05b59d3b200000"
                     low: "0x6f05b59d3b200000"
                     volume: "0x2386f26fc10000"
+                    quote_volume: "0x11c37937e080000"
                 id: 1
 
   /ob_getOrders:
@@ -309,7 +319,8 @@ paths:
       description: |
         Retrieves orders for a specific address in a given orderbook, with support for cursor-based pagination.
         
-        Orders are returned in descending order by timestamp/nonce.
+        Orders are returned newest first, sorted by `(deadline, nonce, order_id)` descending.
+        `limit` is clamped to `[1, 200]` and defaults to 200.
         Use the `next_cursor` from the response to fetch subsequent pages.
       requestBody:
         content:
@@ -358,7 +369,7 @@ paths:
                       next_cursor:
                         type: string
                         nullable: true
-                        description: 'Cursor for fetching the next page (wire format `"{ts}:{nonce}:{order_id_hex}"`). Null if no more results.'
+                        description: 'Cursor for fetching the next page (wire format `"{deadline}:{nonce}:{order_id_hex}"`). Null if no more results.'
                   id: { type: integer }
               example:
                 jsonrpc: "2.0"
@@ -379,8 +390,9 @@ paths:
                       filled_base_amount: "0x6f05b59d3b20000"
                       filled_quote_amount: "0x22b1c8c1227a0000"
                       fee: "0x0"
-                      deadline: 1704153600000000
+                      deadline: "1704153600000000"
                       end: 1704240000000000
+                      included_batch: 1704153600000000
                       effective_price: "0x4563918244f40000"
                       fills: []
                       direction: "buy"
@@ -548,8 +560,10 @@ paths:
 
         A backstop transfer is recorded when a perp position is swept to the backstop during
         liquidation: the position's remaining size and cash are moved off the account. Each entry
-        captures the swept size, cash, the mark price at the sweep, and the account equity at that
-        moment.
+        captures the swept size, cash, the mark price at the sweep, the account equity at that
+        moment, and the PnL the forced close realized. The terminal cash sweep that ends a backstop
+        (including one on an account with no positions left) is recorded as its own row with no
+        `orderbook_id`.
 
         Results are returned in descending order by timestamp (most recent first). Use `next_cursor`
         from the response to fetch subsequent pages.
@@ -598,6 +612,7 @@ paths:
                       cash: "-5000000000000000000"
                       mark_price: "0x130ee8e7179044a0000"
                       equity: "-1000000000000000000"
+                      realized_pnl: "-250000000000000000"
                       timestamp: 1704153600000000
                   total_count: 1
                   next_cursor: null
@@ -670,7 +685,7 @@ paths:
                       reduce_only: true
                       ioc: false
                       deadline: "1704153600000000"
-                      end: "1704240000000000"
+                      end: 1704240000000000
                   total_count: 1
                   next_cursor: null
                 id: 1
@@ -685,7 +700,9 @@ paths:
 
         Pass an `orderbook_id` to fetch a single orderbook, or omit it for every perp orderbook.
         Numeric fields are `0` and `as_of` is epoch until the orderbook has run a perp batch.
-        Funding state is not included here — call `ob_getFundingRates` for that.
+        `internal` is `true` when `oracle_price` is a book-derived internal price because every
+        oracle source was stale. Funding state is not included here — call `ob_getFundingRates`
+        for that.
       requestBody:
         content:
           application/json:
@@ -758,6 +775,71 @@ paths:
                     items: { $ref: '#/components/schemas/FundingRate' }
                   id: { type: integer }
 
+  /ob_getSolutions:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Per-Tick Solutions
+      operationId: ob_getSolutions
+      description: |
+        Returns the per-tick solution records the indexer stored: one row per orderbook per
+        executed batch, with the clearing price, volume, and (perp only) the oracle, mark,
+        funding, and open-interest state of that batch.
+
+        Pages hold **whole ticks**: `limit` counts ticks, not rows, and is clamped to `[1, 200]`
+        (default 200). Rows are ordered by `timestamp` descending, then orderbook id descending.
+        There is no cursor — to page back, pass the oldest `timestamp` of the previous page as
+        `until`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getSolutions" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Positional parameters:
+                    1. `query` (SolutionsQuery): optional `orderbook_id`, `since`, `until`, and `limit`
+                  items: { $ref: '#/components/schemas/SolutionsQuery' }
+                  example:
+                    - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
+                      until: 1704153600000000
+                      limit: 50
+      responses:
+        '200':
+          description: Object containing the solutions array
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: object
+                    properties:
+                      solutions:
+                        type: array
+                        items: { $ref: '#/components/schemas/SolutionResponse' }
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  solutions:
+                    - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
+                      timestamp: 1704153599500000
+                      clearing_price: "0x796e3ea3f8ab00000"
+                      mark_price: "0x796e3ea3f8ab00000"
+                      volume: "0x2386f26fc10000"
+                      oracle_price: "0x796e3ea3f8ab00000"
+                      funding_rate: "0"
+                      funding_index: "0"
+                      open_interest: "0x0"
+                id: 1
+
   # ==========================================
   # GROUP 2: ETHEREUM COMPATIBLE (eth_)
   # ==========================================
@@ -767,14 +849,14 @@ paths:
       summary: Get Native Token Balance
       operationId: eth_getBalance
       description: |
-        Returns the account's **withdrawable balance** on the orderbook, in wei — the same figure
-        the orderbook contract's `withdrawableBalance(token, account)` reports for the native token,
-        never negative.
+        Returns the account's native **cash** on the orderbook, in wei, floored at zero — the
+        balance bridge deposits are credited to and the one orders, transfers and withdrawals
+        spend.
 
-        This is the balance bridge deposits are credited to and the one orders, transfers and
-        withdrawals spend. For a position-less account it is the whole balance; for an account with
-        open perpetual positions it is equity minus the initial margin those positions reserve, so it
-        can read lower than `balanceOf(token, account)`, which reports cash without deducting margin.
+        It is **not** the withdrawable amount: margin reserved by open perpetual positions is not
+        deducted, so for an account with open positions it can read higher than what can be
+        withdrawn. Use the orderbook contract's `withdrawableBalance(token, account)` (via
+        `eth_call`) or `withdrawable_cash` from `ob_getPositions` for that.
 
         The `block_number` parameter is accepted for Ethereum compatibility but is ignored.
       requestBody:
@@ -844,38 +926,6 @@ paths:
                   result: { type: string, example: "0x50d" }
                   id: { type: integer }
 
-  # /eth_blockNumber:
-  #   post:
-  #     tags: [Ethereum Interface (eth_)]
-  #     summary: Get Current Block Number
-  #     operationId: eth_blockNumber
-  #     description: |
-  #       Returns the current timestamp in seconds as the block number.
-        
-  #       **Pod-specific behavior:** In Pod, the block number represents the current Unix timestamp in seconds rather than a sequential block count.
-  #     requestBody:
-  #       content:
-  #         application/json:
-  #           schema:
-  #             type: object
-  #             required: [jsonrpc, method, id]
-  #             properties:
-  #               jsonrpc: { type: string, default: "2.0" }
-  #               method: { type: string, default: "eth_blockNumber" }
-  #               id: { type: integer, default: 1 }
-  #               params: { type: array, default: [] }
-  #     responses:
-  #       '200':
-  #         description: Current timestamp as block number (hex-encoded)
-  #         content:
-  #           application/json:
-  #             schema:
-  #               type: object
-  #               properties:
-  #                 jsonrpc: { type: string }
-  #                 result: { type: string, example: "0x65954e80" }
-  #                 id: { type: integer }
-
   /eth_getTransactionByHash:
     post:
       tags: [Ethereum Interface (eth_)]
@@ -921,9 +971,11 @@ paths:
       description: |
         Returns the transaction count (nonce) for the specified address.
         Required for transaction signing to prevent replay attacks.
-        The nonce is the current transaction count for the address.
 
-        **Pod-specific:** The `block_tag` parameter is accepted for Ethereum compatibility but is ignored.
+        **Pod-specific:** `pending` returns the next nonce to sign with, counting transactions that
+        are attested but not yet finalized. Every other tag — `latest`, `safe`, `finalized`,
+        `earliest`, or a block number — returns the committed (finalized) nonce, since Pod keeps no
+        per-block nonce history. A tag that does not parse is rejected with invalid params.
       requestBody:
         content:
           application/json:
@@ -939,8 +991,8 @@ paths:
                   description: |
                     Parameters:
                     1. `address` (address): The address to get nonce for
-                    2. `block_tag` (string): Block tag (accepted but ignored)
-                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", "latest"]
+                    2. `block_tag` (string): `pending` for the next nonce including in-flight transactions; any other tag or block number for the committed nonce
+                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", "pending"]
       responses:
         '200':
           description: Nonce (hex-encoded uint256)
@@ -981,7 +1033,11 @@ paths:
                   description: |
                     Parameters:
                     1. `signed_tx` (string): Signed RLP-encoded transaction data
-                  items: { type: string, description: "Signed RLP-encoded transaction" }
+                    2. `skip_validation` (boolean, optional): When true, a full node skips its local pre-validation and forwards the transaction to validators as is. Default false.
+                  items:
+                    oneOf:
+                      - { type: string, description: "Signed RLP-encoded transaction" }
+                      - { type: boolean, description: "skip_validation" }
                   example: ["0x02f8..."]
       responses:
         '200':
@@ -1003,10 +1059,24 @@ paths:
       description: |
         Submits a signed EIP-1559 transaction and waits for validator attestations, returning
         tx_hash, success count, and any rejection errors from validators.
-        
+
         **Parameters:**
         - `signed_tx` (string): Signed RLP-encoded transaction data
         - `timeout_secs` (integer, optional): Max seconds to wait for attestations. Default 10.
+        - `skip_validation` (boolean, optional): When true, a full node skips its local
+          pre-validation. Default false.
+
+        The wait ends when the transaction executes, when `n − f` validators attest, or at the
+        timeout; a timeout is not an error — the result reports what was heard so far. Sent to a
+        **validator** node, the call does not wait: it returns immediately with `successes: 0`.
+
+        **Errors** (beyond invalid params):
+        - `999` — account locked; `data` carries `recovery_target` and `recovery_target_nonce`.
+        - `-32003` — rejected by at least `f + 1` validators for a reason no retry can fix;
+          `data` lists the rejections.
+        - `997` — an empty transaction is required at `data.nonce` to make progress.
+        - `-32000` — the node is in read-only mode (see `pod_status`), or local validation failed.
+        - `-32025` — submission from a geo-restricted source.
       requestBody:
         content:
           application/json:
@@ -1023,6 +1093,7 @@ paths:
                     Parameters:
                     1. `signed_tx` (string): Signed RLP-encoded transaction data
                     2. `timeout_secs` (integer, optional): Max seconds to wait for attestations
+                    3. `skip_validation` (boolean, optional): Skip the full node's local pre-validation
                   example: ["0x02f8...", 10]
       responses:
         '200':
@@ -1038,7 +1109,13 @@ paths:
                     properties:
                       tx_hash: { $ref: '#/components/schemas/Bytes32' }
                       successes: { type: integer, description: "Number of successful attestations" }
-                      errors: { type: array, items: { type: object } }
+                      errors:
+                        type: array
+                        description: Rejections heard from validators during the wait.
+                        items:
+                          type: object
+                          properties:
+                            error: { type: string }
                   id: { type: integer }
 
   /eth_call:
@@ -1068,11 +1145,11 @@ paths:
                   description: |
                     Parameters:
                     1. `transaction` (object): Call object with `to`, `data`, and optionally `from`
-                    2. `block_tag` (string): Block tag (e.g., "latest")
-                  example: 
+
+                    The call always runs against current state; there is no block-tag parameter.
+                  example:
                     - to: "0x50d0000000000000000000000000000000000002"
                       data: "0x..."
-                    - "latest"
       responses:
         '200':
           description: Return data (hex-encoded)
@@ -1134,7 +1211,7 @@ paths:
                   logs: []
                   logsBloom: "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                   transactionHash: "0x63dfbb7b3294d3d9aedb9bd1a306ec40156d0da1c374b2348f60c57186704fcd"
-                  transactionIndex: null
+                  transactionIndex: "0x0"
                   blockHash: "0x9f2e1c0a4b7d6835f1a0c9d8e7b6a5948372615f0e9d8c7b6a594837261504f3"
                   blockNumber: "0x1a4"
                   gasUsed: "0xf4240"
@@ -1160,8 +1237,12 @@ paths:
       description: |
         Estimates the gas required for a transaction.
         
-        **Pod-specific behavior:** If the transaction already specifies a gas value, returns that value.
-        Otherwise, returns `21000` (standard transaction gas).
+        **Pod-specific behavior:** nothing is simulated. If the transaction already specifies a gas
+        value, that value is echoed back. Otherwise the gas comes from the fixed per-contract cost
+        table, selected by `to` and the call's selector: `21000` for a plain transfer, an unknown
+        contract, or an unknown selector, and `0` for exempt calls — the solver's
+        `submitSolutions` and the relayer's `processDeposits` (matched against `from`, which is
+        not authenticated here) and the lock contract.
       requestBody:
         content:
           application/json:
@@ -1195,7 +1276,20 @@ paths:
       tags: [Ethereum Interface (eth_)]
       summary: Get Logs
       operationId: eth_getLogs
-      description: Returns an array of log objects matching the given filter criteria.
+      description: |
+        Returns an array of log objects matching the given filter criteria.
+
+        `fromBlock`/`toBlock` are block heights (inclusive), as on Ethereum; `latest`, `pending`,
+        `safe`, `finalized` and an omitted bound mean the tip, and `earliest` the oldest retained
+        block. A range is clamped to the retained chain, so one that lies wholly below it or above
+        the tip (e.g. `fromBlock = tip + 1`) returns `[]`. `blockHash` selects a single block.
+
+        Rejected with invalid params: an inverted range, a range spanning more than 7,200 blocks,
+        and a query matching more than 10,000 logs — narrow the range.
+
+        Logs returned here carry `transactionHash` and `logIndex`, but `blockHash`, `blockNumber`
+        and `transactionIndex` are null; the same logs inside `eth_getTransactionReceipt` carry the
+        receipt's block.
       requestBody:
         content:
           application/json:
@@ -1210,8 +1304,8 @@ paths:
                   type: array
                   description: |
                     Parameters:
-                    1. `filter` (object): Filter object with `address`, `topics`, `fromBlock`, `toBlock`
-                  example: [{ address: "0x50d0000000000000000000000000000000000002", topics: [] }]
+                    1. `filter` (object): Filter object with `address`, `topics`, and either `fromBlock`/`toBlock` or `blockHash`
+                  example: [{ address: "0x50d0000000000000000000000000000000000002", topics: [], fromBlock: "0x1a0", toBlock: "latest" }]
       responses:
         '200':
           description: Array of log objects
@@ -1249,13 +1343,29 @@ paths:
         - `pod_candles` — a per-tick candle hint (`CandleTick`) per cleared orderbook: clearing
           price and volume at the batch deadline, for folding into the forming bar. Not a closed
           OHLCV bar (see `ob_getCandles`).
+        - `pod_activity` — an `ActivityFrame`: everything that happened to **one account** in one
+          tick, in one frame — its order events on every orderbook (the `pod_orders_v2` events)
+          plus the money it moved: backstop sweeps, bridge deposits and withdrawals, and
+          transfers. **Requires** `account` (alias `bidder`); `bidders` and `orderbook_ids` do not
+          apply. A tick that touches none of the account's orders and moves none of its money
+          sends nothing.
         - `pod_markets` — a `MarketDynamicEntry` per orderbook carrying live market statistics
-          (last clearing price, 24h volume/high/low, and perp mark/oracle/funding/open-interest).
+          (last clearing price, 24h volume/high/low, perp mark/oracle/funding/open-interest) and its
+          lifecycle (`status`, `live_at_us`, `disable_at_us`, `settlement_price`). Sent per tick
+          only for the orderbooks that cleared that tick or had a lifecycle event.
         - `pod_positions` — a `PositionsUpdate` (`{ account, data }`, where `data` matches
-          `ob_getPositions`) for the subscribed account, pushed when a settlement touches it.
+          `ob_getPositions`) for the subscribed account, pushed for a tick that touches it: order
+          flow on any orderbook (new, fill, cancel, expiry, modification, trigger arm/cancel/update),
+          a backstop sweep or ADL close, a bridge deposit or withdrawal, or a transfer either way.
           **Requires** `account` (alias `bidder`).
-        - `pod_triggers` — a `TriggersUpdate` (the `ob_getTriggers` fields plus `account`) for the
-          subscribed account, pushed when a settlement touches it. **Requires** `account`.
+        - `pod_triggers` — a `TriggersUpdate` (the `ob_getTriggers` fields plus `account`, at most
+          200 triggers) for the subscribed account, pushed for a tick that touches it, on the same
+          rule as `pod_positions`. **Requires** `account`.
+        - `newHeads` — one block header per block, as `eth_getBlockByNumber` renders it but
+          without `transactions`. Takes no options (no filter, no `since`): headers are sent in
+          height order, one per block as it is flushed, each height once. A subscriber that falls
+          behind the block feed is closed with `-32020` and no `resume_since`; resubscribe and
+          fill the gap with `eth_getBlockByNumber`.
         - `pod_withdrawals` — an **array of `WithdrawalUpdate`**: what became of every bridge
           withdrawal that settled this tick — claimable on the bridged chain, or refused with
           the reason. Tick-level rather than per-orderbook, since a withdrawal belongs to no book, so
@@ -1269,10 +1379,11 @@ paths:
           credit as readily as a sender hears the debit. A tick with no matching outcomes sends
           nothing at all rather than an empty array.
 
-        `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_candles`, `pod_withdrawals`, and
-        `pod_transfers` are **delta** channels
+        `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_activity`, `pod_candles`,
+        `pod_withdrawals`, and `pod_transfers` are **delta** channels
         (they stream what changed each tick). `pod_markets`, `pod_positions`, and `pod_triggers` are **state** channels
-        (each pushes a current snapshot). See `since` below for how each behaves on catch-up.
+        (each pushes a current snapshot). `newHeads` is served from the block feed rather than the
+        tick stream. See `since` below for how each behaves on catch-up.
 
         Subscriptions follow the standard Ethereum `eth_subscribe` pattern:
         1. Subscribe with `eth_subscribe` → receive a subscription ID.
@@ -1320,6 +1431,21 @@ paths:
         the amounts it did fill travel with the cancel. An order that both fills and terminates in the
         same batch reports the totals on both events, with the same values.
 
+        **Engine-generated closes.** A backstop sweep leg and an ADL close each appear as a
+        synthetic order: a `new` for an entity whose `kind` is `backstop_transfer`, `adl` (the
+        bankrupt account whose position was closed) or `adl_counterparty` (the account that
+        covered it), followed by a terminal `fill`. An ADL close is delivered to both parties.
+
+        **Reading a `pod_activity` frame.** It is the `pod_orders_v2` vocabulary for one account
+        across every orderbook, one frame per tick: `batch`, `orders`, and `events`, with no
+        `book`, `accts` or `a` at frame level — each entity in `orders` carries its own `book`, and
+        every row belongs to the subscribed account. `events` holds the unchanged `pod_orders_v2`
+        order events plus three money kinds (`backstop`, `bridge_transfer`, `transfer`; see
+        `ActivityEvent`), in this order: for each orderbook ascending by id, its order events then
+        its backstop sweep legs; then the terminal backstop cash sweep; then deposits; then
+        withdrawals; then transfers. Money amounts are signed from the account's side: negative
+        left the account, positive arrived.
+
         **Forward compatibility.** Clients MUST ignore event kinds (`k`) and fields they do not
         recognise: new event kinds will be added without a new channel version. Existing keys are
         never renamed or repurposed.
@@ -1364,23 +1490,30 @@ paths:
         **optionally** — omitted streams every account's outcomes — and matches it against
         `withdrawer`, the debited account; it ignores `orderbook_ids` too. `pod_transfers` takes
         `account` optionally on the same terms, but matches it against **either** `from` or `to`.
-        `depth` applies to `pod_orderbook` snapshots only.
+        `pod_activity` **requires** `account`, refuses `bidders`, and ignores `orderbook_ids`.
+        `depth` applies to `pod_orderbook` snapshots only, and must be at least 1. `newHeads` reads
+        no options at all.
 
         **Catch-up (`since`).** Optionally pass `since` (a solution time in **microseconds**) to
         catch up with no gap or duplicate. Delta channels (`pod_orderbook`, `pod_orders`,
-        `pod_candles`, `pod_withdrawals`, `pod_transfers`) replay buffered ticks with deadline
-        strictly greater than `since`; if `since` predates the retained buffer the subscription is
-        rejected (backfill via REST and resubscribe — for `pod_withdrawals` that is
-        `GET /v1/bridge/withdrawals[/{account}]?since=`, which takes the same cursor and serves the
-        same shape. `pod_transfers` has no REST backfill: resubscribe live). State channels (`pod_markets`, `pod_positions`, `pod_triggers`) emit one
-        current snapshot immediately, then stream live. Omitted = live-only. Which option applies to
-        which subscription type is summarised in `SubscriptionParams`.
+        `pod_activity`, `pod_candles`, `pod_withdrawals`, `pod_transfers`) replay buffered ticks
+        with deadline strictly greater than `since` (`pod_orders_v2` differs, see below). If
+        `since` predates the retained buffer — or the buffer is empty, as right after a node start
+        — the subscription is rejected with `-32602` "since too old; backfill via REST then
+        resubscribe" (for `pod_withdrawals` that is `GET /v1/bridge/withdrawals[/{account}]?since=`,
+        which takes the same cursor and serves the same shape; `pod_transfers` has no REST
+        backfill: resubscribe live). State channels (`pod_markets`, `pod_positions`,
+        `pod_triggers`) emit one current snapshot immediately **only when `since` is passed** (any
+        value), then stream live. Omitted = live-only: a state channel then sends nothing until a
+        tick touches it. Which option applies to which subscription type is summarised in
+        `SubscriptionParams`.
 
         **Catch-up on `pod_orders_v2` (`since` + `since_book`).** One batch settles many orderbooks
         and is delivered as one frame each, so a batch is not atomic on the wire — a client can hold
         part of one. Resume on the **pair**: `since` is the `batch` of the last frame you accepted and
-        `since_book` its `book`. Replay then skips every book at or below `since_book` within that
-        batch and delivers later batches whole, so a client that accepted 7 of 10 books receives the
+        `since_book` its `book`. Replay starts **at** the batch equal to `since` (not after it),
+        skips every book at or below `since_book` within that batch, and delivers later batches
+        whole, so a client that accepted 7 of 10 books receives the
         remaining 3 without a gap or a duplicate. Track one pair, not a per-book map. Omitting
         `since_book` means "the whole of `since` arrived", which is correct if you subscribe to a
         single orderbook, because a batch is then one frame.
@@ -1399,35 +1532,36 @@ paths:
                   description: |
                     Parameters:
                     1. `subscription_type` (string): one of `pod_orderbook`, `pod_orders`,
-                       `pod_orders_v2`, `pod_candles`, `pod_markets`, `pod_positions`,
-                       `pod_triggers`, `pod_withdrawals`, `pod_transfers`.
+                       `pod_orders_v2`, `pod_activity`, `pod_candles`, `pod_markets`, `pod_positions`,
+                       `pod_triggers`, `pod_withdrawals`, `pod_transfers`, `newHeads`.
                     2. `options` (SubscriptionParams): filter/format options; all fields optional
-                       except where a channel requires `account`. Which fields take effect depends on
-                       the subscription type:
+                       except where a channel requires `account`. Ignored entirely by `newHeads`.
+                       Which fields take effect depends on the subscription type:
                        - `orderbook_ids` (alias `clob_ids`, array of bytes32) — `pod_orderbook`,
                          `pod_orders`, `pod_orders_v2`, `pod_candles`, `pod_markets`: restrict to
                          those orderbooks (empty/omitted = all). Ignored by `pod_positions` /
-                         `pod_triggers`.
-                       - `depth` (integer) — **`pod_orderbook` only**: cap the price levels per side
-                         in each snapshot (omit for all levels).
+                         `pod_triggers` / `pod_activity` / `pod_withdrawals` / `pod_transfers`.
+                       - `depth` (integer, at least 1) — **`pod_orderbook` only**: cap the price
+                         levels per side in each snapshot (omit for all levels).
                        - `bidder` (alias `account`, address) — `pod_orders`, `pod_orders_v2`:
                          stream only that bidder's updates (omit for all). **Required** for
-                         `pod_positions` and `pod_triggers` (the account to stream). Optional on
+                         `pod_positions`, `pod_triggers` and `pod_activity` (the account to stream). Optional on
                          `pod_withdrawals`, where it matches `withdrawer` (the debited account), and
                          on `pod_transfers`, where it matches either `from` or `to`.
                        - `bidders` (array of addresses) — **`pod_orders_v2` only**: follow several
                          accounts on one subscription. A set — order irrelevant, repeats collapsed —
                          capped at 64 distinct accounts. Mutually exclusive with `bidder`; rejected
                          on other channels. More than one account makes the frame carry `accts`/`a`.
-                       - `since` (integer, microseconds) — all channels: catch-up watermark (see the
-                         method description).
+                       - `since` (integer, microseconds) — every channel but `newHeads`: catch-up
+                         watermark (see the method description).
                        - `since_book` (bytes32) — **`pod_orders_v2` only**: the `book` of the last
                          frame accepted at `since`, completing the resume cursor (see the method
-                         description). Omit if the whole of `since` arrived.
+                         description). Omit if the whole of `since` arrived. Ignored on every other
+                         channel.
                   items:
                     oneOf:
                       - type: string
-                        enum: [pod_orderbook, pod_orders, pod_orders_v2, pod_candles, pod_markets, pod_positions, pod_triggers, pod_withdrawals, pod_transfers]
+                        enum: [pod_orderbook, pod_orders, pod_orders_v2, pod_activity, pod_candles, pod_markets, pod_positions, pod_triggers, pod_withdrawals, pod_transfers, newHeads]
                       - $ref: '#/components/schemas/SubscriptionParams'
             examples:
               pod_orderbook:
@@ -1458,6 +1592,13 @@ paths:
                   method: "eth_subscribe"
                   id: 1
                   params: ["pod_orders_v2", { since: 1704153600000000, since_book: "0x0000000000000000000000000000000000000000000000000000000000000001" }]
+              pod_activity:
+                summary: pod_activity for one account (account required), replaying ticks since a watermark
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_activity", { account: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", since: 1704153600000000 }]
               pod_candles:
                 summary: pod_candles for one orderbook, replaying ticks since a watermark
                 value:
@@ -1500,6 +1641,13 @@ paths:
                   method: "eth_subscribe"
                   id: 1
                   params: ["pod_transfers", { account: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28" }]
+              newHeads:
+                summary: newHeads, which takes no options
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["newHeads"]
       responses:
         '200':
           description: |
@@ -1605,6 +1753,57 @@ paths:
                           amount: "0x8ac7230489e80000"
                           error: "insufficient_balance"
                           timestamp_us: 1704153600000000
+                pod_activity_notification:
+                  summary: A streamed pod_activity frame — an order placed and filled, and a deposit
+                  value:
+                    jsonrpc: "2.0"
+                    method: "eth_subscription"
+                    params:
+                      subscription: "0x4e7a1c2b9d3f40e6a8b5c7d9e1f3a5b7"
+                      result:
+                        batch: 1704153600000000
+                        orders:
+                          - id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
+                            tx: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                            book: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                            n: 42
+                            px: "5000000000000000000"
+                            sz: "1000000000000000000"
+                        events:
+                          - { k: "new", o: 0 }
+                          - { k: "fill", o: 0, b: "1000000000000000000", q: "5000000000000000000", tb: "1000000000000000000", tq: "5000000000000000000", tf: "0", st: "filled" }
+                          - k: "bridge_transfer"
+                            tx: "0x3f1c2b4a5d6e70819a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f3021"
+                            idx: 0
+                            token: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+                            amount: "10000000000000000000"
+                newHeads_notification:
+                  summary: A streamed newHeads header
+                  value:
+                    jsonrpc: "2.0"
+                    method: "eth_subscription"
+                    params:
+                      subscription: "0x7c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f"
+                      result:
+                        number: "0x1a4"
+                        hash: "0x9f2e1c0a4b7d6835f1a0c9d8e7b6a5948372615f0e9d8c7b6a594837261504f3"
+                        parentHash: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        mixHash: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        nonce: "0x0000000000000000"
+                        sha3Uncles: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        logsBloom: "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                        transactionsRoot: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        stateRoot: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        receiptsRoot: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        miner: "0x0000000000000000000000000000000000000000"
+                        difficulty: "0x0000000000000000"
+                        extraData: "0x0000000000000000000000000000000000000000"
+                        size: "0x0"
+                        gasLimit: "0x0"
+                        gasUsed: "0x0"
+                        timestamp: "0x65954e80"
+                        uncles: []
+                        baseFeePerGas: "0x3b9aca00"
 
   /eth_unsubscribe:
     post:
@@ -1652,7 +1851,7 @@ paths:
       tags: [Network & Consensus (pod_)]
       summary: Get Validator Committee
       operationId: pod_getCommittee
-      description: Returns information about the current validator committee.
+      description: Returns the current validator committee and its quorum thresholds.
       requestBody:
         content:
           application/json:
@@ -1673,7 +1872,7 @@ paths:
                 type: object
                 properties:
                   jsonrpc: { type: string }
-                  result: { type: object }
+                  result: { $ref: '#/components/schemas/CommitteeResponse' }
                   id: { type: integer }
 
 
@@ -1682,7 +1881,16 @@ paths:
       tags: [Network & Consensus (pod_)]
       summary: Get Vote Batches
       operationId: pod_getVoteBatches
-      description: Retrieves vote batches from validators within a specified range.
+      description: |
+        Returns this validator's own signed vote batches for the requested append-log sequence
+        ranges. Only a validator serves it; a full node answers with an internal error.
+
+        Each range is half-open, `[start, end)`. The total across all ranges is capped by the node's
+        vote-sync batch size, and ranges past the cap are dropped — re-request whatever is missing.
+
+        The result is a JSON **array** of vote batches by default. With `binary` set to `true` it is
+        an **object** `{ data }`, where `data` is the standard-base64 compact binary encoding of the
+        same batches; decode on the JSON shape.
       requestBody:
         content:
           application/json:
@@ -1697,13 +1905,21 @@ paths:
                   type: array
                   description: |
                     Parameters:
-                    1. `from_sequence` (integer, nullable): Starting sequence number. None = start from 0
-                    2. `to_sequence` (integer, nullable): Ending sequence number. None = up to latest
-                  items: { type: integer, nullable: true }
-                  example: [0, 1000]
+                    1. `ranges` (array of `[start, end]` integer pairs): half-open sequence ranges.
+                    2. `binary` (boolean, optional): return the base64 binary encoding. Default false.
+                  items:
+                    oneOf:
+                      - type: array
+                        items:
+                          type: array
+                          items: { type: integer, format: int64 }
+                          minItems: 2
+                          maxItems: 2
+                      - type: boolean
+                  example: [[[0, 1000]], false]
       responses:
         '200':
-          description: Array of vote batch objects
+          description: Array of vote batch objects, or `{ data }` when `binary` is true
           content:
             application/json:
               schema:
@@ -1711,72 +1927,12 @@ paths:
                 properties:
                   jsonrpc: { type: string }
                   result:
-                    type: array
-                    items: { type: object }
-                  id: { type: integer }
-
-
-  /pod_getBridgeClaimProof:
-    post:
-      tags: [Network & Consensus (pod_)]
-      summary: Get Bridge Claim Proof
-      operationId: pod_getBridgeClaimProof
-      description: |
-        Returns a proof for claiming a withdrawal on the bridged chain, keyed by the
-        `withdraw` transaction's own hash. Use this after the withdrawal has settled to obtain the
-        committee attestations and proof data needed to call `claim` on the external bridge contract.
-
-        `GET /v1/bridge/withdrawals/by-id/{tx_hash}` serves the same proof alongside a `status`
-        (`claimable` / `pending` / `refused`), which is usually what a client wants: a withdrawal
-        refused at execution never becomes claimable, and only that surface says so.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [jsonrpc, method, params, id]
-              properties:
-                jsonrpc: { type: string, default: "2.0" }
-                method: { type: string, default: "pod_getBridgeClaimProof" }
-                id: { type: integer, default: 1 }
-                params:
-                  type: array
-                  description: |
-                    Parameters:
-                    1. `tx_hash` (bytes32): Transaction hash of the `withdraw` transaction
-                  items: { $ref: '#/components/schemas/Bytes32' }
-                  example: ["0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"]
-      responses:
-        '200':
-          description: Bridge claim proof for the external chain `claim` call
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  jsonrpc: { type: string }
-                  result: { $ref: '#/components/schemas/BridgeClaimProof' }
-                  id: { type: integer }
-              example:
-                jsonrpc: "2.0"
-                result:
-                  signatures: "0x..."
-                  committee_epoch: 42
-                  proof: "0xf74e07ff80dc54c7e894396954326fe13f07d176746a6a29d0ea34922b856402"
-                id: 1
-        '400':
-          description: Receipt not found or insufficient attestations
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  jsonrpc: { type: string }
-                  error:
-                    type: object
-                    properties:
-                      code: { type: integer }
-                      message: { type: string }
+                    oneOf:
+                      - type: array
+                        items: { type: object }
+                      - type: object
+                        properties:
+                          data: { type: string, description: Standard-base64 binary encoding of the batches. }
                   id: { type: integer }
 
   /pod_getAccountInfo:
@@ -1979,7 +2135,7 @@ paths:
       tags: [Network & Consensus (pod_)]
       summary: List Transactions
       operationId: pod_listTransactions
-      description: Lists signed transactions, optionally filtered by sender and/or recipient, up to an optional limit.
+      description: Lists signed transactions, newest first, optionally filtered by sender and/or recipient. `limit` defaults to 10,000 and is capped at 10,000.
       requestBody:
         content:
           application/json:
@@ -1996,7 +2152,7 @@ paths:
                     Parameters (all optional, positional):
                     1. `from_account` (address, nullable): filter by sender.
                     2. `to_account` (address, nullable): filter by recipient.
-                    3. `limit` (integer, nullable): maximum number of transactions to return.
+                    3. `limit` (integer, nullable): maximum number of transactions to return (default and cap 10,000).
                   example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", null, 100]
       responses:
         '200':
@@ -2153,8 +2309,8 @@ paths:
       operationId: pod_getSolverState
       description: |
         Returns the solver node's current state: its address and public key, next finalized nonce,
-        last executed and last generated solution batches, and the votes seen for the next solution.
-        Only meaningful when queried against the solver node.
+        last executed and last generated solution batches, the votes seen for the next solution, and
+        its solving `schedule`. Only meaningful when queried against the solver node.
       requestBody:
         content:
           application/json:
@@ -2218,7 +2374,8 @@ paths:
       description: |
         Returns how a specific validator has voted with respect to a specific account: what it has
         (or hasn't) voted at each pending nonce, as seen by this node. Returns null when the
-        validator address is not in the current committee.
+        validator address is not in the current committee. At most 256 pending nonces are
+        reported: the oldest are kept and the newest omitted.
       requestBody:
         content:
           application/json:
@@ -2259,7 +2416,8 @@ paths:
       description: |
         Returns a full diagnostic snapshot of a single account across all committee validators:
         per-validator vote state, recovery status, CLOB pending-solution presence, and equivocation
-        detection — all in one call.
+        detection — all in one call. Votes are read for at most the 256 oldest pending nonces; when
+        more are pending, the newest are not inspected, so `current_vote` reads `not_seen`.
       requestBody:
         content:
           application/json:
@@ -2449,45 +2607,6 @@ components:
       description: Variable-length bytes (hex-encoded with 0x prefix). Length must be even.
       example: "0x1234"
 
-    BridgeClaimProof:
-      type: object
-      description: |
-        Everything needed to call the bridged-chain bridge contract's `claim`.
-
-        **`proof` and `aux_tx_suffix` serialize as JSON arrays of byte values** (`[247, 78, ...]`),
-        not as `0x` hex strings. Convert before handing them to a web3 library's `bytes` parameter.
-
-        **`token` is the Pod-side address, not the one `claim` takes.** Map it to the bridged-chain
-        asset with the `tokens` list from `GET /v1/bridge/config`, which is the only source of that
-        mapping. `amount` and `to`, by contrast, are already bridged-chain values and pass through
-        unchanged.
-      required: [proof, committee_epoch, aux_tx_suffix]
-      properties:
-        proof:
-          type: array
-          items: { type: integer, minimum: 0, maximum: 255 }
-          description: The packed validator signatures the bridge contract verifies. A JSON array of byte values.
-        committee_epoch:
-          type: integer
-          format: uint64
-          description: Committee epoch the signatures are verified against.
-        aux_tx_suffix:
-          type: array
-          items: { type: integer, minimum: 0, maximum: 255 }
-          description: The withdrawal's id (its transaction hash), an input to the claim hash rather than the key itself. A JSON array of byte values.
-        token:
-          $ref: '#/components/schemas/Address'
-          description: '**Pod-side** token address — not what `claim` takes. Map it via `GET /v1/bridge/config`. Omitted on legacy rows that never recorded it.'
-        amount:
-          $ref: '#/components/schemas/HexUint256'
-          description: 'Amount in the token''s **bridged-chain** decimals — pass straight to `claim`. Never the 18-decimal value that was signed. Omitted on legacy rows.'
-        to:
-          $ref: '#/components/schemas/Address'
-          description: Recipient on the bridged chain. Omitted on legacy rows.
-        claim_hash:
-          $ref: '#/components/schemas/Bytes32'
-          description: 'The claim hash, which `Bridge.processedRequests` is keyed on — check it to see whether a claim already landed before spending a transaction. Omitted only where no claim was ever recorded, which is also where no certificate can ever be served.'
-
     HexUint256:
       type: string
       pattern: "^0x[a-fA-F0-9]+$"
@@ -2522,7 +2641,7 @@ components:
 
     OrderStatus:
       type: string
-      enum: ["pending", "active", "filled", "expired", "canceled", "margin_canceled", "post_only_refused", "invalid"]
+      enum: ["pending", "active", "filled", "expired", "canceled", "margin_canceled", "self_trade_canceled", "post_only_refused", "invalid"]
       description: |
         Current status of an order:
         - `pending`: Order submitted but not yet included in orderbook
@@ -2531,6 +2650,7 @@ components:
         - `expired`: Order expired (TTL exceeded)
         - `canceled`: Order was canceled by user
         - `margin_canceled`: The engine removed the order because the owner's margin capacity was exhausted
+        - `self_trade_canceled`: The engine removed a resting order that was about to fill against another order of the same owner
         - `post_only_refused`: The engine removed a `post_only` order that would have taken liquidity in the batch that admitted (or re-priced) it. Distinct from `canceled` so an engine refusal can be told apart from a cancel the trader sent — see [Post-only orders](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook)
         - `invalid`: Rejected at execution and never entered the book; the reject reason travels with the status
 
@@ -2541,7 +2661,7 @@ components:
 
     CandleResolution:
       type: string
-      enum: ["1m", "5m", "15m", "1h", "4h", "1d"]
+      enum: ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w", "1M"]
       description: Time interval for OHLCV candles
 
     TriggerType:
@@ -2556,13 +2676,11 @@ components:
 
     TriggerGrouping:
       type: string
-      enum: [none, asset, position]
+      enum: [none, asset]
       description: |
         Whether a trigger (and any synthetic order it produces) is bound to the bidder's exposure on the pair:
         - `none`: standalone — the trigger is removed only by a user cancel, TTL expiry, or its own fire; any synthetic order it produced survives independently
         - `asset`: exposure-bound — on perp markets the venue removes the armed trigger *and* any resting synthetic order it produced once the bidder's position on the pair reaches size 0; on spot markets, once the bidder's base-asset holdings reach 0
-
-        `asset` was formerly named `position` (same semantics, same ABI value); nodes running older builds still emit `position` and clients should treat the two as equivalent.
 
         Omitted from an `Order` response when it is the default `none`.
 
@@ -2571,12 +2689,15 @@ components:
     # ==========================================
     OrderKind:
       type: string
-      enum: [user_signed, liquidation, triggered]
+      enum: [user_signed, liquidation, triggered, adl, adl_counterparty, backstop_transfer]
       description: |
         Origin of the order:
         - `user_signed`: a normal user-submitted order (every order placed via the `submitOrder` contract call)
         - `liquidation`: synthesized by the engine, per (user, pair), when an account falls below maintenance margin
         - `triggered`: the synthetic order emitted deterministically by validators when an armed TP/SL trigger crosses its threshold against the pair's mark price. Carries `trigger_type` and `grouping` inherited from the parent trigger.
+        - `adl`: synthetic order recording an auto-deleveraging close, on the bankrupt account whose position was closed
+        - `adl_counterparty`: synthetic order recording the same ADL close on the account that covered it
+        - `backstop_transfer`: synthetic order recording a position swept to the backstop during liquidation
 
     OrderDirection:
       type: string
@@ -2669,11 +2790,20 @@ components:
           $ref: '#/components/schemas/HexUint256'
           description: Accumulated trading fee. Currently always zero.
         deadline:
-          $ref: '#/components/schemas/Timestamp'
-          description: Timestamp by which order must be included in the orderbook (microseconds)
+          $ref: '#/components/schemas/TimestampString'
+          description: Batch deadline the order was signed for (microseconds, as a decimal string)
         end:
           $ref: '#/components/schemas/Timestamp'
           description: Timestamp when order expires (microseconds)
+        included_batch:
+          $ref: '#/components/schemas/Timestamp'
+          description: Deadline of the batch the solver first included the order in — the tick it entered the book, at or before `deadline`. `0` for engine-generated orders and orders indexed before this field existed.
+        invalid_reason:
+          type: string
+          description: Why the engine refused the order. Present only when `status` is `invalid`.
+        realized_pnl:
+          type: string
+          description: Perp only — aggregate realized PnL across this order's fills (signed decimal, 1e18 USD). Omitted on spot orders and on perp orders that never closed a slice.
         effective_price:
           $ref: '#/components/schemas/HexUint256'
           description: Effective price the order has been filled at so far (filled_quote / filled_base, 1e18)
@@ -2727,7 +2857,10 @@ components:
           description: Lowest price (quote/base with 1e18 scale)
         volume: 
           $ref: '#/components/schemas/HexUint256'
-          description: Total volume traded during this candle period
+          description: Base volume traded during this candle period (1e18)
+        quote_volume:
+          $ref: '#/components/schemas/HexUint256'
+          description: Quote (USD) notional traded during this candle period, `Σ(base × clearing price)` over its ticks (1e18)
 
     Market:
       type: object
@@ -2781,9 +2914,10 @@ components:
           description: Full name of the quote token
         market_type: 
           $ref: '#/components/schemas/MarketType'
-        last_clearing_price: 
-          $ref: '#/components/schemas/HexUint256'
-          description: Last auction clearing price (quote/base with 1e18 scale)
+        last_clearing_price:
+          type: string
+          nullable: true
+          description: Last auction clearing price (hex-encoded, quote/base with 1e18 scale). `null` until the market's first fill.
         auction_interval:
           type: integer
           format: int64
@@ -2793,21 +2927,26 @@ components:
           $ref: '#/components/schemas/HexUint256'
           description: 24-hour trading volume
         high_24h:
-          $ref: '#/components/schemas/HexUint256'
-          description: 24-hour highest price
+          type: string
+          nullable: true
+          description: 24-hour highest price (hex-encoded, 1e18). `null` until the market has a completed candle.
         low_24h:
-          $ref: '#/components/schemas/HexUint256'
-          description: 24-hour lowest price
-        price_change_24h: 
+          type: string
+          nullable: true
+          description: 24-hour lowest price (hex-encoded, 1e18). `null` until the market has a completed candle.
+        price_change_24h:
           type: integer
-          format: int64
-          description: 24-hour price change (signed integer)
+          nullable: true
+          description: 24-hour price change in basis points (signed JSON number; `300` = +3%). `null` until the market has a completed candle.
         tick_precision:
           $ref: '#/components/schemas/HexUint256'
           description: Minimum price tick size, hex-encoded with `1e18` scale (e.g. `0xde0b6b3a7640000` = `1e18` = one whole tick).
         lot_size:
           $ref: '#/components/schemas/HexUint256'
           description: Minimum order size increment, hex-encoded with `1e18` scale. Order sizes must be multiples of this value.
+        min_notional:
+          $ref: '#/components/schemas/HexUint256'
+          description: Minimum quote notional per order, hex-encoded with `1e18` scale. `0x0` means no floor. Orders below it are rejected at admission.
         maker_fee:
           type: string
           description: Maker fee rate, a decimal fraction of the quote amount; `"0.010000"` is 1%.
@@ -2901,7 +3040,7 @@ components:
         buys: 
           type: object
           additionalProperties: { $ref: '#/components/schemas/TickSnapshot' }
-          description: Buy orders keyed by price (decimal string), sorted by price descending
+          description: Buy orders keyed by price (decimal string), sorted by price ascending — the best bid is the last key
         sells: 
           type: object
           additionalProperties: { $ref: '#/components/schemas/TickSnapshot' }
@@ -3002,8 +3141,8 @@ components:
           type: string
           nullable: true
           description: |
-            Always null. pod does not order the transactions within a block, so a transaction has no
-            position to report. A log is identified by `transactionHash` and `logIndex` instead.
+            The transaction's position within its block (hex-encoded) when it is in one; null
+            exactly when `blockNumber` is null.
         blockHash:
           nullable: true
           description: Hash of the block the transaction was sequenced in; null when it is in no block
@@ -3034,8 +3173,15 @@ components:
 
     Transaction:
       type: object
-      description: Transaction object returned by eth_getTransactionByHash
+      description: |
+        Transaction object returned by eth_getTransactionByHash, in the standard Ethereum shape.
+        `blockHash`, `blockNumber` and `transactionIndex` are set when a tick sequenced the
+        transaction into a block and null otherwise, the same rule its receipt follows.
+        EIP-1559 transactions carry `maxFeePerGas`, `maxPriorityFeePerGas`, `accessList` and
+        `yParity`; legacy (EIP-155) ones carry neither and report `type` `0x0`.
       properties:
+        type: { type: string, description: 'Transaction type: `0x2` (EIP-1559) or `0x0` (legacy).' }
+        chainId: { type: string }
         hash: { $ref: '#/components/schemas/Bytes32' }
         nonce: { type: string }
         blockHash: { $ref: '#/components/schemas/Bytes32', nullable: true }
@@ -3045,9 +3191,13 @@ components:
         to: { $ref: '#/components/schemas/Address', nullable: true }
         value: { $ref: '#/components/schemas/HexUint256' }
         gas: { type: string }
-        gasPrice: { type: string }
+        gasPrice: { type: string, description: 'Effective gas price; for EIP-1559 transactions the `maxFeePerGas`.' }
+        maxFeePerGas: { type: string }
+        maxPriorityFeePerGas: { type: string }
+        accessList: { type: array, items: { type: object } }
         input: { type: string }
         v: { type: string }
+        yParity: { type: string }
         r: { type: string }
         s: { type: string }
 
@@ -3065,6 +3215,26 @@ components:
         data: 
           type: string
           description: Non-indexed event data (hex-encoded)
+        blockHash:
+          type: string
+          nullable: true
+          description: Block of the emitting transaction. Set inside a receipt of a transaction in a block; always null in `eth_getLogs` results.
+        blockNumber:
+          type: string
+          nullable: true
+          description: As `blockHash`.
+        transactionHash:
+          $ref: '#/components/schemas/Bytes32'
+        transactionIndex:
+          type: string
+          nullable: true
+          description: As `blockHash`.
+        logIndex:
+          type: string
+          description: Position of the log within its transaction's logs (hex-encoded).
+        removed:
+          type: boolean
+          description: Always false.
 
     # ==========================================
     # QUERY OBJECTS
@@ -3082,10 +3252,10 @@ components:
           description: Start timestamp (inclusive) in microseconds
         to_ts: 
           $ref: '#/components/schemas/Timestamp'
-          description: End timestamp (inclusive) in microseconds. Defaults to current time if omitted.
+          description: End timestamp (exclusive) in microseconds. Unbounded if omitted.
         limit: 
           type: integer
-          description: Maximum number of candles to return. No limit if omitted.
+          description: Maximum number of candles to return. Defaults to 500; a value above 500 is rejected.
 
     OrdersQuery:
       type: object
@@ -3096,7 +3266,7 @@ components:
           description: Optional filter by orderbook; omit for all orderbooks
         limit: 
           type: integer
-          description: Maximum number of orders to return
+          description: Maximum number of orders to return. Clamped to `[1, 200]`; defaults to 200.
         cursor:
           type: string
           description: Pagination cursor from previous response
@@ -3155,6 +3325,23 @@ components:
         cursor:
           type: string
           description: 'Pagination cursor — pass `next_cursor` from the previous response. Wire format `"{ts}:{id}"`.'
+
+    SolutionsQuery:
+      type: object
+      description: Query parameters for ob_getSolutions. All fields optional.
+      properties:
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Restrict to one orderbook; omit for every orderbook.
+        since:
+          $ref: '#/components/schemas/Timestamp'
+          description: Inclusive lower bound on the batch deadline (microseconds).
+        until:
+          $ref: '#/components/schemas/Timestamp'
+          description: Exclusive upper bound on the batch deadline (microseconds). Page back by passing the oldest `timestamp` of the previous page.
+        limit:
+          type: integer
+          description: Ticks per page, not rows — a tick carries one row per orderbook. Clamped to `[1, 200]`; defaults to 200.
 
     FillResponse:
       type: object
@@ -3240,7 +3427,8 @@ components:
           type: boolean
           description: Immediate-or-cancel — any unfilled remainder of the fired order is canceled at end of batch.
         deadline:
-          $ref: '#/components/schemas/Timestamp'
+          $ref: '#/components/schemas/TimestampString'
+          description: Batch deadline the trigger was signed for (microseconds, decimal string).
         end:
           $ref: '#/components/schemas/Timestamp'
           description: TTL expiry — the trigger is swept once `end < batch_deadline` (microseconds).
@@ -3269,7 +3457,7 @@ components:
           description: Account whose position was swept.
         orderbook_id:
           $ref: '#/components/schemas/Bytes32'
-          description: The orderbook the swept position belonged to. Omitted when not recorded.
+          description: The orderbook the swept position belonged to. Omitted on the terminal cash-sweep row, which belongs to no orderbook.
         size:
           type: string
           description: Signed position size moved to the backstop (decimal int256, 1e18). Positive = long, negative = short.
@@ -3282,6 +3470,9 @@ components:
         equity:
           type: string
           description: Account equity at the moment of the sweep (decimal int256, 1e18).
+        realized_pnl:
+          type: string
+          description: PnL the forced close realized (decimal int256, 1e18). `0` on the terminal cash-sweep row and on rows recorded before this field existed.
         timestamp:
           $ref: '#/components/schemas/Timestamp'
           description: Timestamp of the batch that produced the sweep, in microseconds.
@@ -3302,6 +3493,56 @@ components:
           nullable: true
           description: 'Pass back as `query.cursor` to fetch the next page. Wire format `"{ts}:{id}"`. Null if no more results.'
 
+    SolutionResponse:
+      type: object
+      description: One orderbook's record for one executed batch, as returned by `ob_getSolutions`. Perp-only fields are omitted on spot rows; replay inputs are also omitted on rows recorded before they were stored.
+      required: [orderbook_id, timestamp, mark_price, volume]
+      properties:
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+          description: Batch deadline (microseconds).
+        clearing_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Clearing price (1e18). Omitted for a market that has never traded.
+        mark_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Oracle-anchored mark (1e18); `0x0` for spot.
+        volume:
+          $ref: '#/components/schemas/HexUint256'
+          description: Base volume cleared this batch (1e18).
+        oracle_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Perp only — oracle price used this batch (1e18).
+        funding_rate:
+          type: string
+          description: Perp only — funding rate this batch (signed decimal, 1e18).
+        funding_index:
+          type: string
+          description: Perp only — cumulative funding accumulator after this batch (signed decimal, 1e18), on `funding_index`'s base.
+        open_interest:
+          $ref: '#/components/schemas/HexUint256'
+          description: Perp only — open interest (1e18 USD notional).
+        mark_best_bid:
+          $ref: '#/components/schemas/HexUint256'
+          description: Perp only — the clean best bid the mark path read. Describes the previous batch.
+        mark_best_ask:
+          $ref: '#/components/schemas/HexUint256'
+          description: Perp only — the clean best ask the mark path read. Describes the previous batch.
+        premium_ema:
+          type: string
+          description: Perp only — premium EMA after the previous batch's step (signed decimal, 1e18).
+        book_median_ema:
+          $ref: '#/components/schemas/HexUint256'
+          description: Perp only — book-median EMA after the previous batch's step. Omitted until seeded.
+        impact_bid:
+          $ref: '#/components/schemas/HexUint256'
+          description: Perp only — impact bid price funding consumed this batch.
+        impact_ask:
+          $ref: '#/components/schemas/HexUint256'
+          description: Perp only — impact ask price funding consumed this batch.
+
     OraclePrice:
       type: object
       description: Latest oracle and mark prices recorded for a perp orderbook by the indexer.
@@ -3317,6 +3558,9 @@ components:
         as_of:
           $ref: '#/components/schemas/Timestamp'
           description: Deadline of the batch that produced this row (microseconds). Epoch until the orderbook has run a perp batch.
+        internal:
+          type: boolean
+          description: '`true` when `oracle_price` is a book-derived internal price because every oracle source was stale; `false` for a real oracle price.'
 
     FundingRate:
       type: object
@@ -3357,33 +3601,35 @@ components:
       type: object
       description: |
         Options object (second `eth_subscribe` param). All fields are optional except that
-        `pod_positions` / `pod_triggers` require `account` (alias `bidder`). Which fields take
-        effect depends on the subscription type:
+        `pod_positions` / `pod_triggers` / `pod_activity` require `account` (alias `bidder`).
+        `newHeads` reads none of them. Which fields take effect depends on the subscription type:
         - `orderbook_ids` (alias `clob_ids`) — `pod_orderbook`, `pod_orders`, `pod_orders_v2`,
           `pod_candles`, `pod_markets`; ignored by `pod_positions` / `pod_triggers` /
-          `pod_withdrawals` / `pod_transfers`.
-        - `depth` — `pod_orderbook` only.
+          `pod_activity` / `pod_withdrawals` / `pod_transfers`.
+        - `depth` — `pod_orderbook` only; at least 1.
         - `bidder` (alias `account`) — optional for `pod_orders` / `pod_orders_v2` /
-          `pod_withdrawals` / `pod_transfers`; **required** for `pod_positions` and `pod_triggers`.
+          `pod_withdrawals` / `pod_transfers`; **required** for `pod_positions`, `pod_triggers` and
+          `pod_activity`.
         - `bidders` — `pod_orders_v2` only, to follow several accounts on one subscription.
           Mutually exclusive with `bidder`.
-        - `since` — all channels (catch-up watermark, microseconds).
-        - `since_book` — `pod_orders_v2` only, completing its `(batch, book)` resume cursor.
+        - `since` — every channel but `newHeads` (catch-up watermark, microseconds).
+        - `since_book` — `pod_orders_v2` only, completing its `(batch, book)` resume cursor;
+          ignored elsewhere.
       properties:
         depth:
           type: integer
-          description: '`pod_orderbook` only: maximum price levels per side to include in snapshots. Omit for all levels.'
+          description: '`pod_orderbook` only: maximum price levels per side to include in snapshots, at least 1 (`0` is rejected). Omit for all levels.'
         orderbook_ids:
           type: array
           items: { $ref: '#/components/schemas/Bytes32' }
-          description: 'Orderbook (clob) IDs to restrict the subscription to (accepted alias: `clob_ids`). Empty or omitted = all orderbooks. Honored by `pod_orderbook`, `pod_orders`, `pod_candles`, `pod_markets`; ignored by the account-scoped channels.'
+          description: 'Orderbook (clob) IDs to restrict the subscription to (accepted alias: `clob_ids`). Empty or omitted = all orderbooks. Honored by `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_candles`, `pod_markets`; ignored by the account-scoped and tick-level channels (`pod_positions`, `pod_triggers`, `pod_activity`, `pod_withdrawals`, `pod_transfers`).'
         clob_ids:
           type: array
           items: { $ref: '#/components/schemas/Bytes32' }
           description: 'Accepted alias for `orderbook_ids`.'
         bidder:
           $ref: '#/components/schemas/Address'
-          description: 'Account filter (accepted alias: `account`). For `pod_orders`, when set, streams only this bidder''s updates (omit for all bidders). For `pod_positions` / `pod_triggers` this is **required** — the account whose positions / triggers to stream. On `pod_orders_v2` it is the single-account form of `bidders`, and sending both is an error. On `pod_withdrawals` it is optional and matches `withdrawer` — the debited account. On `pod_transfers` it is optional and matches either side of the transfer, `from` or `to`.'
+          description: 'Account filter (accepted alias: `account`). For `pod_orders`, when set, streams only this bidder''s updates (omit for all bidders). For `pod_positions` / `pod_triggers` / `pod_activity` this is **required** — the account whose positions / triggers / activity to stream. On `pod_orders_v2` it is the single-account form of `bidders`, and sending both is an error. On `pod_withdrawals` it is optional and matches `withdrawer` — the debited account. On `pod_transfers` it is optional and matches either side of the transfer, `from` or `to`.'
         bidders:
           type: array
           items: { $ref: '#/components/schemas/Address' }
@@ -3409,7 +3655,7 @@ components:
         since:
           type: integer
           format: int64
-          description: 'Catch-up watermark: a solution time in microseconds. Delta channels replay buffered ticks after it; state channels emit one current snapshot then stream live. Omit for live-only. If a delta channel''s `since` predates the retained buffer, the subscription is rejected.'
+          description: 'Catch-up watermark: a solution time in microseconds. Delta channels replay buffered ticks after it (`pod_orders_v2` from the tick at it, see `since_book`); state channels emit one current snapshot then stream live. Omit for live-only. If a delta channel''s `since` predates the retained buffer, or the buffer is empty, the subscription is rejected with `-32602`.'
         since_book:
           $ref: '#/components/schemas/Bytes32'
           description: '`pod_orders_v2` only: the `book` of the last frame accepted at `since`, which together with it forms the resume cursor. A batch is delivered as one frame per orderbook, so a client can hold part of a batch; replay skips every book at or below this one within `since`, then delivers later batches whole. Omit when the whole of `since` arrived (always true when subscribed to a single orderbook).'
@@ -3421,12 +3667,15 @@ components:
         `eth_subscribe`. The `params.result` payload depends on the subscription type:
         - `pod_orderbook` → an `OrderbookSnapshot`.
         - `pod_orders` → an array of `OrderUpdate`.
+        - `pod_orders_v2` → an `OrdersFrameV2`.
+        - `pod_activity` → an `ActivityFrame`.
         - `pod_candles` → a `CandleTick`.
         - `pod_markets` → a `MarketDynamicEntry`.
         - `pod_positions` → a `PositionsUpdate`.
         - `pod_triggers` → a `TriggersUpdate`.
         - `pod_withdrawals` → an array of `WithdrawalUpdate`.
         - `pod_transfers` → an array of `TransferUpdate`.
+        - `newHeads` → a `BlockHeader`.
       properties:
         jsonrpc:
           type: string
@@ -3446,6 +3695,8 @@ components:
                 - $ref: '#/components/schemas/OrderbookSnapshot'
                 - type: array
                   items: { $ref: '#/components/schemas/OrderUpdate' }
+                - $ref: '#/components/schemas/OrdersFrameV2'
+                - $ref: '#/components/schemas/ActivityFrame'
                 - $ref: '#/components/schemas/CandleTick'
                 - $ref: '#/components/schemas/MarketDynamicEntry'
                 - $ref: '#/components/schemas/PositionsUpdate'
@@ -3454,6 +3705,7 @@ components:
                   items: { $ref: '#/components/schemas/WithdrawalUpdate' }
                 - type: array
                   items: { $ref: '#/components/schemas/TransferUpdate' }
+                - $ref: '#/components/schemas/BlockHeader'
 
     OrdersFrameV2:
       type: object
@@ -3498,14 +3750,17 @@ components:
           items: { $ref: '#/components/schemas/OrderEventV2' }
           description: |
             What happened, in a deterministic order: new/rejected orders, then cancellations, then
-            modifications, then post-only refusals, then refused amendments, then fills ascending by
-            order id, then expirations, then backstop sweeps.
+            refused cancels, then modifications, then refused amendments, then fills ascending by
+            order id, then the engine's matching-walk removals (`cancel` with `st`
+            `post_only_refused` / `self_trade_canceled` / `margin_canceled`), then expirations, then
+            ADL closes, then backstop sweeps.
 
             The order is not arbitrary: apply events as they arrive and your book is never transiently
             wrong. Cancellations precede the fills so you never hold an order that has already been
-            removed, and post-only refusals sit **after** the modifications rather than with the other
-            cancellations, so an order repriced onto a crossing level and refused for it ends the frame
-            removed rather than resting at the refused price.
+            removed, and the matching-walk removals sit **after** the modifications and the fills
+            rather than with the other cancellations, so an order repriced onto a crossing level and
+            refused for it ends the frame removed rather than resting at the refused price, and a
+            fill it took before removal lands on a live order.
 
     OrderEntityV2:
       type: object
@@ -3536,6 +3791,9 @@ components:
         tx:
           $ref: '#/components/schemas/Bytes32'
           description: Hash of the creating transaction, or of its parent `submitBatch` envelope. Zero for engine-generated orders.
+        book:
+          $ref: '#/components/schemas/Bytes32'
+          description: '`pod_activity` only: the orderbook the order belongs to. Omitted on `pod_orders_v2`, whose frame names the book once.'
         a:
           type: integer
           description: Index into the frame's `accts`. Present if and only if `accts` is — see there.
@@ -3600,14 +3858,17 @@ components:
       properties:
         k:
           type: string
-          enum: [new, reject, fill, cancel, expire, modify, modify_reject]
+          enum: [new, reject, fill, cancel, cancel_reject, expire, modify, modify_reject]
           description: |
             - `new` — the order entered the book.
             - `reject` — dropped during execution, never rested; `why` carries the reason.
             - `fill` — matched, wholly or partly.
             - `cancel` — removed by a cancel intent or by the engine. An engine removal carries `st`
-              (today only `post_only_refused`); a cancel the owner sent omits it.
-            - `expire` — removed on reaching its TTL.
+              (`post_only_refused`, `self_trade_canceled` or `margin_canceled`); a cancel the owner
+              sent omits it.
+            - `cancel_reject` — a cancel the engine refused. The order still rests; it is named by
+              `id`, the requester by `by`, and `code`/`why` say why.
+            - `expire` — removed on reaching its TTL, or an IOC remainder killed in its admission batch.
             - `modify` — a resting order's price and/or size changed in place.
             - `modify_reject` — an amendment the engine refused. The order is untouched; `code` says why.
         o:
@@ -3622,14 +3883,14 @@ components:
         why:
           type: string
           description: |
-            On `reject`, why the engine dropped the order. On `modify_reject`, detail the `code`
+            On `reject`, why the engine dropped the order. On `modify_reject` and `cancel_reject`, detail the `code`
             cannot carry — the amounts on `insufficient_balance`, `invalid_price` and
             `notional_below_minimum`, the pair on `unknown_market`, the whole reason on
             `unspecified`. Absent for every other code, where it would restate the code.
         by:
           type: integer
           description: |
-            `modify_reject` only: index into the frame's `accts` for the account that *asked*, which
+            `modify_reject` and `cancel_reject`: index into the frame's `accts` for the account that *asked*, which
             is deliberately not `a`. A refusal says nothing about who owns the order, and on
             `not_order_owner` the requester is precisely who does not. Absent when the subscription
             names a single account.
@@ -3643,10 +3904,11 @@ components:
           type: string
           enum: [insufficient_balance, invalid_price, zero_size, notional_below_minimum, unknown_market,
                  order_not_found, not_order_owner, stale_nonce, wrong_pair, engine_managed_order,
-                 price_above_maximum, price_off_tick, market_order_must_be_ioc, size_above_maximum,
-                 size_off_lot, notional_overflow, notional_above_cap, unspecified]
+                 price_above_maximum, price_off_tick, size_above_maximum, size_off_lot,
+                 notional_overflow, notional_above_cap, delegation_expired, post_only_ioc,
+                 post_only_market_order, unspecified]
           description: |
-            `modify_reject` only: the stable reason identifier — branch on this, not on `why`.
+            `modify_reject` and `cancel_reject`: the stable reason identifier — branch on this, not on `why`.
             Treat a value you do not recognise as `unspecified`: the set grows as the engine names
             reasons, and `unspecified` itself means it has not named this one yet.
         b:
@@ -3682,7 +3944,7 @@ components:
             on its first fill.
         st:
           type: string
-          enum: [filled, canceled, margin_canceled, expired, post_only_refused]
+          enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused]
           description: |
             The terminal status an event closed the order with.
 
@@ -3690,12 +3952,13 @@ components:
             order is still working.
 
             On `cancel`: present only when the **engine** removed the order rather than the owner
-            cancelling it — today that is `post_only_refused`, a `post_only` order removed because it
-            would have taken liquidity in the batch that admitted or re-priced it. An ordinary cancel
+            cancelling it — `post_only_refused` (a `post_only` order that would have taken liquidity in
+            the batch that admitted or re-priced it), `self_trade_canceled` (a resting order that was
+            about to fill against the same owner), or `margin_canceled`. An ordinary cancel
             omits `st`, so a client that ignores the field reads every `cancel` exactly as it did
             before.
 
-            A refusal is ordered **after** the `modify` events in its frame, unlike every other cancel.
+            An engine removal is ordered **after** the `modify` and `fill` events in its frame, unlike every other cancel.
             An order repriced onto a crossing level and refused for it emits `modify` and then `cancel`:
             apply them in the order given and the order ends the frame removed, rather than resurrected
             at the refused price.
@@ -3794,11 +4057,15 @@ components:
         position_before:
           type: string
           nullable: true
-          description: Perp only — signed position (1e18) before the first fill on this order.
+          description: Perp only — the owner's signed position (1e18) before this fill.
         position_after:
           type: string
           nullable: true
           description: Perp only — signed position (1e18) after this fill.
+        realized_pnl:
+          type: string
+          nullable: true
+          description: Perp only — realized PnL (signed, 1e18 USD) this fill booked on the slice it closed. Null on an opening/increasing fill and on every spot fill.
 
     PerpPositionSide:
       type: string
@@ -3903,7 +4170,7 @@ components:
           description: '`mark × size − cost_basis` — pure price drift (signed, 1e18 USD); funding is reported separately as `funding_accrued`.'
         realized_pnl:
           type: string
-          description: Lifetime realized PnL on this position (signed, 1e18 USD). Resets to 0 when the position closes — the next open of the same pair starts fresh.
+          description: Always `"0"` — an open position has no realized figure of its own, because a leg's PnL banks into cash when it reaches flat. The lifetime figure is the account-level `total_realized_pnl`.
         stop_loss:
           $ref: '#/components/schemas/HexUint256'
           description: Reserved — stop-loss not yet supported.
@@ -3964,6 +4231,33 @@ components:
       pattern: "^[0-9a-fA-F]{66}$"
       description: A 33-byte compressed secp256k1 public key, lowercase hex, with **no** `0x` prefix (66 hex characters).
       example: "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc"
+
+    CommitteeResponse:
+      type: object
+      description: The current validator committee, returned by `pod_getCommittee`.
+      required: [validators, n, n_minus_3f, n_minus_f]
+      properties:
+        validators:
+          type: array
+          description: '`[validator_index, public_key]` pairs, where `public_key` is a `Secp256k1PublicKey`.'
+          items:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items:
+              oneOf:
+                - type: integer
+                - $ref: '#/components/schemas/Secp256k1PublicKey'
+          example: [[0, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc"]]
+        n:
+          type: integer
+          description: Committee size.
+        n_minus_3f:
+          type: integer
+          description: Certificate threshold.
+        n_minus_f:
+          type: integer
+          description: Quorum.
 
     VoterResponse:
       type: object
@@ -4083,14 +4377,15 @@ components:
       required: [deadline, tx_hash]
       properties:
         deadline:
-          $ref: '#/components/schemas/Timestamp'
+          $ref: '#/components/schemas/TimestampString'
+          description: Batch deadline in microseconds, as a decimal string.
         tx_hash:
           $ref: '#/components/schemas/Bytes32'
 
     SolverStateResponse:
       type: object
       description: The solver node's current state. Only meaningful when queried against the solver node.
-      required: [solver_address, solver_pub_key, next_finalized_nonce, next_solution_votes]
+      required: [solver_address, solver_pub_key, next_finalized_nonce, next_solution_votes, schedule]
       properties:
         solver_address:
           $ref: '#/components/schemas/Address'
@@ -4113,6 +4408,27 @@ components:
             type: array
             items: { type: integer }
           description: 'Votes for the next solution: an object mapping each candidate solution tx hash (bytes32, hex string key) to the list of validator indices that voted for it.'
+        schedule:
+          $ref: '#/components/schemas/SolverScheduleStatus'
+
+    SolverScheduleStatus:
+      type: object
+      description: The batch-deadline window this instance solves for, and the decision it gives for the next tick.
+      required: [schedule, next_deadline, producing]
+      properties:
+        schedule:
+          type: object
+          nullable: true
+          description: 'The half-open window `[start_deadline, stop_deadline)` in microseconds; null when the instance is stood down.'
+          properties:
+            start_deadline: { type: integer, format: int64 }
+            stop_deadline: { type: integer, format: int64, nullable: true, description: Null means open-ended. }
+        next_deadline:
+          $ref: '#/components/schemas/TimestampString'
+          description: Deadline of the tick the chain will produce next (microseconds, decimal string).
+        producing:
+          type: boolean
+          description: Whether `next_deadline` falls inside the window.
 
     PodStatus:
       type: object
@@ -4175,7 +4491,7 @@ components:
         pending_nonces:
           type: array
           items: { $ref: '#/components/schemas/ValidatorNonceVote' }
-          description: One entry per pending nonce in `[next_finalized_nonce, expected_nonce)`. Capped at 256 entries; if the gap is larger the oldest nonces are omitted.
+          description: One entry per pending nonce in `[next_finalized_nonce, min(expected_nonce, next_finalized_nonce + 256))`. Capped at 256 entries; if the gap is larger the **newest** nonces are omitted.
 
     FinalizedTxStatus:
       type: object
@@ -4362,9 +4678,9 @@ components:
     MarketDynamicEntry:
       type: object
       description: |
-        Live market statistics for one orderbook, streamed on the `pod_markets` subscription (one
-        object per orderbook). Optional fields are omitted (not null) when unset — e.g. perp-only
-        fields on a spot market, or stats with no data yet.
+        Live market statistics and lifecycle for one orderbook, streamed on the `pod_markets`
+        subscription (one object per orderbook). Optional fields are omitted (not null) when unset —
+        e.g. perp-only fields on a spot market, or stats with no data yet.
       required: [orderbook_id, volume_24h]
       properties:
         orderbook_id:
@@ -4388,6 +4704,9 @@ components:
         oracle_price:
           type: string
           description: 'Perp only: latest oracle price (decimal, 1e18).'
+        internal:
+          type: boolean
+          description: 'Perp only: `true` when `oracle_price` is a book-derived internal price because every oracle source was stale.'
         mark_price:
           type: string
           description: 'Perp only: current mark price (decimal, 1e18).'
@@ -4397,6 +4716,9 @@ components:
         funding_index:
           type: string
           description: 'Perp only: cumulative funding index (decimal).'
+        funding_settling_index:
+          type: string
+          description: 'Perp only: the index positions settle against (decimal, 1e18) — see `Market.funding_settling_index`. Omitted until the market''s first perp batch after a node start.'
         funding_last_updated_us:
           type: integer
           format: int64
@@ -4404,6 +4726,21 @@ components:
         open_interest:
           type: string
           description: 'Perp only: open interest (decimal, 1e18).'
+        status:
+          type: string
+          enum: [pending, active, disabled, settled]
+          description: Market lifecycle status, as on `ob_getMarkets`.
+        live_at_us:
+          type: integer
+          format: int64
+          description: Batch deadline (microseconds) from which a `pending` market may go `active`. Omitted when not scheduled.
+        disable_at_us:
+          type: integer
+          format: int64
+          description: Batch deadline (microseconds) of a scheduled halt. Omitted when none is scheduled.
+        settlement_price:
+          type: string
+          description: Price every position was (or will be) closed at (decimal, 1e18). Present once the market is disabled.
 
     CandleTick:
       type: object
@@ -4471,7 +4808,7 @@ components:
 
         The claim itself is not here: read it from `GET /v1/bridge/withdrawals/by-id/{tx_hash}`,
         which reports `claimable` / `pending` / `refused` and attaches the proof once a certificate
-        can be assembled, or from `pod_getBridgeClaimProof(txHash)` for the proof alone.
+        can be assembled. There is no JSON-RPC method for the proof.
       required: [tx_hash, withdrawer, to, token, amount, timestamp_us]
       properties:
         tx_hash:
@@ -4537,3 +4874,121 @@ components:
           type: integer
           format: int64
           description: 'The tick''s batch deadline, in microseconds — also the `since` cursor for this subscription.'
+
+    ActivityFrame:
+      type: object
+      description: |
+        One `pod_activity` notification: everything that touched the subscribed account in one
+        tick — its order events on every orderbook, and the money the tick moved for it. One frame
+        per tick; a tick with nothing for the account sends no frame. The resume cursor is `batch`
+        alone (there is no `since_book`).
+      required: [batch, orders, events]
+      properties:
+        batch:
+          type: integer
+          format: int64
+          description: Deadline of the tick, in microseconds — the `since` to resume from.
+        orders:
+          type: array
+          items: { $ref: '#/components/schemas/OrderEntityV2' }
+          description: Orders created in this tick, each appearing once and carrying its `book`. No `a` (every row is the subscribed account's).
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/ActivityEvent' }
+          description: |
+            Order events and money events, discriminated by `k`. For each orderbook ascending by id:
+            its order events (in the `OrdersFrameV2` order) and then its backstop sweep legs; then
+            the terminal backstop cash sweep; then deposits; then withdrawals; then transfers.
+
+    ActivityEvent:
+      description: |
+        One `pod_activity` event: either an unchanged `pod_orders_v2` order event (`OrderEventV2`,
+        without `a`/`by`) or a money event. The `k` values are disjoint. Ignore kinds you do not
+        recognise. Every amount is a 1e18-scaled decimal string; money `amount`s are **signed from
+        the account's side** — negative left the account, positive arrived.
+      oneOf:
+        - $ref: '#/components/schemas/OrderEventV2'
+        - $ref: '#/components/schemas/ActivityMoneyEvent'
+
+    ActivityMoneyEvent:
+      type: object
+      description: |
+        A money movement in a `pod_activity` frame, discriminated by `k`:
+        - `backstop` — a perp position swept to the backstop (`book` set), or the terminal cash
+          sweep (`book` omitted). Carries `size`, `cash`, `mark`, `equity`, `pnl`.
+        - `bridge_transfer` — a bridge deposit (positive `amount`) or withdrawal (negative). Keyed by
+          `(tx, idx)`.
+        - `transfer` — an account-to-account transfer, debit (negative) or credit (positive). Keyed
+          by `id`. A refused transfer is reported to the sender only.
+
+        `error` set means the movement was refused and nothing moved; `amount` still reports what
+        was asked for.
+      required: [k]
+      properties:
+        k:
+          type: string
+          enum: [backstop, bridge_transfer, transfer]
+        book:
+          $ref: '#/components/schemas/Bytes32'
+          description: '`backstop`: the orderbook of the swept position. Omitted on the terminal cash sweep.'
+        size:
+          type: string
+          description: '`backstop`: signed position size moved to the backstop.'
+        cash:
+          type: string
+          description: '`backstop`: signed cash moved with it.'
+        mark:
+          type: string
+          description: '`backstop`: mark price at the sweep.'
+        equity:
+          type: string
+          description: '`backstop`: account equity at the sweep (signed).'
+        pnl:
+          type: string
+          description: '`backstop`: PnL the forced close realized (signed); `0` on the cash sweep.'
+        tx:
+          $ref: '#/components/schemas/Bytes32'
+          description: '`bridge_transfer`: the transaction that carried the deposit (one may carry several, told apart by `idx`), or the `withdraw` transaction.'
+        idx:
+          type: integer
+          description: '`bridge_transfer`: position among the tick''s deposit outcomes; `0` for a withdrawal.'
+        id:
+          $ref: '#/components/schemas/Bytes32'
+          description: '`transfer`: the transfer id, as `TransferUpdate.transfer_id`.'
+        token:
+          $ref: '#/components/schemas/Address'
+          description: '`bridge_transfer`, `transfer`: Pod-side token address.'
+        amount:
+          type: string
+          description: '`bridge_transfer`, `transfer`: signed amount in Pod''s 18 decimals.'
+        error:
+          type: string
+          description: '`bridge_transfer`, `transfer`: why the movement was refused — for a deposit `already_processed` or `not_included`, for a withdrawal as `WithdrawalUpdate.error`, for a transfer as `TransferUpdate.error`. Absent when it succeeded; treat an unrecognised value as a failure.'
+
+    BlockHeader:
+      type: object
+      description: |
+        One `newHeads` notification: a block header in the `eth_getBlockByNumber` shape, without
+        `transactions`. `timestamp` is the block's batch deadline in seconds. Roots, `parentHash`,
+        `mixHash`, `nonce`, `difficulty` and `extraData` are zero placeholders, and `gasLimit` /
+        `gasUsed` are `0x0`.
+      properties:
+        number: { type: string, description: Block height (hex). }
+        hash: { $ref: '#/components/schemas/Bytes32' }
+        parentHash: { $ref: '#/components/schemas/Bytes32' }
+        mixHash: { $ref: '#/components/schemas/Bytes32' }
+        nonce: { type: string }
+        sha3Uncles: { $ref: '#/components/schemas/Bytes32' }
+        logsBloom: { type: string }
+        transactionsRoot: { $ref: '#/components/schemas/Bytes32' }
+        stateRoot: { $ref: '#/components/schemas/Bytes32' }
+        receiptsRoot: { $ref: '#/components/schemas/Bytes32' }
+        miner: { $ref: '#/components/schemas/Address' }
+        difficulty: { type: string }
+        extraData: { type: string }
+        size: { type: string }
+        gasLimit: { type: string }
+        gasUsed: { type: string }
+        timestamp: { type: string, description: Batch deadline in seconds (hex). }
+        uncles: { type: array, items: { type: string } }
+        baseFeePerGas: { type: string }
