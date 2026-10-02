@@ -215,6 +215,10 @@ export class PnlHistoryCache {
   readonly ticks = new Map<string, PnlTick>();
   /** Times at which every market's row was fetched at once. */
   readonly tickTimes = new Set<number>();
+  /** Per market, the latest time known to have no row at or before it. A
+   * market has no rows before its first tick, so one empty answer rules out
+   * every earlier point without a call. */
+  readonly noRowBefore = new Map<MarketId, number>();
   private events: PnlEvent[] = [];
   private coverage: { from: number; to: number }[] = [];
 
@@ -225,8 +229,18 @@ export class PnlHistoryCache {
   clear(): void {
     this.ticks.clear();
     this.tickTimes.clear();
+    this.noRowBefore.clear();
     this.events = [];
     this.coverage = [];
+  }
+
+  /** Whether a tick for the market at the time can exist at all. */
+  mayHaveTick(market: MarketId, timeUs: number): boolean {
+    return timeUs > (this.noRowBefore.get(market) ?? -1);
+  }
+
+  noteEmpty(market: MarketId, timeUs: number): void {
+    if (timeUs > (this.noRowBefore.get(market) ?? -1)) this.noRowBefore.set(market, timeUs);
   }
 
   /** Sub-ranges of [from, to) not yet covered. */
@@ -427,9 +441,10 @@ export async function* streamPnlHistory(
     const res = await Promise.all(batches.map((b) => rpcBatch<{ solutions: WireSolution[] }>(deps.rpcUrl, b.map((p) => ({ method: "ob_getSolutions", params: [p] })), rpcOpts)));
     return res.flat().map((r) => r.solutions);
   };
-  /** All markets' rows at each tick, one call per tick. */
+  /** All markets' rows at each tick, one call per tick; skipped before every
+   * known market's first tick. */
   const fetchAllAt = async (times: number[]) => {
-    const wanted = times.filter((t) => !cache.tickTimes.has(t));
+    const wanted = times.filter((t) => !cache.tickTimes.has(t) && [...known].some((m) => cache.mayHaveTick(m, t)));
     const rows = await solutions(wanted.map((t) => ({ since: t, until: t + 1, limit: RPC_BATCH })));
     rows.forEach((rs, i) => { const t = wanted[i] ?? 0; cache.tickTimes.add(t); for (const r of rs) store(r, t); });
   };
@@ -442,9 +457,21 @@ export async function* streamPnlHistory(
   };
   /** Newest row at or before the time, per pair; the fallback and the per-fill path. */
   const fetchPairs = async (pairs: { market: MarketId; timeUs: number }[]) => {
-    const wanted = pairs.filter((n, i, all) => !ticks.has(key(n.market, n.timeUs)) && all.findIndex((o) => o.market === n.market && o.timeUs === n.timeUs) === i);
+    const seen = new Set<string>();
+    const wanted = pairs.filter((n) => {
+      const k = key(n.market, n.timeUs);
+      if (ticks.has(k) || seen.has(k) || !cache.mayHaveTick(n.market, n.timeUs)) return false;
+      seen.add(k);
+      return true;
+    });
     const rows = await solutions(wanted.map((n) => ({ orderbook_id: n.market, until: n.timeUs + 1, limit: 1 })));
-    rows.forEach((rs, i) => { const r = rs[0]; const n = wanted[i]; if (r && n) store(r, n.timeUs); });
+    rows.forEach((rs, i) => {
+      const n = wanted[i];
+      if (!n) return;
+      const r = rs[0];
+      if (r) store(r, n.timeUs);
+      else cache.noteEmpty(n.market, n.timeUs);
+    });
   };
 
   const fixed: PnlEvent[] = [];
