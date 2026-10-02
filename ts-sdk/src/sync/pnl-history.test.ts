@@ -191,12 +191,12 @@ const stubEvents = (): PnlEvent[] => fillRows.map((r) => ({ market: PERP, timeUs
 
 /** A fake node: one perp market, the fill rows above, ticks from the functions above. Counts fills calls. */
 const STUB_ACCOUNT_VALUE = W(5_000);
-function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRoute?: boolean } = {}) {
-  const calls = { fills: 0 };
+function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRoute?: boolean; firstTickUs?: number; size?: bigint } = {}) {
+  const calls = { fills: 0, solutions: 0, solutionsBeforeBirth: 0 };
   const rest = {
     markets: async () => [{ id: PERP, type: "perp", base: { address: "0x01" }, fundingWindowUs: 1, auctionIntervalMs: 500 }],
     // no bases: the synthetic fills are not engine-consistent, so the residual check must stay off
-    positions: async () => ({ positions: [{ kind: "perp", orderbookId: PERP, size: perpSize }], accountValue: STUB_ACCOUNT_VALUE }),
+    positions: async () => ({ positions: [{ kind: "perp", orderbookId: PERP, size: opts.size ?? perpSize }], accountValue: STUB_ACCOUNT_VALUE }),
     balances: async () => ({ holdings: [] }),
     status: async () => ({ solutionNow: NOW_US / 1000 }),
     backstopTransfers: async () => ({ transfers: [] }),
@@ -219,8 +219,10 @@ function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRou
         return { id: req.id, result: { fills: fillRows.filter((r) => r.timestamp >= q.from_ts && r.timestamp < q.to_ts).sort((a, b) => b.timestamp - a.timestamp).slice(0, q.limit) } };
       }
       const q = req.params[0] as { until: number; since?: number; orderbook_id?: string };
+      calls.solutions++;
       const t = Math.floor((q.until - 1) / TICK_US) * TICK_US;
       if (q.since !== undefined && t < q.since) return { id: req.id, result: { solutions: [] } };
+      if (t < (opts.firstTickUs ?? 0)) { calls.solutionsBeforeBirth++; return { id: req.id, result: { solutions: [] } }; }
       return { id: req.id, result: { solutions: [{ orderbook_id: PERP, timestamp: t, mark_price: "0x" + markPerp(t).toString(16), funding_index: fundingRaw(t).toString() }] } };
     };
     return { json: async () => (Array.isArray(body) ? body.map(answer) : answer(body)) };
@@ -331,5 +333,30 @@ describe("account value", () => {
     const r = await fetchPnlHistory(deps, "0x1", { from: 0, points: 50 });
     expect(r.points.every((p) => p.accountValue === undefined)).toBe(true);
     expect(r.warnings.some((w) => w.includes("activity feed"))).toBe(true);
+  });
+});
+
+describe("tick lookups before a market's first tick", () => {
+  it("stop after one empty answer per market and never repeat on a warm run", async () => {
+    const cache = new PnlHistoryCache();
+    const birth = 1_300 * TICK_US;
+    // the reference size equals the net of all fills, so the position is flat
+    // before the first fill, as it must be before the market existed
+    const net = stubEvents().reduce((s, e) => s + e.deltaSize, 0n);
+    const cold = stubDeps(cache, { firstTickUs: birth, size: net });
+    const r = await fetchPnlHistory(cold.deps, "0x1", { from: 0, points: 400 });
+    expect(r.warnings).toEqual([]);
+    const pointsBeforeBirth = r.points.filter((p) => p.time * 1000 < birth).length;
+    expect(pointsBeforeBirth).toBeGreaterThan(200);
+    // only the chunks already in flight when the first empty answer lands ask
+    // about times before the market existed; the rest are skipped
+    expect(cold.calls.solutionsBeforeBirth).toBeLessThan(pointsBeforeBirth);
+    expect(cold.calls.solutionsBeforeBirth).toBeLessThanOrEqual(4 * 50);
+    expect(cache.noRowBefore.get(PERP)).toBeGreaterThanOrEqual(1_200 * TICK_US);
+
+    const warm = stubDeps(cache, { firstTickUs: birth, size: net });
+    await fetchPnlHistory(warm.deps, "0x1", { from: 0, points: 400 });
+    expect(warm.calls.solutionsBeforeBirth).toBe(0);
+    expect(warm.calls.solutions).toBeLessThanOrEqual(1);
   });
 });
