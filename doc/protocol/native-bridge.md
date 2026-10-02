@@ -31,7 +31,7 @@ A withdrawal is a solver-gated intent, like an order: it carries an auction-alig
 
 Validators sign each accepted withdrawal using separate cold keys (KMS-backed) dedicated to bridge attestations, distinct from transaction attestation keys. These signatures are specially packed for efficient on-chain verification. The Ethereum bridge contract checks that at least `n - f` validators signed the withdrawal - the same threshold used for transaction finality.
 
-The withdrawal is identified by its own transaction hash - it is always its own transaction, never a batch sub-intent - and the proof is fetched by that hash, from either `GET /v1/bridge/withdrawals/by-id/{tx_hash}` (which also reports `claimable` / `pending` / `refused`) or `pod_getBridgeClaimProof(txHash)`. The bridge relayer watches for claimable withdrawals and submits the claims itself; the call is permissionless, so anyone - including the withdrawer - can submit the same proof if the relayer is unavailable.
+The withdrawal is identified by its own transaction hash - it is always its own transaction, never a batch sub-intent - and the proof is fetched by that hash, from `GET /v1/bridge/withdrawals/by-id/{tx_hash}`, which also reports `claimable` / `pending` / `refused`. The bridge relayer watches for claimable withdrawals and submits the claims itself; the call is permissionless, so anyone - including the withdrawer - can submit the same proof if the relayer is unavailable.
 
 See [Bridge from Pod](https://docs.v2.pod.network/guides-references/guides/bridge-from-pod) for a step-by-step guide.
 

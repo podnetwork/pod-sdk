@@ -28,6 +28,18 @@
           kind: openapi
           spec: pod-docs
     ```
+* [REST API](rest/README.md)
+  * ```yaml
+    props:
+      models: true
+      downloadLink: true
+    type: builtin:openapi
+    dependencies:
+      spec:
+        ref:
+          kind: openapi
+          spec: pod-rest
+    ```
 * [JSON-RPC Errors](json-rpc-errors.md)
 * [Precompiles](applications-precompiles/README.md)
   * [Orderbook](applications-precompiles/orderbook.md)

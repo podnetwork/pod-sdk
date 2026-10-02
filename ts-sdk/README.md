@@ -20,8 +20,8 @@ npm install @pod-network/trade-sdk
 import { PodTradeClient } from "@pod-network/trade-sdk";
 
 const client = new PodTradeClient({
-  restUrl: "https://<indexer-rest-host>",  // /clob/* REST API (consumer config)
-  wsUrl: "wss://<indexer-ws-host>",         // eth_subscribe WebSocket
+  restUrl: "https://<rpc-host>/v1", // REST API: the node's RPC host + /v1
+  wsUrl: "wss://<rpc-host>",        // eth_subscribe WebSocket
 });
 client.connect();
 

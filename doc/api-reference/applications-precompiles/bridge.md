@@ -30,6 +30,8 @@ For how the bridge works end-to-end, see [Native Bridge](../../protocol/native-b
 
 `tokens` is the only source of the Pod-token → bridged-chain-token mapping, and `min`/`max` are in the token's **bridged-chain decimals**, compared against the converted amount rather than the 18-decimal one that is signed.
 
+A node with no bridge configured answers `claim_chain_id: 0`, a zero `source_contract` and an empty `tokens` list; no withdrawal is admissible there.
+
 ## Withdrawing
 
 `withdraw` is a **solver-gated intent**, not an immediate transfer. It carries a `deadline` like an order, settles when that batch executes, and its result arrives as an outcome rather than as a receipt.
@@ -65,10 +67,10 @@ Outcomes are published once per batch:
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `eth_subscribe("pod_withdrawals", { account, since })`          | Live outcomes. Each carries `tx_hash`, `withdrawer`, `to`, `token`, `amount` (18 decimals), `error` and `timestamp_us`.                                     |
 | `GET /v1/bridge/withdrawals/{account}?since=&since_id=&limit=`  | Backfill after a disconnect — identical shape, and `since` is the same cursor the subscription takes.                                                       |
+| `GET /v1/bridge/withdrawals?since=&since_id=&limit=`            | The same backfill across **every** account, for a relayer.                                                                                                  |
 | `GET /v1/bridge/withdrawals/by-id/{tx_hash}`                    | One withdrawal: its `status` (`claimable`, `pending` or `refused`) and, once assembled, the claim `proof`.                                                  |
-| `pod_getBridgeClaimProof(txHash)`                               | The claim proof on its own, by the same key.                                                                                                                |
 
-`withdrawer` is the debited account, and it is what `account` filters on.
+`withdrawer` is the debited account, and it is what `account` filters on. Both list routes return outcomes oldest first, `limit` defaults to 500 and is capped at 1000; continue from the last entry with its `timestamp_us` as `since` and its `tx_hash` as `since_id`. Full schemas are in the [REST API reference](../rest/README.md).
 
 `error` names why a withdrawal was refused:
 
@@ -81,7 +83,7 @@ An absent `error` is the ordinary claimable case, but do not read it as a guaran
 
 ## Claiming
 
-Once `n - f` validators have signed the withdrawal, `GET /v1/bridge/withdrawals/by-id/{tx_hash}` returns `status: "claimable"` and a `proof`. Two of its fields pass straight to the bridge contract's `claim` and one does not:
+Once `n - f` validators have signed the withdrawal, `GET /v1/bridge/withdrawals/by-id/{tx_hash}` returns `status: "claimable"` and a `proof`. The response is `{ withdrawal, status, proof }`: `withdrawal` is the outcome the list routes return, and `proof` is present exactly when `status` is `claimable`. Two of the proof's fields pass straight to the bridge contract's `claim` and one does not:
 
 | Proof field       | Passing it to `claim`                                                                                                                                              |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -92,7 +94,7 @@ Once `n - f` validators have signed the withdrawal, `GET /v1/bridge/withdrawals/
 
 `claim_hash` is also returned; the bridge contract keys `processedRequests` on it, so a caller can check whether a claim already landed before spending a transaction.
 
-The bridge relayer submits that claim; the call is permissionless, so anyone can submit the same proof if the relayer is unavailable. `status: "pending"` means the certificate is still being assembled: ask again rather than treating it as a failure. See [Native Bridge](../../protocol/native-bridge.md) for how the certificate is produced.
+The bridge relayer submits that claim; the call is permissionless, so anyone can submit the same proof if the relayer is unavailable. `status: "pending"` means the node holds fewer than `n - f` signatures, or could not assemble a proof it should have; it fetches the missing signatures from its peers itself, so keep polling, or ask another node. It is never a failure. See [Native Bridge](../../protocol/native-bridge.md) for how the certificate is produced.
 
 {% hint style="warning" %}
 **Branch on `proof`, not on `status`.** The status vocabulary can grow, and a client holding burned funds must never let an unfamiliar value veto a valid certificate sitting in the same response. Claim whenever `proof` is present, treat `refused` as terminal, and treat anything else — `pending` included — as "ask again".
