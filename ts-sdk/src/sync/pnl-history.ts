@@ -14,8 +14,9 @@
 import type { Address, MarketId, MoneyActivity } from "../types/public.js";
 import { div, mul } from "../codec/fixed.js";
 import { dec } from "../codec/units.js";
-import { rpc, rpcBatch, type RpcOptions } from "../transport/jsonrpc.js";
-import type { PodRestClient } from "../transport/rest.js";
+import type { WireFillRow, WireSolutionRow } from "../types/wire.js";
+import { rpc, type RpcOptions } from "../transport/jsonrpc.js";
+import { PodHttpError, type PodRestClient } from "../transport/rest.js";
 
 export interface PnlPoint {
   time: number;
@@ -191,20 +192,43 @@ export function foldPnlHistory(input: PnlFoldInput): PnlHistory {
 
 // --- fetch ---
 
-interface WireFill {
-  orderbook_id: string;
-  order_id: string;
-  initial_size: string;
-  base_amount: string;
-  timestamp: number;
-  price: string;
+type WireFill = WireFillRow;
+type WireSolution = WireSolutionRow;
+
+/** The REST reads, with the `ob_*` JSON-RPC twins behind them for nodes that
+ * predate the routes. ponytail: drop the fallback once every network serves
+ * /clob/solutions and /clob/fills. */
+function reads(rest: PodRestClient, rpcUrl: string, opts: RpcOptions) {
+  const missing = (e: unknown) => e instanceof PodHttpError && e.status === 404;
+  return {
+    async fills(account: Address, q: { fromUs: number; toUs: number; limit: number }): Promise<WireFill[]> {
+      try { return await rest.fills(account, q); }
+      catch (e) {
+        if (!missing(e)) throw e;
+        return (await rpc<{ fills: WireFill[] }>(rpcUrl, "ob_getFills", [account, { from_ts: q.fromUs, to_ts: q.toUs, limit: q.limit }], opts)).fills;
+      }
+    },
+    async solutions(q: { orderbook?: MarketId; sinceUs?: number; untilUs?: number; limit?: number }): Promise<WireSolution[]> {
+      try { return await rest.solutions(q); }
+      catch (e) {
+        if (!missing(e)) throw e;
+        // Older nodes count rows, not ticks: ask for enough rows to cover every market of one tick.
+        return (await rpc<{ solutions: WireSolution[] }>(rpcUrl, "ob_getSolutions", [{ orderbook_id: q.orderbook, since: q.sinceUs, until: q.untilUs, limit: q.orderbook ? q.limit : 200 }], opts)).solutions;
+      }
+    },
+  };
 }
-interface WireSolution {
-  orderbook_id: string;
-  timestamp: number;
-  clearing_price?: string;
-  mark_price: string;
-  funding_index?: string;
+type Reads = ReturnType<typeof reads>;
+
+/** Run `fn` over `items` with at most `n` in flight, keeping order. */
+async function mapLimit<A, B>(items: A[], n: number, fn: (a: A) => Promise<B>): Promise<B[]> {
+  const out = new Array<B>(items.length);
+  let next = 0;
+  const worker = async () => {
+    for (let i = next++; i < items.length; i = next++) out[i] = await fn(items[i] as A);
+  };
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, worker));
+  return out;
 }
 
 /** Immutable inputs shared by every window size and every refresh: fills as
@@ -304,7 +328,7 @@ const MAX_POINTS = 500;
 const CHUNK_SIZES = [10, 20, 40, 50];
 const IN_FLIGHT = 4;
 const WIDE_ACCOUNT_MARKETS = 10;
-const RPC_BATCH = 200;
+const LOOKUPS_IN_FLIGHT = 24;
 const FILLS_PAGE = 500;
 
 /** Pages newest-first. A full page may cut a batch in half, so its oldest
@@ -315,37 +339,37 @@ class FillsCursor {
   done = false;
   readonly warnings: string[] = [];
   private to: number;
-  constructor(private readonly rpcUrl: string, private readonly account: Address, private readonly fromUs: number, toUs: number, private readonly opts: RpcOptions) {
+  constructor(private readonly reads: Reads, private readonly account: Address, private readonly fromUs: number, toUs: number) {
     this.to = toUs;
   }
 
   async next(): Promise<WireFill[]> {
-    const page = await rpc<{ fills: WireFill[] }>(this.rpcUrl, "ob_getFills", [this.account, { from_ts: this.fromUs, to_ts: this.to, limit: FILLS_PAGE }], this.opts);
-    if (page.fills.length < FILLS_PAGE) {
+    const fills = await this.reads.fills(this.account, { fromUs: this.fromUs, toUs: this.to, limit: FILLS_PAGE });
+    if (fills.length < FILLS_PAGE) {
       this.done = true;
-      return page.fills;
+      return fills;
     }
-    const oldest = Math.min(...page.fills.map((f) => f.timestamp));
+    const oldest = Math.min(...fills.map((f) => f.timestamp));
     if (oldest + 1 === this.to) {
       // ponytail: a single batch with more than FILLS_PAGE fills is truncated here.
       this.warnings.push(`batch ${oldest} has more than ${FILLS_PAGE} fills; only the first page is used`);
       this.to = oldest;
-      return page.fills;
+      return fills;
     }
     this.to = oldest + 1;
-    return page.fills.filter((f) => f.timestamp !== oldest);
+    return fills.filter((f) => f.timestamp !== oldest);
   }
 }
 
-async function drainFills(rpcUrl: string, account: Address, fromUs: number, toUs: number, opts: RpcOptions): Promise<{ fills: WireFill[]; warnings: string[] }> {
-  const cursor = new FillsCursor(rpcUrl, account, fromUs, toUs, opts);
+async function drainFills(r: Reads, account: Address, fromUs: number, toUs: number): Promise<{ fills: WireFill[]; warnings: string[] }> {
+  const cursor = new FillsCursor(r, account, fromUs, toUs);
   const fills: WireFill[] = [];
   while (!cursor.done) fills.push(...(await cursor.next()));
   return { fills, warnings: cursor.warnings };
 }
 
-export async function fetchFills(rpcUrl: string, account: Address, fromUs: number, toUs: number, opts: RpcOptions): Promise<WireFill[]> {
-  return (await drainFills(rpcUrl, account, fromUs, toUs, opts)).fills;
+export async function fetchFills(rest: PodRestClient, account: Address, fromUs: number, toUs: number, rpcUrl = "", opts: RpcOptions = {}): Promise<WireFill[]> {
+  return (await drainFills(reads(rest, rpcUrl, opts), account, fromUs, toUs)).fills;
 }
 
 const FLOW_TYPES = ["backstop", "bridge_transfer", "transfer"] as const;
@@ -373,6 +397,7 @@ export async function* streamPnlHistory(
   q: PnlHistoryQuery,
 ): AsyncGenerator<PnlHistoryChunk> {
   const rpcOpts: RpcOptions = { fetch: deps.fetch };
+  const io = reads(deps.rest, deps.rpcUrl, rpcOpts);
 
   // The snapshot is served from the live engine, fills and ticks from the
   // indexer. Pair them: the engine's last executed batch is read together with
@@ -454,18 +479,14 @@ export async function* streamPnlHistory(
       funding: perp && row.funding_index !== undefined && window > 0 ? dec(row.funding_index) / BigInt(window) : 0n,
     });
   };
-  // Every batch of 200 calls goes out at once; the node runs them concurrently.
-  const solutions = async (params: object[]): Promise<WireSolution[][]> => {
-    const batches: object[][] = [];
-    for (let i = 0; i < params.length; i += RPC_BATCH) batches.push(params.slice(i, i + RPC_BATCH));
-    const res = await Promise.all(batches.map((b) => rpcBatch<{ solutions: WireSolution[] }>(deps.rpcUrl, b.map((p) => ({ method: "ob_getSolutions", params: [p] })), rpcOpts)));
-    return res.flat().map((r) => r.solutions);
-  };
+  type SolutionsQuery = Parameters<Reads["solutions"]>[0];
+  const solutions = (queries: SolutionsQuery[]): Promise<WireSolution[][]> =>
+    mapLimit(queries, LOOKUPS_IN_FLIGHT, (q) => io.solutions(q));
   /** All markets' rows at each tick, one call per tick; skipped before every
    * known market's first tick. */
   const fetchAllAt = async (times: number[]) => {
     const wanted = times.filter((t) => !cache.tickTimes.has(t) && [...known].some((m) => cache.mayHaveTick(m, t)));
-    const rows = await solutions(wanted.map((t) => ({ since: t, until: t + 1, limit: RPC_BATCH })));
+    const rows = await solutions(wanted.map((t) => ({ sinceUs: t, untilUs: t + 1, limit: 1 })));
     rows.forEach((rs, i) => { const t = wanted[i] ?? 0; cache.tickTimes.add(t); for (const r of rs) store(r, t); });
   };
   /** Ticks for every known market at the grid points. One call per tick when
@@ -484,7 +505,7 @@ export async function* streamPnlHistory(
       seen.add(k);
       return true;
     });
-    const rows = await solutions(wanted.map((n) => ({ orderbook_id: n.market, until: n.timeUs + 1, limit: 1 })));
+    const rows = await solutions(wanted.map((n) => ({ orderbook: n.market, untilUs: n.timeUs + 1, limit: 1 })));
     rows.forEach((rs, i) => {
       const n = wanted[i];
       if (!n) return;
@@ -550,7 +571,7 @@ export async function* streamPnlHistory(
     const bound = k === 0 ? nowUs : (chunks[k - 1]?.at(-1) ?? nowUs);
     const warnings: string[] = [];
     await Promise.all(cache.missing(oldest + 1, bound + 1).map(async (r) => {
-      const [page, flows] = await Promise.all([drainFills(deps.rpcUrl, account, r.from, r.to, rpcOpts), drainFlows(deps.rest, account, r.from, r.to)]);
+      const [page, flows] = await Promise.all([drainFills(io, account, r.from, r.to), drainFlows(deps.rest, account, r.from, r.to)]);
       if (flows === undefined) flowsAvailable = false;
       cache.add(r.from, r.to, page.fills.map(toEvent).concat(toFlowEvents(flows ?? [])));
       warnings.push(...page.warnings);
