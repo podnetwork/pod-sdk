@@ -2,13 +2,13 @@
 // representations are normalized into bigint + millisecond numbers.
 
 import type {
-  Bar, BackstopTransfer, Balances, BridgeConfig, Market, Order,
+  ActivityEntry, Bar, BackstopTransfer, Balances, BridgeConfig, Market, Order,
   Orderbook, PartialFill, PerpPosition, Position, PositionsSnapshot, SpotHolding,
   SpotPosition, Status, Trigger, MarketType, OrderDirection, OrderKind, OrderStatus, TriggerType,
   Withdrawal,
 } from "../types/public.js";
 import type {
-  WireBackstopTransfer, WireBalances, WireBridgeConfig, WireCandle,
+  WireActivityEntry, WireBackstopTransfer, WireBalances, WireBridgeConfig, WireCandle,
   WireMarketDynamics, WireMarketStatic, WireOrder, WireOrderbook, WirePartialFill,
   WirePerpPosition, WirePosition, WirePositionsSnapshot, WireSpotHolding, WireSpotPosition,
   WireStatus, WireTrigger, WireWithdrawal,
@@ -263,8 +263,46 @@ export function decodeBackstopTransfer(w: WireBackstopTransfer): BackstopTransfe
     cash: dec(w.cash),
     markPrice: dec(w.mark_price),
     equity: dec(w.equity),
+    realizedPnl: dec(w.realized_pnl),
     time: usToMs(w.timestamp_us),
   };
+}
+
+/**
+ * One activity row (ADR 0057), reusing the decoder its kind already had.
+ *
+ * `timeMs` is the node's own sort key, which for an order is its **signed
+ * deadline** rather than the batch it landed in — `order.includedMs` is that.
+ */
+export function decodeActivityEntry(w: WireActivityEntry): ActivityEntry {
+  const timeMs = usToMs(w.timestamp_us);
+  switch (w.activity_type) {
+    case "order":
+      return { activityType: "order", timeMs, order: decodeOrder(w) };
+    case "backstop":
+      return { activityType: "backstop", timeMs, ...decodeBackstopTransfer(w) };
+    case "bridge_transfer":
+      return {
+        activityType: "bridge_transfer",
+        timeMs,
+        txHash: w.tx_hash,
+        idx: w.idx,
+        token: w.token,
+        amount: dec(w.amount),
+        // `||`, as `decodeWithdrawal` does: an empty string is the wire saying
+        // "no reason", and it would otherwise read as a failure.
+        error: w.error || undefined,
+      };
+    case "transfer":
+      return {
+        activityType: "transfer",
+        timeMs,
+        transferId: w.transfer_id,
+        token: w.token,
+        amount: dec(w.amount),
+        error: w.error || undefined,
+      };
+  }
 }
 
 export function decodeBridgeConfig(w: WireBridgeConfig): BridgeConfig {

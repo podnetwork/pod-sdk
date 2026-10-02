@@ -249,6 +249,8 @@ export interface WireBackstopTransfer {
   cash: WireDecimal;
   mark_price: WireDecimal;
   equity: WireDecimal;
+  /** Crystallized by the forced close; `"0"` on the terminal cash sweep. */
+  realized_pnl?: WireDecimal;
   timestamp_us: number;
 }
 
@@ -267,8 +269,9 @@ export interface WireBackstopPage {
 // means something specific — noted per field.
 
 export interface WireOrdersFrame {
-  /** The orderbook these actions happened on; constant for the frame. */
-  book: Hex;
+  /** The orderbook these actions happened on; constant for the frame. Absent on
+   * `pod_activity`, which is one frame per tick and names the book per entity. */
+  book?: Hex;
   /** Deadline (micros) of the batch the actions **landed in**. Half of the resume cursor; `book` is the other half. */
   batch: number;
   /**
@@ -286,6 +289,9 @@ export interface WireOrderEntity {
   id: Hex;
   /** Creating transaction, or its parent `submitBatch` envelope. */
   tx: Hex;
+  /** The order's book. Sent here by `pod_activity`, which covers a whole
+   * account; `pod_orders_v2` names it once on the frame instead. */
+  book?: Hex;
   /** Index into the frame's `accts`; present iff `accts` is. */
   a?: number;
   n: number;
@@ -432,3 +438,84 @@ export interface WireWithdrawalDetail {
   status: "claimable" | "pending" | "refused";
   proof?: { claim_hash?: Hex | null };
 }
+
+// --- account activity (ADR 0057) ---
+//
+// `GET /clob/activity/{account}` serves the seed and `pod_activity` streams it.
+// The seed is a union tagged by `activity_type`, each variant flattening the wire
+// type its kind already had; the channel is `pod_activity`, which is
+// `pod_orders_v2`'s frame for a whole account — one frame per tick, with the
+// money the tick moved as extra event kinds.
+
+export interface WireActivityPage {
+  activity: WireActivityEntry[];
+  next_cursor: string | null;
+  solution_now: number; // micros
+}
+
+/**
+ * One activity row. `timestamp_us` is what the node sorted the page by — for an
+ * order that is its **signed deadline**, not the batch it landed in.
+ *
+ * Money amounts are signed from the account's side: negative left, positive
+ * arrived, for the bridge and for a transfer alike.
+ */
+export type WireActivityEntry =
+  | ({ activity_type: "order"; timestamp_us: number } & WireOrder)
+  | ({
+      activity_type: "backstop";
+      timestamp_us: number;
+      realized_pnl: WireDecimal;
+      /** The debited account, and the tick again: the flattened response carries
+       * both, and neither says anything the subscriber did not already know. */
+      user: Hex;
+      timestamp: number;
+    } & WireBackstopTransfer)
+  | {
+      activity_type: "bridge_transfer";
+      timestamp_us: number;
+      tx_hash: Hex;
+      /** Position within the transaction: one tx can bridge several amounts, so
+       * the hash alone does not identify the row. */
+      idx: number;
+      token: Hex;
+      amount: WireDecimal; // signed
+      error?: string;
+    }
+  | {
+      activity_type: "transfer";
+      timestamp_us: number;
+      transfer_id: Hex;
+      token: Hex;
+      amount: WireDecimal; // signed
+      error?: string;
+    };
+
+/**
+ * One tick of an account's activity. No `book` — a tick covers every book the
+ * account traded on, so each entity names its own — and no `accts`, since the
+ * channel takes exactly one account.
+ */
+export interface WireActivityFrame {
+  /** Deadline (micros) of the batch. One frame per tick, so this alone is the
+   * resume cursor: a frame is already delivered exactly when `batch <= since`. */
+  batch: number;
+  orders: WireOrderEntity[];
+  events: (WireOrderEvent | WireMoneyEvent)[];
+}
+
+/** Money the tick moved, discriminated by `k` — disjoint from the order kinds,
+ * which is what lets the two share one untagged union on the wire. */
+export type WireMoneyEvent =
+  | {
+      k: "backstop";
+      /** Absent on the terminal cash sweep, which belongs to no market. */
+      book?: Hex;
+      size: WireDecimal; // signed
+      cash: WireDecimal; // signed
+      mark: WireDecimal;
+      equity: WireDecimal; // signed
+      pnl: WireDecimal; // signed
+    }
+  | { k: "bridge_transfer"; tx: Hex; idx: number; token: Hex; amount: WireDecimal; error?: string }
+  | { k: "transfer"; id: Hex; token: Hex; amount: WireDecimal; error?: string };
