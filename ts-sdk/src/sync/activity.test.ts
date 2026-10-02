@@ -24,9 +24,9 @@ const units = (n: bigint) => n * WAD;
 const id = (n: number) => `0x${n.toString(16).padStart(64, "0")}` as Hex;
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
-const wireOrder = (n: number, at: number): WireActivityEntry => ({
+const wireOrder = (n: number, at: number, timestampUs = at): WireActivityEntry => ({
   activity_type: "order",
-  timestamp_us: at,
+  timestamp_us: timestampUs,
   orderbook_id: BOOK,
   market_type: "perpetual",
   kind: "user_signed",
@@ -61,10 +61,11 @@ const wireBackstop = (at: number): WireActivityEntry => ({
   timestamp: at,
 });
 
-const wireBridge = (n: number, at: number): WireActivityEntry => ({
+const wireBridge = (n: number, at: number, idx = 0): WireActivityEntry => ({
   activity_type: "bridge_transfer",
   timestamp_us: at,
   tx_hash: id(n),
+  idx,
   token: TOKEN,
   amount: "-900",
   error: "insufficient_balance",
@@ -95,7 +96,7 @@ function page(entries: WireActivityEntry[], nextCursor: string | null = null): A
  * whose `subscribe` hands us the frame and error callbacks so a test can deliver
  * what the transport would.
  */
-function harness(opts?: { pages?: ActivityPage[]; query?: ActivityQuery }) {
+function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuery }) {
   const pages = [...(opts?.pages ?? [page(SEED)])];
   let deliver: ((r: unknown) => void) | undefined;
   let refuse: ((e: unknown) => void) | undefined;
@@ -125,7 +126,9 @@ function harness(opts?: { pages?: ActivityPage[]; query?: ActivityQuery }) {
   const rest = {
     activity: vi.fn(async (_account: Address, q?: unknown) => {
       queries.push(q);
-      return pages.shift() ?? page([]);
+      const next = pages.shift() ?? page([]);
+      if (next instanceof Error) throw next;
+      return next;
     }),
   };
   const history = new ActivityHistory(
@@ -159,7 +162,7 @@ const FRAME: WireActivityFrame = {
       equity: (-units(5n)).toString(),
       pnl: (-units(1n)).toString(),
     },
-    { k: "bridge_transfer", tx: id(21), token: TOKEN, amount: units(10n).toString() },
+    { k: "bridge_transfer", tx: id(21), idx: 0, token: TOKEN, amount: units(10n).toString() },
     { k: "transfer", id: id(22), token: TOKEN, amount: (-units(5n)).toString() },
   ],
 };
@@ -198,6 +201,17 @@ describe("ActivityHistory seed", () => {
       to: 2_000,
       limit: 25,
     });
+  });
+
+  it("reads an empty `types` as no filter, on both REST and the frame", async () => {
+    const { history, frame, queries } = harness({ query: { types: [] } });
+    await history.ready();
+    await flush();
+
+    expect((queries[0] as { types?: unknown }).types).toBeUndefined();
+    expect(history.get()).toHaveLength(4);
+    frame(FRAME);
+    expect(history.get()).toHaveLength(8);
   });
 });
 
@@ -262,6 +276,55 @@ describe("ActivityHistory stream", () => {
     }
   });
 
+  it("retries a failed initial seed until one lands, then subscribes once", async () => {
+    vi.useFakeTimers();
+    try {
+      const { history, subscribed, restCalls } = harness({
+        pages: [new Error("indexer unavailable"), page(SEED)],
+      });
+      history.subscribe(() => {});
+      await vi.advanceTimersByTimeAsync(0);
+      // Nothing is subscribed yet, so no close or rejection would ever arrive to
+      // schedule another attempt — the seed has to re-arm itself.
+      expect(restCalls()).toBe(1);
+      expect(subscribed).toHaveLength(0);
+
+      await vi.advanceTimersByTimeAsync(500);
+      expect(restCalls()).toBe(2);
+      expect(subscribed).toEqual([{ account: ACCOUNT, since: SEED_TICK }]);
+      expect(history.get()).toHaveLength(4);
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(subscribed).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("times an order by the node's row time, and a streamed one by its batch", async () => {
+    // The node times an order row by its SIGNED deadline, which is neither the
+    // batch it landed in nor anything a frame carries.
+    const signed = SEED_TICK + 2_000_000;
+    const { history, frame } = harness({ pages: [page([wireOrder(1, SEED_TICK, signed)])] });
+    await history.ready();
+    await flush();
+
+    frame({
+      ...FRAME,
+      // The seeded order again (the frame re-delivers its terms), plus a new one.
+      orders: [
+        { id: id(1), tx: id(101), book: BOOK, n: 1, px: units(100n).toString(), sz: units(2n).toString() },
+        FRAME.orders[0]!,
+      ],
+      events: [{ k: "new", o: 1 }],
+    });
+
+    const times = new Map(history.get()!.flatMap((e) =>
+      e.activityType === "order" ? [[e.order.id, e.timeMs] as const] : []));
+    expect(times.get(id(1))).toBe(signed / 1000);
+    expect(times.get(id(9))).toBe(FRAME.batch / 1000);
+  });
+
   it("drops the events of a type the query excludes", async () => {
     // REST filters server-side, so the seed is already narrow; the frame is not.
     const { history, frame } = harness({
@@ -293,6 +356,26 @@ describe("ActivityHistory paging", () => {
     // Only the one row the first page did not carry.
     expect(history.get()).toHaveLength(5);
     expect(history.hasMore()).toBe(false);
+  });
+
+  it("keeps every same-tick money row when a page boundary splits the run", async () => {
+    // Three transfers and one two-deposit tx, all in one tick, split across two
+    // pages: nothing on the wire orders them, so only the rows' own ids can key them.
+    const seed = [wireTransfer(31, SEED_TICK), wireTransfer(32, SEED_TICK)];
+    const older = [
+      wireTransfer(33, SEED_TICK),
+      wireBridge(41, SEED_TICK, 1),
+      wireBridge(41, SEED_TICK, 0),
+    ];
+    const { history } = harness({ pages: [page(seed, "3000000:4:00"), page(older)] });
+    await history.ready();
+    await history.loadOlder();
+
+    const rows = history.get()!;
+    const keys = rows.map((e) => e.activityType === "transfer" ? e.transferId
+      : e.activityType === "bridge_transfer" ? `${e.txHash}:${e.idx}` : e.activityType);
+    expect(new Set(keys).size).toBe(5);
+    expect(rows).toHaveLength(5);
   });
 
   it("sorts newest first, ties by the node's ordinal", async () => {

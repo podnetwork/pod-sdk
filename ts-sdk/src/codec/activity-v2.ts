@@ -53,6 +53,7 @@ function money(event: WireMoneyEvent, timeMs: number): MoneyActivity | undefined
         activityType: "bridge_transfer",
         timeMs,
         txHash: event.tx,
+        idx: event.idx,
         token: event.token,
         amount: dec(event.amount),
         error: event.error || undefined,

@@ -77,6 +77,7 @@ const BRIDGE_ENTRY: WireActivityEntry = {
   activity_type: "bridge_transfer",
   timestamp_us: TICK,
   tx_hash: "0x0000000000000000000000000000000000000000000000000000000000000001",
+  idx: 1,
   token: TOKEN,
   amount: "-900",
   error: "insufficient_balance",
@@ -122,6 +123,8 @@ describe("decodeActivityEntry", () => {
     expect(bridge.activityType).toBe("bridge_transfer");
     if (bridge.activityType !== "bridge_transfer") return;
     expect(bridge.txHash).toBe(BRIDGE_ENTRY.tx_hash);
+    // One tx can carry several deposits, so the hash alone does not identify a row.
+    expect(bridge.idx).toBe(1);
     expect(bridge.amount).toBe(-900n);
     expect(bridge.error).toBe("insufficient_balance");
 
@@ -170,6 +173,7 @@ const FRAME: WireActivityFrame = {
     {
       k: "bridge_transfer",
       tx: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      idx: 1,
       token: TOKEN,
       amount: units(10n).toString(),
     },
@@ -220,6 +224,7 @@ describe("applyActivityFrame", () => {
 
     if (bridge?.activityType !== "bridge_transfer") throw new Error("expected a bridge entry");
     expect(bridge.txHash).toBe("0x0000000000000000000000000000000000000000000000000000000000000001");
+    expect(bridge.idx).toBe(1);
     expect(bridge.token).toBe(TOKEN);
     expect(bridge.amount).toBe(units(10n));
     expect(bridge.error).toBeUndefined();

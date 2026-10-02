@@ -471,6 +471,9 @@ export type ActivityEntry =
       activityType: "bridge_transfer";
       timeMs: number;
       txHash: Hash;
+      /** Position within the transaction: one tx can bridge several amounts, so
+       * the hash alone does not identify the row. */
+      idx: number;
       token: Address;
       amount: bigint;
       /** Absent when the movement settled. */
@@ -497,7 +500,10 @@ export type MoneyActivity = Exclude<ActivityEntry, { activityType: "order" }>;
  */
 export type ActivityEvent = OrderEvent | MoneyActivity;
 
-/** Windows and limits are milliseconds; `types` names the kinds to keep. */
+/**
+ * `from` and `to` are milliseconds; `limit` is a row count, not a span of time.
+ * `types` names the kinds to keep — absent or empty keeps every kind.
+ */
 export interface ActivityQuery {
   types?: ActivityType[];
   from?: number;

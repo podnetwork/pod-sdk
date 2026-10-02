@@ -95,19 +95,29 @@ export class ResumableStream {
   }
 
   seed(): void {
-    void this.opts.reseed().then((ok) => {
-      if (!ok || !this.alive) return;
-      if (!this.sub) {
-        this.sub = this.opts.ws.subscribe(
-          this.opts.channel,
-          { ...this.opts.params, ...this.cursor },
-          (r) => this.onFrame(r),
-          (e) => this.onSubError(e),
-        );
-      } else {
-        this.pushCursor(); // refresh for the next reconnect
+    const done = (ok: boolean) => {
+      if (!this.alive) return;
+      if (!ok) {
+        // Nothing is subscribed yet, so no close or rejection can arrive to schedule
+        // another attempt — a failed first paint has to re-arm itself or the resource
+        // stays empty for good. With a subscription up, the live stream is unaffected
+        // and its own error path owns the recovery.
+        if (!this.sub) this.scheduleReseed();
+        return;
       }
-    });
+      if (!this.sub) this.subscribe();
+      else this.pushCursor(); // refresh for the next reconnect
+    };
+    void this.opts.reseed().then(done, () => done(false));
+  }
+
+  private subscribe(): void {
+    this.sub = this.opts.ws.subscribe(
+      this.opts.channel,
+      { ...this.opts.params, ...this.cursor },
+      (r) => this.onFrame(r),
+      (e) => this.onSubError(e),
+    );
   }
 
   /**
@@ -192,6 +202,9 @@ export class ResumableStream {
       void this.opts.reseed().then((ok) => {
         if (!this.alive) return;
         if (!ok) { this.scheduleReseed(); return; }
+        // Retrying the first paint: there is no subscription to resume, and no
+        // cursor the server has refused — open one from the page we just landed.
+        if (!this.sub) { this.subscribe(); return; }
         const tooOld = this.subRetries > RETRIES_BEFORE_DROPPING_CURSOR;
         if (tooOld) this.sub?.update({ since: undefined, sinceBook: undefined });
         else this.pushCursor();

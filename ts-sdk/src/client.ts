@@ -310,7 +310,11 @@ export class PodTradeClient {
   /**
    * One account's whole activity, newest first (ADR 0057): its orders, the
    * backstop legs it was swept into, and every bridge transfer and transfer that
-   * moved its money. `orders` is the same feed restricted to the order rows.
+   * moved its money.
+   *
+   * `orders` is a separate stream (`pod_orders_v2`), with its own cursor and its
+   * own row shape — not this feed narrowed to orders. It is to be retired in
+   * favour of this one, so new code should start here.
    */
   activity(account: Address, query?: ActivityQuery): ActivityHistory {
     const key = `activity:${account.toLowerCase()}:${JSON.stringify(query ?? {})}`;

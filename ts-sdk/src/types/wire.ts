@@ -443,8 +443,9 @@ export interface WireWithdrawalDetail {
 //
 // `GET /clob/activity/{account}` serves the seed and `pod_activity_v2` streams it.
 // The seed is a union tagged by `activity_type`, each variant flattening the wire
-// type its kind already had; the channel is `pod_orders_v2` for a whole account,
-// one frame per tick, with the money the tick moved as extra event kinds.
+// type its kind already had; the channel is `pod_activity_v2`, which is
+// `pod_orders_v2`'s frame for a whole account — one frame per tick, with the
+// money the tick moved as extra event kinds.
 
 export interface WireActivityPage {
   activity: WireActivityEntry[];
@@ -474,6 +475,9 @@ export type WireActivityEntry =
       activity_type: "bridge_transfer";
       timestamp_us: number;
       tx_hash: Hex;
+      /** Position within the transaction: one tx can bridge several amounts, so
+       * the hash alone does not identify the row. */
+      idx: number;
       token: Hex;
       amount: WireDecimal; // signed
       error?: string;
@@ -513,5 +517,5 @@ export type WireMoneyEvent =
       equity: WireDecimal; // signed
       pnl: WireDecimal; // signed
     }
-  | { k: "bridge_transfer"; tx: Hex; token: Hex; amount: WireDecimal; error?: string }
+  | { k: "bridge_transfer"; tx: Hex; idx: number; token: Hex; amount: WireDecimal; error?: string }
   | { k: "transfer"; id: Hex; token: Hex; amount: WireDecimal; error?: string };

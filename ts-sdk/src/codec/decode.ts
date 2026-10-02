@@ -286,6 +286,7 @@ export function decodeActivityEntry(w: WireActivityEntry): ActivityEntry {
         activityType: "bridge_transfer",
         timeMs,
         txHash: w.tx_hash,
+        idx: w.idx,
         token: w.token,
         amount: dec(w.amount),
         // `||`, as `decodeWithdrawal` does: an empty string is the wire saying

@@ -7,11 +7,11 @@
 // at or below `since` — there is no `sinceBook` to resume inside a tick with.
 
 import type {
-  ActivityEntry, ActivityEvent, ActivityQuery, Address, Order,
+  ActivityEntry, ActivityEvent, ActivityQuery, Address, MoneyActivity, Order,
 } from "../types/public.js";
 import type { WireActivityFrame, WireMoneyEvent } from "../types/wire.js";
 import { applyActivityFrame } from "../codec/activity-v2.js";
-import { msToUs } from "../codec/units.js";
+import { msToUs, usToMs } from "../codec/units.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
 import type { SubParams } from "../transport/ws.js";
 import type { SeriesResource } from "./candles.js";
@@ -26,16 +26,30 @@ const ORDINAL = { order: 1, backstop: 2, bridge_transfer: 3, transfer: 4 } as co
 const isMoney = (k: string): k is WireMoneyEvent["k"] =>
   k === "backstop" || k === "bridge_transfer" || k === "transfer";
 
+/**
+ * A money row's identity, read off the row itself — so the same row keys the same
+ * whichever page it arrives on and however many of its kind share its tick. A
+ * backstop leg has no id of its own, but a sweep touches each market once.
+ */
+function moneyKey(entry: MoneyActivity): string {
+  switch (entry.activityType) {
+    case "transfer": return `transfer:${entry.transferId}`;
+    case "bridge_transfer": return `bridge:${entry.txHash}:${entry.idx}`;
+    case "backstop": return `backstop:${entry.timeMs}:${entry.orderbookId ?? "cash"}`;
+  }
+}
+
 export class ActivityHistory implements SeriesResource<ActivityEntry> {
   private readonly base: BaseResource<ActivityEntry[]>;
   private handle: ResourceHandle<ActivityEntry[]> | undefined;
   private readonly orders = new Map<string, Order>();
   /**
-   * The money rows, by where they happened. Nothing on the wire identifies one —
-   * a backstop leg has no id at all, and a self-transfer is two rows sharing a
-   * `transfer_id` — so the key is the kind, the tick, and the position within that
-   * tick's run of the kind, which is stable across a re-fetch of the same page.
+   * When each order was reported, by order id. Kept beside the row rather than on
+   * it: the node times an order by its signed deadline, which no frame carries, so
+   * a later frame must not be able to retime a seeded row.
    */
+  private readonly orderTimeMs = new Map<string, number>();
+  /** The money rows, by {@link moneyKey}. */
   private readonly money = new Map<string, ActivityEntry>();
   private nextCursor: string | null = null;
   private _hasMore = true;
@@ -43,11 +57,16 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
   private readonly eventListeners = new Set<(events: ActivityEvent[]) => void>();
   private readonly stream: ResumableStream;
 
+  private readonly query: ActivityQuery;
+
   constructor(
     private readonly ctx: SyncContext,
     private readonly account: Address,
-    private readonly query: ActivityQuery = {},
+    query: ActivityQuery = {},
   ) {
+    // No types is no filter, and an empty list says the same thing — normalised
+    // here so REST, `keep()` and the cache key cannot read it three ways.
+    this.query = query.types?.length ? query : { ...query, types: undefined };
     this.stream = new ResumableStream({
       ws: ctx.ws,
       channel: "pod_activity_v2",
@@ -140,17 +159,14 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
   }
 
   private absorb(entries: ActivityEntry[], overwriteOrders: boolean): void {
-    const counts = new Map<string, number>();
     for (const entry of entries) {
       if (entry.activityType === "order") {
         if (!overwriteOrders && this.orders.has(entry.order.id)) continue;
         this.orders.set(entry.order.id, entry.order);
+        this.orderTimeMs.set(entry.order.id, entry.timeMs);
         continue;
       }
-      const group = `${entry.activityType}:${entry.timeMs}`;
-      const index = counts.get(group) ?? 0;
-      counts.set(group, index + 1);
-      const key = `${group}:${index}`;
+      const key = moneyKey(entry);
       if (!this.money.has(key)) this.money.set(key, entry);
     }
   }
@@ -165,9 +181,14 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
     if (this.stream.delivered(at)) return;
 
     const entries: ActivityEntry[] = [];
-    const events = applyActivityFrame(this.keep(frame), { orders: this.orders, entries }, {
+    const kept = this.keep(frame);
+    const events = applyActivityFrame(kept, { orders: this.orders, entries }, {
       account: this.account,
     });
+    // An order the stream is the first to report is timed by its batch; one the
+    // seed already placed keeps the time the node gave it.
+    const batchMs = usToMs(kept.batch);
+    for (const o of kept.orders) if (!this.orderTimeMs.has(o.id)) this.orderTimeMs.set(o.id, batchMs);
     this.absorb(entries, false);
     this.stream.advance(at);
     this.rebuild();
@@ -197,14 +218,10 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
     if (!this.handle) return;
     const arr: ActivityEntry[] = new Array(this.orders.size + this.money.size);
     let i = 0;
-    for (const order of this.orders.values()) {
-      // Keyed by when the order became real, not by the signed deadline the seed
-      // sorts on: the batch is the one time both sources report, so a REST row and a
-      // streamed row sort against each other. An order with none has not been in a
-      // batch yet, so it is newer than every order that has.
+    for (const [id, order] of this.orders) {
       arr[i++] = {
         activityType: "order",
-        timeMs: order.includedMs ?? Number.MAX_SAFE_INTEGER,
+        timeMs: this.orderTimeMs.get(id) ?? Number.MAX_SAFE_INTEGER,
         order,
       };
     }
