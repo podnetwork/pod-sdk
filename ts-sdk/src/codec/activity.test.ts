@@ -25,10 +25,10 @@ const TICK = 5_000_000;
 const hex = (n: bigint) => `0x${n.toString(16)}`;
 const units = (n: bigint) => n * WAD;
 
-/** `{ activity_type: "order", timestamp_us, ...OrderResponse }`. */
+/** `{ activity_type: "order", ts, ...OrderResponse }`. */
 const ORDER_ENTRY: WireActivityEntry = {
   activity_type: "order",
-  timestamp_us: 8_000_000,
+  ts: 8_000_000,
   orderbook_id: BOOK,
   market_type: "perpetual",
   kind: "user_signed",
@@ -58,25 +58,22 @@ const ORDER_ENTRY: WireActivityEntry = {
   ioc: false,
 };
 
-/** `{ activity_type: "backstop", timestamp_us, ...BackstopTransferResponse }` —
- * the flattened response carries `user` and its own `timestamp` too. */
+/** The money entries name their fields exactly as the stream's money events do. */
 const BACKSTOP_ENTRY: WireActivityEntry = {
   activity_type: "backstop",
-  timestamp_us: TICK,
-  user: ALICE,
-  orderbook_id: BOOK,
+  ts: TICK,
+  book: BOOK,
   size: (-units(2n)).toString(),
   cash: "0",
-  mark_price: hex(units(100n)),
+  mark: units(100n).toString(),
   equity: (-units(5n)).toString(),
-  realized_pnl: (-units(1n)).toString(),
-  timestamp: TICK,
+  pnl: (-units(1n)).toString(),
 };
 
 const BRIDGE_ENTRY: WireActivityEntry = {
   activity_type: "bridge_transfer",
-  timestamp_us: TICK,
-  tx_hash: "0x0000000000000000000000000000000000000000000000000000000000000001",
+  ts: TICK,
+  tx: "0x0000000000000000000000000000000000000000000000000000000000000001",
   idx: 1,
   token: TOKEN,
   amount: "-900",
@@ -85,8 +82,8 @@ const BRIDGE_ENTRY: WireActivityEntry = {
 
 const TRANSFER_ENTRY: WireActivityEntry = {
   activity_type: "transfer",
-  timestamp_us: TICK,
-  transfer_id: "0x0000000000000000000000000000000000000000000000000000000000000003",
+  ts: TICK,
+  id: "0x0000000000000000000000000000000000000000000000000000000000000003",
   token: TOKEN,
   amount: "1700",
 };
@@ -122,7 +119,7 @@ describe("decodeActivityEntry", () => {
     const bridge = decodeActivityEntry(BRIDGE_ENTRY);
     expect(bridge.activityType).toBe("bridge_transfer");
     if (bridge.activityType !== "bridge_transfer") return;
-    expect(bridge.txHash).toBe(BRIDGE_ENTRY.tx_hash);
+    expect(bridge.txHash).toBe(BRIDGE_ENTRY.tx);
     // One tx can carry several deposits, so the hash alone does not identify a row.
     expect(bridge.idx).toBe(1);
     expect(bridge.amount).toBe(-900n);
@@ -131,7 +128,7 @@ describe("decodeActivityEntry", () => {
     const transfer = decodeActivityEntry(TRANSFER_ENTRY);
     expect(transfer.activityType).toBe("transfer");
     if (transfer.activityType !== "transfer") return;
-    expect(transfer.transferId).toBe(TRANSFER_ENTRY.transfer_id);
+    expect(transfer.transferId).toBe(TRANSFER_ENTRY.id);
     expect(transfer.amount).toBe(1700n);
     expect(transfer.error).toBeUndefined();
   });

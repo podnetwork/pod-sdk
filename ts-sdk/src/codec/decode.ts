@@ -4,12 +4,12 @@
 import type {
   ActivityEntry, Bar, BackstopTransfer, Balances, BridgeConfig, Market, Order,
   Orderbook, PartialFill, PerpPosition, Position, PositionsSnapshot, SpotHolding,
-  SpotPosition, Status, Trigger, MarketType, OrderDirection, OrderKind, OrderStatus, TriggerType,
-  Withdrawal,
+  SpotPosition, Status, Trigger, MarketType, MoneyActivity, OrderDirection, OrderKind,
+  OrderStatus, TriggerType, Withdrawal,
 } from "../types/public.js";
 import type {
   WireActivityEntry, WireBackstopTransfer, WireBalances, WireBridgeConfig, WireCandle,
-  WireMarketDynamics, WireMarketStatic, WireOrder, WireOrderbook, WirePartialFill,
+  WireMarketDynamics, WireMarketStatic, WireMoneyEvent, WireOrder, WireOrderbook, WirePartialFill,
   WirePerpPosition, WirePosition, WirePositionsSnapshot, WireSpotHolding, WireSpotPosition,
   WireStatus, WireTrigger, WireWithdrawal,
 } from "../types/wire.js";
@@ -268,6 +268,46 @@ export function decodeBackstopTransfer(w: WireBackstopTransfer): BackstopTransfe
   };
 }
 
+/** One money row (ADR 0057), from a seed entry or a stream event alike — the two
+ * carry the same fields under different tags. */
+export function decodeMoneyEvent(event: WireMoneyEvent, timeMs: number): MoneyActivity {
+  switch (event.k) {
+    case "backstop":
+      return {
+        activityType: "backstop",
+        timeMs,
+        time: timeMs,
+        orderbookId: event.book,
+        size: dec(event.size),
+        cash: dec(event.cash),
+        markPrice: dec(event.mark),
+        equity: dec(event.equity),
+        realizedPnl: dec(event.pnl),
+      };
+    case "bridge_transfer":
+      return {
+        activityType: "bridge_transfer",
+        timeMs,
+        txHash: event.tx,
+        idx: event.idx,
+        token: event.token,
+        amount: dec(event.amount),
+        // `||`, as `decodeWithdrawal` does: an empty string is the wire saying
+        // "no reason", and it would otherwise read as a failure.
+        error: event.error || undefined,
+      };
+    case "transfer":
+      return {
+        activityType: "transfer",
+        timeMs,
+        transferId: event.id,
+        token: event.token,
+        amount: dec(event.amount),
+        error: event.error || undefined,
+      };
+  }
+}
+
 /**
  * One activity row (ADR 0057), reusing the decoder its kind already had.
  *
@@ -275,33 +315,12 @@ export function decodeBackstopTransfer(w: WireBackstopTransfer): BackstopTransfe
  * deadline** rather than the batch it landed in — `order.includedMs` is that.
  */
 export function decodeActivityEntry(w: WireActivityEntry): ActivityEntry {
-  const timeMs = usToMs(w.timestamp_us);
+  const timeMs = usToMs(w.ts);
   switch (w.activity_type) {
-    case "order":
-      return { activityType: "order", timeMs, order: decodeOrder(w) };
-    case "backstop":
-      return { activityType: "backstop", timeMs, ...decodeBackstopTransfer(w) };
-    case "bridge_transfer":
-      return {
-        activityType: "bridge_transfer",
-        timeMs,
-        txHash: w.tx_hash,
-        idx: w.idx,
-        token: w.token,
-        amount: dec(w.amount),
-        // `||`, as `decodeWithdrawal` does: an empty string is the wire saying
-        // "no reason", and it would otherwise read as a failure.
-        error: w.error || undefined,
-      };
-    case "transfer":
-      return {
-        activityType: "transfer",
-        timeMs,
-        transferId: w.transfer_id,
-        token: w.token,
-        amount: dec(w.amount),
-        error: w.error || undefined,
-      };
+    case "order": return { activityType: "order", timeMs, order: decodeOrder(w) };
+    case "backstop": return decodeMoneyEvent({ ...w, k: "backstop" }, timeMs);
+    case "bridge_transfer": return decodeMoneyEvent({ ...w, k: "bridge_transfer" }, timeMs);
+    case "transfer": return decodeMoneyEvent({ ...w, k: "transfer" }, timeMs);
   }
 }
 

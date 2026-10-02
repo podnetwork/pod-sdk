@@ -26,7 +26,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 
 const wireOrder = (n: number, at: number, timestampUs = at): WireActivityEntry => ({
   activity_type: "order",
-  timestamp_us: timestampUs,
+  ts: timestampUs,
   orderbook_id: BOOK,
   market_type: "perpetual",
   kind: "user_signed",
@@ -50,21 +50,19 @@ const wireOrder = (n: number, at: number, timestampUs = at): WireActivityEntry =
 
 const wireBackstop = (at: number): WireActivityEntry => ({
   activity_type: "backstop",
-  timestamp_us: at,
-  user: ACCOUNT,
-  orderbook_id: BOOK,
+  ts: at,
+  book: BOOK,
   size: (-units(2n)).toString(),
   cash: "0",
-  mark_price: hex(units(100n)),
+  mark: units(100n).toString(),
   equity: (-units(5n)).toString(),
-  realized_pnl: (-units(1n)).toString(),
-  timestamp: at,
+  pnl: (-units(1n)).toString(),
 });
 
 const wireBridge = (n: number, at: number, idx = 0): WireActivityEntry => ({
   activity_type: "bridge_transfer",
-  timestamp_us: at,
-  tx_hash: id(n),
+  ts: at,
+  tx: id(n),
   idx,
   token: TOKEN,
   amount: "-900",
@@ -73,8 +71,8 @@ const wireBridge = (n: number, at: number, idx = 0): WireActivityEntry => ({
 
 const wireTransfer = (n: number, at: number): WireActivityEntry => ({
   activity_type: "transfer",
-  timestamp_us: at,
-  transfer_id: id(n),
+  ts: at,
+  id: id(n),
   token: TOKEN,
   amount: "1700",
 });

@@ -9,8 +9,8 @@
 import type {
   ActivityEntry, ActivityEvent, ActivityQuery, Address, MoneyActivity, Order,
 } from "../types/public.js";
-import type { WireActivityFrame, WireMoneyEvent } from "../types/wire.js";
-import { applyActivityFrame } from "../codec/activity.js";
+import type { WireActivityFrame } from "../types/wire.js";
+import { applyActivityFrame, isMoney } from "../codec/activity.js";
 import { msToUs, usToMs } from "../codec/units.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
 import type { SubParams } from "../transport/ws.js";
@@ -22,9 +22,6 @@ const compareBatch = (a: SubParams, b: SubParams): number => (a.since ?? 0) - (b
 
 /** The node's page order within a tick: `(timestamp, ordinal, key)` descending. */
 const ORDINAL = { order: 1, backstop: 2, bridge_transfer: 3, transfer: 4 } as const;
-
-const isMoney = (k: string): k is WireMoneyEvent["k"] =>
-  k === "backstop" || k === "bridge_transfer" || k === "transfer";
 
 /**
  * A money row's identity, read off the row itself — so the same row keys the same

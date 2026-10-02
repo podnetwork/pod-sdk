@@ -442,8 +442,9 @@ export interface WireWithdrawalDetail {
 // --- account activity (ADR 0057) ---
 //
 // `GET /clob/activity/{account}` serves the seed and `pod_activity` streams it.
-// The seed is a union tagged by `activity_type`, each variant flattening the wire
-// type its kind already had; the channel is `pod_activity`, which is
+// The seed is a union tagged by `activity_type`: the order variant flattens the
+// orders route's `WireOrder`, and every money variant carries exactly the fields
+// its stream event does, so the two decode through one decoder. The channel is
 // `pod_orders_v2`'s frame for a whole account — one frame per tick, with the
 // money the tick moved as extra event kinds.
 
@@ -453,43 +454,47 @@ export interface WireActivityPage {
   solution_now: number; // micros
 }
 
+/** What each money kind carries. Shared because the seed row and the stream
+ * event differ only in how they are tagged. */
+export interface WireBackstopMoney {
+  /** Absent on the terminal cash sweep, which belongs to no market. */
+  book?: Hex;
+  size: WireDecimal; // signed
+  cash: WireDecimal; // signed
+  mark: WireDecimal;
+  equity: WireDecimal; // signed
+  pnl: WireDecimal; // signed
+}
+
+export interface WireBridgeMoney {
+  tx: Hex;
+  /** Position within the transaction: one tx can bridge several amounts, so the
+   * hash alone does not identify the row. */
+  idx: number;
+  token: Hex;
+  amount: WireDecimal; // signed
+  error?: string;
+}
+
+export interface WireTransferMoney {
+  id: Hex;
+  token: Hex;
+  amount: WireDecimal; // signed
+  error?: string;
+}
+
 /**
- * One activity row. `timestamp_us` is what the node sorted the page by — for an
- * order that is its **signed deadline**, not the batch it landed in.
+ * One activity row. `ts` is what the node sorted the page by — for an order that
+ * is its **signed deadline**, not the batch it landed in.
  *
  * Money amounts are signed from the account's side: negative left, positive
  * arrived, for the bridge and for a transfer alike.
  */
 export type WireActivityEntry =
-  | ({ activity_type: "order"; timestamp_us: number } & WireOrder)
-  | ({
-      activity_type: "backstop";
-      timestamp_us: number;
-      realized_pnl: WireDecimal;
-      /** The debited account, and the tick again: the flattened response carries
-       * both, and neither says anything the subscriber did not already know. */
-      user: Hex;
-      timestamp: number;
-    } & WireBackstopTransfer)
-  | {
-      activity_type: "bridge_transfer";
-      timestamp_us: number;
-      tx_hash: Hex;
-      /** Position within the transaction: one tx can bridge several amounts, so
-       * the hash alone does not identify the row. */
-      idx: number;
-      token: Hex;
-      amount: WireDecimal; // signed
-      error?: string;
-    }
-  | {
-      activity_type: "transfer";
-      timestamp_us: number;
-      transfer_id: Hex;
-      token: Hex;
-      amount: WireDecimal; // signed
-      error?: string;
-    };
+  | ({ activity_type: "order"; ts: number } & WireOrder)
+  | ({ activity_type: "backstop"; ts: number } & WireBackstopMoney)
+  | ({ activity_type: "bridge_transfer"; ts: number } & WireBridgeMoney)
+  | ({ activity_type: "transfer"; ts: number } & WireTransferMoney);
 
 /**
  * One tick of an account's activity. No `book` — a tick covers every book the
@@ -507,15 +512,6 @@ export interface WireActivityFrame {
 /** Money the tick moved, discriminated by `k` — disjoint from the order kinds,
  * which is what lets the two share one untagged union on the wire. */
 export type WireMoneyEvent =
-  | {
-      k: "backstop";
-      /** Absent on the terminal cash sweep, which belongs to no market. */
-      book?: Hex;
-      size: WireDecimal; // signed
-      cash: WireDecimal; // signed
-      mark: WireDecimal;
-      equity: WireDecimal; // signed
-      pnl: WireDecimal; // signed
-    }
-  | { k: "bridge_transfer"; tx: Hex; idx: number; token: Hex; amount: WireDecimal; error?: string }
-  | { k: "transfer"; id: Hex; token: Hex; amount: WireDecimal; error?: string };
+  | ({ k: "backstop" } & WireBackstopMoney)
+  | ({ k: "bridge_transfer" } & WireBridgeMoney)
+  | ({ k: "transfer" } & WireTransferMoney);
