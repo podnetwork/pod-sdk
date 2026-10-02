@@ -4,6 +4,7 @@ import { div, mul } from "../codec/fixed.js";
 import { WAD } from "../codec/units.js";
 import type { MarketId } from "../types/public.js";
 import { fetchFills, fetchPnlHistory, foldPnlHistory, PnlHistoryCache, streamPnlHistory, type PnlEvent, type PnlTick } from "./pnl-history.js";
+import { PodHttpError } from "../transport/rest.js";
 
 const PERP = `0x${"00".repeat(31)}01` as MarketId;
 const SPOT = `0x${"00".repeat(31)}02` as MarketId;
@@ -164,14 +165,14 @@ describe("fetchFills", () => {
       { orderbook_id: PERP, order_id: "0xabc", initial_size: "1", base_amount: "0x1", timestamp: t, price: "0x1" },
       { orderbook_id: PERP, order_id: "0xabc", initial_size: "-1", base_amount: "0x1", timestamp: t, price: "0x1" },
     ]);
-    const calls: { from_ts: number; to_ts: number }[] = [];
-    const fakeFetch = (async (_url: string, init: { body: string }) => {
-      const q = JSON.parse(init.body).params[1] as { from_ts: number; to_ts: number; limit: number };
-      calls.push(q);
-      const fills = rows.filter((r) => r.timestamp >= q.from_ts && r.timestamp < q.to_ts).sort((a, b) => b.timestamp - a.timestamp).slice(0, q.limit);
-      return { json: async () => ({ jsonrpc: "2.0", id: 1, result: { fills } }) };
-    }) as unknown as typeof fetch;
-    const out = await fetchFills("http://pod", "0x1", 1, 601, { fetch: fakeFetch });
+    const calls: { fromUs: number; toUs?: number }[] = [];
+    const rest = {
+      fills: async (_a: string, q: { fromUs: number; toUs?: number; limit?: number }) => {
+        calls.push(q);
+        return rows.filter((r) => r.timestamp >= q.fromUs && r.timestamp < (q.toUs ?? Infinity)).sort((a, b) => b.timestamp - a.timestamp).slice(0, q.limit ?? 500);
+      },
+    } as unknown as import("../transport/rest.js").PodRestClient;
+    const out = await fetchFills(rest, "0x1", 1, 601);
     expect(out).toHaveLength(rows.length);
     expect(new Set(out.map((f) => f.timestamp)).size).toBe(600);
     expect(calls.length).toBe(3);
@@ -191,7 +192,7 @@ const stubEvents = (): PnlEvent[] => fillRows.map((r) => ({ market: PERP, timeUs
 
 /** A fake node: one perp market, the fill rows above, ticks from the functions above. Counts fills calls. */
 const STUB_ACCOUNT_VALUE = W(5_000);
-function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRoute?: boolean; firstTickUs?: number; size?: bigint } = {}) {
+function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRoute?: boolean; firstTickUs?: number; size?: bigint; restReads?: boolean } = {}) {
   const calls = { fills: 0, solutions: 0, solutionsBeforeBirth: 0 };
   const rest = {
     markets: async () => [{ id: PERP, type: "perp", base: { address: "0x01" }, fundingWindowUs: 1, auctionIntervalMs: 500 }],
@@ -208,7 +209,26 @@ function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRou
           nextCursor: null,
           solutionNow: NOW_US / 1000,
         }),
+    fills: async (_a: string, q: { fromUs: number; toUs?: number; limit?: number }) => {
+      if (opts.restReads === false) throw new PodHttpError(404, "/clob/fills", "no route");
+      calls.fills++;
+      return fillsAnswer(q.fromUs, q.toUs ?? Infinity, q.limit ?? 500);
+    },
+    solutions: async (q: { untilUs?: number; sinceUs?: number; orderbook?: string }) => {
+      if (opts.restReads === false) throw new PodHttpError(404, "/clob/solutions", "no route");
+      return solutionsAnswer(q.untilUs, q.sinceUs);
+    },
   };
+  function fillsAnswer(fromUs: number, toUs: number, limit: number) {
+    return fillRows.filter((r) => r.timestamp >= fromUs && r.timestamp < toUs).sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
+  }
+  function solutionsAnswer(untilUs: number | undefined, sinceUs: number | undefined) {
+    calls.solutions++;
+    const t = Math.floor(((untilUs ?? NOW_US + 1) - 1) / TICK_US) * TICK_US;
+    if (sinceUs !== undefined && t < sinceUs) return [];
+    if (t < (opts.firstTickUs ?? 0)) { calls.solutionsBeforeBirth++; return []; }
+    return [{ orderbook_id: PERP, timestamp: t, mark_price: "0x" + markPerp(t).toString(16), funding_index: fundingRaw(t).toString() }];
+  }
   const fakeFetch = (async (_url: string, init: { body: string }) => {
     const body = JSON.parse(init.body);
     const answer = (req: { id: number; method: string; params: unknown[] }) => {
@@ -216,14 +236,13 @@ function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRou
       if (req.method === "ob_getFills") {
         calls.fills++;
         const q = req.params[1] as { from_ts: number; to_ts: number; limit: number };
-        return { id: req.id, result: { fills: fillRows.filter((r) => r.timestamp >= q.from_ts && r.timestamp < q.to_ts).sort((a, b) => b.timestamp - a.timestamp).slice(0, q.limit) } };
+        return { id: req.id, result: { fills: fillsAnswer(q.from_ts, q.to_ts, q.limit) } };
       }
-      const q = req.params[0] as { until: number; since?: number; orderbook_id?: string };
-      calls.solutions++;
-      const t = Math.floor((q.until - 1) / TICK_US) * TICK_US;
-      if (q.since !== undefined && t < q.since) return { id: req.id, result: { solutions: [] } };
-      if (t < (opts.firstTickUs ?? 0)) { calls.solutionsBeforeBirth++; return { id: req.id, result: { solutions: [] } }; }
-      return { id: req.id, result: { solutions: [{ orderbook_id: PERP, timestamp: t, mark_price: "0x" + markPerp(t).toString(16), funding_index: fundingRaw(t).toString() }] } };
+      if (req.method === "ob_getSolutions") {
+        const q = req.params[0] as { until?: number; since?: number };
+        return { id: req.id, result: { solutions: solutionsAnswer(q.until, q.since) } };
+      }
+      return { id: req.id, error: { message: `unexpected ${req.method}` } };
     };
     return { json: async () => (Array.isArray(body) ? body.map(answer) : answer(body)) };
   }) as unknown as typeof fetch;
@@ -360,5 +379,13 @@ describe("tick lookups before a market's first tick", () => {
     await fetchPnlHistory(warm.deps, "0x1", { from: 0, points: 400 });
     expect(warm.calls.solutionsBeforeBirth).toBe(0);
     expect(warm.calls.solutions).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("nodes without the REST solutions and fills routes", () => {
+  it("fall back to the ob_* reads and produce the same series", async () => {
+    const viaRest = await fetchPnlHistory(stubDeps().deps, "0x1", { from: 0, points: 120 });
+    const viaRpc = await fetchPnlHistory(stubDeps(undefined, { restReads: false }).deps, "0x1", { from: 0, points: 120 });
+    expect(viaRpc.points.map((p) => p.pnl)).toEqual(viaRest.points.map((p) => p.pnl));
   });
 });
