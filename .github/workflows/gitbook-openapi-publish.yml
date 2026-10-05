@@ -1,11 +1,9 @@
 name: Publish OpenAPI to GitBook
 
-# GitBook does not render the spec file in this repo. It renders the spec
-# registered in the organization as `pod-docs` — see the `builtin:openapi` block
-# under JSON-RPC in doc/api-reference/SUMMARY.md, whose dependency is
-# `kind: openapi, spec: pod-docs`. So merging a spec change here left the
-# published reference stale until someone re-uploaded the file by hand in the
-# GitBook UI. This publishes it on merge instead.
+# GitBook renders the specs registered in the organization as `pod-docs`
+# (JSON-RPC) and `pod-rest` (REST), referenced by the `builtin:openapi` blocks
+# in doc/api-reference/SUMMARY.md. This workflow uploads both spec files to
+# them on merge.
 on:
   push:
     branches: ["main"]
@@ -15,6 +13,7 @@ on:
     # unchanged spec each time.
     paths:
       - "doc/api-reference/json-rpc/openapi.yaml"
+      - "doc/api-reference/rest/openapi.yaml"
   # Republish on demand: recovers from a failed run, or from a spec edited
   # directly in GitBook that should be reset to what main says.
   workflow_dispatch:
@@ -41,12 +40,10 @@ jobs:
       # variables rather than secrets — a secret would be masked in the logs of
       # the very step whose failures are diagnosed by reading it.
       GITBOOK_ORGANIZATION_ID: ${{ vars.GITBOOK_ORGANIZATION_ID }}
-      # Committed rather than configured: this name is already in the repo, in
-      # SUMMARY.md's openapi block, and the two must agree or the docs render a
-      # spec this workflow never updates. An unset variable would silently
+      # Committed rather than configured: these names must match the openapi
+      # blocks in SUMMARY.md. An unset variable would silently
       # publish somewhere else.
-      GITBOOK_SPEC_NAME: pod-docs
-      SPEC_PATH: doc/api-reference/json-rpc/openapi.yaml
+      SPECS: pod-docs=doc/api-reference/json-rpc/openapi.yaml pod-rest=doc/api-reference/rest/openapi.yaml
     steps:
       - uses: actions/checkout@v5
 
@@ -82,9 +79,9 @@ jobs:
       # rather than silently on the next merge. 0.30.0 is the current stable
       # release, and its `openapi publish` takes `--spec`/`--organization` plus
       # the spec path.
-      - name: Publish spec to GitBook
+      - name: Publish specs to GitBook
         run: |
-          npx -y @gitbook/cli@0.30.0 openapi publish \
-            --spec "$GITBOOK_SPEC_NAME" \
-            --organization "$GITBOOK_ORGANIZATION_ID" \
-            "$SPEC_PATH"
+          for spec in $SPECS; do
+            npx -y @gitbook/cli@0.30.0 openapi publish \
+              --spec "${spec%%=*}" --organization "$GITBOOK_ORGANIZATION_ID" "${spec#*=}"
+          done

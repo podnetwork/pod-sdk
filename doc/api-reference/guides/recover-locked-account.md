@@ -4,7 +4,7 @@ If your account is locked due to conflicting transactions at the same nonce, you
 
 ## Steps
 
-1. Call `pod_getRecoveryTargetTx(account)` on the full node to get the target transaction to recover to.
+1. Call `pod_getRecoveryTargetTx(account)` on the full node to get the target transaction to recover to. It returns `{ hash, nonce }`, or `null` if the account is not locked.
 2. Send a transaction to the recovery precompile at `0x50d0000000000000000000000000000000000003`, calling `recover(txHash, nonce)` with the values from step 1.
 
 The protocol will finalize the target transaction chain, recover your account state, and increment the nonce. You can then send a new transaction with the next nonce.
@@ -22,19 +22,28 @@ const abi = ["function recover(bytes32 txHash, uint64 nonce) public"];
 const recovery = new ethers.Contract(RECOVERY, abi, wallet);
 
 // 1. Get the recovery target for the locked account
-const { txHash: targetTxHash, nonce } = await provider.send("pod_getRecoveryTargetTx", [wallet.address]);
+const target = await provider.send("pod_getRecoveryTargetTx", [wallet.address]);
+if (!target) throw new Error("account is not locked");
 
 // 2. Call the recovery precompile
-const tx = await recovery.recover(targetTxHash, nonce);
+const tx = await recovery.recover(target.hash, target.nonce);
 await tx.wait();
 ```
 {% endtab %}
 
 {% tab title="Rust (alloy)" %}
 ```rust
+use alloy::primitives::B256;
 use alloy::providers::{Provider, ProviderBuilder};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct TargetTx {
+    hash: B256,
+    nonce: u64,
+}
 
 sol! {
     #[sol(rpc)]
@@ -54,13 +63,14 @@ let recovery = Recovery::new(
 );
 
 // 1. Get the recovery target for the locked account
-let target: TargetTx = provider
+let target: Option<TargetTx> = provider
     .raw_request("pod_getRecoveryTargetTx".into(), vec![account_address])
     .await?;
+let target = target.ok_or("account is not locked")?;
 
 // 2. Call the recovery precompile
 let receipt = recovery
-    .recover(target.tx_hash, target.nonce)
+    .recover(target.hash, target.nonce)
     .send()
     .await?
     .watch()

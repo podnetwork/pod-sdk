@@ -44,11 +44,13 @@ The headroom between equity and `locked_margin` is the **available margin** - ne
 available_margin = equity − locked_margin
 ```
 
-The maximum cash that can be withdrawn at any time is capped both by available margin and by realized cash, since unrealized PnL is not withdrawable until the position closes:
+A withdrawal or transfer must leave a **transfer margin** behind: the larger of the initial margin and a fixed fraction of the open notional, `transfer_margin_ratio` (a network parameter, 10% by default). Equity counts unrealized PnL, so it is withdrawable too; the withdrawal can take `cash` negative.
 
 ```
-withdrawable_cash = min(available_margin, cash)
+withdrawable_cash = max(0, equity − max(locked_margin, transfer_margin_ratio × notional))
 ```
+
+Without open positions both terms are zero, so the whole non-negative equity is withdrawable.
 
 That is the ceiling the account imposes, and it bounds transfers to other accounts as well as withdrawals. What actually *leaves the network* is further bounded by the bridge: a withdrawal is claimed on another chain, so its amount must be a whole number of that chain's token units and must fall inside the token's `[min, max]`. See the [Bridge precompile reference](https://docs.v2.pod.network/api-reference/applications-precompiles/bridge) for the exact rules.
 

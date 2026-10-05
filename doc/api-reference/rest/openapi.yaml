@@ -1,0 +1,1551 @@
+openapi: 3.0.0
+info:
+  title: REST API
+  version: 1.0.0
+  description: |
+    Read-only `GET` routes served on the JSON-RPC port under `/v1`. The `/v1/clob/*`
+    and explorer routes exist only on nodes running the CLOB indexer; `/v1/bridge/*`
+    is served by every node. All routes allow any origin (CORS).
+
+    Errors are plain-text bodies. A malformed path or query parameter (bad hex, wrong
+    length, unknown enum value, non-numeric integer) is a `400`.
+
+servers:
+  - url: https://rpc.podtestnet.dev/v1
+    description: Pod testnet
+
+security: []
+
+tags:
+  - name: Markets
+    description: |
+      Market configuration, live statistics, candles, the resting book and per-tick
+      solution history.
+
+      &nbsp; &nbsp; &nbsp;
+  - name: Account
+    description: |
+      One account's orders, fills, positions, balances, triggers, backstop transfers and
+      unified activity feed. `{account}` is a 20-byte `0x` address.
+
+      &nbsp; &nbsp; &nbsp;
+  - name: Explorer
+    description: |
+      Transactions with their receipt, validator attestations and decoded calldata.
+
+      &nbsp; &nbsp; &nbsp;
+  - name: Bridge
+    description: |
+      Bridge configuration and withdrawal outcomes, with the claim proof for a single
+      withdrawal. Served by every node.
+
+      &nbsp; &nbsp; &nbsp;
+
+paths:
+  # ==========================================
+  # MARKETS
+  # ==========================================
+  /clob/status:
+    get:
+      tags: [Markets]
+      summary: Get Solution Time
+      operationId: getClobStatus
+      description: |
+        The indexer's solution time: the newest indexed batch deadline, in microseconds.
+        Use it as `since` when subscribing over the websocket after a REST read.
+
+        `Cache-Control: no-store`.
+      responses:
+        '200':
+          description: Solution time
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [solution_now]
+                properties:
+                  solution_now:
+                    $ref: '#/components/schemas/Timestamp'
+              example:
+                solution_now: 1704153600000000
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /clob/markets:
+    get:
+      tags: [Markets]
+      summary: List Markets
+      operationId: getMarkets
+      description: |
+        Every market's static configuration and lifecycle status, including markets
+        created after the node started. Live statistics are on `/clob/markets/stats`.
+
+        `Cache-Control: public, max-age=60`.
+      responses:
+        '200':
+          description: Market list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MarketStatic' }
+              example:
+                - status: active
+                  id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                  name: BTC/USD
+                  base_token_address: "0x0000000000000000000000000000000000000b7c"
+                  quote_token_address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                  base_token_symbol: BTC
+                  quote_token_symbol: USD
+                  base_token_name: Bitcoin
+                  quote_token_name: US Dollar
+                  market_type: perp
+                  auction_interval_us: 100000
+                  maker_fee: "0.000150"
+                  taker_fee: "0.000450"
+                  tick_precision: "1000000000000000000"
+                  lot_size: "1000000000000000"
+                  min_notional: "0"
+                  max_leverage: 20
+                  initial_margin: "50000000000000000"
+                  funding_window_us: 3600000000
+
+  /clob/markets/stats:
+    get:
+      tags: [Markets]
+      summary: Get Market Statistics
+      operationId: getMarketStats
+      description: |
+        Live per-market statistics, overlaying the forming candle. Same entry shape as the
+        `pod_markets` websocket channel. Sorted by `orderbook_id`.
+
+        `Cache-Control: no-store`.
+      responses:
+        '200':
+          description: Statistics for every market
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [solution_now, markets]
+                properties:
+                  solution_now:
+                    $ref: '#/components/schemas/Timestamp'
+                  markets:
+                    type: array
+                    items: { $ref: '#/components/schemas/MarketStats' }
+              example:
+                solution_now: 1704153600000000
+                markets:
+                  - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                    last_clearing_price: "65000000000000000000000"
+                    volume_24h: "120000000000000000000"
+                    high_24h: "66000000000000000000000"
+                    low_24h: "64000000000000000000000"
+                    price_change_24h: 125
+                    oracle_price: "65010000000000000000000"
+                    mark_price: "65005000000000000000000"
+                    funding_rate: "12500000000000"
+                    open_interest: "3200000000000000000000000"
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /clob/candles/{orderbook}:
+    get:
+      tags: [Markets]
+      summary: Get Candles
+      operationId: getCandles
+      description: |
+        Closed OHLCV bars in the half-open window `[from, to)`, newest first. The forming
+        bar is dropped after `limit` applies, so a page that reaches the present can hold
+        one bar fewer than `limit`.
+
+        Page back with `to = range.from_us / 1e6`. The forming bar is the bucket containing
+        `solution_now_us`; build it from the `pod_candles` websocket channel, subscribed
+        with `since` one microsecond before that bucket's start.
+
+        An orderbook id that names no book returns an empty window.
+
+        `Cache-Control: public, max-age=31536000, immutable` once every bucket of the
+        window has closed, otherwise `no-store`.
+      parameters:
+        - $ref: '#/components/parameters/OrderbookPath'
+        - name: resolution
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/CandleResolution' }
+        - name: from
+          in: query
+          description: Window start, unix seconds, inclusive.
+          schema: { type: integer, format: int64, default: 0 }
+        - name: to
+          in: query
+          description: Window end, unix seconds, exclusive. Defaults to solution time.
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          description: Maximum bars. Above 500 is a `400`.
+          schema: { type: integer, minimum: 0, maximum: 500, default: 500 }
+      responses:
+        '200':
+          description: Candle page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [candles, resolution, range, solution_now_us]
+                properties:
+                  candles:
+                    type: array
+                    items: { $ref: '#/components/schemas/Candle' }
+                  resolution:
+                    $ref: '#/components/schemas/CandleResolution'
+                  range:
+                    type: object
+                    nullable: true
+                    description: Bucket starts of the oldest and newest bar returned, in microseconds. `null` when no bar matched.
+                    properties:
+                      from_us: { type: integer, format: int64 }
+                      to_us: { type: integer, format: int64 }
+                  solution_now_us:
+                    $ref: '#/components/schemas/Timestamp'
+              example:
+                candles:
+                  - timestamp: 1704150000000000
+                    open: "0xdc3a8351f3d86a00000"
+                    close: "0xdc3a8351f3d86a00000"
+                    high: "0xdc3a8351f3d86a00000"
+                    low: "0xdc3a8351f3d86a00000"
+                    volume: "0x2386f26fc10000"
+                    quote_volume: "0x8ac7230489e80000"
+                resolution: 1h
+                range:
+                  from_us: 1704150000000000
+                  to_us: 1704150000000000
+                solution_now_us: 1704153600000000
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /clob/orderbook/{orderbook}:
+    get:
+      tags: [Markets]
+      summary: Get Orderbook
+      operationId: getOrderbook
+      description: |
+        The resting book as of the latest batch that cleared this orderbook. Optionally
+        truncated to the best `depth` price levels per side; `buys_count` and
+        `sells_count` still count the full book.
+
+        `Cache-Control: no-store`.
+      parameters:
+        - $ref: '#/components/parameters/OrderbookPath'
+        - name: depth
+          in: query
+          description: Best price levels per side. `0` is a `400`. Omit for the whole book.
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Orderbook snapshot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderbookSnapshot' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404':
+          description: |
+            No batch has cleared this orderbook since the node started, or the id names no
+            book. Body `no orderbook snapshot yet`.
+          content:
+            text/plain:
+              schema: { type: string }
+              example: no orderbook snapshot yet
+
+  /clob/solutions:
+    get:
+      tags: [Markets]
+      summary: Get Solutions
+      operationId: getSolutions
+      description: |
+        Per-tick solution history: clearing, mark and oracle prices, volume, funding,
+        open interest and the mark/funding inputs. Newest first, in whole ticks: `limit`
+        counts ticks, and a tick carries one row per orderbook.
+
+        Page back by passing the oldest `timestamp` of the previous page as `until_us`.
+
+        An orderbook id that names no book returns no rows.
+
+        `Cache-Control: no-store`.
+      parameters:
+        - $ref: '#/components/parameters/OrderbookQuery'
+        - name: since_us
+          in: query
+          description: Lower bound on the batch deadline, microseconds, inclusive.
+          schema: { $ref: '#/components/schemas/TimestampString' }
+        - name: until_us
+          in: query
+          description: Upper bound on the batch deadline, microseconds, exclusive.
+          schema: { $ref: '#/components/schemas/TimestampString' }
+        - name: limit
+          in: query
+          description: Ticks per page, clamped to `[1, 200]`.
+          schema: { type: integer, minimum: 1, maximum: 200, default: 200 }
+      responses:
+        '200':
+          description: Solution rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [solutions]
+                properties:
+                  solutions:
+                    type: array
+                    items: { $ref: '#/components/schemas/Solution' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  # ==========================================
+  # ACCOUNT
+  # ==========================================
+  /clob/orders/{account}:
+    get:
+      tags: [Account]
+      summary: Get Orders
+      operationId: getOrders
+      description: |
+        The account's orders with their fills, newest first by `(deadline, nonce,
+        order_id)`. Backstop position transfers appear as terminal rows with
+        `kind: backstop_transfer`.
+
+        Two paging modes:
+        - Cursor (default): pass `next_cursor` back as `cursor`; `null` on the last page.
+          `until` bounds the first page.
+        - Offset: set `offset`. `cursor` and `until` are then ignored and `next_cursor`
+          is `null`; page with `offset += limit` while `offset < total_count`.
+
+        `Cache-Control: public, max-age=31536000, immutable` when the page's upper bound
+        (`cursor` or `until`) has been reached by solution time and every returned order
+        is terminal, otherwise `no-store`. Offset pages are `no-store`.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+        - name: until
+          in: query
+          description: Upper bound on order deadline, unix seconds. Ignored when `cursor` or `offset` is set.
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          description: Page size, capped at 500.
+          schema: { type: integer, minimum: 0, maximum: 500, default: 500 }
+        - name: cursor
+          in: query
+          description: '`next_cursor` from the previous page, `"{deadline_us}:{nonce}:{order_id_hex}"`. Malformed is a `400`.'
+          schema: { type: string }
+        - name: offset
+          in: query
+          description: Skip this many newest-first rows. Switches to offset mode.
+          schema: { type: integer, minimum: 0 }
+        - name: orderbook
+          in: query
+          description: Restrict to one orderbook. An id wider than the node's 32-bit form is a `400`.
+          schema: { $ref: '#/components/schemas/Bytes32' }
+        - name: status
+          in: query
+          description: Restrict to one status. Unknown values are a `400`.
+          schema: { $ref: '#/components/schemas/OrderStatus' }
+      responses:
+        '200':
+          description: Order page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orders, next_cursor, total_count, solution_now]
+                properties:
+                  orders:
+                    type: array
+                    items: { $ref: '#/components/schemas/Order' }
+                  next_cursor:
+                    type: string
+                    nullable: true
+                    description: Cursor for the next page. `null` on the last page and in offset mode.
+                  total_count:
+                    type: integer
+                    description: Orders matching the filters, across all pages.
+                  solution_now:
+                    $ref: '#/components/schemas/Timestamp'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /clob/fills/{account}:
+    get:
+      tags: [Account]
+      summary: Get Fills
+      operationId: getFills
+      description: |
+        The account's fills in the window `[from_us, to_us)`, newest first. Capped at 500
+        rows; narrow the window to read further back.
+
+        An orderbook id that names no book returns no rows.
+
+        `Cache-Control: no-store`.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/OrderbookQuery'
+        - name: from_us
+          in: query
+          description: Window start, microseconds, inclusive.
+          schema: { $ref: '#/components/schemas/TimestampString' }
+        - name: to_us
+          in: query
+          description: Window end, microseconds, exclusive. Defaults to the node's current time.
+          schema: { $ref: '#/components/schemas/TimestampString' }
+        - name: limit
+          in: query
+          description: Maximum rows, clamped to `[1, 500]`.
+          schema: { type: integer, minimum: 1, maximum: 500, default: 500 }
+      responses:
+        '200':
+          description: Fills
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [fills]
+                properties:
+                  fills:
+                    type: array
+                    items: { $ref: '#/components/schemas/Fill' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /clob/positions/{account}:
+    get:
+      tags: [Account]
+      summary: Get Perp Positions
+      operationId: getPositions
+      description: |
+        The account's live perp positions and account-level aggregates, read from the
+        execution engine. Spot holdings are on `/clob/balances/{account}`. An account the
+        node has never seen returns an empty list and zero aggregates.
+
+        `Cache-Control: no-store`.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+      responses:
+        '200':
+          description: Positions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PositionsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /clob/balances/{account}:
+    get:
+      tags: [Account]
+      summary: Get Balances
+      operationId: getBalances
+      description: |
+        The account's live spot holdings and cash, read from the execution engine.
+
+        `Cache-Control: no-store`.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+      responses:
+        '200':
+          description: Balances
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BalancesResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /clob/triggers/{account}:
+    get:
+      tags: [Account]
+      summary: Get Triggers
+      operationId: getTriggers
+      description: |
+        The account's armed TP/SL triggers, read from the execution engine, sorted by
+        `(orderbook_id, order_id)`. Pass `next_cursor` back as `cursor` for the next page.
+
+        `Cache-Control: no-store`.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/OrderbookQuery'
+        - name: limit
+          in: query
+          description: Page size, clamped to `[1, 200]`.
+          schema: { type: integer, minimum: 1, maximum: 200, default: 200 }
+        - name: cursor
+          in: query
+          description: '`next_cursor` from the previous page, `"{orderbook_id}:{order_id}"` (both `0x` hex). Malformed is a `400`.'
+          schema: { type: string }
+      responses:
+        '200':
+          description: Trigger page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [triggers, total_count, next_cursor]
+                properties:
+                  triggers:
+                    type: array
+                    items: { $ref: '#/components/schemas/Trigger' }
+                  total_count:
+                    type: integer
+                    description: Triggers matching the filter, before paging.
+                  next_cursor:
+                    type: string
+                    nullable: true
+                    description: Cursor for the next page. `null` on the last page.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /clob/backstop-transfers/{account}:
+    get:
+      tags: [Account]
+      summary: Get Backstop Transfers
+      operationId: getBackstopTransfers
+      description: |
+        The account's backstop sweeps as raw events, newest first, with the cash and
+        equity detail the orders feed omits.
+
+        With no query parameters the route returns the whole list, capped at 500, and no
+        `next_cursor`. Setting any of `orderbook`, `limit` or `cursor` switches to paged
+        reads of at most 200 rows; pass `next_cursor` back as `cursor`.
+
+        An orderbook id that names no book returns no rows.
+
+        `Cache-Control: no-store`.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/OrderbookQuery'
+        - name: limit
+          in: query
+          description: Page size, clamped to `[1, 200]`.
+          schema: { type: integer, minimum: 1, maximum: 200, default: 200 }
+        - name: cursor
+          in: query
+          description: '`next_cursor` from the previous page, `"{ts}:{id}"`. Malformed is a `400`.'
+          schema: { type: string }
+      responses:
+        '200':
+          description: Backstop transfers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [backstop_transfers, total_count, solution_now]
+                properties:
+                  backstop_transfers:
+                    type: array
+                    items: { $ref: '#/components/schemas/BackstopTransfer' }
+                  total_count:
+                    type: integer
+                  next_cursor:
+                    type: string
+                    description: Cursor for the next page. Omitted on the last page and when unpaged.
+                  solution_now:
+                    $ref: '#/components/schemas/Timestamp'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /clob/activity/{account}:
+    get:
+      tags: [Account]
+      summary: Get Account Activity
+      operationId: getActivity
+      description: |
+        One feed of everything that happened to the account: orders (each with its fills,
+        at its placement tick), backstop sweeps, bridge deposits and withdrawals, and
+        transfers. Entries are a union tagged by `activity_type`, ordered newest first by
+        `(ts, kind, key)`; within one tick the kinds run `transfer`, `bridge_transfer`,
+        `backstop`, `order`.
+
+        Pass `next_cursor` back as `cursor` for the next page. It is set whenever the page
+        is full, so the last page can be empty.
+
+        Seed from this route, then subscribe to the `pod_activity` websocket channel with
+        `since` = `solution_now`.
+
+        `Cache-Control: public, max-age=31536000, immutable` when the page's upper bound
+        (`cursor` or `to`) has been reached by solution time and every order entry is
+        terminal, otherwise `no-store`.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+        - name: limit
+          in: query
+          description: Page size, clamped to `[1, 200]`.
+          schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
+        - name: cursor
+          in: query
+          description: '`next_cursor` from the previous page, `"{ts}:{ordinal}:{key_hex}"` (`ordinal` `1`-`4` = `order`, `backstop`, `bridge_transfer`, `transfer`; `key_hex` is 40 bytes for an order, 8 otherwise). Treat it as opaque. Malformed is a `400` (`invalid cursor`).'
+          schema: { type: string }
+        - name: activity_types
+          in: query
+          description: |
+            Comma-separated kinds to include: `order`, `backstop`, `bridge_transfer`,
+            `transfer`. Defaults to all. An unknown or empty name is a `400`
+            (`invalid activity_types`).
+          schema: { type: string, example: "order,transfer" }
+        - name: from
+          in: query
+          description: Window start, microseconds, inclusive.
+          schema: { type: integer, format: int64 }
+        - name: to
+          in: query
+          description: Window end, microseconds, exclusive. `from >= to` is a `400` (`from must be below to`).
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Activity page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [activity, next_cursor, solution_now]
+                properties:
+                  activity:
+                    type: array
+                    items: { $ref: '#/components/schemas/ActivityEntry' }
+                  next_cursor:
+                    type: string
+                    nullable: true
+                  solution_now:
+                    $ref: '#/components/schemas/Timestamp'
+              example:
+                activity:
+                  - activity_type: transfer
+                    ts: 1704153600000000
+                    id: "0x8f3c0000000000000000000000000000000000000000000000000000000000aa"
+                    token: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                    amount: "-25000000000000000000"
+                  - activity_type: bridge_transfer
+                    ts: 1704150000000000
+                    tx: "0x51d20000000000000000000000000000000000000000000000000000000000bb"
+                    idx: 0
+                    token: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                    amount: "1000000000000000000000"
+                next_cursor: null
+                solution_now: 1704153600100000
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  # ==========================================
+  # EXPLORER
+  # ==========================================
+  /tx/{hash}:
+    get:
+      tags: [Explorer]
+      summary: Get Transaction
+      operationId: getTransaction
+      description: |
+        One transaction as a single flat object: transaction fields, receipt fields,
+        validator attestations and decoded calldata. Recent transactions are served from
+        memory; older ones from the node's ledger database.
+
+        `Cache-Control: no-store`.
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Bytes32' }
+      responses:
+        '200':
+          description: Transaction
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExplorerTransaction' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404':
+          description: Unknown transaction. Body `transaction not found`.
+          content:
+            text/plain:
+              schema: { type: string }
+              example: transaction not found
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /transactions:
+    get:
+      tags: [Explorer]
+      summary: List Recent Transactions
+      operationId: listTransactions
+      description: |
+        Newest-first page of the node's in-memory ring of recent transactions (1000 by
+        default, `POD_RECENT_TX_CACHE_CAP`). Older transactions are served by `/tx/{hash}`.
+        Each entry has the `/tx/{hash}` shape.
+
+        `Cache-Control: no-store`.
+      parameters:
+        - name: limit
+          in: query
+          description: Page size, clamped to `[1, 200]`.
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: offset
+          in: query
+          description: Skip this many newest entries.
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Transaction page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transactions, next_offset]
+                properties:
+                  transactions:
+                    type: array
+                    items: { $ref: '#/components/schemas/ExplorerTransaction' }
+                  next_offset:
+                    type: integer
+                    nullable: true
+                    description: '`offset` for the next page. `null` once the ring is exhausted.'
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  # ==========================================
+  # BRIDGE
+  # ==========================================
+  /bridge/config:
+    get:
+      tags: [Bridge]
+      summary: Get Bridge Configuration
+      operationId: getBridgeConfig
+      description: |
+        The chain withdrawals are claimable on, its bridge contract, the bridge version,
+        and every bridged token.
+
+        `claim_chain_id` and `source_contract` are zero and `tokens` is empty when the node
+        has no bridge configured. No withdrawal is admissible then.
+
+        No `Cache-Control` header is set.
+      responses:
+        '200':
+          description: Bridge configuration
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BridgeConfig' }
+              example:
+                claim_chain_id: 42161
+                source_contract: "0x5555555555555555555555555555555555555555"
+                version: 1
+                tokens:
+                  - pod_token: "0x2222222222222222222222222222222222222222"
+                    l1_token: "0x3333333333333333333333333333333333333333"
+                    decimals: 6
+                    min: "0x64"
+                    max: "0x3b9aca00"
+
+  /bridge/withdrawals:
+    get:
+      tags: [Bridge]
+      summary: List Withdrawals
+      operationId: listWithdrawals
+      description: |
+        Withdrawal outcomes for every account, oldest first by `(timestamp_us,
+        tx_hash)`. Same entries as the `pod_withdrawals` websocket channel, and `since` is
+        the same cursor. To continue, pass the last entry's `timestamp_us` as `since` and its
+        `tx_hash` as `since_id`.
+
+        Legacy `Bridge.withdraw` rows are excluded.
+
+        No `Cache-Control` header is set.
+      parameters:
+        - $ref: '#/components/parameters/WithdrawalSince'
+        - $ref: '#/components/parameters/WithdrawalSinceId'
+        - $ref: '#/components/parameters/WithdrawalLimit'
+      responses:
+        '200':
+          description: Withdrawal outcomes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Withdrawal' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /bridge/withdrawals/{account}:
+    get:
+      tags: [Bridge]
+      summary: List Account Withdrawals
+      operationId: listAccountWithdrawals
+      description: |
+        As `/bridge/withdrawals`, restricted to withdrawals debited from `account` (the
+        `withdrawer`, which is the master for a delegated withdrawal).
+
+        No `Cache-Control` header is set.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/WithdrawalSince'
+        - $ref: '#/components/parameters/WithdrawalSinceId'
+        - $ref: '#/components/parameters/WithdrawalLimit'
+      responses:
+        '200':
+          description: Withdrawal outcomes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Withdrawal' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /bridge/withdrawals/by-id/{tx_hash}:
+    get:
+      tags: [Bridge]
+      summary: Get Withdrawal and Claim Proof
+      operationId: getWithdrawalById
+      description: |
+        One withdrawal, keyed by the withdraw transaction's hash, with where it stands and
+        the claim proof once one can be assembled.
+
+        - `claimable`: `proof` is attached and the bridge contract will accept it.
+        - `pending`: fewer than `n - f` signatures are held, or this node failed to
+          assemble a proof it should have. The node asks its peers for the missing
+          signatures itself; keep polling, or ask another node.
+        - `refused`: refused at execution. Nothing was debited and no claim will exist;
+          resubmitting yields a new `tx_hash`. `withdrawal.error` usually names the
+          reason but can be absent.
+
+        Branch on the presence of `proof`: treat `refused` as terminal and anything else
+        as "ask again".
+
+        `404` until the withdrawal has executed, a tick after admission.
+
+        No `Cache-Control` header is set.
+      parameters:
+        - name: tx_hash
+          in: path
+          required: true
+          description: Hash of the withdraw transaction.
+          schema: { $ref: '#/components/schemas/Bytes32' }
+      responses:
+        '200':
+          description: Withdrawal detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WithdrawalDetail' }
+              example:
+                withdrawal:
+                  tx_hash: "0x0101010101010101010101010101010101010101010101010101010101010101"
+                  withdrawer: "0x6666666666666666666666666666666666666666"
+                  to: "0x8888888888888888888888888888888888888888"
+                  token: "0x2222222222222222222222222222222222222222"
+                  amount: "0x56bc75e2d63100000"
+                  timestamp_us: 1704153600000000
+                status: claimable
+                proof:
+                  proof: [0, 31, 207, 118]
+                  committee_epoch: 0
+                  aux_tx_suffix: [1, 1, 1, 1]
+                  token: "0x2222222222222222222222222222222222222222"
+                  amount: "0x5f5e100"
+                  to: "0x8888888888888888888888888888888888888888"
+                  claim_hash: "0x8181818181818181818181818181818181818181818181818181818181818181"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404':
+          description: No withdrawal with this id has executed on this node. Empty body.
+        '500': { $ref: '#/components/responses/InternalError' }
+
+components:
+  parameters:
+    AccountPath:
+      name: account
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Address' }
+    OrderbookPath:
+      name: orderbook
+      in: path
+      required: true
+      description: 32-byte orderbook id.
+      schema: { $ref: '#/components/schemas/Bytes32' }
+    OrderbookQuery:
+      name: orderbook
+      in: query
+      description: Restrict to one orderbook (32-byte id).
+      schema: { $ref: '#/components/schemas/Bytes32' }
+    WithdrawalSince:
+      name: since
+      in: query
+      description: Batch deadline in microseconds; returns outcomes strictly after it, or within it after `since_id`.
+      schema: { type: integer, format: int64, default: 0 }
+    WithdrawalSinceId:
+      name: since_id
+      in: query
+      description: Last `tx_hash` already seen within the `since` tick, to resume a page that ended mid-tick. Omit to resume after the whole tick.
+      schema: { $ref: '#/components/schemas/Bytes32' }
+    WithdrawalLimit:
+      name: limit
+      in: query
+      description: Page size. Values above 1000 are capped at 1000.
+      schema: { type: integer, minimum: 0, maximum: 1000, default: 500 }
+
+  responses:
+    BadRequest:
+      description: Malformed path or query parameter. Plain-text reason.
+      content:
+        text/plain:
+          schema: { type: string }
+          example: invalid cursor
+    Unavailable:
+      description: "The indexer or execution engine read failed. Body `clob indexer unavailable`, with `Cache-Control: no-store`."
+      content:
+        text/plain:
+          schema: { type: string }
+          example: clob indexer unavailable
+    InternalError:
+      description: The ledger read failed. Empty body.
+
+  schemas:
+    # ==========================================
+    # PRIMITIVE TYPES
+    # ==========================================
+    Address:
+      type: string
+      pattern: "^0x[a-fA-F0-9]{40}$"
+      description: 20-byte address, `0x` hex
+      example: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+
+    Bytes32:
+      type: string
+      pattern: "^0x[a-fA-F0-9]{64}$"
+      description: 32-byte value, `0x` hex. Orderbook ids, order ids and hashes.
+      example: "0x0000000000000000000000000000000000000000000000000000000000000001"
+
+    HexUint256:
+      type: string
+      pattern: "^0x[a-fA-F0-9]+$"
+      description: Unsigned 256-bit integer, `0x` hex
+      example: "0x6f05b59d3b200000"
+
+    DecimalUint256:
+      type: string
+      pattern: "^[0-9]+$"
+      description: Unsigned 256-bit integer, decimal string
+      example: "1000000000000000000"
+
+    DecimalInt256:
+      type: string
+      pattern: "^-?[0-9]+$"
+      description: Signed 256-bit integer, decimal string
+      example: "-1000000000000000000"
+
+    Timestamp:
+      type: integer
+      format: int64
+      description: Unix time in microseconds, as a JSON number
+      example: 1704153600000000
+
+    TimestampString:
+      type: string
+      pattern: "^[0-9]+$"
+      description: Unix time in microseconds, as a decimal string
+      example: "1704153600000000"
+
+    # ==========================================
+    # ENUMS
+    # ==========================================
+    CandleResolution:
+      type: string
+      enum: ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w", "1M"]
+
+    MarketType:
+      type: string
+      enum: [spot, perpetual]
+
+    OrderStatus:
+      type: string
+      enum: [pending, active, filled, expired, canceled, margin_canceled, self_trade_canceled, post_only_refused, invalid]
+      description: |
+        - `pending`: submitted, not yet in the book
+        - `active`: resting in the book
+        - `filled`: completely filled
+        - `expired`: TTL passed
+        - `canceled`: canceled by the owner
+        - `margin_canceled`: removed by the engine because the owner's margin was exhausted
+        - `self_trade_canceled`: removed by the engine because it was about to fill against an order of the same owner
+        - `post_only_refused`: a `post_only` order removed because it would have taken liquidity in the batch that admitted it
+        - `invalid`: rejected at execution and never entered the book; see `invalid_reason`
+
+        Everything except `pending` and `active` is terminal.
+
+    OrderKind:
+      type: string
+      enum: [user_signed, liquidation, triggered, adl, adl_counterparty, backstop_transfer]
+      description: |
+        - `user_signed`: submitted by the account
+        - `liquidation`: generated by the engine when the account fell below maintenance margin
+        - `triggered`: the order a fired TP/SL trigger produced
+        - `adl`: auto-deleveraging close of this account's position
+        - `adl_counterparty`: this account's side covering an auto-deleveraging close
+        - `backstop_transfer`: a backstop sweep of this account's position, shown as a terminal order
+
+    OrderDirection:
+      type: string
+      enum: [buy, sell, open_long, add_long, reduce_long, close_long, open_short, add_short, reduce_short, close_short, long_to_short, short_to_long, liquidation]
+      description: Spot orders use `buy`/`sell`. Perp orders use the position effect of their fills; `liquidation` when `kind` is `liquidation`.
+
+    TriggerType:
+      type: string
+      enum: [take_profit, stop_loss]
+
+    TriggerGrouping:
+      type: string
+      enum: [none, asset]
+      description: |
+        - `none`: standalone; removed only by cancel, TTL expiry or its own fire
+        - `asset`: removed, with any resting order it produced, once the owner's position on the pair (perp) or base holding (spot) reaches zero
+
+    # ==========================================
+    # MARKETS
+    # ==========================================
+    MarketStatic:
+      type: object
+      description: Static market configuration. Numeric amounts are decimal strings.
+      properties:
+        status:
+          type: string
+          enum: [pending, active, disabled, settled]
+          description: Lifecycle status.
+        id: { $ref: '#/components/schemas/Bytes32' }
+        name: { type: string, description: '`{base_symbol}/{quote_symbol}`' }
+        base_token_address: { $ref: '#/components/schemas/Address' }
+        quote_token_address: { $ref: '#/components/schemas/Address' }
+        base_token_symbol: { type: string }
+        quote_token_symbol: { type: string }
+        base_token_name: { type: string }
+        quote_token_name: { type: string }
+        market_type:
+          type: string
+          enum: [spot, perp]
+          description: Order rows spell this `perpetual`.
+        auction_interval_us: { type: integer, format: int64, description: 'Batch interval, microseconds' }
+        maker_fee: { type: string, description: 'Fee rate as a decimal fraction, six places (`"0.000150"` is 1.5 bps).' }
+        taker_fee: { type: string, description: 'Fee rate as a decimal fraction, six places.' }
+        tick_precision: { $ref: '#/components/schemas/DecimalUint256' }
+        lot_size: { $ref: '#/components/schemas/DecimalUint256' }
+        min_notional:
+          type: string
+          description: Minimum quote notional per order, 1e18-scaled decimal string. `"0"` is no floor.
+        max_leverage: { type: integer }
+        initial_margin:
+          type: string
+          description: Initial-margin rate, 1e18-scaled decimal string, unrounded (`max_leverage` is rounded).
+        funding_window_us: { type: integer, format: int64, description: 'Period `funding_rate` applies over, microseconds' }
+        live_at_us: { type: integer, format: int64, description: 'When a `pending` market goes live, microseconds. Omitted when not scheduled.' }
+        disable_at_us: { type: integer, format: int64, description: 'Scheduled halt, microseconds. Omitted when none.' }
+        settlement_price:
+          type: string
+          description: Price open positions settle at, fixed when a perp market halts. 1e18-scaled decimal string. Omitted until then.
+
+    MarketStats:
+      type: object
+      description: |
+        Live statistics for one market. Prices and amounts are 1e18-scaled decimal
+        strings. Optional fields are omitted until the data exists.
+      required: [orderbook_id, volume_24h]
+      properties:
+        orderbook_id: { $ref: '#/components/schemas/Bytes32' }
+        last_clearing_price: { type: string, description: Omitted until the market's first fill. }
+        volume_24h: { type: string, description: Quote notional traded over 24 hours. }
+        high_24h: { type: string, description: Omitted until the market has a closed candle. }
+        low_24h: { type: string, description: Omitted until the market has a closed candle. }
+        price_change_24h: { type: integer, description: 24-hour price change in basis points. }
+        oracle_price: { type: string, description: Perp only. }
+        internal: { type: boolean, description: '`true` when `oracle_price` is derived from the book because every oracle source was stale.' }
+        mark_price: { type: string, description: Perp only. }
+        funding_rate: { type: string, description: Perp only. Signed. }
+        funding_index: { type: string, description: 'Perp only. Signed, undivided funding accumulator.' }
+        funding_settling_index:
+          type: string
+          description: Perp only. The index positions settle against (`funding_settling_index × size − funding_basis` is a position's accrual). Absent until the market's first perp batch after the node started.
+        funding_last_updated_us: { type: integer, format: int64, description: Perp only. }
+        open_interest: { type: string, description: Perp only. USD notional. }
+
+    Candle:
+      type: object
+      description: One closed OHLCV bar. Prices and volumes are 1e18-scaled `0x` hex.
+      properties:
+        timestamp: { $ref: '#/components/schemas/Timestamp' }
+        open: { $ref: '#/components/schemas/HexUint256' }
+        close: { $ref: '#/components/schemas/HexUint256' }
+        high: { $ref: '#/components/schemas/HexUint256' }
+        low: { $ref: '#/components/schemas/HexUint256' }
+        volume:
+          $ref: '#/components/schemas/HexUint256'
+          description: Base volume traded in the bucket.
+        quote_volume:
+          $ref: '#/components/schemas/HexUint256'
+          description: Quote notional traded in the bucket.
+
+    OrderbookSnapshot:
+      type: object
+      properties:
+        orderbook_id: { $ref: '#/components/schemas/Bytes32' }
+        buys:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              volume: { $ref: '#/components/schemas/HexUint256' }
+          description: Buy levels keyed by price (decimal string), price-ascending; the best bid is the last key.
+        sells:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              volume: { $ref: '#/components/schemas/HexUint256' }
+          description: Sell levels keyed by price (decimal string), price-ascending; the best ask is the first key.
+        buys_count: { type: integer, description: Buy levels in the full book. }
+        sells_count: { type: integer, description: Sell levels in the full book. }
+        grouping_precision: { $ref: '#/components/schemas/HexUint256' }
+        timestamp: { $ref: '#/components/schemas/Timestamp' }
+        new_orders_count: { type: integer }
+        clearing_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: The orderbook's current mark, carried forward on ticks without fills.
+        oracle_price: { type: string, nullable: true, description: 'Perp only, `0x` hex. `null` for spot.' }
+        funding_rate: { type: string, nullable: true, description: 'Perp only, signed decimal string. `null` for spot.' }
+        funding_index: { type: string, nullable: true, description: 'Perp only, signed decimal string. `null` for spot.' }
+        funding_last_updated: { type: integer, format: int64, nullable: true, description: 'Perp only, microseconds. `null` for spot.' }
+
+    Solution:
+      type: object
+      description: |
+        One orderbook's record for one tick. Unsigned values are 1e18-scaled `0x` hex,
+        signed values decimal strings. Perp-only fields are omitted on spot ticks and on
+        rows recorded before the field existed.
+      properties:
+        orderbook_id: { $ref: '#/components/schemas/Bytes32' }
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+          description: Batch deadline.
+        clearing_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Omitted for a market that has never traded.
+        mark_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: '`0x0` for spot.'
+        volume: { $ref: '#/components/schemas/HexUint256' }
+        oracle_price: { $ref: '#/components/schemas/HexUint256' }
+        funding_rate: { $ref: '#/components/schemas/DecimalInt256' }
+        funding_index: { $ref: '#/components/schemas/DecimalInt256' }
+        open_interest: { $ref: '#/components/schemas/HexUint256' }
+        mark_best_bid: { $ref: '#/components/schemas/HexUint256' }
+        mark_best_ask: { $ref: '#/components/schemas/HexUint256' }
+        premium_ema: { $ref: '#/components/schemas/DecimalInt256' }
+        book_median_ema: { $ref: '#/components/schemas/HexUint256' }
+        impact_bid: { $ref: '#/components/schemas/HexUint256' }
+        impact_ask: { $ref: '#/components/schemas/HexUint256' }
+
+    # ==========================================
+    # ACCOUNT
+    # ==========================================
+    PartialFill:
+      type: object
+      properties:
+        base_amount: { $ref: '#/components/schemas/HexUint256' }
+        quote_amount: { $ref: '#/components/schemas/HexUint256' }
+        timestamp: { $ref: '#/components/schemas/Timestamp' }
+        price: { $ref: '#/components/schemas/HexUint256' }
+
+    Order:
+      type: object
+      description: |
+        An order with its fills. Unsigned amounts and prices are 1e18-scaled `0x` hex,
+        signed ones decimal strings. Perp-only fields are omitted on spot orders.
+      properties:
+        orderbook_id: { $ref: '#/components/schemas/Bytes32' }
+        market_type: { $ref: '#/components/schemas/MarketType' }
+        kind: { $ref: '#/components/schemas/OrderKind' }
+        order_id: { $ref: '#/components/schemas/Bytes32' }
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+          description: Creating transaction. Zero for engine-generated orders.
+        bidder: { $ref: '#/components/schemas/Address' }
+        nonce: { type: integer, format: int64 }
+        order_type: { type: string, enum: [limit, market] }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        side: { type: string, enum: [buy, sell] }
+        price: { $ref: '#/components/schemas/HexUint256' }
+        initial_size:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Signed; positive buy/long, negative sell/short.
+        filled_base_amount: { $ref: '#/components/schemas/HexUint256' }
+        filled_quote_amount: { $ref: '#/components/schemas/HexUint256' }
+        fee: { $ref: '#/components/schemas/HexUint256' }
+        deadline:
+          $ref: '#/components/schemas/TimestampString'
+          description: The batch the order targets, microseconds, as a string.
+        end:
+          $ref: '#/components/schemas/Timestamp'
+          description: TTL expiry, microseconds. Orders that never expire carry `18446744073709551615`, which exceeds a JavaScript safe integer.
+        included_batch:
+          $ref: '#/components/schemas/Timestamp'
+          description: Deadline of the batch that first included the order. `0` for engine-generated orders and older rows.
+        invalid_reason: { type: string, description: Why the engine rejected the order. Only when `status` is `invalid`. }
+        effective_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: '`filled_quote / filled_base` so far.'
+        fills:
+          type: array
+          items: { $ref: '#/components/schemas/PartialFill' }
+        reduce_only: { type: boolean, description: Perp only. }
+        ioc: { type: boolean, description: Perp only. }
+        post_only: { type: boolean, description: Omitted when false. }
+        direction: { $ref: '#/components/schemas/OrderDirection' }
+        realized_pnl:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Perp only, present once a fill closed exposure. Price drift minus funding across the slices it closed.
+        grouping:
+          $ref: '#/components/schemas/TriggerGrouping'
+          description: Inherited from the parent trigger. Omitted when `none`.
+        trigger_type:
+          $ref: '#/components/schemas/TriggerType'
+          description: Set only on orders a fired trigger produced (`kind` `triggered`).
+
+    Fill:
+      type: object
+      properties:
+        orderbook_id: { $ref: '#/components/schemas/Bytes32' }
+        base_token: { $ref: '#/components/schemas/Address' }
+        quote_token: { $ref: '#/components/schemas/Address' }
+        order_id: { $ref: '#/components/schemas/Bytes32' }
+        order_type: { type: string, enum: [limit, market] }
+        initial_size: { $ref: '#/components/schemas/DecimalInt256' }
+        fee: { $ref: '#/components/schemas/HexUint256' }
+        base_amount: { $ref: '#/components/schemas/HexUint256' }
+        quote_amount: { $ref: '#/components/schemas/HexUint256' }
+        timestamp: { $ref: '#/components/schemas/Timestamp' }
+        price: { $ref: '#/components/schemas/HexUint256' }
+
+    PerpPosition:
+      type: object
+      description: One open perp position. 1e18-scaled; unsigned `0x` hex, signed decimal strings.
+      properties:
+        kind: { type: string, enum: [perp] }
+        orderbook_id: { $ref: '#/components/schemas/Bytes32' }
+        base_symbol: { type: string }
+        quote_symbol: { type: string }
+        side: { type: string, enum: [long, short] }
+        size:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Positive long, negative short.
+        notional: { $ref: '#/components/schemas/HexUint256' }
+        entry_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Rounded against the holder; `unrealized_pnl` is exact.
+        mark_price: { $ref: '#/components/schemas/HexUint256' }
+        margin: { $ref: '#/components/schemas/HexUint256' }
+        leverage: { $ref: '#/components/schemas/HexUint256' }
+        funding_accrued:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Funding owed on the position, quote wei. Positive is owed by the holder.
+        funding_basis: { $ref: '#/components/schemas/DecimalInt256' }
+        cost_basis: { $ref: '#/components/schemas/DecimalInt256' }
+        entry_funding: { $ref: '#/components/schemas/DecimalInt256' }
+        liquidation_price: { $ref: '#/components/schemas/HexUint256' }
+        unrealized_pnl: { $ref: '#/components/schemas/DecimalInt256' }
+        realized_pnl:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Always `"0"`; realized PnL is banked into cash and `total_realized_pnl`.
+        stop_loss: { type: string, nullable: true, description: Always `null`. }
+        take_profit: { type: string, nullable: true, description: Always `null`. }
+
+    SpotHolding:
+      type: object
+      description: One spot token holding. 1e18-scaled; unsigned `0x` hex, signed decimal strings.
+      properties:
+        orderbook_id: { $ref: '#/components/schemas/Bytes32' }
+        base_symbol: { type: string }
+        quote_symbol: { type: string }
+        balance:
+          $ref: '#/components/schemas/HexUint256'
+          description: '`free_balance + locked_balance`.'
+        free_balance: { $ref: '#/components/schemas/HexUint256' }
+        locked_balance:
+          $ref: '#/components/schemas/HexUint256'
+          description: Locked in open sell orders.
+        cost_basis: { $ref: '#/components/schemas/HexUint256' }
+        mark_price: { $ref: '#/components/schemas/HexUint256' }
+        unrealized_pnl: { $ref: '#/components/schemas/DecimalInt256' }
+        realized_pnl:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Portfolio-wide lifetime spot realized PnL.
+
+    PositionsResponse:
+      type: object
+      properties:
+        positions:
+          type: array
+          items: { $ref: '#/components/schemas/PerpPosition' }
+        total_unrealized_pnl: { $ref: '#/components/schemas/DecimalInt256' }
+        total_realized_pnl:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Lifetime, spot and perp.
+        perps_equity:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Cash adjusted for unsettled funding, plus perp unrealized PnL.
+        account_value:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: '`perps_equity` plus the mark value of spot holdings and quote escrowed in resting spot buys.'
+        cash: { $ref: '#/components/schemas/DecimalInt256' }
+        withdrawable_cash:
+          $ref: '#/components/schemas/HexUint256'
+          description: 'What a withdrawal or transfer can take now: `max(0, equity − max(initial_margin, transfer_margin_ratio × notional))`, where `notional` is `Σ |size| × mark` and `transfer_margin_ratio` is a network parameter (10% by default). Equity counts unrealized PnL.'
+        net_deposits:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Native collateral deposited minus withdrawn. Lifetime PnL is `account_value − net_deposits`.
+
+    BalancesResponse:
+      type: object
+      properties:
+        balances:
+          type: array
+          items: { $ref: '#/components/schemas/SpotHolding' }
+        cash: { $ref: '#/components/schemas/DecimalInt256' }
+        withdrawable_cash: { $ref: '#/components/schemas/HexUint256' }
+        net_deposits: { $ref: '#/components/schemas/DecimalInt256' }
+
+    Trigger:
+      type: object
+      description: An armed TP/SL trigger.
+      properties:
+        orderbook_id: { $ref: '#/components/schemas/Bytes32' }
+        order_id: { $ref: '#/components/schemas/Bytes32' }
+        tx_hash: { $ref: '#/components/schemas/Bytes32' }
+        bidder: { $ref: '#/components/schemas/Address' }
+        nonce: { type: integer, format: int64 }
+        size:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Signed. `"0"` (only with `grouping` `asset`) sizes from the owner's exposure when the trigger fires.
+        limit_price: { $ref: '#/components/schemas/HexUint256' }
+        trigger_price: { $ref: '#/components/schemas/HexUint256' }
+        trigger_type: { $ref: '#/components/schemas/TriggerType' }
+        grouping: { $ref: '#/components/schemas/TriggerGrouping' }
+        reduce_only: { type: boolean }
+        ioc: { type: boolean }
+        deadline: { $ref: '#/components/schemas/TimestampString' }
+        end:
+          type: integer
+          description: TTL expiry, microseconds, as a JSON number.
+
+    BackstopTransfer:
+      type: object
+      description: One backstop sweep. Amounts are 1e18-scaled decimal strings.
+      properties:
+        orderbook_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: The swept position's market. Omitted on the cash-sweep row.
+        size: { type: string, description: Signed position size moved. }
+        cash: { type: string, description: Signed. }
+        mark_price: { type: string }
+        equity: { type: string, description: Signed account equity when the sweep triggered. }
+        realized_pnl: { type: string, description: 'Signed. `"0"` on the cash-sweep row and older rows.' }
+        timestamp_us: { $ref: '#/components/schemas/Timestamp' }
+
+    ActivityEntry:
+      type: object
+      description: |
+        Tagged by `activity_type`. Every entry carries `ts`, its tick in microseconds.
+
+        - `order`: the order at its placement tick (`ts` is its `deadline`), with
+          every `Order` field flattened in and the `Order` encodings (unsigned `0x` hex).
+          ADL closes appear as orders with `kind` `adl` or `adl_counterparty`; backstop
+          sweeps appear only as `backstop` entries.
+        - `backstop`: `book` (the swept market; omitted on the cash sweep), `size`, `cash`,
+          `mark` (the sweep's mark price), `equity`, `pnl` (realized; `"0"` on the cash
+          sweep).
+        - `bridge_transfer`: `tx` (the bridge transaction hash), `idx` (position among the
+          tick's deposits, `0` for a withdrawal), `token`, `amount`, `error`.
+        - `transfer`: `id` (the transfer id), `token`, `amount`, `error`.
+
+        Outside the flattened order, amounts are 1e18-scaled decimal strings. `amount`
+        is signed: negative left the account, positive arrived. `error` is omitted on
+        success.
+      required: [activity_type, ts]
+      properties:
+        activity_type:
+          type: string
+          enum: [order, backstop, bridge_transfer, transfer]
+        ts: { $ref: '#/components/schemas/Timestamp' }
+        book: { $ref: '#/components/schemas/Bytes32' }
+        size: { type: string }
+        cash: { type: string }
+        mark: { type: string }
+        equity: { type: string }
+        pnl: { type: string }
+        tx: { $ref: '#/components/schemas/Bytes32' }
+        idx: { type: integer }
+        id: { $ref: '#/components/schemas/Bytes32' }
+        token: { $ref: '#/components/schemas/Address' }
+        amount: { type: string, pattern: "^-?[0-9]+$" }
+        error: { type: string }
+      additionalProperties: true
+
+    # ==========================================
+    # EXPLORER
+    # ==========================================
+    ExplorerTransaction:
+      type: object
+      description: |
+        Receipt fields merged with Ethereum JSON transaction fields (receipt wins on
+        overlap; the receipt's `transactionHash` is dropped for the transaction's `hash`),
+        plus `attestations`, `committee_epoch` and `decoded`. Block fields are absent or
+        `null` while the transaction is served from the recent cache.
+      additionalProperties: true
+      properties:
+        hash: { $ref: '#/components/schemas/Bytes32' }
+        from: { $ref: '#/components/schemas/Address' }
+        to: { $ref: '#/components/schemas/Address' }
+        nonce: { type: string, description: '`0x` hex' }
+        input: { type: string, description: '`0x` hex calldata' }
+        status: { type: string, description: '`0x1` success, `0x0` failure' }
+        blockNumber: { type: string, nullable: true }
+        blockHash: { type: string, nullable: true }
+        transactionIndex: { type: string, nullable: true }
+        logs: { type: array, items: { type: object } }
+        attestations:
+          type: array
+          items:
+            type: object
+            properties:
+              validator_address: { $ref: '#/components/schemas/Address' }
+              sequence_number: { type: integer, format: int64 }
+              batch_index: { type: integer }
+              timestamp: { $ref: '#/components/schemas/Timestamp' }
+              signature: { type: string }
+        committee_epoch: { type: integer, format: int64 }
+        decoded: { $ref: '#/components/schemas/DecodedCalldata' }
+
+    DecodedCalldata:
+      type: object
+      description: |
+        Calldata decoded against Pod's precompiles. For an unrecognized target or
+        selector, `contract` is `null` and only `selector` and `raw` are set.
+      properties:
+        contract: { type: string, nullable: true }
+        address: { $ref: '#/components/schemas/Address' }
+        symbol: { type: string }
+        function: { type: string }
+        args: { type: object, additionalProperties: true }
+        order_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Resting order id the call creates (`submitOrder`, `submitTrigger`).
+        sequence: { type: integer, description: Position inside the parent `submitBatch`. }
+        intents:
+          type: array
+          description: Decoded sub-intents of a `submitBatch`.
+          items: { type: object }
+        selector: { type: string, description: '4-byte selector, `0x` hex.' }
+        raw: { type: string, description: 'Raw calldata, `0x` hex.' }
+
+    # ==========================================
+    # BRIDGE
+    # ==========================================
+    BridgeConfig:
+      type: object
+      properties:
+        claim_chain_id:
+          type: integer
+          format: int64
+          description: The one chain withdrawals are claimable on. `0` when no bridge is configured.
+        source_contract:
+          $ref: '#/components/schemas/Address'
+          description: Bridge contract on that chain. Zero address when no bridge is configured.
+        version:
+          type: integer
+          format: int64
+          description: Bridge version; feeds the claim-hash domain separator.
+        tokens:
+          type: array
+          description: Every bridged token, ordered by `pod_token`. The only source of the Pod-token to bridged-chain-token mapping. Empty when no bridge is configured.
+          items:
+            type: object
+            properties:
+              pod_token: { $ref: '#/components/schemas/Address' }
+              l1_token: { $ref: '#/components/schemas/Address' }
+              decimals:
+                type: integer
+                description: Decimals on the bridged chain. A withdrawal amount must be a multiple of `10^(18 - decimals)` wei.
+              min:
+                $ref: '#/components/schemas/HexUint256'
+                description: Minimum withdrawal, bridged-chain decimals.
+              max:
+                $ref: '#/components/schemas/HexUint256'
+                description: Maximum withdrawal, bridged-chain decimals.
+
+    Withdrawal:
+      type: object
+      description: One withdrawal outcome, as `pod_withdrawals` delivers it.
+      required: [tx_hash, withdrawer, to, token, amount, timestamp_us]
+      properties:
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+          description: The withdraw transaction's hash, the withdrawal's id.
+        withdrawer:
+          $ref: '#/components/schemas/Address'
+          description: The debited account; the master for a delegated withdrawal.
+        to:
+          $ref: '#/components/schemas/Address'
+          description: Recipient on the bridged chain.
+        token:
+          $ref: '#/components/schemas/Address'
+          description: Pod-side token.
+        amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: Pod's 18 decimals, as signed. `claim` takes `proof.amount`.
+        error:
+          type: string
+          enum: [insufficient_balance, not_included]
+          description: Why the withdrawal was refused. Omitted otherwise.
+        timestamp_us:
+          type: integer
+          format: int64
+          description: The tick's batch deadline, microseconds. Also the `since` cursor.
+
+    WithdrawalDetail:
+      type: object
+      required: [withdrawal, status]
+      properties:
+        withdrawal: { $ref: '#/components/schemas/Withdrawal' }
+        status:
+          type: string
+          enum: [claimable, pending, refused]
+          description: May gain values. Treat an unfamiliar one as `pending`.
+        proof:
+          $ref: '#/components/schemas/BridgeClaimProof'
+
+    BridgeClaimProof:
+      type: object
+      description: |
+        Present exactly when `status` is `claimable`. Everything `claim(token, amount, to,
+        proof, auxTxSuffix)` needs, except `token`: map the Pod-side `token` here to
+        `l1_token` from `/bridge/config`.
+      required: [proof, committee_epoch, aux_tx_suffix]
+      properties:
+        proof:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 255 }
+          description: Certificate (`0x00` then one 65-byte signature per signer, by ascending signer address) or, for a withdrawal from before a bridge version bump, a Merkle proof.
+        committee_epoch:
+          type: integer
+          format: int64
+          description: Currently always `0`.
+        aux_tx_suffix:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 255 }
+          description: The withdrawal's id (its tx hash) as bytes.
+        token:
+          $ref: '#/components/schemas/Address'
+          description: Pod-side token. Omitted on legacy rows.
+        amount:
+          $ref: '#/components/schemas/HexUint256'
+          description: In the token's bridged-chain decimals; pass straight to `claim`. Omitted on legacy rows.
+        to:
+          $ref: '#/components/schemas/Address'
+          description: Recipient on the bridged chain. Omitted on legacy rows.
+        claim_hash:
+          $ref: '#/components/schemas/Bytes32'
+          description: The key `Bridge.processedRequests` uses; check it to see whether the claim already landed.

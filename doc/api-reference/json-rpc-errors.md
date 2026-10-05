@@ -32,6 +32,9 @@ Every error is returned as a JSON-RPC 2.0 error object:
 | `-32000` | `transaction validation failed` | A protocol-level validation check failed (nonce, balance, chain ID, gas price, …).      |
 | `-32003` | `Transaction rejected: …`     | A quorum of validators rejected the transaction.                                          |
 | `999`    | `Account locked`              | The account is locked pending recovery. `data` carries the recovery target.              |
+| `997`    | `Empty transaction required to make progress` | From `pod_sendRawTransaction`: the account's head nonce will not finalize on its own. `data` carries the nonce to unblock. |
+| `-32002` | `Chain has no block yet`      | `eth_blockNumber` before the first block exists.                                          |
+| `-32025` | `not available in your region` | `eth_sendRawTransaction` / `pod_sendRawTransaction` from a geo-restricted source. |
 | `-32020` … `-32023` | (see below)        | A websocket subscription was closed by the server. Delivered as a notification, not a response — see [Subscription close notifications](#subscription-close-notifications). |
 
 ### `3` — execution reverted
@@ -113,6 +116,30 @@ Returned when you submit a transaction for an account that is locked due to a pe
 | `recovery_target`       | hash   | Transaction hash of the recovery target.             |
 | `recovery_target_nonce` | number | Nonce of the recovery target.                        |
 
+### `997` — empty transaction required
+
+Returned by `pod_sendRawTransaction` when the account's head nonce has no certificate and will not finalize on its own. Submit a deadline-free empty self-transfer (`to` = your own address, value 0, no calldata) at `data.nonce`; once that finalizes (or the head becomes recoverable), resubmit.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": 997,
+    "message": "Empty transaction required to make progress",
+    "data": {
+      "nonce": 12,
+      "errors": ["Account has pending transaction"]
+    }
+  }
+}
+```
+
+| `data` field | Type     | Description                                                       |
+| ------------ | -------- | ----------------------------------------------------------------- |
+| `nonce`      | number   | The head nonce to submit the empty self-transfer at.              |
+| `errors`     | string[] | Any validator rejections observed while waiting for attestations. |
+
 ## Subscription close notifications
 
 The codes above answer a request. A websocket subscription created with [`eth_subscribe`](json-rpc/openapi.yaml) can also be ended by the *server*, and that arrives as a notification rather than a response: same `eth_subscription` method as a normal update, but carrying `error` in place of `result`.
@@ -151,6 +178,8 @@ The subscription is over once this arrives; nothing further is sent for it. The 
 `resume_since` names a whole tick, because `since` selects whole ticks. So if the subscription closed midway through one, resuming redelivers that tick in full and you may see a few deltas twice. That is deliberate — a repeated delta is something a client can dedupe, whereas one that was never sent is unrecoverable.
 
 `pod_orders_v2` is the exception, because it can resume inside a tick. A batch settles many orderbooks and is delivered as one frame each, so a close there also carries `resume_since_book`; pass both back and you receive exactly the frames you never got, with nothing replayed. That is the case the two-part cursor exists for — a close midway through a batch is precisely when you cannot tell where you got to, since frames the connection already accepted may not have reached your code yet.
+
+On the delta channels (`pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_candles`, `pod_withdrawals`, `pod_transfers`, `pod_activity`), `eth_subscribe` rejects a `since` older than the node's replay buffer, or any `since` while the buffer is empty, with `-32602` `since too old; backfill via REST then resubscribe`. Backfill the gap over [REST](rest/README.md), then resubscribe with a recent `since`.
 
 A close is the **only** signal that a delta stream lost data — the stream itself never has holes. Treat the absence of updates as an idle market only while the subscription is open.
 
@@ -194,5 +223,5 @@ Pod also returns the standard codes defined by the JSON-RPC 2.0 specification:
 | Code     | Meaning          | Typical cause                                                        |
 | -------- | ---------------- | ------------------------------------------------------------------- |
 | `-32600` | Invalid Request  | Malformed request, or an unauthorized call to an admin-only method. |
-| `-32602` | Invalid Params   | Parameters could not be parsed (e.g. a malformed hash or raw transaction). |
+| `-32602` | Invalid Params   | Parameters could not be parsed (e.g. a malformed hash or raw transaction), or a subscription `since` older than the replay buffer. |
 | `-32603` | Internal Error   | An internal server error while servicing the request.               |
