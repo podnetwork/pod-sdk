@@ -192,18 +192,22 @@ const stubEvents = (): PnlEvent[] => fillRows.map((r) => ({ market: PERP, timeUs
 
 /** A fake node: one perp market, the fill rows above, ticks from the functions above. Counts fills calls. */
 const STUB_ACCOUNT_VALUE = W(5_000);
-function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRoute?: boolean; firstTickUs?: number; size?: bigint; restReads?: boolean } = {}) {
-  const calls = { fills: 0, solutions: 0, solutionsBeforeBirth: 0 };
+function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRoute?: boolean | "503"; firstTickUs?: number; size?: bigint; restReads?: boolean; lagTicks?: number } = {}) {
+  const calls = { fills: 0, solutions: 0, solutionsBeforeBirth: 0, status: 0 };
+  // An indexer that trails the engine by `lagTicks` for the first two status polls.
+  const watermark = () => (opts.lagTicks && calls.status <= 2 ? NOW_US - opts.lagTicks * TICK_US : NOW_US);
   const rest = {
     markets: async () => [{ id: PERP, type: "perp", base: { address: "0x01" }, fundingWindowUs: 1, auctionIntervalMs: 500 }],
     // no bases: the synthetic fills are not engine-consistent, so the residual check must stay off
     positions: async () => ({ positions: [{ kind: "perp", orderbookId: PERP, size: opts.size ?? perpSize }], accountValue: STUB_ACCOUNT_VALUE }),
     balances: async () => ({ holdings: [] }),
-    status: async () => ({ solutionNow: NOW_US / 1000 }),
+    status: async () => { calls.status++; return { solutionNow: watermark() / 1000 }; },
     backstopTransfers: async () => ({ transfers: [] }),
     bridgeWithdrawals: async () => [],
     activity: opts.activityRoute === false
-      ? async () => { throw new Error("404"); }
+      ? async () => { throw new PodHttpError(404, "/clob/activity", "no route"); }
+      : opts.activityRoute === "503"
+      ? async () => { throw new PodHttpError(503, "/clob/activity", "indexer unavailable"); }
       : async (_a: string, q: { from: number; to: number }) => ({
           activity: (opts.flows ?? []).filter((f) => (f as { timeMs: number }).timeMs >= q.from && (f as { timeMs: number }).timeMs < q.to),
           nextCursor: null,
@@ -224,7 +228,8 @@ function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRou
   }
   function solutionsAnswer(untilUs: number | undefined, sinceUs: number | undefined) {
     calls.solutions++;
-    const t = Math.floor(((untilUs ?? NOW_US + 1) - 1) / TICK_US) * TICK_US;
+    // A lagging indexer answers "newest at or before t" with its newest indexed tick.
+    const t = Math.min(Math.floor(((untilUs ?? NOW_US + 1) - 1) / TICK_US) * TICK_US, watermark());
     if (sinceUs !== undefined && t < sinceUs) return [];
     if (t < (opts.firstTickUs ?? 0)) { calls.solutionsBeforeBirth++; return []; }
     return [{ orderbook_id: PERP, timestamp: t, mark_price: "0x" + markPerp(t).toString(16), funding_index: fundingRaw(t).toString() }];
@@ -387,5 +392,30 @@ describe("nodes without the REST solutions and fills routes", () => {
     const viaRest = await fetchPnlHistory(stubDeps().deps, "0x1", { from: 0, points: 120 });
     const viaRpc = await fetchPnlHistory(stubDeps(undefined, { restReads: false }).deps, "0x1", { from: 0, points: 120 });
     expect(viaRpc.points.map((p) => p.pnl)).toEqual(viaRest.points.map((p) => p.pnl));
+  });
+});
+
+describe("review fixes", () => {
+  it("never values a point with a tick read before the indexer caught up", async () => {
+    const lagging = await fetchPnlHistory(stubDeps(undefined, { lagTicks: 3 }).deps, "0x1", { from: 0, points: 120 });
+    const oneShot = foldPnlHistory({ refTimeUs: NOW_US, legs: [{ market: PERP, kind: "perp", size: perpSize }], events: stubEvents(), gridUs: lagging.points.map((p) => p.time * 1000), tickAt: stubTickAt });
+    expect(lagging.points.map((p) => p.pnl)).toEqual(oneShot.points.map((p) => p.pnl));
+  });
+
+  it("fails the run on a transient activity error instead of caching the range without flows", async () => {
+    const cache = new PnlHistoryCache();
+    await expect(fetchPnlHistory(stubDeps(cache, { activityRoute: "503" }).deps, "0x1", { from: 0, points: 50 })).rejects.toBeInstanceOf(PodHttpError);
+    expect(cache.missing(0, NOW_US + 1)).toEqual([{ from: 0, to: NOW_US + 1 }]);
+  });
+
+  it("refetches ranges cached from a node without the feed once the feed appears", async () => {
+    const cache = new PnlHistoryCache();
+    const before = await fetchPnlHistory(stubDeps(cache, { activityRoute: false }).deps, "0x1", { from: 0, points: 50 });
+    expect(before.points.every((p) => p.accountValue === undefined)).toBe(true);
+    const after = stubDeps(cache, { flows: [{ activityType: "bridge_transfer", timeMs: 1_900 * TICK_US / 1000, txHash: "0x1", token: "0xee", amount: W(100) }] });
+    const r = await fetchPnlHistory(after.deps, "0x1", { from: 0, points: 50 });
+    expect(after.calls.fills).toBeGreaterThan(0);
+    expect(r.points.every((p) => p.accountValue !== undefined)).toBe(true);
+    expect(r.warnings).toEqual([]);
   });
 });

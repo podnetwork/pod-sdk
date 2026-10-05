@@ -243,6 +243,9 @@ export class PnlHistoryCache {
    * market has no rows before its first tick, so one empty answer rules out
    * every earlier point without a call. */
   readonly noRowBefore = new Map<MarketId, number>();
+  /** Set when a range was cached from a node without the activity feed; the
+   * next run that does get flows drops the cache so those ranges are refetched. */
+  flowsMissing = false;
   private events: PnlEvent[] = [];
   private coverage: { from: number; to: number }[] = [];
 
@@ -254,6 +257,7 @@ export class PnlHistoryCache {
     this.ticks.clear();
     this.tickTimes.clear();
     this.noRowBefore.clear();
+    this.flowsMissing = false;
     this.events = [];
     this.coverage = [];
   }
@@ -385,8 +389,12 @@ async function drainFlows(rest: PodRestClient, account: Address, fromUs: number,
       for (const e of page.activity) if (e.activityType !== "order") out.push(e);
       cursor = page.nextCursor ?? undefined;
     } while (cursor);
-  } catch {
-    return undefined;
+  } catch (e) {
+    // Only a missing route means the node has no feed. Anything else (a 503,
+    // a timeout) must fail the run, or the range would be cached without
+    // its flows and every later account value would be wrong and silent.
+    if (e instanceof PodHttpError && e.status === 404) return undefined;
+    throw e;
   }
   return out;
 }
@@ -480,8 +488,13 @@ export async function* streamPnlHistory(
     });
   };
   type SolutionsQuery = Parameters<Reads["solutions"]>[0];
-  const solutions = (queries: SolutionsQuery[]): Promise<WireSolution[][]> =>
-    mapLimit(queries, LOOKUPS_IN_FLIGHT, (q) => io.solutions(q));
+  // A "newest row at or before t" answer is only right once the indexer has
+  // reached t, so no tick lookup goes out before the watermark check resolves.
+  // Fills do not wait: the lag retry below fetches the newest window again.
+  const solutions = async (queries: SolutionsQuery[]): Promise<WireSolution[][]> => {
+    await indexerLagged;
+    return mapLimit(queries, LOOKUPS_IN_FLIGHT, (q) => io.solutions(q));
+  };
   /** All markets' rows at each tick, one call per tick; skipped before every
    * known market's first tick. */
   const fetchAllAt = async (times: number[]) => {
@@ -530,6 +543,12 @@ export async function* streamPnlHistory(
     fixed.push({ market: m.id, timeUs: w.timeUs, deltaSize: -w.amount, price: 0n, kind: "withdraw" });
   }
   walker.feed(fixed);
+  // Ranges cached from a node without the activity feed hold no flows. If the
+  // feed is there now, drop them so this run fetches everything with it.
+  if (cache.flowsMissing && (await drainFlows(deps.rest, account, nowUs, nowUs + 1)) !== undefined) {
+    cache.flowsMissing = false;
+    cache.forget(0, Number.MAX_SAFE_INTEGER);
+  }
   // Deposits, transfers and backstop cash sweeps come from the activity feed;
   // withdrawals and sweep legs already arrived above, so those rows are skipped.
   let flowsAvailable = true;
@@ -572,7 +591,7 @@ export async function* streamPnlHistory(
     const warnings: string[] = [];
     await Promise.all(cache.missing(oldest + 1, bound + 1).map(async (r) => {
       const [page, flows] = await Promise.all([drainFills(io, account, r.from, r.to), drainFlows(deps.rest, account, r.from, r.to)]);
-      if (flows === undefined) flowsAvailable = false;
+      if (flows === undefined) { flowsAvailable = false; cache.flowsMissing = true; }
       cache.add(r.from, r.to, page.fills.map(toEvent).concat(toFlowEvents(flows ?? [])));
       warnings.push(...page.warnings);
     }));
