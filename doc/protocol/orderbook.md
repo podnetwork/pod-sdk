@@ -66,12 +66,12 @@ At the end of each batch interval, the matching engine runs a double auction usi
 Only limit orders determine p; market orders match but never set the price. Four prices bound the clearing range — the marginal matched limit sell and buy (ps, pb) and the best unmatched limit buy and sell left on the book (b', s'). The range is [max(ps, b'), min(pb, s')], skipping any of the four that don't exist, and p is chosen by case:
 
 - Both a lower and an upper bound exist — p is their midpoint.
-- Only one side has a limit bound — p is that bound. For example, market buys sweeping all resting limit sells clear at the highest matched sell price.
-- No limit order bounds the price at all (e.g. both sides matched only market orders) — p falls back to the previous batch's clearing price; on perpetual markets, to the mark price if there is no previous clearing. A spot market with no previous clearing price cannot price the batch: it emits no fills and the orders rest until a clearing price exists (market orders and other IOC orders still expire at the end of their batch).
+- Only one side has a limit bound — p is that bound. For example, market buys that fill against every resting limit sell clear at the highest matched sell price.
+- No limit order bounds the price at all (e.g. both sides matched only market orders) — p falls back to the previous batch's clearing price; on perpetual markets, to the mark price if there is no previous clearing. A spot market with no previous clearing price cannot price the batch: it emits no fills and the orders rest until a clearing price exists (IOC orders still expire at the end of their batch).
 
 Finally, p is clamped to the prices of the matched orders themselves, market orders included: every matched seller receives at least their order's price and every matched buyer pays at most theirs, so no order ever fills worse than its own price.
 
-All matched orders execute at the same uniform price. No participant gets a better or worse price based on when their order arrived within the batch. When a price level is only partially filled at the margin, orders at that level fill in queue priority: earliest batch deadline first, with the order ID breaking ties between same-deadline orders, so every node allocates the marginal fill identically.
+All matched orders execute at the same uniform price. No participant gets a better or worse price based on when their order arrived within the batch. When a price level is only partially filled at the margin, orders admitted to the book in an earlier batch fill first, and the order ID breaks ties between orders admitted in the same batch, so every node allocates the marginal fill identically.
 
 ### Batch Deadline
 
