@@ -32,9 +32,9 @@ Every error is returned as a JSON-RPC 2.0 error object:
 | `-32000` | `transaction validation failed` | A protocol-level validation check failed (nonce, balance, chain ID, gas price, …).      |
 | `-32003` | `Transaction rejected: …`     | A quorum of validators rejected the transaction.                                          |
 | `999`    | `Account locked`              | The account is locked pending recovery. `data` carries the recovery target.              |
-| `997`    | `Empty transaction required to make progress` | `pod_sendRawTransaction` only: the account's head nonce will not finalize on its own. `data` carries the nonce to unblock. |
+| `997`    | `Empty transaction required to make progress` | From `pod_sendRawTransaction`: the account's head nonce will not finalize on its own. `data` carries the nonce to unblock. |
 | `-32002` | `Chain has no block yet`      | `eth_blockNumber` before the first block exists.                                          |
-| `-32025` | `not available in your region` | `eth_sendRawTransaction` / `pod_sendRawTransaction` from a geo-restricted source. The request is well-formed; it is refused because of where it came from. |
+| `-32025` | `not available in your region` | `eth_sendRawTransaction` / `pod_sendRawTransaction` from a geo-restricted source. |
 | `-32020` … `-32023` | (see below)        | A websocket subscription was closed by the server. Delivered as a notification, not a response — see [Subscription close notifications](#subscription-close-notifications). |
 
 ### `3` — execution reverted
@@ -179,7 +179,7 @@ The subscription is over once this arrives; nothing further is sent for it. The 
 
 `pod_orders_v2` is the exception, because it can resume inside a tick. A batch settles many orderbooks and is delivered as one frame each, so a close there also carries `resume_since_book`; pass both back and you receive exactly the frames you never got, with nothing replayed. That is the case the two-part cursor exists for — a close midway through a batch is precisely when you cannot tell where you got to, since frames the connection already accepted may not have reached your code yet.
 
-A subscription can also be refused up front. On the delta channels (`pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_candles`, `pod_withdrawals`, `pod_transfers`, `pod_activity`), a `since` older than the node's replay buffer — or any `since` while the buffer is still empty — is rejected with `-32602` `since too old; backfill via REST then resubscribe`. Backfill the gap over [REST](rest/README.md), then subscribe again with a recent `since`.
+On the delta channels (`pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_candles`, `pod_withdrawals`, `pod_transfers`, `pod_activity`), `eth_subscribe` rejects a `since` older than the node's replay buffer, or any `since` while the buffer is empty, with `-32602` `since too old; backfill via REST then resubscribe`. Backfill the gap over [REST](rest/README.md), then resubscribe with a recent `since`.
 
 A close is the **only** signal that a delta stream lost data — the stream itself never has holes. Treat the absence of updates as an idle market only while the subscription is open.
 

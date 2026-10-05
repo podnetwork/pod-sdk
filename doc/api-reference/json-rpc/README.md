@@ -22,7 +22,7 @@ A pod block is one auction tick: its height counts ticks and its `timestamp` is 
 | **eth\_getBlockByHash**   | Returns block information by hash    | Returns the block, or `null` if there is none with that hash.                                                                    |
 | **eth\_getBlockByNumber** | Returns block information by number  | Returns the block, or `null` past the tip, below the oldest retained block, or before the first block. `latest`, `pending`, `safe` and `finalized` all resolve to the tip; `earliest` to the oldest retained block. Unknown tags and malformed numbers are rejected with `-32602`. |
 
-**Timestamps are in microseconds.** Pod uses microsecond-precision Unix timestamps for transaction deadlines, TTLs and subscription cursors (`since`). Block `timestamp` is the Ethereum-style value in seconds.
+**Timestamps are in microseconds.** Pod uses microsecond-precision Unix timestamps for transaction deadlines, TTLs and subscription cursors (`since`). Block `timestamp` is in seconds.
 
 **Block-related fields are zeroed.** EVM opcodes that reference block properties (`block.number`, `block.coinbase`, `block.difficulty`, `block.basefee`) return 0. `block.timestamp` returns the local validator's timestamp at execution time.
 

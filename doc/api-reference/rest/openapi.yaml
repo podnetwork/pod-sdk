@@ -8,7 +8,7 @@ info:
     is served by every node. All routes allow any origin (CORS).
 
     Errors are plain-text bodies. A malformed path or query parameter (bad hex, wrong
-    length, unknown enum value, non-numeric integer) is a `400` before the handler runs.
+    length, unknown enum value, non-numeric integer) is a `400`.
 
 servers:
   - url: https://rpc.podtestnet.dev/v1
@@ -37,7 +37,7 @@ tags:
   - name: Bridge
     description: |
       Bridge configuration and withdrawal outcomes, with the claim proof for a single
-      withdrawal. Served by every node, with or without the CLOB indexer.
+      withdrawal. Served by every node.
 
       &nbsp; &nbsp; &nbsp;
 
@@ -155,12 +155,12 @@ paths:
       operationId: getCandles
       description: |
         Closed OHLCV bars in the half-open window `[from, to)`, newest first. The forming
-        bar is never returned; it is dropped after `limit` applies, so a page that reaches
-        the present can hold one bar fewer than `limit`.
+        bar is dropped after `limit` applies, so a page that reaches the present can hold
+        one bar fewer than `limit`.
 
-        Page back with `to = range.from_us / 1e6`. The gap after `range.to_us` up to
-        `solution_now_us` is the forming tail; continue live from there with the
-        `pod_candles` websocket channel.
+        Page back with `to = range.from_us / 1e6`. The forming bar is the bucket containing
+        `solution_now_us`; build it from the `pod_candles` websocket channel, subscribed
+        with `since` one microsecond before that bucket's start.
 
         An orderbook id that names no book returns an empty window.
 
@@ -174,11 +174,11 @@ paths:
           schema: { $ref: '#/components/schemas/CandleResolution' }
         - name: from
           in: query
-          description: Window start, unix **seconds**, inclusive.
+          description: Window start, unix seconds, inclusive.
           schema: { type: integer, format: int64, default: 0 }
         - name: to
           in: query
-          description: Window end, unix **seconds**, exclusive. Defaults to solution time.
+          description: Window end, unix seconds, exclusive. Defaults to solution time.
           schema: { type: integer, format: int64 }
         - name: limit
           in: query
@@ -264,11 +264,10 @@ paths:
       operationId: getSolutions
       description: |
         Per-tick solution history: clearing, mark and oracle prices, volume, funding,
-        open interest and the mark/funding inputs. Newest first, in **whole ticks**:
-        `limit` counts ticks, and a tick carries one row per orderbook.
+        open interest and the mark/funding inputs. Newest first, in whole ticks: `limit`
+        counts ticks, and a tick carries one row per orderbook.
 
-        There is no cursor. Page back by passing the oldest `timestamp` of the previous
-        page as `until_us`.
+        Page back by passing the oldest `timestamp` of the previous page as `until_us`.
 
         An orderbook id that names no book returns no rows.
 
@@ -316,19 +315,19 @@ paths:
         `kind: backstop_transfer`.
 
         Two paging modes:
-        - **Cursor** (default): pass `next_cursor` back as `cursor`; `null` on the last page.
+        - Cursor (default): pass `next_cursor` back as `cursor`; `null` on the last page.
           `until` bounds the first page.
-        - **Offset**: set `offset`. `cursor` and `until` are then ignored and `next_cursor`
+        - Offset: set `offset`. `cursor` and `until` are then ignored and `next_cursor`
           is `null`; page with `offset += limit` while `offset < total_count`.
 
         `Cache-Control: public, max-age=31536000, immutable` when the page's upper bound
         (`cursor` or `until`) has been reached by solution time and every returned order
-        is terminal, otherwise `no-store`. Offset pages are always `no-store`.
+        is terminal, otherwise `no-store`. Offset pages are `no-store`.
       parameters:
         - $ref: '#/components/parameters/AccountPath'
         - name: until
           in: query
-          description: Upper bound on order deadline, unix **seconds**. Ignored when `cursor` or `offset` is set.
+          description: Upper bound on order deadline, unix seconds. Ignored when `cursor` or `offset` is set.
           schema: { type: integer, format: int64 }
         - name: limit
           in: query
@@ -381,7 +380,7 @@ paths:
       operationId: getFills
       description: |
         The account's fills in the window `[from_us, to_us)`, newest first. Capped at 500
-        rows with **no cursor**: narrow the window to read further back.
+        rows; narrow the window to read further back.
 
         An orderbook id that names no book returns no rows.
 
@@ -590,11 +589,11 @@ paths:
           schema: { type: string, example: "order,transfer" }
         - name: from
           in: query
-          description: Window start, **microseconds**, inclusive.
+          description: Window start, microseconds, inclusive.
           schema: { type: integer, format: int64 }
         - name: to
           in: query
-          description: Window end, **microseconds**, exclusive. `from >= to` is a `400` (`from must be below to`).
+          description: Window end, microseconds, exclusive. `from >= to` is a `400` (`from must be below to`).
           schema: { type: integer, format: int64 }
       responses:
         '200':
@@ -644,7 +643,7 @@ paths:
         validator attestations and decoded calldata. Recent transactions are served from
         memory; older ones from the node's ledger database.
 
-        `Cache-Control: no-store` (attestations keep arriving).
+        `Cache-Control: no-store`.
       parameters:
         - name: hash
           in: path
@@ -672,8 +671,8 @@ paths:
       operationId: listTransactions
       description: |
         Newest-first page of the node's in-memory ring of recent transactions (1000 by
-        default, `POD_RECENT_TX_CACHE_CAP`). Older history is reachable only by hash, via
-        `/tx/{hash}`. Each entry has the `/tx/{hash}` shape.
+        default, `POD_RECENT_TX_CACHE_CAP`). Older transactions are served by `/tx/{hash}`.
+        Each entry has the `/tx/{hash}` shape.
 
         `Cache-Control: no-store`.
       parameters:
@@ -712,8 +711,8 @@ paths:
       summary: Get Bridge Configuration
       operationId: getBridgeConfig
       description: |
-        The one chain a withdrawal is claimable on, its bridge contract, the bridge
-        version, and every bridged token.
+        The chain withdrawals are claimable on, its bridge contract, the bridge version,
+        and every bridged token.
 
         `claim_chain_id` and `source_contract` are zero and `tokens` is empty when the node
         has no bridge configured. No withdrawal is admissible then.
@@ -742,12 +741,12 @@ paths:
       summary: List Withdrawals
       operationId: listWithdrawals
       description: |
-        Withdrawal outcomes for **every account**, oldest first by `(timestamp_us,
+        Withdrawal outcomes for every account, oldest first by `(timestamp_us,
         tx_hash)`. Same entries as the `pod_withdrawals` websocket channel, and `since` is
         the same cursor. To continue, pass the last entry's `timestamp_us` as `since` and its
         `tx_hash` as `since_id`.
 
-        Legacy `Bridge.withdraw` rows are not listed.
+        Legacy `Bridge.withdraw` rows are excluded.
 
         No `Cache-Control` header is set.
       parameters:
@@ -772,8 +771,7 @@ paths:
       operationId: listAccountWithdrawals
       description: |
         As `/bridge/withdrawals`, restricted to withdrawals debited from `account` (the
-        `withdrawer`, which is the master for a delegated withdrawal). Use it to backfill
-        behind a `pod_withdrawals` subscription after a disconnect.
+        `withdrawer`, which is the master for a delegated withdrawal).
 
         No `Cache-Control` header is set.
       parameters:
@@ -805,12 +803,12 @@ paths:
         - `pending`: fewer than `n - f` signatures are held, or this node failed to
           assemble a proof it should have. The node asks its peers for the missing
           signatures itself; keep polling, or ask another node.
-        - `refused`: refused at execution. Nothing was debited and no claim will ever
-          exist; resubmitting yields a new `tx_hash`. `withdrawal.error` usually names the
+        - `refused`: refused at execution. Nothing was debited and no claim will exist;
+          resubmitting yields a new `tx_hash`. `withdrawal.error` usually names the
           reason but can be absent.
 
-        Branch on the presence of `proof`: treat `refused` as terminal and
-        any other value, including an unfamiliar one, as "ask again".
+        Branch on the presence of `proof`: treat `refused` as terminal and anything else
+        as "ask again".
 
         `404` until the withdrawal has executed, a tick after admission.
 
@@ -1021,7 +1019,7 @@ components:
         market_type:
           type: string
           enum: [spot, perp]
-          description: Note `perp`, where order rows use `perpetual`.
+          description: Order rows spell this `perpetual`.
         auction_interval_us: { type: integer, format: int64, description: 'Batch interval, microseconds' }
         maker_fee: { type: string, description: 'Fee rate as a decimal fraction, six places (`"0.000150"` is 1.5 bps).' }
         taker_fee: { type: string, description: 'Fee rate as a decimal fraction, six places.' }
@@ -1033,7 +1031,7 @@ components:
         max_leverage: { type: integer }
         initial_margin:
           type: string
-          description: Initial-margin rate, 1e18-scaled decimal string. Not rounded like `max_leverage`.
+          description: Initial-margin rate, 1e18-scaled decimal string, unrounded (`max_leverage` is rounded).
         funding_window_us: { type: integer, format: int64, description: 'Period `funding_rate` applies over, microseconds' }
         live_at_us: { type: integer, format: int64, description: 'When a `pending` market goes live, microseconds. Omitted when not scheduled.' }
         disable_at_us: { type: integer, format: int64, description: 'Scheduled halt, microseconds. Omitted when none.' }
@@ -1044,7 +1042,7 @@ components:
     MarketStats:
       type: object
       description: |
-        Live statistics for one market. Prices and amounts are 1e18-scaled **decimal**
+        Live statistics for one market. Prices and amounts are 1e18-scaled decimal
         strings. Optional fields are omitted until the data exists.
       required: [orderbook_id, volume_24h]
       properties:
@@ -1179,7 +1177,7 @@ components:
         fee: { $ref: '#/components/schemas/HexUint256' }
         deadline:
           $ref: '#/components/schemas/TimestampString'
-          description: The batch the order targets, microseconds, as a **string**.
+          description: The batch the order targets, microseconds, as a string.
         end:
           $ref: '#/components/schemas/Timestamp'
           description: TTL expiry, microseconds. Orders that never expire carry `18446744073709551615`, which exceeds a JavaScript safe integer.
@@ -1335,7 +1333,7 @@ components:
 
     BackstopTransfer:
       type: object
-      description: One backstop sweep. Amounts are 1e18-scaled **decimal** strings.
+      description: One backstop sweep. Amounts are 1e18-scaled decimal strings.
       properties:
         orderbook_id:
           $ref: '#/components/schemas/Bytes32'
@@ -1363,7 +1361,7 @@ components:
           tick's deposits, `0` for a withdrawal), `token`, `amount`, `error`.
         - `transfer`: `id` (the transfer id), `token`, `amount`, `error`.
 
-        Outside the flattened order, amounts are 1e18-scaled **decimal** strings. `amount`
+        Outside the flattened order, amounts are 1e18-scaled decimal strings. `amount`
         is signed: negative left the account, positive arrived. `error` is omitted on
         success.
       required: [activity_type, ts]
@@ -1424,8 +1422,8 @@ components:
     DecodedCalldata:
       type: object
       description: |
-        Calldata decoded against Pod's precompiles. When the target or selector is not
-        recognized, `contract` is `null` and only `selector` and `raw` are set.
+        Calldata decoded against Pod's precompiles. For an unrecognized target or
+        selector, `contract` is `null` and only `selector` and `raw` are set.
       properties:
         contract: { type: string, nullable: true }
         address: { $ref: '#/components/schemas/Address' }
@@ -1497,7 +1495,7 @@ components:
           description: Pod-side token.
         amount:
           $ref: '#/components/schemas/HexUint256'
-          description: Pod's 18 decimals, as signed. Never pass this to `claim`; use `proof.amount`.
+          description: Pod's 18 decimals, as signed. `claim` takes `proof.amount`.
         error:
           type: string
           enum: [insufficient_balance, not_included]
@@ -1525,8 +1523,6 @@ components:
         Present exactly when `status` is `claimable`. Everything `claim(token, amount, to,
         proof, auxTxSuffix)` needs, except `token`: map the Pod-side `token` here to
         `l1_token` from `/bridge/config`.
-
-        `proof` and `aux_tx_suffix` are **JSON arrays of byte values**.
       required: [proof, committee_epoch, aux_tx_suffix]
       properties:
         proof:
@@ -1543,10 +1539,10 @@ components:
           description: The withdrawal's id (its tx hash) as bytes.
         token:
           $ref: '#/components/schemas/Address'
-          description: '**Pod-side** token; not what `claim` takes. Omitted on legacy rows.'
+          description: Pod-side token. Omitted on legacy rows.
         amount:
           $ref: '#/components/schemas/HexUint256'
-          description: In the token's **bridged-chain** decimals; pass straight to `claim`. Omitted on legacy rows.
+          description: In the token's bridged-chain decimals; pass straight to `claim`. Omitted on legacy rows.
         to:
           $ref: '#/components/schemas/Address'
           description: Recipient on the bridged chain. Omitted on legacy rows.
