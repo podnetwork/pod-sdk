@@ -3,21 +3,21 @@
 // ms in, decoded (bigint / ms) out.
 
 import type {
-  Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery,
+  ActivityEntry, ActivityType, Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery,
   Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status,
   Trigger, TxExplorer, Withdrawal, WithdrawalsQuery,
 } from "../types/public.js";
 import type {
-  WireBackstopPage, WireBalances, WireBridgeConfig, WireCandlesEnvelope,
+  WireActivityPage, WireBackstopPage, WireBalances, WireBridgeConfig, WireCandlesEnvelope,
   WireMarketStatic, WireMarketStatsPage, WireOrderbook, WireOrdersPage, WirePositionsSnapshot,
   WireStatus, WireTriggersPage, WireWithdrawal,
 } from "../types/wire.js";
 import {
-  decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle,
+  decodeActivityEntry, decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle,
   decodeMarketDynamics, decodeMarketStatic, decodeOrder, decodeOrderbook, decodePositions,
   decodeStatus, decodeTrigger, decodeWithdrawal,
 } from "../codec/decode.js";
-import { msToSecs, usToMs } from "../codec/units.js";
+import { msToSecs, msToUs, usToMs } from "../codec/units.js";
 
 export type MarketDynamicsPatch = Partial<Market> & { id: string };
 
@@ -30,6 +30,11 @@ export interface OrdersPage {
   nextCursor: string | null;
   totalCount: number;
   solutionNow: number;
+}
+export interface ActivityPage {
+  activity: ActivityEntry[];
+  nextCursor: string | null;
+  solutionNow: number; // ms
 }
 export interface BackstopPage {
   transfers: BackstopTransfer[];
@@ -52,6 +57,13 @@ export interface OrdersQueryRest {
   until?: number; // ms
   limit?: number;
   cursor?: string;
+}
+export interface ActivityQueryRest {
+  limit?: number;
+  cursor?: string;
+  types?: ActivityType[];
+  from?: number; // ms
+  to?: number; // ms
 }
 export interface TriggersQueryRest {
   orderbook?: MarketId;
@@ -174,6 +186,26 @@ export class PodRestClient {
       nextCursor: w.next_cursor,
       totalCount: w.total_count,
       solutionNow: Math.trunc(w.solution_now / 1000),
+    };
+  }
+
+  /**
+   * One account's activity, newest first: orders at their placement tick, and the
+   * money that moved (ADR 0057 §5). The seed behind `pod_activity`; page it
+   * with `cursor`.
+   */
+  async activity(account: Address, q?: ActivityQueryRest): Promise<ActivityPage> {
+    const w = await this.get<WireActivityPage>(`/clob/activity/${account}`, {
+      limit: q?.limit,
+      cursor: q?.cursor,
+      activity_types: q?.types?.length ? q.types.join(",") : undefined,
+      from: q?.from !== undefined ? msToUs(q.from) : undefined,
+      to: q?.to !== undefined ? msToUs(q.to) : undefined,
+    });
+    return {
+      activity: w.activity.map(decodeActivityEntry).filter((e): e is ActivityEntry => e !== undefined),
+      nextCursor: w.next_cursor,
+      solutionNow: usToMs(w.solution_now),
     };
   }
 
