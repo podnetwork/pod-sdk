@@ -559,7 +559,8 @@ paths:
         One feed of everything that happened to the account: orders (each with its fills,
         at its placement tick), backstop sweeps, bridge deposits and withdrawals, and
         transfers. Entries are a union tagged by `activity_type`, ordered newest first by
-        `(timestamp, kind, key)`.
+        `(ts, kind, key)`; within one tick the kinds run `transfer`, `bridge_transfer`,
+        `backstop`, `order`.
 
         Pass `next_cursor` back as `cursor` for the next page. It is set whenever the page
         is full, so the last page can be empty.
@@ -578,7 +579,7 @@ paths:
           schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
         - name: cursor
           in: query
-          description: '`next_cursor` from the previous page, `"{timestamp_us}:{ordinal}:{key_hex}"`. Malformed is a `400` (`invalid cursor`).'
+          description: '`next_cursor` from the previous page, `"{ts}:{ordinal}:{key_hex}"` (`ordinal` `1`-`4` = `order`, `backstop`, `bridge_transfer`, `transfer`; `key_hex` is 40 bytes for an order, 8 otherwise). Treat it as opaque. Malformed is a `400` (`invalid cursor`).'
           schema: { type: string }
         - name: activity_types
           in: query
@@ -615,13 +616,13 @@ paths:
               example:
                 activity:
                   - activity_type: transfer
-                    timestamp_us: 1704153600000000
-                    transfer_id: "0x8f3c0000000000000000000000000000000000000000000000000000000000aa"
+                    ts: 1704153600000000
+                    id: "0x8f3c0000000000000000000000000000000000000000000000000000000000aa"
                     token: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
                     amount: "-25000000000000000000"
                   - activity_type: bridge_transfer
-                    timestamp_us: 1704150000000000
-                    tx_hash: "0x51d20000000000000000000000000000000000000000000000000000000000bb"
+                    ts: 1704150000000000
+                    tx: "0x51d20000000000000000000000000000000000000000000000000000000000bb"
                     idx: 0
                     token: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
                     amount: "1000000000000000000000"
@@ -1294,7 +1295,7 @@ components:
         cash: { $ref: '#/components/schemas/DecimalInt256' }
         withdrawable_cash:
           $ref: '#/components/schemas/HexUint256'
-          description: Cash minus initial margin reserved by open positions.
+          description: 'What a withdrawal or transfer can take now: `max(0, equity − max(initial_margin, transfer_margin_ratio × notional))`, where `notional` is `Σ |size| × mark` and `transfer_margin_ratio` is a network parameter (10% by default). Equity counts unrealized PnL.'
         net_deposits:
           $ref: '#/components/schemas/DecimalInt256'
           description: Native collateral deposited minus withdrawn. Lifetime PnL is `account_value − net_deposits`.
@@ -1349,37 +1350,37 @@ components:
     ActivityEntry:
       type: object
       description: |
-        Tagged by `activity_type`. Every entry carries `timestamp_us`, its tick in
-        microseconds.
+        Tagged by `activity_type`. Every entry carries `ts`, its tick in microseconds.
 
-        - `order`: the order at its placement tick (`timestamp_us` is its `deadline`), with
+        - `order`: the order at its placement tick (`ts` is its `deadline`), with
           every `Order` field flattened in and the `Order` encodings (unsigned `0x` hex).
           ADL closes appear as orders with `kind` `adl` or `adl_counterparty`; backstop
           sweeps appear only as `backstop` entries.
-        - `backstop`: `orderbook_id` (omitted on the cash sweep), `size`, `cash`,
-          `mark_price`, `equity`, `realized_pnl`.
-        - `bridge_transfer`: `tx_hash`, `idx` (position among the tick's deposits, `0` for a
-          withdrawal), `token`, `amount`, `error`.
-        - `transfer`: `transfer_id`, `token`, `amount`, `error`.
+        - `backstop`: `book` (the swept market; omitted on the cash sweep), `size`, `cash`,
+          `mark` (the sweep's mark price), `equity`, `pnl` (realized; `"0"` on the cash
+          sweep).
+        - `bridge_transfer`: `tx` (the bridge transaction hash), `idx` (position among the
+          tick's deposits, `0` for a withdrawal), `token`, `amount`, `error`.
+        - `transfer`: `id` (the transfer id), `token`, `amount`, `error`.
 
         Outside the flattened order, amounts are 1e18-scaled **decimal** strings. `amount`
         is signed: negative left the account, positive arrived. `error` is omitted on
         success.
-      required: [activity_type, timestamp_us]
+      required: [activity_type, ts]
       properties:
         activity_type:
           type: string
           enum: [order, backstop, bridge_transfer, transfer]
-        timestamp_us: { $ref: '#/components/schemas/Timestamp' }
-        orderbook_id: { $ref: '#/components/schemas/Bytes32' }
+        ts: { $ref: '#/components/schemas/Timestamp' }
+        book: { $ref: '#/components/schemas/Bytes32' }
         size: { type: string }
         cash: { type: string }
-        mark_price: { type: string }
+        mark: { type: string }
         equity: { type: string }
-        realized_pnl: { type: string }
-        tx_hash: { $ref: '#/components/schemas/Bytes32' }
+        pnl: { type: string }
+        tx: { $ref: '#/components/schemas/Bytes32' }
         idx: { type: integer }
-        transfer_id: { $ref: '#/components/schemas/Bytes32' }
+        id: { $ref: '#/components/schemas/Bytes32' }
         token: { $ref: '#/components/schemas/Address' }
         amount: { type: string, pattern: "^-?[0-9]+$" }
         error: { type: string }

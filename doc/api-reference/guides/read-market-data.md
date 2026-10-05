@@ -17,7 +17,7 @@ const get = async (path) => {
 };
 ```
 
-Prices, sizes and volumes are 1e18-scaled decimal strings; timestamps ending in `_us` are microseconds.
+Amounts are 1e18-scaled, in two encodings. `/clob/markets`, `/clob/markets/stats` and `/clob/backstop-transfers` use decimal strings. Candles, orders, fills, solutions, positions and balances encode unsigned prices and amounts as `0x` hex strings, and signed values as decimal strings. Orderbook snapshots key their price levels by decimal strings and give each level's volume in hex. Timestamps ending in `_us` are microseconds.
 
 ## Markets
 
@@ -50,9 +50,15 @@ const { candles, range, solution_now_us } = await get(
   `/clob/candles/${orderbookId}?resolution=1m&from=${nowSecs - 3600}&to=${nowSecs}`
 );
 // candles: [{ timestamp, open, high, low, close, volume, quote_volume }], newest first
+
+// The bucket still forming at solution time; REST never returns it.
+const bucketUs = 60_000_000; // 1m
+const formingStartUs = Math.floor(solution_now_us / bucketUs) * bucketUs;
 ```
 
-`resolution` is one of `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `1d`, `1w`, `1M`. `from`/`to` are **seconds** and select `[from, to)`; `limit` caps the page at up to 500 candles. Only closed bars are returned. To page further back, request again with `to = range.from_us / 1e6`. The still-forming bar is everything after `range.to_us`: build it from the `pod_candles` stream below.
+`resolution` is one of `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `1d`, `1w`, `1M`. `from`/`to` are **seconds** and select `[from, to)`; `limit` caps the page at up to 500 candles. Only closed bars are returned. To page further back, request again with `to = range.from_us / 1e6`.
+
+The forming bar has to be rebuilt from `pod_candles` ticks, including the trades it already holds. Subscribe with `since: formingStartUs - 1`: `since` replays every tick strictly after it, so the whole forming bucket arrives before live ticks. Subscribing from `solution_now_us` would drop the trades already in the bucket. The node keeps 16,384 ticks for replay (about 2.3 hours at the 500 ms cadence), which covers a forming bucket of up to 1h. For `4h` and coarser, first fill the forming bar from closed `1h` candles over `[formingStartUs, start of the current hour)`, then replay ticks from the start of the current hour.
 
 ## Solutions
 
@@ -110,7 +116,7 @@ ws.onopen = () => {
   // solution-time watermark, not a book's own timestamp: a quiet book's last
   // batch can be older than the node's replay buffer.
   subscribe("pod_orderbook", { orderbook_ids: ids, depth: 20, since: solution_now }, (snapshot) => {});
-  subscribe("pod_candles", { orderbook_ids: ids, since: solution_now_us }, (tick) => {
+  subscribe("pod_candles", { orderbook_ids: ids, since: formingStartUs - 1 }, (tick) => {
     // { orderbook, timestamp_us, price, volume }: fold into the forming bar
   });
   subscribe("pod_orders_v2", { bidder: walletAddress, since: page.solution_now }, (frame) => {

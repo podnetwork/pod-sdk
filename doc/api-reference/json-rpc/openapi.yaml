@@ -1882,8 +1882,10 @@ paths:
       summary: Get Vote Batches
       operationId: pod_getVoteBatches
       description: |
-        Returns this validator's own signed vote batches for the requested append-log sequence
-        ranges. Only a validator serves it; a full node answers with an internal error.
+        Returns one validator's signed vote batches for the requested append-log sequence ranges.
+        `validator_index` selects whose batches; any node that holds them can serve them, a full
+        node included. Without `validator_index` the node serves its own batches, so a full node
+        answers with an internal error ("node is not a validator").
 
         Each range is half-open, `[start, end)`. The total across all ranges is capped by the node's
         vote-sync batch size, and ranges past the cap are dropped — re-request whatever is missing.
@@ -1907,6 +1909,8 @@ paths:
                     Parameters:
                     1. `ranges` (array of `[start, end]` integer pairs): half-open sequence ranges.
                     2. `binary` (boolean, optional): return the base64 binary encoding. Default false.
+                    3. `validator_index` (integer, optional): the committee index whose batches to
+                       return. Default: the serving validator's own.
                   items:
                     oneOf:
                       - type: array
@@ -1916,7 +1920,8 @@ paths:
                           minItems: 2
                           maxItems: 2
                       - type: boolean
-                  example: [[[0, 1000]], false]
+                      - type: integer
+                  example: [[[0, 1000]], false, 3]
       responses:
         '200':
           description: Array of vote batch objects, or `{ data }` when `binary` is true
@@ -4218,7 +4223,7 @@ components:
           description: Deposited collateral adjusted for unsettled funding. Signed — can be negative if the account is underwater (1e18 USD).
         withdrawable_cash:
           $ref: '#/components/schemas/HexUint256'
-          description: Free margin — `cash` minus the initial margin reserved by open positions (1e18 USD).
+          description: 'What a withdrawal or transfer can take now (1e18 USD): `max(0, equity − max(initial_margin, transfer_margin_ratio × notional))`, where `notional` is `Σ |size| × mark` and `transfer_margin_ratio` is a network parameter (10% by default). Equity counts unrealized PnL.'
         net_deposits:
           type: string
           description: Net native collateral deposited minus withdrawn (signed, 1e18 USD). Negative once realized profit is withdrawn; lifetime PnL is `account_value − net_deposits`.
