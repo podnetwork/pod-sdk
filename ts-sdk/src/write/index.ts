@@ -69,9 +69,9 @@ export interface SubmitOrderParams {
   reduceOnly?: boolean;
   /**
    * Immediate-or-cancel. Defaults to `true` for a market order and `false` for
-   * a limit order: a market order carries no resting price of its own, so the
-   * CLOB rejects one that could outlive its batch ("market orders must be
-   * immediate-or-cancel"). Only set this explicitly to make a *limit* order IOC.
+   * a limit order. Set `false` on a market order to let it rest at `price` (its
+   * slippage cap) until `ttl`; a network that has not enabled resting market
+   * orders rejects that ("market orders must be immediate-or-cancel").
    */
   ioc?: boolean;
   deadline?: number; // ms; default far future
@@ -123,9 +123,6 @@ export function buildSubmitOrder(p: SubmitOrderParams): PodTxRequest {
       deadline,
       ttl,
       p.reduceOnly ?? false,
-      // A market order must not outlive its batch — the CLOB rejects a non-IOC
-      // market order outright (`validate_order_shape`, trading/src/book.rs), so
-      // default it on rather than making every caller remember.
       p.ioc ?? p.orderType === "market",
     ],
   }) as Hex;
