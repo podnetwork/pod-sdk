@@ -30,7 +30,7 @@ const { solution_now, markets: stats } = await get("/clob/markets/stats");
 // stats: [{ orderbook_id, last_clearing_price, volume_24h, high_24h, low_24h, mark_price, ... }]
 ```
 
-Optional stats fields (`last_clearing_price`, `high_24h`, the perp fields, ...) are **omitted** until the market has the data, not sent as `null`.
+Optional stats fields (`last_clearing_price`, `high_24h`, the perp fields, ...) are **omitted** until the market has the data.
 
 ## Orderbook
 
@@ -51,7 +51,7 @@ const { candles, range, solution_now_us } = await get(
 );
 // candles: [{ timestamp, open, high, low, close, volume, quote_volume }], newest first
 
-// The bucket still forming at solution time; REST never returns it.
+// The bucket still forming at solution time; it comes only from pod_candles.
 const bucketUs = 60_000_000; // 1m
 const formingStartUs = Math.floor(solution_now_us / bucketUs) * bucketUs;
 ```
@@ -113,8 +113,8 @@ ws.onmessage = ({ data }) => {
 ws.onopen = () => {
   const ids = [orderbookId];
   // Delta channels: replay every tick after `since`, then live. `since` is a
-  // solution-time watermark, not a book's own timestamp: a quiet book's last
-  // batch can be older than the node's replay buffer.
+  // solution-time watermark (`solution_now`), which stays inside the node's
+  // replay buffer even for a quiet book.
   subscribe("pod_orderbook", { orderbook_ids: ids, depth: 20, since: solution_now }, (snapshot) => {});
   subscribe("pod_candles", { orderbook_ids: ids, since: formingStartUs - 1 }, (tick) => {
     // { orderbook, timestamp_us, price, volume }: fold into the forming bar
@@ -129,7 +129,7 @@ ws.onopen = () => {
 ```
 
 * `pod_orderbook` pushes a full snapshot (the REST shape) for each subscribed book cleared in a tick.
-* `pod_candles` pushes one clearing-price tick per cleared book, not a closed bar.
+* `pod_candles` pushes one clearing-price tick per cleared book.
 * `pod_orders_v2` streams order activity; `bidder` narrows it to one account and `bidders` to up to 64. See the `eth_subscribe` entry in the [JSON-RPC reference](../json-rpc/README.md) for the frame format.
 * `pod_markets` pushes the `/clob/markets/stats` entry plus the market's lifecycle (`status`, and `live_at_us`, `disable_at_us`, `settlement_price` once set).
 

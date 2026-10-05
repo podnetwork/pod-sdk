@@ -32,7 +32,7 @@ To get a cacheable page, bound it in the past: pass `to` on `candles` and `activ
 | Unsigned amounts and prices (1e18)    | `0x` hex on `candles`, `orderbook`, `solutions`, `orders`, `fills`, `positions`, `balances`, `triggers`, the `order` entries of `activity`, and the bridge routes. |
 | Signed amounts (sizes, PnL, funding)  | Decimal strings everywhere.                                            |
 | `markets`, `markets/stats`, `backstop-transfers`, non-order `activity` entries | Every amount and price is a decimal string.   |
-| Bridge `proof`, `aux_tx_suffix`       | JSON arrays of byte values, not `0x` strings.                          |
+| Bridge `proof`, `aux_tx_suffix`       | JSON arrays of byte values.                                            |
 
 Query parameters follow their route: `candles` `from`/`to` and `orders` `until` are unix **seconds**; every other time parameter is microseconds.
 

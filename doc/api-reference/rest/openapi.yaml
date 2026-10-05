@@ -265,7 +265,7 @@ paths:
       description: |
         Per-tick solution history: clearing, mark and oracle prices, volume, funding,
         open interest and the mark/funding inputs. Newest first, in **whole ticks**:
-        `limit` counts ticks, not rows, and a tick carries one row per orderbook.
+        `limit` counts ticks, and a tick carries one row per orderbook.
 
         There is no cursor. Page back by passing the oldest `timestamp` of the previous
         page as `until_us`.
@@ -809,7 +809,7 @@ paths:
           exist; resubmitting yields a new `tx_hash`. `withdrawal.error` usually names the
           reason but can be absent.
 
-        Branch on the presence of `proof`, not on `status`: treat `refused` as terminal and
+        Branch on the presence of `proof`: treat `refused` as terminal and
         any other value, including an unfamiliar one, as "ask again".
 
         `404` until the withdrawal has executed, a tick after admission.
@@ -1045,7 +1045,7 @@ components:
       type: object
       description: |
         Live statistics for one market. Prices and amounts are 1e18-scaled **decimal**
-        strings. Optional fields are omitted, not `null`, until the data exists.
+        strings. Optional fields are omitted until the data exists.
       required: [orderbook_id, volume_24h]
       properties:
         orderbook_id: { $ref: '#/components/schemas/Bytes32' }
@@ -1526,7 +1526,7 @@ components:
         proof, auxTxSuffix)` needs, except `token`: map the Pod-side `token` here to
         `l1_token` from `/bridge/config`.
 
-        `proof` and `aux_tx_suffix` are **JSON arrays of byte values**, not `0x` strings.
+        `proof` and `aux_tx_suffix` are **JSON arrays of byte values**.
       required: [proof, committee_epoch, aux_tx_suffix]
       properties:
         proof:

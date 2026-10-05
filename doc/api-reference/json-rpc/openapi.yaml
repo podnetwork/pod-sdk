@@ -785,7 +785,7 @@ paths:
         executed batch, with the clearing price, volume, and (perp only) the oracle, mark,
         funding, and open-interest state of that batch.
 
-        Pages hold **whole ticks**: `limit` counts ticks, not rows, and is clamped to `[1, 200]`
+        Pages hold **whole ticks**: `limit` counts ticks and is clamped to `[1, 200]`
         (default 200). Rows are ordered by `timestamp` descending, then orderbook id descending.
         There is no cursor — to page back, pass the oldest `timestamp` of the previous page as
         `until`.
@@ -853,10 +853,9 @@ paths:
         balance bridge deposits are credited to and the one orders, transfers and withdrawals
         spend.
 
-        It is **not** the withdrawable amount: margin reserved by open perpetual positions is not
-        deducted, so for an account with open positions it can read higher than what can be
-        withdrawn. Use the orderbook contract's `withdrawableBalance(token, account)` (via
-        `eth_call`) or `withdrawable_cash` from `ob_getPositions` for that.
+        The amount the account can withdraw now is the orderbook contract's
+        `withdrawableBalance(token, account)` (via `eth_call`), or `withdrawable_cash` from
+        `ob_getPositions`.
 
         The `block_number` parameter is accepted for Ethereum compatibility but is ignored.
       requestBody:
@@ -1067,7 +1066,7 @@ paths:
           pre-validation. Default false.
 
         The wait ends when the transaction executes, when `n − f` validators attest, or at the
-        timeout; a timeout is not an error — the result reports what was heard so far. Sent to a
+        timeout; on a timeout the result reports what was heard so far. Sent to a
         **validator** node, the call does not wait: it returns immediately with `successes: 0`.
 
         **Errors** (beyond invalid params):
@@ -1382,8 +1381,7 @@ paths:
         `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_activity`, `pod_candles`,
         `pod_withdrawals`, and `pod_transfers` are **delta** channels
         (they stream what changed each tick). `pod_markets`, `pod_positions`, and `pod_triggers` are **state** channels
-        (each pushes a current snapshot). `newHeads` is served from the block feed rather than the
-        tick stream. See `since` below for how each behaves on catch-up.
+        (each pushes a current snapshot). `newHeads` is served from the block feed. See `since` below for how each behaves on catch-up.
 
         Subscriptions follow the standard Ethereum `eth_subscribe` pattern:
         1. Subscribe with `eth_subscribe` → receive a subscription ID.
@@ -3346,7 +3344,7 @@ components:
           description: Exclusive upper bound on the batch deadline (microseconds). Page back by passing the oldest `timestamp` of the previous page.
         limit:
           type: integer
-          description: Ticks per page, not rows — a tick carries one row per orderbook. Clamped to `[1, 200]`; defaults to 200.
+          description: Ticks per page — a tick carries one row per orderbook. Clamped to `[1, 200]`; defaults to 200.
 
     FillResponse:
       type: object
