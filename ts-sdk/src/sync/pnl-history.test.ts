@@ -4,6 +4,7 @@ import { div, mul } from "../codec/fixed.js";
 import { WAD } from "../codec/units.js";
 import type { MarketId } from "../types/public.js";
 import { fetchFills, fetchPnlHistory, foldPnlHistory, PnlHistoryCache, streamPnlHistory, type PnlEvent, type PnlTick } from "./pnl-history.js";
+import { PodHttpError } from "../transport/rest.js";
 
 const PERP = `0x${"00".repeat(31)}01` as MarketId;
 const SPOT = `0x${"00".repeat(31)}02` as MarketId;
@@ -21,22 +22,40 @@ const tickAt = (market: MarketId, timeUs: number): PnlTick => {
 function simulate(schedule: { tick: number; run: (e: Engine) => void }[], lastTick: number) {
   const e = new Engine();
   const pnl: bigint[] = [];
+  const av: bigint[] = [];
   for (let i = 0; i <= lastTick; i++) {
     for (const s of schedule) if (s.tick === i) s.run(e.at(i));
     pnl.push(e.pnl(i));
+    av.push(e.accountValue(i));
   }
-  return { pnl, e };
+  return { pnl, av, e };
 }
 
 class Engine {
   s = 0n; cb = 0n; fb = 0n; R = 0n;
   q = 0n; c = 0n; Rs = 0n;
+  cash = 0n;
   events: PnlEvent[] = [];
   private i = 0;
   at(i: number) { this.i = i; return this; }
   private get F() { return tickAt(PERP, this.i * TICK_US).funding; }
+  private get clearing() { return tickAt(SPOT, this.i * TICK_US).mark; }
   private move(d: bigint, p: bigint) { this.cb += mul(p, d); this.fb += mul(this.F, d); this.s += d; }
-  private bank() { this.R += this.fb - this.cb; this.cb = 0n; this.fb = 0n; }
+  private bank() { const banked = this.fb - this.cb; this.R += banked; this.cash += banked; this.cb = 0n; this.fb = 0n; }
+  cashIn(amount: bigint) {
+    this.cash += amount;
+    this.events.push({ timeUs: this.i * TICK_US, deltaSize: amount, price: 0n, kind: "cash" });
+  }
+  tokenIn(qty: bigint) {
+    this.c += mul(this.clearing, qty);
+    this.q += qty;
+    this.events.push({ market: SPOT, timeUs: this.i * TICK_US, deltaSize: qty, price: 0n, kind: "deposit" });
+  }
+  accountValue(i: number) {
+    const pt = tickAt(PERP, i * TICK_US);
+    const st = tickAt(SPOT, i * TICK_US);
+    return this.cash + (mul(pt.mark, this.s) - this.cb) - (mul(pt.funding, this.s) - this.fb) + mul(st.mark, this.q);
+  }
   perp(ds: bigint, p: bigint) {
     const target = this.s + ds;
     if (this.s !== 0n && target !== 0n && (this.s > 0n) !== (target > 0n)) { this.move(-this.s, p); this.bank(); }
@@ -45,6 +64,7 @@ class Engine {
     this.events.push({ market: PERP, timeUs: this.i * TICK_US, deltaSize: ds, price: p, kind: "fill" });
   }
   spot(dq: bigint, p: bigint) {
+    this.cash -= mul(p, dq);
     if (dq > 0n) this.c += mul(p, dq);
     else { const a = div(this.c, this.q); this.Rs += mul(p - a, -dq); this.c -= mul(a, -dq); }
     this.q += dq;
@@ -66,6 +86,7 @@ class Engine {
 }
 
 const schedule = [
+  { tick: 0, run: (e: Engine) => e.cashIn(W(1000)) },
   { tick: 1, run: (e: Engine) => e.perp(W(2), W(101)) },
   { tick: 2, run: (e: Engine) => e.spot(W(10), W(54)) },
   { tick: 3, run: (e: Engine) => e.perp(W(1), W(103)) },
@@ -78,6 +99,9 @@ const schedule = [
   { tick: 8, run: (e: Engine) => e.perp(W(3), W(108)) },
   { tick: 9, run: (e: Engine) => e.spot(W(-8), W(68)) },
   { tick: 10, run: (e: Engine) => e.perp(W(-2), W(110)) },
+  // a token deposit lands with a fill in the same tick, and cash leaves later
+  { tick: 11, run: (e: Engine) => { e.tokenIn(W(2)); e.spot(W(1), W(72)); } },
+  { tick: 12, run: (e: Engine) => e.cashIn(W(-50)) },
 ];
 const LAST = 12;
 
@@ -90,13 +114,14 @@ const foldFrom = (e: Engine, gridTicks: number[]) => foldPnlHistory({
   events: e.events,
   gridUs: gridTicks.map((t) => t * TICK_US),
   tickAt,
+  accountValueRef: e.accountValue(LAST),
 });
 
 const close = (a: bigint, b: bigint) => (a > b ? a - b : b - a) <= 10n ** 6n;
 
 describe("foldPnlHistory", () => {
   it("reproduces the forward engine on every tick, starting at 0", () => {
-    const { pnl, e } = simulate(schedule, LAST);
+    const { pnl, av, e } = simulate(schedule, LAST);
     const grid = Array.from({ length: LAST + 1 }, (_, i) => i);
     const out = foldFrom(e, grid);
     expect(out.warnings).toEqual([]);
@@ -104,6 +129,7 @@ describe("foldPnlHistory", () => {
     expect(out.points[0]?.pnl).toBe(0n);
     out.points.forEach((p, i) => {
       expect(close(p.pnl, (pnl[i] ?? 0n) - (pnl[0] ?? 0n)), `tick ${i}`).toBe(true);
+      expect(close(p.accountValue ?? 0n, av[i] ?? 0n), `account value at tick ${i}`).toBe(true);
     });
   });
 
@@ -139,14 +165,14 @@ describe("fetchFills", () => {
       { orderbook_id: PERP, order_id: "0xabc", initial_size: "1", base_amount: "0x1", timestamp: t, price: "0x1" },
       { orderbook_id: PERP, order_id: "0xabc", initial_size: "-1", base_amount: "0x1", timestamp: t, price: "0x1" },
     ]);
-    const calls: { from_ts: number; to_ts: number }[] = [];
-    const fakeFetch = (async (_url: string, init: { body: string }) => {
-      const q = JSON.parse(init.body).params[1] as { from_ts: number; to_ts: number; limit: number };
-      calls.push(q);
-      const fills = rows.filter((r) => r.timestamp >= q.from_ts && r.timestamp < q.to_ts).sort((a, b) => b.timestamp - a.timestamp).slice(0, q.limit);
-      return { json: async () => ({ jsonrpc: "2.0", id: 1, result: { fills } }) };
-    }) as unknown as typeof fetch;
-    const out = await fetchFills("http://pod", "0x1", 1, 601, { fetch: fakeFetch });
+    const calls: { fromUs: number; toUs?: number }[] = [];
+    const rest = {
+      fills: async (_a: string, q: { fromUs: number; toUs?: number; limit?: number }) => {
+        calls.push(q);
+        return rows.filter((r) => r.timestamp >= q.fromUs && r.timestamp < (q.toUs ?? Infinity)).sort((a, b) => b.timestamp - a.timestamp).slice(0, q.limit ?? 500);
+      },
+    } as unknown as import("../transport/rest.js").PodRestClient;
+    const out = await fetchFills(rest, "0x1", 1, 601);
     expect(out).toHaveLength(rows.length);
     expect(new Set(out.map((f) => f.timestamp)).size).toBe(600);
     expect(calls.length).toBe(3);
@@ -165,17 +191,49 @@ const stubTickAt = (_m: MarketId, tUs: number): PnlTick => { const t = Math.floo
 const stubEvents = (): PnlEvent[] => fillRows.map((r) => ({ market: PERP, timeUs: r.timestamp, deltaSize: r.initial_size === "-1" ? -(10n ** 16n) : 10n ** 16n, price: BigInt(r.price), kind: "fill" }));
 
 /** A fake node: one perp market, the fill rows above, ticks from the functions above. Counts fills calls. */
-function stubDeps(cache?: PnlHistoryCache) {
-  const calls = { fills: 0 };
+const STUB_ACCOUNT_VALUE = W(5_000);
+function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRoute?: boolean | "503"; firstTickUs?: number; size?: bigint; restReads?: boolean; lagTicks?: number } = {}) {
+  const calls = { fills: 0, solutions: 0, solutionsBeforeBirth: 0, status: 0 };
+  // An indexer that trails the engine by `lagTicks` for the first two status polls.
+  const watermark = () => (opts.lagTicks && calls.status <= 2 ? NOW_US - opts.lagTicks * TICK_US : NOW_US);
   const rest = {
     markets: async () => [{ id: PERP, type: "perp", base: { address: "0x01" }, fundingWindowUs: 1, auctionIntervalMs: 500 }],
     // no bases: the synthetic fills are not engine-consistent, so the residual check must stay off
-    positions: async () => ({ positions: [{ kind: "perp", orderbookId: PERP, size: perpSize }] }),
+    positions: async () => ({ positions: [{ kind: "perp", orderbookId: PERP, size: opts.size ?? perpSize }], accountValue: STUB_ACCOUNT_VALUE }),
     balances: async () => ({ holdings: [] }),
-    status: async () => ({ solutionNow: NOW_US / 1000 }),
+    status: async () => { calls.status++; return { solutionNow: watermark() / 1000 }; },
     backstopTransfers: async () => ({ transfers: [] }),
     bridgeWithdrawals: async () => [],
+    activity: opts.activityRoute === false
+      ? async () => { throw new PodHttpError(404, "/clob/activity", "no route"); }
+      : opts.activityRoute === "503"
+      ? async () => { throw new PodHttpError(503, "/clob/activity", "indexer unavailable"); }
+      : async (_a: string, q: { from: number; to: number }) => ({
+          activity: (opts.flows ?? []).filter((f) => (f as { timeMs: number }).timeMs >= q.from && (f as { timeMs: number }).timeMs < q.to),
+          nextCursor: null,
+          solutionNow: NOW_US / 1000,
+        }),
+    fills: async (_a: string, q: { fromUs: number; toUs?: number; limit?: number }) => {
+      if (opts.restReads === false) throw new PodHttpError(404, "/clob/fills", "no route");
+      calls.fills++;
+      return fillsAnswer(q.fromUs, q.toUs ?? Infinity, q.limit ?? 500);
+    },
+    solutions: async (q: { untilUs?: number; sinceUs?: number; orderbook?: string }) => {
+      if (opts.restReads === false) throw new PodHttpError(404, "/clob/solutions", "no route");
+      return solutionsAnswer(q.untilUs, q.sinceUs);
+    },
   };
+  function fillsAnswer(fromUs: number, toUs: number, limit: number) {
+    return fillRows.filter((r) => r.timestamp >= fromUs && r.timestamp < toUs).sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
+  }
+  function solutionsAnswer(untilUs: number | undefined, sinceUs: number | undefined) {
+    calls.solutions++;
+    // A lagging indexer answers "newest at or before t" with its newest indexed tick.
+    const t = Math.min(Math.floor(((untilUs ?? NOW_US + 1) - 1) / TICK_US) * TICK_US, watermark());
+    if (sinceUs !== undefined && t < sinceUs) return [];
+    if (t < (opts.firstTickUs ?? 0)) { calls.solutionsBeforeBirth++; return []; }
+    return [{ orderbook_id: PERP, timestamp: t, mark_price: "0x" + markPerp(t).toString(16), funding_index: fundingRaw(t).toString() }];
+  }
   const fakeFetch = (async (_url: string, init: { body: string }) => {
     const body = JSON.parse(init.body);
     const answer = (req: { id: number; method: string; params: unknown[] }) => {
@@ -183,12 +241,13 @@ function stubDeps(cache?: PnlHistoryCache) {
       if (req.method === "ob_getFills") {
         calls.fills++;
         const q = req.params[1] as { from_ts: number; to_ts: number; limit: number };
-        return { id: req.id, result: { fills: fillRows.filter((r) => r.timestamp >= q.from_ts && r.timestamp < q.to_ts).sort((a, b) => b.timestamp - a.timestamp).slice(0, q.limit) } };
+        return { id: req.id, result: { fills: fillsAnswer(q.from_ts, q.to_ts, q.limit) } };
       }
-      const q = req.params[0] as { until: number; since?: number; orderbook_id?: string };
-      const t = Math.floor((q.until - 1) / TICK_US) * TICK_US;
-      if (q.since !== undefined && t < q.since) return { id: req.id, result: { solutions: [] } };
-      return { id: req.id, result: { solutions: [{ orderbook_id: PERP, timestamp: t, mark_price: "0x" + markPerp(t).toString(16), funding_index: fundingRaw(t).toString() }] } };
+      if (req.method === "ob_getSolutions") {
+        const q = req.params[0] as { until?: number; since?: number };
+        return { id: req.id, result: { solutions: solutionsAnswer(q.until, q.since) } };
+      }
+      return { id: req.id, error: { message: `unexpected ${req.method}` } };
     };
     return { json: async () => (Array.isArray(body) ? body.map(answer) : answer(body)) };
   }) as unknown as typeof fetch;
@@ -228,6 +287,8 @@ describe("PnlHistoryCache", () => {
     expect(c.missing(120, 180)).toEqual([]);
     c.add(200, 300, []);
     expect(c.missing(100, 400)).toEqual([]);
+    c.forget(150, 250);
+    expect(c.missing(100, 400)).toEqual([{ from: 150, to: 250 }]);
   });
 
   it("makes a wider window reuse the narrower one's fills and still match the one-shot fold", async () => {
@@ -265,5 +326,96 @@ describe("PnlHistoryCache eviction", () => {
     expect([...c.tickTimes]).toEqual([50]);
     c.clear();
     expect(c.missing(0, 60)).toEqual([{ from: 0, to: 60 }]);
+  });
+});
+
+describe("account value", () => {
+  it("carries the deposits and transfers through as non-PnL money", async () => {
+    const flows = [
+      { activityType: "bridge_transfer", timeMs: 1_900 * TICK_US / 1000, txHash: "0x1", token: "0xee", amount: W(100) },
+      { activityType: "transfer", timeMs: 1_850 * TICK_US / 1000, transferId: "0x2", token: "0xee", amount: W(-30) },
+      { activityType: "bridge_transfer", timeMs: 1_800 * TICK_US / 1000, txHash: "0x3", token: "0xee", amount: W(7), error: "not_included" },
+      { activityType: "backstop", timeMs: 1_700 * TICK_US / 1000, size: 0n, cash: W(40), markPrice: 0n, equity: 0n, time: 0 },
+    ];
+    const { deps } = stubDeps(undefined, { flows });
+    const r = await fetchPnlHistory(deps, "0x1", { from: 0, points: 200 });
+    expect(r.warnings).toEqual([]);
+    const events = stubEvents().concat([
+      { timeUs: 1_900 * TICK_US, deltaSize: W(100), price: 0n, kind: "cash" },
+      { timeUs: 1_850 * TICK_US, deltaSize: W(-30), price: 0n, kind: "cash" },
+      { timeUs: 1_700 * TICK_US, deltaSize: W(-40), price: 0n, kind: "cash" },
+    ]);
+    const oneShot = foldPnlHistory({ refTimeUs: NOW_US, legs: [{ market: PERP, kind: "perp", size: perpSize }], events, gridUs: r.points.map((p) => p.time * 1000), tickAt: stubTickAt, accountValueRef: STUB_ACCOUNT_VALUE });
+    expect(r.points.map((p) => p.accountValue)).toEqual(oneShot.points.map((p) => p.accountValue));
+    expect(r.points.at(-1)?.accountValue).toBe(STUB_ACCOUNT_VALUE);
+    const at = (tick: number) => r.points.find((p) => p.time * 1000 >= tick * TICK_US)?.accountValue ?? 0n;
+    // before the 100 deposit the account was worth 100 less, all else equal
+    const pnlAt = (tick: number) => r.points.find((p) => p.time * 1000 >= tick * TICK_US)?.pnl ?? 0n;
+    expect((at(1_950) - pnlAt(1_950)) - (at(1_890) - pnlAt(1_890))).toBe(W(100));
+  });
+
+  it("omits account value and warns when the node has no activity feed", async () => {
+    const { deps } = stubDeps(undefined, { activityRoute: false });
+    const r = await fetchPnlHistory(deps, "0x1", { from: 0, points: 50 });
+    expect(r.points.every((p) => p.accountValue === undefined)).toBe(true);
+    expect(r.warnings.some((w) => w.includes("activity feed"))).toBe(true);
+  });
+});
+
+describe("tick lookups before a market's first tick", () => {
+  it("stop after one empty answer per market and never repeat on a warm run", async () => {
+    const cache = new PnlHistoryCache();
+    const birth = 1_300 * TICK_US;
+    // the reference size equals the net of all fills, so the position is flat
+    // before the first fill, as it must be before the market existed
+    const net = stubEvents().reduce((s, e) => s + e.deltaSize, 0n);
+    const cold = stubDeps(cache, { firstTickUs: birth, size: net });
+    const r = await fetchPnlHistory(cold.deps, "0x1", { from: 0, points: 400 });
+    expect(r.warnings).toEqual([]);
+    const pointsBeforeBirth = r.points.filter((p) => p.time * 1000 < birth).length;
+    expect(pointsBeforeBirth).toBeGreaterThan(200);
+    // only the chunks already in flight when the first empty answer lands ask
+    // about times before the market existed; the rest are skipped
+    expect(cold.calls.solutionsBeforeBirth).toBeLessThan(pointsBeforeBirth);
+    expect(cold.calls.solutionsBeforeBirth).toBeLessThanOrEqual(4 * 50);
+    expect(cache.noRowBefore.get(PERP)).toBeGreaterThanOrEqual(1_200 * TICK_US);
+
+    const warm = stubDeps(cache, { firstTickUs: birth, size: net });
+    await fetchPnlHistory(warm.deps, "0x1", { from: 0, points: 400 });
+    expect(warm.calls.solutionsBeforeBirth).toBe(0);
+    expect(warm.calls.solutions).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("nodes without the REST solutions and fills routes", () => {
+  it("fall back to the ob_* reads and produce the same series", async () => {
+    const viaRest = await fetchPnlHistory(stubDeps().deps, "0x1", { from: 0, points: 120 });
+    const viaRpc = await fetchPnlHistory(stubDeps(undefined, { restReads: false }).deps, "0x1", { from: 0, points: 120 });
+    expect(viaRpc.points.map((p) => p.pnl)).toEqual(viaRest.points.map((p) => p.pnl));
+  });
+});
+
+describe("review fixes", () => {
+  it("never values a point with a tick read before the indexer caught up", async () => {
+    const lagging = await fetchPnlHistory(stubDeps(undefined, { lagTicks: 3 }).deps, "0x1", { from: 0, points: 120 });
+    const oneShot = foldPnlHistory({ refTimeUs: NOW_US, legs: [{ market: PERP, kind: "perp", size: perpSize }], events: stubEvents(), gridUs: lagging.points.map((p) => p.time * 1000), tickAt: stubTickAt });
+    expect(lagging.points.map((p) => p.pnl)).toEqual(oneShot.points.map((p) => p.pnl));
+  });
+
+  it("fails the run on a transient activity error instead of caching the range without flows", async () => {
+    const cache = new PnlHistoryCache();
+    await expect(fetchPnlHistory(stubDeps(cache, { activityRoute: "503" }).deps, "0x1", { from: 0, points: 50 })).rejects.toBeInstanceOf(PodHttpError);
+    expect(cache.missing(0, NOW_US + 1)).toEqual([{ from: 0, to: NOW_US + 1 }]);
+  });
+
+  it("refetches ranges cached from a node without the feed once the feed appears", async () => {
+    const cache = new PnlHistoryCache();
+    const before = await fetchPnlHistory(stubDeps(cache, { activityRoute: false }).deps, "0x1", { from: 0, points: 50 });
+    expect(before.points.every((p) => p.accountValue === undefined)).toBe(true);
+    const after = stubDeps(cache, { flows: [{ activityType: "bridge_transfer", timeMs: 1_900 * TICK_US / 1000, txHash: "0x1", token: "0xee", amount: W(100) }] });
+    const r = await fetchPnlHistory(after.deps, "0x1", { from: 0, points: 50 });
+    expect(after.calls.fills).toBeGreaterThan(0);
+    expect(r.points.every((p) => p.accountValue !== undefined)).toBe(true);
+    expect(r.warnings).toEqual([]);
   });
 });

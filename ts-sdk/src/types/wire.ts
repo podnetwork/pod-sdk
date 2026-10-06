@@ -515,3 +515,23 @@ export type WireMoneyEvent =
   | ({ k: "backstop" } & WireBackstopMoney)
   | ({ k: "bridge_transfer" } & WireBridgeMoney)
   | ({ k: "transfer" } & WireTransferMoney);
+
+/** One `/clob/fills/{account}` row: a fill of one order in one batch. */
+export interface WireFillRow {
+  orderbook_id: Hex;
+  order_id: Hex;
+  initial_size: WireDecimal; // signed: the order's side
+  base_amount: WireDecimal;
+  quote_amount: WireDecimal;
+  timestamp: number; // micros, the batch deadline
+  price: WireDecimal;
+}
+
+/** One `/clob/solutions` row: a market's tick. */
+export interface WireSolutionRow {
+  orderbook_id: Hex;
+  timestamp: number; // micros
+  clearing_price?: WireDecimal;
+  mark_price: WireDecimal;
+  funding_index?: WireDecimal;
+}

@@ -2,6 +2,7 @@
 // CDN honor the server's Cache-Control; identical concurrent GETs are deduped.
 // ms in, decoded (bigint / ms) out.
 
+import type { WireFillRow, WireSolutionRow } from "../types/wire.js";
 import type {
   ActivityEntry, ActivityType, Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery,
   Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status,
@@ -207,6 +208,30 @@ export class PodRestClient {
       nextCursor: w.next_cursor,
       solutionNow: usToMs(w.solution_now),
     };
+  }
+
+  /** An account's fills with `fromUs ≤ timestamp < toUs`, newest first, at
+   * most 500; page by moving `toUs` down to the oldest timestamp seen. */
+  async fills(account: Address, q: { fromUs: number; toUs?: number; orderbook?: MarketId; limit?: number }): Promise<WireFillRow[]> {
+    const w = await this.get<{ fills: WireFillRow[] }>(`/clob/fills/${account}`, {
+      from_us: q.fromUs,
+      to_us: q.toUs,
+      orderbook: q.orderbook,
+      limit: q.limit,
+    });
+    return w.fills;
+  }
+
+  /** Solutions rows, newest first, with `sinceUs ≤ timestamp < untilUs`;
+   * `limit` counts ticks, so one tick returns every market's row. */
+  async solutions(q: { orderbook?: MarketId; sinceUs?: number; untilUs?: number; limit?: number }): Promise<WireSolutionRow[]> {
+    const w = await this.get<{ solutions: WireSolutionRow[] }>(`/clob/solutions`, {
+      orderbook: q.orderbook,
+      since_us: q.sinceUs,
+      until_us: q.untilUs,
+      limit: q.limit,
+    });
+    return w.solutions;
   }
 
   async backstopTransfers(account: Address): Promise<BackstopPage> {

@@ -227,18 +227,20 @@ export class PodTradeClient {
 
   /**
    * PnL change over a past window, sampled at up to `points` (default and
-   * maximum 500) evenly spaced batch ticks, starting at 0 at `from`. Folded
-   * backwards from the live snapshot over the account's fills, backstop sweeps
-   * and spot withdrawals. Requires `rpcUrl`.
+   * maximum 500) evenly spaced batch ticks, starting at 0 at `from`, with the
+   * absolute account value at each point where the node serves the activity
+   * feed. Folded backwards from the live snapshot over the account's fills,
+   * backstop sweeps and money movements. Requires `rpcUrl`.
    */
   pnlHistory(account: Address, query: PnlHistoryQuery): Promise<PnlHistory> {
     return fetchPnlHistory(this.pnlDeps("pnlHistory", account), account, query);
   }
 
   /**
-   * {@link pnlHistory} delivered as it is built: chunks of up to 50 points,
-   * newest first, each yielded once its fills are in. Points are relative to
-   * the current tick; the oldest chunk arrives last with `done`.
+   * {@link pnlHistory} delivered as it is built: chunks newest first, the
+   * first ones small (10, 20, 40 points) and then 50, each yielded once its
+   * fills are in. Points are relative to the current tick; the oldest chunk
+   * arrives last with `done`.
    */
   pnlHistoryStream(account: Address, query: PnlHistoryQuery): AsyncGenerator<PnlHistoryChunk> {
     return streamPnlHistory(this.pnlDeps("pnlHistoryStream", account), account, query);
