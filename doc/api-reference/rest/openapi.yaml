@@ -271,7 +271,8 @@ paths:
 
         An orderbook id that names no book returns no rows.
 
-        `Cache-Control: no-store`.
+        `Cache-Control: public, max-age=31536000, immutable` when `until_us` is at or
+        before solution time, otherwise `no-store`.
       parameters:
         - $ref: '#/components/parameters/OrderbookQuery'
         - name: since_us
@@ -384,7 +385,8 @@ paths:
 
         An orderbook id that names no book returns no rows.
 
-        `Cache-Control: no-store`.
+        `Cache-Control: public, max-age=31536000, immutable` when `to_us` is at or before
+        solution time, otherwise `no-store`.
       parameters:
         - $ref: '#/components/parameters/AccountPath'
         - $ref: '#/components/parameters/OrderbookQuery'
