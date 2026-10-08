@@ -22,12 +22,12 @@ export interface Resource<T> {
    * earlier visit, and when it was committed — never a provisional `seed`. For display while the backend is away —
    * never for sizing, pricing or signing, which must read `get()`.
    */
-  lastKnown?(): Snapshot<T> | undefined;
+  lastKnown(): Snapshot<T> | undefined;
   /**
    * True while the current value is a provisional `seed` (e.g. a cached list
    * not yet confirmed by the backend). Derived resources inherit it.
    */
-  isProvisional?(): boolean;
+  isProvisional(): boolean;
   readonly error?: Error;
 }
 
@@ -76,8 +76,11 @@ export type ResourceSource<T> = (handle: ResourceHandle<T>) => () => void;
 
 export class BaseResource<T> implements Resource<T> {
   private value: T | undefined;
-  private at = 0;
   private provisional = false;
+  // The newest real value, kept apart from `value` so a later provisional seed
+  // can neither hide it from lastKnown() nor stop it being written.
+  private confirmed: Snapshot<T> | undefined;
+  private dirty = false;
   private persisted: Snapshot<T> | null | undefined;
   private writeTimer: ReturnType<typeof setTimeout> | undefined;
   private _error: Error | undefined;
@@ -102,7 +105,7 @@ export class BaseResource<T> implements Resource<T> {
   }
 
   lastKnown(): Snapshot<T> | undefined {
-    if (this.value !== undefined && !this.provisional) return { value: this.value, at: this.at };
+    if (this.confirmed) return this.confirmed;
     if (this.persisted === undefined) this.persisted = this.readSlot();
     return this.persisted ?? undefined;
   }
@@ -194,9 +197,12 @@ export class BaseResource<T> implements Resource<T> {
 
   private commit(v: T, provisional = false): void {
     this.value = v;
-    this.at = Date.now();
     this.provisional = provisional;
-    if (this.slot && !provisional) this.writeTimer ??= setTimeout(() => this.writeSlot(), SNAPSHOT_WRITE_MS);
+    if (!provisional) {
+      this.confirmed = { value: v, at: Date.now() };
+      this.dirty = true;
+      if (this.slot) this.writeTimer ??= setTimeout(() => this.writeSlot(), SNAPSHOT_WRITE_MS);
+    }
     this._error = undefined;
     if (this.readyResolve) {
       this.readyResolve(v);
@@ -220,9 +226,10 @@ export class BaseResource<T> implements Resource<T> {
   private writeSlot(): void {
     clearTimeout(this.writeTimer);
     this.writeTimer = undefined;
-    if (!this.slot || this.value === undefined || this.provisional) return;
+    if (!this.slot || !this.confirmed || !this.dirty) return;
+    this.dirty = false;
     try {
-      this.slot.store.set(this.slot.key, stringifyBig({ v: SNAPSHOT_VERSION, at: this.at, value: this.value }));
+      this.slot.store.set(this.slot.key, stringifyBig({ v: SNAPSHOT_VERSION, ...this.confirmed }));
     } catch { /* storage denied or full */ }
   }
 
@@ -237,7 +244,7 @@ export class BaseResource<T> implements Resource<T> {
  * A value computed from a parent that has nothing yet, or only a provisional
  * seed, is itself provisional: never persisted or preferred by `lastKnown()`.
  */
-const unconfirmed = (p: Resource<unknown>): boolean => p.get() === undefined || p.isProvisional?.() === true;
+const unconfirmed = (p: Resource<unknown>): boolean => p.get() === undefined || p.isProvisional();
 
 /** A read-only view derived from several resources; recomputes on any change. */
 export function combineResources<T>(
@@ -271,7 +278,7 @@ export function derivedResource<S, T>(
       if (!alive) return;
       const next = select(parent.get());
       if (next === undefined) return;
-      if (parent.isProvisional?.()) handle.seed(next);
+      if (unconfirmed(parent)) handle.seed(next);
       else handle.set(next);
     };
     const unsub = parent.subscribe(apply);

@@ -103,18 +103,18 @@ it("keeps a combined value provisional while any parent is provisional or empty"
 
   positions.h().set(1); // markets has nothing yet
   await Promise.resolve();
-  expect(live.isProvisional?.()).toBe(true);
+  expect(live.isProvisional()).toBe(true);
   markets.h().seed("cached"); // last session's list
   await Promise.resolve();
   expect(live.get()).toBe("1@cached");
-  expect(live.isProvisional?.()).toBe(true);
+  expect(live.isProvisional()).toBe(true);
   vi.advanceTimersByTime(5_000);
   expect(store.data.live).toBeUndefined();
-  expect(live.lastKnown?.()).toBeUndefined();
+  expect(live.lastKnown()).toBeUndefined();
 
   markets.h().set("priced");
   await Promise.resolve();
-  expect(live.isProvisional?.()).toBe(false);
+  expect(live.isProvisional()).toBe(false);
   vi.advanceTimersByTime(5_000);
   expect(JSON.parse(store.data.live!).value).toBe("1@priced");
   off();
@@ -128,12 +128,42 @@ it("passes a parent's provisional state through a derived view", async () => {
   parent.h().seed([1]);
   await Promise.resolve();
   expect(first.get()).toBe(1);
-  expect(first.isProvisional?.()).toBe(true);
-  expect(first.lastKnown?.()).toBeUndefined();
+  expect(first.isProvisional()).toBe(true);
+  expect(first.lastKnown()).toBeUndefined();
 
   parent.h().set([2]);
   await Promise.resolve();
-  expect(first.isProvisional?.()).toBe(false);
-  expect(first.lastKnown?.()?.value).toBe(2);
+  expect(first.isProvisional()).toBe(false);
+  expect(first.lastKnown()?.value).toBe(2);
+  off();
+});
+
+it("keeps the newest real value through a later provisional seed", () => {
+  // A resubscribe re-seeds from cache before REST returns: the real value
+  // committed just before must still be reported and written.
+  const store = memStore();
+  const { r, h } = controlled<string>(store);
+  h().set("real");
+  vi.setSystemTime(1_000_500);
+  h().seed("cached");
+  expect(r.get()).toBe("cached");
+  expect(r.lastKnown()).toEqual({ value: "real", at: 1_000_000 });
+  vi.advanceTimersByTime(5_000);
+  expect(JSON.parse(store.data.k!).value).toBe("real");
+
+  const bare = controlled<string>();
+  bare.h().set("real");
+  bare.h().seed("cached");
+  expect(bare.r.lastKnown()?.value).toBe("real");
+});
+
+it("treats a derived fallback for an empty parent as provisional", async () => {
+  const parent = controlled<number[]>();
+  const first = derivedResource(parent.r, (list) => list?.[0] ?? -1);
+  const off = first.subscribe(() => {});
+  await Promise.resolve();
+  expect(first.get()).toBe(-1);
+  expect(first.isProvisional()).toBe(true);
+  expect(first.lastKnown()).toBeUndefined();
   off();
 });
