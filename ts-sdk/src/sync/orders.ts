@@ -5,7 +5,7 @@
 import type { Address, Order, OrderEvent, OrdersQuery } from "../types/public.js";
 import type { WireOrdersFrame } from "../types/wire.js";
 import { applyOrdersFrame } from "../codec/orders-v2.js";
-import { BaseResource, type ResourceHandle } from "../stores/resource.js";
+import { BaseResource, type ResourceHandle, type Snapshot, type SnapshotSlot } from "../stores/resource.js";
 import type { SubParams } from "../transport/ws.js";
 import type { SeriesResource } from "./candles.js";
 import type { SyncContext } from "./sources.js";
@@ -29,6 +29,7 @@ export class OrderHistory implements SeriesResource<Order> {
     private readonly ctx: SyncContext,
     private readonly account: Address,
     private readonly query: OrdersQuery = {},
+    slot?: SnapshotSlot,
   ) {
     this.stream = new ResumableStream({
       ws: ctx.ws,
@@ -44,10 +45,11 @@ export class OrderHistory implements SeriesResource<Order> {
         this.stream.stop();
         this.handle = undefined;
       };
-    });
+    }, slot);
   }
 
   get(): Order[] | undefined { return this.base.get(); }
+  lastKnown(): Snapshot<Order[]> | undefined { return this.base.lastKnown(); }
   subscribe(listener: () => void): () => void { return this.base.subscribe(listener); }
   ready(): Promise<Order[]> { return this.base.ready(); }
   get error(): Error | undefined { return this.base.error; }

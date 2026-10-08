@@ -22,6 +22,7 @@ import type {
 import {
   decodeMarketDynamics, decodeOrderbook, decodePositions, decodeTrigger,
 } from "../codec/decode.js";
+import { parseBig, stringifyBig } from "../codec/json.js";
 import type { PodRestClient } from "../transport/rest.js";
 import type { PodWsClient } from "../transport/ws.js";
 import type { ResourceSource } from "../stores/resource.js";
@@ -51,15 +52,14 @@ export interface MarketsCache {
 
 // Static-list serialization for MarketsCache. Version is embedded in the
 // payload: a mismatch after an SDK format change just falls back to a cold
-// start. bigints round-trip as "<digits>n" strings.
+// start.
 // 2: `status`/`minNotional` became required and the fees stopped decoding to 0.
 const MARKETS_CACHE_VERSION = 2;
 const serializeMarkets = (markets: Market[]): string =>
-  JSON.stringify({ v: MARKETS_CACHE_VERSION, markets }, (_k, v: unknown) => (typeof v === "bigint" ? `${v}n` : v));
+  stringifyBig({ v: MARKETS_CACHE_VERSION, markets });
 const parseCachedMarkets = (raw: string | null): Market[] | undefined => {
   if (!raw) return undefined;
-  const data = JSON.parse(raw, (_k, v: unknown) =>
-    typeof v === "string" && /^-?\d+n$/.test(v) ? BigInt(v.slice(0, -1)) : v) as { v: number; markets: Market[] };
+  const data = parseBig<{ v: number; markets: Market[] }>(raw);
   return data?.v === MARKETS_CACHE_VERSION ? data.markets : undefined;
 };
 
@@ -109,7 +109,11 @@ export function marketsSource(
     // Stable display order = the static /clob/markets order, so the list never
     // reshuffles as dynamics arrive (markets not yet in the static list sort last).
     const orderIndex = new Map<string, number>();
-    const publish = () => h.set(
+    // Until REST's static list lands, anything published is built on the cached
+    // list (possibly delisted markets, partial prices) and must stay provisional,
+    // whichever path — cache, WS dynamics or stats — happens to publish it.
+    let staticLoaded = false;
+    const publish = () => (staticLoaded ? h.set : h.seed)(
       [...byId.values()]
         // pod_markets dynamics can arrive (and create an entry) before the static
         // /clob/markets seed — those lack base/quote/name. Don't expose a market
@@ -147,6 +151,7 @@ export function marketsSource(
         orderIndex.set(m.id, i);
         byId.set(m.id, { ...byId.get(m.id), ...m });
       });
+      staticLoaded = true;
       publish();
       try { marketsCache?.set(serializeMarkets(markets)); } catch { /* storage denied/full */ }
     }).catch((e) => { if (!byId.size) h.fail(e); });
