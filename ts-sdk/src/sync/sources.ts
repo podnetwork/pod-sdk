@@ -54,7 +54,8 @@ export interface MarketsCache {
 // payload: a mismatch after an SDK format change just falls back to a cold
 // start.
 // 2: `status`/`minNotional` became required and the fees stopped decoding to 0.
-const MARKETS_CACHE_VERSION = 2;
+// 3: bigints are tagged objects, not "<digits>n" strings (see codec/json).
+const MARKETS_CACHE_VERSION = 3;
 const serializeMarkets = (markets: Market[]): string =>
   stringifyBig({ v: MARKETS_CACHE_VERSION, markets });
 const parseCachedMarkets = (raw: string | null): Market[] | undefined => {

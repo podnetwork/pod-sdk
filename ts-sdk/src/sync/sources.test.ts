@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 
+import { stringifyBig } from "../codec/json.js";
 import type { Market } from "../types/public.js";
 import { marketsSource, type SyncContext } from "./sources.js";
 
@@ -92,7 +93,7 @@ it("ignores a markets cache written in an older format", async () => {
   // Nothing is seeded from the stale payload: the first value to land is REST's.
   await vi.waitFor(() => expect(current?.map((m) => m.id)).toEqual([a.id]));
   expect(seen.every((v) => v === undefined || v.every((m) => m.minNotional !== undefined))).toBe(true);
-  expect(cache.set).toHaveBeenCalledWith(expect.stringContaining('"v":2'));
+  expect(cache.set).toHaveBeenCalledWith(expect.stringContaining('"v":3'));
 
   stop();
 });
@@ -101,10 +102,7 @@ it("keeps the cached list provisional until REST's static list lands", async () 
   // A pod_markets frame replayed before /clob/markets returns must not promote last
   // session's list (unpriced, possibly delisted) into a persisted, lastKnown() value.
   const a = market("0x01", "A/Q");
-  const cached = JSON.stringify(
-    { v: 2, markets: [a] },
-    (_k, v: unknown) => (typeof v === "bigint" ? `${v}n` : v),
-  );
+  const cached = stringifyBig({ v: 3, markets: [a] });
   let resolveMarkets: (m: Market[]) => void = () => {};
   const markets = vi.fn(() => new Promise<Market[]>((r) => { resolveMarkets = r; }));
   let onFrame: ((result: unknown) => void) | undefined;
