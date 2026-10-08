@@ -2,10 +2,14 @@
 // kept out of the UI. Pure function over the live account snapshot + market.
 //
 // Mirrors the backend's cross-margin check:
-//   margin_required = notional · initial_margin_rate         (rate = 1/max_leverage)
+//   margin_required = opening notional · initial_margin_rate  (rate = 1/max_leverage)
 //   available_margin = withdrawable_cash                     (free cross margin)
-//   max_notional     = available_margin / initial_margin_rate (≈ available · max_leverage)
-//   implied_leverage = (Σ current perp notional + notional) / perps_equity
+//   max_notional     = closable + (available + freed) / initial_margin_rate
+//   implied_leverage = Σ perp notional after the fill / perps_equity
+//
+// An order against this market's position CLOSES it first and opens the rest
+// (a flip), as the engine's `max_fill` does: the close locks no initial margin,
+// and once complete it frees the position's, which then funds the open.
 //   liquidation      = mark where equity falls to Σ maintenance margin (im/2)
 
 import type { Market, PerpPosition, PositionsSnapshot, Trigger } from "../types/public.js";
@@ -78,13 +82,15 @@ export interface OrderPreview {
   notional: bigint;
   /** Free cross margin = withdrawable cash. */
   availableMargin: bigint;
-  /** Initial margin this order locks = notional · initial_margin_rate. */
+  /** Initial margin this order locks = opening notional · initial_margin_rate.
+   * The part that closes an existing position locks none. */
   marginRequired: bigint;
-  /** Largest notional the free margin supports at this market's initial margin. */
+  /** Largest notional the free margin supports at this market's initial margin,
+   * plus whatever of it closes this market's position and the margin that frees. */
   maxNotional: bigint;
-  /** Account cross leverage if this order fills = (current + new notional) / equity. */
+  /** Account cross leverage if this order fills = Σ perp notional after / equity. */
   impliedLeverage: number;
-  /** Whether free margin covers the required margin. */
+  /** Whether free margin, plus what a full close frees, covers the required margin. */
   sufficientMargin: boolean;
   /** Estimated fee = notional · fee rate (taker for market, maker for limit). */
   estimatedFee: bigint;
@@ -160,22 +166,33 @@ export function previewOrder(
   // Perps use the market's initial-margin rate (1 / max_leverage).
   const im = market.type === "spot" ? WAD : imRate(market.maxLeverage);
   const availableMargin = snap.withdrawableCash;
+
+  let held = 0n; // signed size in this market
+  let heldNotional = 0n;
+  let currentPerpNotional = 0n;
+  for (const p of snap.positions) {
+    if (p.kind !== "perp") continue;
+    currentPerpNotional += p.notional;
+    if (p.orderbookId === market.id) { held += p.size; heldNotional += p.notional; }
+  }
+  const opposed = held !== 0n && (held > 0n) !== (input.side === "long");
+  const closable = opposed ? absB(held) : 0n;
+  // The position's initial margin, returned once the close completes (at mark, as the engine locks it).
+  const freed = opposed ? mul(heldNotional, im) : 0n;
   // An inverse, so it stays on the requested basis: callers clamp the request with it.
-  const maxNotional = im > 0n ? div(availableMargin, im) : 0n;
+  const maxNotional = mul(closable, input.price) + (im > 0n ? div(availableMargin + freed, im) : 0n);
 
   // Whole lots only, so the money below is priced off what is actually submitted.
   const magnitude = alignSize(input.price > 0n ? div(input.notional, input.price) : 0n, market.lotSize);
   const size = input.side === "short" ? -magnitude : magnitude;
   const notional = mul(magnitude, input.price);
-  const marginRequired = mul(notional, im);
+  const opening = magnitude > closable ? magnitude - closable : 0n;
+  const marginRequired = mul(mul(opening, input.price), im);
 
-  const currentPerpNotional = snap.positions.reduce(
-    (acc, p) => (p.kind === "perp" ? acc + p.notional : acc),
-    0n,
-  );
-  const impliedLeverage = snap.perpsEquity > 0n
-    ? toNumber(currentPerpNotional + notional) / toNumber(snap.perpsEquity)
-    : 0;
+  const after = opposed
+    ? currentPerpNotional - heldNotional + mul(absB(held + size), input.price)
+    : currentPerpNotional + notional;
+  const impliedLeverage = snap.perpsEquity > 0n ? toNumber(after) / toNumber(snap.perpsEquity) : 0;
 
   return {
     size,
@@ -184,7 +201,7 @@ export function previewOrder(
     marginRequired,
     maxNotional,
     impliedLeverage,
-    sufficientMargin: marginRequired <= availableMargin,
+    sufficientMargin: marginRequired <= availableMargin + freed,
     estimatedFee: mul(notional, input.orderType === "limit" ? market.makerFee : market.takerFee),
     liquidationPrice: liquidationPriceAfter(snap, market, size, input.price),
   };

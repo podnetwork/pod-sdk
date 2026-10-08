@@ -101,6 +101,46 @@ const perp = (over: Partial<PerpPosition> = {}): PerpPosition => ({
   ...over,
 });
 
+describe("previewOrder against a held position", () => {
+  // 20 units long at 100 = 2,000 notional, whose initial margin at 20x is 100.
+  const SIZE = 20n * WAD;
+  const HELD = mul(SIZE, PRICE);
+  const IM = imRate(20);
+  const s = (free: bigint): PositionsSnapshot => ({
+    ...snap(free), perpsEquity: 200n * WAD, positions: [perp({ size: SIZE, notional: HELD })],
+  });
+
+  it("locks no margin for a close, even with no free margin", () => {
+    const p = previewOrder(s(0n), market(), { side: "short", price: PRICE, notional: HELD });
+    expect(p.marginRequired).toBe(0n);
+    expect(p.sufficientMargin).toBe(true);
+    expect(p.impliedLeverage).toBe(0);
+  });
+
+  it("funds a flip's open leg with the margin the close frees", () => {
+    // 100 freed covers the 1,000 short past the close at 20x (50 of margin).
+    const p = previewOrder(s(0n), market(), { side: "short", price: PRICE, notional: HELD + 1_000n * WAD });
+    expect(p.marginRequired).toBe(mul(1_000n * WAD, IM));
+    expect(p.sufficientMargin).toBe(true);
+    expect(p.impliedLeverage).toBe(5); // 1,000 short over 200 of equity
+  });
+
+  it("lets maxNotional close the position, then open on free plus freed margin", () => {
+    const free = 50n * WAD;
+    const p = previewOrder(s(free), market(), { side: "short", price: PRICE, notional: 0n });
+    expect(p.maxNotional).toBe(HELD + div(free + mul(HELD, IM), IM));
+  });
+
+  it("leaves a same-side order on free margin alone", () => {
+    const free = 50n * WAD;
+    const p = previewOrder(s(free), market(), { side: "long", price: PRICE, notional: HELD });
+    expect(p.maxNotional).toBe(div(free, IM));
+    expect(p.marginRequired).toBe(mul(HELD, IM));
+    expect(p.sufficientMargin).toBe(false);
+    expect(p.impliedLeverage).toBe(20);
+  });
+});
+
 describe("previewOrder liquidationPrice", () => {
   // 20 units at 100 = 2,000 notional, whose initial margin at 20x is 100.
   const SIZE = 20n * WAD;
