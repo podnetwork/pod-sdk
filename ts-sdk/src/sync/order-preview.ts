@@ -90,7 +90,7 @@ export interface OrderPreview {
   maxNotional: bigint;
   /** Account cross leverage if this order fills = Σ perp notional after / equity. */
   impliedLeverage: number;
-  /** Whether free margin, plus what a full close frees, covers the required margin. */
+  /** Whether the margin left after any close, including what it frees, covers the required margin. */
   sufficientMargin: boolean;
   /** Estimated fee = notional · fee rate (taker for market, maker for limit). */
   estimatedFee: bigint;
@@ -171,17 +171,27 @@ export function previewOrder(
   let held = 0n; // signed size in this market
   let heldNotional = 0n;
   let currentPerpNotional = 0n;
+  let elsewhere = false;
   for (const p of snap.positions) {
     if (p.kind !== "perp") continue;
     currentPerpNotional += p.notional;
-    if (p.orderbookId === market.id) { held += p.size; heldNotional += p.notional; }
+    if (p.orderbookId === market.id) { held += p.size; heldNotional += p.notional; } else elsewhere = true;
   }
   const opposed = held !== 0n && (held > 0n) !== (input.side === "long");
   const closable = opposed ? absB(held) : 0n;
   // The position's initial margin, returned once the close completes (at mark, as the engine locks it).
   const freed = opposed ? mul(heldNotional, im) : 0n;
+  // The open leg's budget is equity − Σ IM + freed, signed until the sum (the engine's
+  // `max_fill`): withdrawable cash floors at zero and so hides a deficit the freed margin
+  // must first make up. Σ IM is twice the maintenance margin; without it, and with perps
+  // elsewhere, the account's IM is unknown and the flip gets no credit.
+  const lockedMargin = snap.maintenanceMargin !== undefined ? 2n * snap.maintenanceMargin
+    : elsewhere ? undefined : mul(heldNotional, im);
+  const openBudget = !opposed ? availableMargin
+    : lockedMargin === undefined ? availableMargin
+    : maxB(0n, snap.perpsEquity - lockedMargin + freed);
   // An inverse, so it stays on the requested basis: callers clamp the request with it.
-  const maxNotional = mul(closable, input.price) + (im > 0n ? div(availableMargin + freed, im) : 0n);
+  const maxNotional = mul(closable, input.price) + (im > 0n ? div(openBudget, im) : 0n);
 
   // Whole lots only, so the money below is priced off what is actually submitted.
   const magnitude = alignSize(input.price > 0n ? div(input.notional, input.price) : 0n, market.lotSize);
@@ -202,7 +212,7 @@ export function previewOrder(
     marginRequired,
     maxNotional,
     impliedLeverage,
-    sufficientMargin: marginRequired <= availableMargin + freed,
+    sufficientMargin: marginRequired <= openBudget,
     estimatedFee: mul(notional, input.orderType === "limit" ? market.makerFee : market.takerFee),
     liquidationPrice: liquidationPriceAfter(snap, market, size, input.price),
   };
