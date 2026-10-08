@@ -101,6 +101,75 @@ const perp = (over: Partial<PerpPosition> = {}): PerpPosition => ({
   ...over,
 });
 
+describe("previewOrder against a held position", () => {
+  // 20 units long at 100 = 2,000 notional, whose initial margin at 20x is 100.
+  const SIZE = 20n * WAD;
+  const HELD = mul(SIZE, PRICE);
+  const IM = imRate(20);
+  // Equity is the 100 of locked margin plus `free`, as withdrawable cash is.
+  const s = (free: bigint): PositionsSnapshot => ({
+    ...snap(free), perpsEquity: mul(HELD, IM) + free, positions: [perp({ size: SIZE, notional: HELD })],
+  });
+
+  it("locks no margin for a close, even with no free margin", () => {
+    const p = previewOrder(s(0n), market(), { side: "short", price: PRICE, notional: HELD });
+    expect(p.marginRequired).toBe(0n);
+    expect(p.sufficientMargin).toBe(true);
+    expect(p.impliedLeverage).toBe(0);
+  });
+
+  it("funds a flip's open leg with the margin the close frees", () => {
+    // 100 freed covers the 1,000 short past the close at 20x (50 of margin).
+    const p = previewOrder(s(0n), market(), { side: "short", price: PRICE, notional: HELD + 1_000n * WAD });
+    expect(p.marginRequired).toBe(mul(1_000n * WAD, IM));
+    expect(p.sufficientMargin).toBe(true);
+    expect(p.impliedLeverage).toBe(10); // 1,000 short over 100 of equity
+  });
+
+  it("lets maxNotional close the position, then open on free plus freed margin", () => {
+    const free = 50n * WAD;
+    const p = previewOrder(s(free), market(), { side: "short", price: PRICE, notional: 0n });
+    expect(p.maxNotional).toBe(HELD + div(free + mul(HELD, IM), IM));
+  });
+
+  it("makes up an initial-margin deficit before the freed margin funds a flip", () => {
+    // 100 locked against 75 of equity: above maintenance (50), so withdrawable reads 0,
+    // but the 100 freed only clears the 25 deficit — 75 left, not 100.
+    const under: PositionsSnapshot = { ...s(0n), perpsEquity: 75n * WAD, maintenanceMargin: 50n * WAD };
+    const flip = previewOrder(under, market(), { side: "short", price: PRICE, notional: 2n * HELD });
+    expect(flip.sufficientMargin).toBe(false);
+    expect(flip.maxNotional).toBe(HELD + div(75n * WAD, IM));
+    // The close alone needs nothing.
+    expect(previewOrder(under, market(), { side: "short", price: PRICE, notional: HELD }).sufficientMargin).toBe(true);
+  });
+
+  it("gives a flip no credit when another market's margin is unknown", () => {
+    const other = perp({ orderbookId: `0x${"00".repeat(31)}08` });
+    const p = previewOrder({ ...s(0n), positions: [...s(0n).positions, other] }, market(), {
+      side: "short", price: PRICE, notional: 0n,
+    });
+    expect(p.maxNotional).toBe(HELD);
+  });
+
+  it("prices margin at the engine's exact rate over the rounded leverage", () => {
+    const rate = WAD / 30n; // 3.33…%, which maxLeverage would round
+    const p = previewOrder(s(0n), market({ initialMargin: rate }), {
+      side: "short", price: PRICE, notional: HELD + 1_000n * WAD,
+    });
+    expect(p.marginRequired).toBe(mul(1_000n * WAD, rate));
+    expect(p.maxNotional).toBe(HELD + div(mul(HELD, IM), rate)); // all 100 of equity reopens
+  });
+
+  it("leaves a same-side order on free margin alone", () => {
+    const free = 50n * WAD;
+    const p = previewOrder(s(free), market(), { side: "long", price: PRICE, notional: HELD });
+    expect(p.maxNotional).toBe(div(free, IM));
+    expect(p.marginRequired).toBe(mul(HELD, IM));
+    expect(p.sufficientMargin).toBe(false);
+    expect(p.impliedLeverage).toBeCloseTo(4_000 / 150);
+  });
+});
+
 describe("previewOrder liquidationPrice", () => {
   // 20 units at 100 = 2,000 notional, whose initial margin at 20x is 100.
   const SIZE = 20n * WAD;
