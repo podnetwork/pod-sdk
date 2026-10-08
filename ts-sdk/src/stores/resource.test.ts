@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { BaseResource, type ResourceHandle, type SnapshotStore } from "./resource.js";
+import {
+  BaseResource, combineResources, derivedResource, type ResourceHandle, type SnapshotStore,
+} from "./resource.js";
 
 const memStore = (init: Record<string, string> = {}): SnapshotStore & { data: Record<string, string> } => {
   const data = { ...init };
@@ -86,4 +88,52 @@ it("without a store behaves as before: lastKnown is the live value", () => {
   expect(r.lastKnown()).toBeUndefined();
   h().set(5);
   expect(r.lastKnown()).toEqual({ value: 5, at: 1_000_000 });
+});
+
+it("keeps a combined value provisional while any parent is provisional or empty", async () => {
+  const store = memStore();
+  const positions = controlled<number>();
+  const markets = controlled<string>();
+  const live = combineResources(
+    [positions.r, markets.r],
+    () => (positions.r.get() === undefined ? undefined : `${positions.r.get()}@${markets.r.get() ?? "none"}`),
+    { store, key: "live" },
+  );
+  const off = live.subscribe(() => {});
+
+  positions.h().set(1); // markets has nothing yet
+  await Promise.resolve();
+  expect(live.isProvisional?.()).toBe(true);
+  markets.h().seed("cached"); // last session's list
+  await Promise.resolve();
+  expect(live.get()).toBe("1@cached");
+  expect(live.isProvisional?.()).toBe(true);
+  vi.advanceTimersByTime(5_000);
+  expect(store.data.live).toBeUndefined();
+  expect(live.lastKnown?.()).toBeUndefined();
+
+  markets.h().set("priced");
+  await Promise.resolve();
+  expect(live.isProvisional?.()).toBe(false);
+  vi.advanceTimersByTime(5_000);
+  expect(JSON.parse(store.data.live!).value).toBe("1@priced");
+  off();
+});
+
+it("passes a parent's provisional state through a derived view", async () => {
+  const parent = controlled<number[]>();
+  const first = derivedResource(parent.r, (list) => list?.[0]);
+  const off = first.subscribe(() => {});
+
+  parent.h().seed([1]);
+  await Promise.resolve();
+  expect(first.get()).toBe(1);
+  expect(first.isProvisional?.()).toBe(true);
+  expect(first.lastKnown?.()).toBeUndefined();
+
+  parent.h().set([2]);
+  await Promise.resolve();
+  expect(first.isProvisional?.()).toBe(false);
+  expect(first.lastKnown?.()?.value).toBe(2);
+  off();
 });

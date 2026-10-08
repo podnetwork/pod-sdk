@@ -50,6 +50,7 @@ export class OrderHistory implements SeriesResource<Order> {
 
   get(): Order[] | undefined { return this.base.get(); }
   lastKnown(): Snapshot<Order[]> | undefined { return this.base.lastKnown(); }
+  isProvisional(): boolean { return this.base.isProvisional(); }
   subscribe(listener: () => void): () => void { return this.base.subscribe(listener); }
   ready(): Promise<Order[]> { return this.base.ready(); }
   get error(): Error | undefined { return this.base.error; }

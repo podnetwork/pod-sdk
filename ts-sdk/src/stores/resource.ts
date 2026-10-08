@@ -23,6 +23,11 @@ export interface Resource<T> {
    * never for sizing, pricing or signing, which must read `get()`.
    */
   lastKnown?(): Snapshot<T> | undefined;
+  /**
+   * True while the current value is a provisional `seed` (e.g. a cached list
+   * not yet confirmed by the backend). Derived resources inherit it.
+   */
+  isProvisional?(): boolean;
   readonly error?: Error;
 }
 
@@ -90,6 +95,10 @@ export class BaseResource<T> implements Resource<T> {
 
   get(): T | undefined {
     return this.value;
+  }
+
+  isProvisional(): boolean {
+    return this.provisional;
   }
 
   lastKnown(): Snapshot<T> | undefined {
@@ -224,6 +233,12 @@ export class BaseResource<T> implements Resource<T> {
   }
 }
 
+/**
+ * A value computed from a parent that has nothing yet, or only a provisional
+ * seed, is itself provisional: never persisted or preferred by `lastKnown()`.
+ */
+const unconfirmed = (p: Resource<unknown>): boolean => p.get() === undefined || p.isProvisional?.() === true;
+
 /** A read-only view derived from several resources; recomputes on any change. */
 export function combineResources<T>(
   parents: Resource<unknown>[],
@@ -235,7 +250,9 @@ export function combineResources<T>(
     const apply = () => {
       if (!alive) return;
       const next = compute();
-      if (next !== undefined) handle.set(next);
+      if (next === undefined) return;
+      if (parents.some(unconfirmed)) handle.seed(next);
+      else handle.set(next);
     };
     const unsubs = parents.map((p) => p.subscribe(apply));
     queueMicrotask(apply);
@@ -253,7 +270,9 @@ export function derivedResource<S, T>(
     const apply = () => {
       if (!alive) return;
       const next = select(parent.get());
-      if (next !== undefined) handle.set(next);
+      if (next === undefined) return;
+      if (parent.isProvisional?.()) handle.seed(next);
+      else handle.set(next);
     };
     const unsub = parent.subscribe(apply);
     // Defer the initial emit: never call handle.set synchronously inside
