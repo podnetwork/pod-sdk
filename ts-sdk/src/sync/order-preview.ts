@@ -125,7 +125,7 @@ function liquidationPriceAfter(
   price: bigint,
 ): bigint | undefined {
   if (market.type !== "perp") return undefined;
-  const mmRate = imRate(market.maxLeverage) / 2n; // mm = im/2, as in enrichPositions
+  const mmRate = (market.initialMargin ?? imRate(market.maxLeverage)) / 2n; // mm = im/2, as in enrichPositions
   if (mmRate <= 0n) return undefined;
 
   // Split the book: this market's perps move with X, every other one is constant.
@@ -163,8 +163,9 @@ export function previewOrder(
   input: OrderPreviewInput,
 ): OrderPreview {
   // Spot has no leverage: the order locks the full notional in cash (im = 1.0).
-  // Perps use the market's initial-margin rate (1 / max_leverage).
-  const im = market.type === "spot" ? WAD : imRate(market.maxLeverage);
+  // Perps use the market's initial-margin rate: the engine's own, else 1 / max_leverage
+  // on nodes that do not report it (max_leverage is rounded, the rate is not).
+  const im = market.type === "spot" ? WAD : (market.initialMargin ?? imRate(market.maxLeverage));
   const availableMargin = snap.withdrawableCash;
 
   let held = 0n; // signed size in this market

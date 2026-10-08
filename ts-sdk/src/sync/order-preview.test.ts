@@ -131,6 +131,15 @@ describe("previewOrder against a held position", () => {
     expect(p.maxNotional).toBe(HELD + div(free + mul(HELD, IM), IM));
   });
 
+  it("prices margin at the engine's exact rate over the rounded leverage", () => {
+    const rate = WAD / 30n; // 3.33…%, which maxLeverage would round
+    const p = previewOrder(s(0n), market({ initialMargin: rate }), {
+      side: "short", price: PRICE, notional: HELD + 1_000n * WAD,
+    });
+    expect(p.marginRequired).toBe(mul(1_000n * WAD, rate));
+    expect(p.maxNotional).toBe(HELD + div(mul(HELD, rate), rate));
+  });
+
   it("leaves a same-side order on free margin alone", () => {
     const free = 50n * WAD;
     const p = previewOrder(s(free), market(), { side: "long", price: PRICE, notional: HELD });
