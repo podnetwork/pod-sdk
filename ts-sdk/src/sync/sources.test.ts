@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 
+import { stringifyBig } from "../codec/json.js";
 import type { Market } from "../types/public.js";
 import { marketsSource, type SyncContext } from "./sources.js";
 
@@ -41,6 +42,7 @@ it("removes a delisted market on a reconnect seed", async () => {
   let current: Market[] | undefined;
   const stop = marketsSource(ctx)({
     set: (value) => { current = value; },
+    seed: (value) => { current = value; },
     update: () => {},
     current: () => current,
     fail: (error) => { throw error; },
@@ -82,6 +84,7 @@ it("ignores a markets cache written in an older format", async () => {
   let current: Market[] | undefined;
   const stop = marketsSource(ctx)({
     set: (value) => { current = value; seen.push(value); },
+    seed: (value) => { current = value; seen.push(value); },
     update: () => {},
     current: () => current,
     fail: (error) => { throw error; },
@@ -90,7 +93,53 @@ it("ignores a markets cache written in an older format", async () => {
   // Nothing is seeded from the stale payload: the first value to land is REST's.
   await vi.waitFor(() => expect(current?.map((m) => m.id)).toEqual([a.id]));
   expect(seen.every((v) => v === undefined || v.every((m) => m.minNotional !== undefined))).toBe(true);
-  expect(cache.set).toHaveBeenCalledWith(expect.stringContaining('"v":2'));
+  expect(cache.set).toHaveBeenCalledWith(expect.stringContaining('"v":3'));
+
+  stop();
+});
+
+it("keeps the cached list provisional until REST's static list lands", async () => {
+  // A pod_markets frame replayed before /clob/markets returns must not promote last
+  // session's list (unpriced, possibly delisted) into a persisted, lastKnown() value.
+  const a = market("0x01", "A/Q");
+  const cached = stringifyBig({ v: 3, markets: [a] });
+  let resolveMarkets: (m: Market[]) => void = () => {};
+  const markets = vi.fn(() => new Promise<Market[]>((r) => { resolveMarkets = r; }));
+  let onFrame: ((result: unknown) => void) | undefined;
+  const ctx = {
+    rest: { markets, marketStats: vi.fn().mockResolvedValue({ markets: [] }) },
+    ws: {
+      on: () => () => {},
+      subscribe: (_m: string, _p: unknown, fn: (result: unknown) => void) => {
+        onFrame = fn;
+        return { unsubscribe() {}, update() {}, resubscribe() {} };
+      },
+    },
+    marketResyncMs: 0,
+    positionResyncMs: 0,
+    marketsCache: { get: () => cached, set: vi.fn() },
+  } as unknown as SyncContext;
+
+  const set = vi.fn();
+  const seed = vi.fn();
+  const stop = marketsSource(ctx)({
+    set,
+    seed,
+    update: () => {},
+    current: () => undefined,
+    fail: (error) => { throw error; },
+  });
+
+  expect(seed).toHaveBeenCalledTimes(1);
+  onFrame?.({ orderbook_id: a.id });
+  await vi.waitFor(() => expect(ctx.rest.marketStats).toHaveBeenCalled());
+  await Promise.resolve();
+  expect(set).not.toHaveBeenCalled();
+  expect(seed.mock.calls.length).toBeGreaterThan(1);
+
+  resolveMarkets([a]);
+  await vi.waitFor(() => expect(set).toHaveBeenCalled());
+  expect(set.mock.lastCall?.[0].map((m: Market) => m.id)).toEqual([a.id]);
 
   stop();
 });

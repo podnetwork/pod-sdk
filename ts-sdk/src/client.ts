@@ -5,7 +5,9 @@ import type {
 } from "./types/public.js";
 import { PodRestClient } from "./transport/rest.js";
 import { PodWsClient, type WebSocketCtor } from "./transport/ws.js";
-import { BaseResource, combineResources, derivedResource, type Resource } from "./stores/resource.js";
+import {
+  BaseResource, combineResources, derivedResource, type Resource, type SnapshotSlot, type SnapshotStore,
+} from "./stores/resource.js";
 import {
   balancesSource, bridgeConfigSource, marketsSource, orderbookSource, positionsSource,
   statusSource, triggersSource, type MarketsCache, type SyncContext,
@@ -35,6 +37,13 @@ export interface PodTradeClientOptions {
    * backend environment — the list differs between them.
    */
   marketsCache?: MarketsCache;
+  /**
+   * Optional persistence for last-known snapshots of the markets (with their
+   * prices and stats), and per account of live positions, balances, triggers and
+   * orders — read back through `Resource.lastKnown()`, so a host can still show
+   * something while the backend is unreachable. Key it per backend environment.
+   */
+  snapshots?: SnapshotStore;
 }
 
 interface Destroyable { destroy(): void }
@@ -46,9 +55,11 @@ export class PodTradeClient {
   private readonly cache = new Map<string, Destroyable & object>();
   private readonly rpcUrl?: string;
   private readonly fetchFn?: typeof fetch;
+  private readonly snapshots?: SnapshotStore;
 
   constructor(opts: PodTradeClientOptions) {
     this.rpcUrl = opts.rpcUrl;
+    this.snapshots = opts.snapshots;
     this.fetchFn = opts.fetch;
     this.rest = new PodRestClient({ restUrl: opts.restUrl, fetch: opts.fetch });
     this.ws = new PodWsClient({
@@ -118,6 +129,10 @@ export class PodTradeClient {
     this.ws.close();
   }
 
+  private slot(key: string): SnapshotSlot | undefined {
+    return this.snapshots && { store: this.snapshots, key: key.toLowerCase() };
+  }
+
   private memo<T extends Destroyable & object>(key: string, make: () => T): T {
     const hit = this.cache.get(key);
     if (hit) return hit as T;
@@ -131,7 +146,7 @@ export class PodTradeClient {
   }
 
   get markets(): Resource<Market[]> {
-    return this.memo("markets", () => new BaseResource(marketsSource(this.ctx)));
+    return this.memo("markets", () => new BaseResource(marketsSource(this.ctx), this.slot("markets")));
   }
 
   market(id: MarketId): Resource<Market> {
@@ -166,20 +181,20 @@ export class PodTradeClient {
         const snap = positions.get();
         if (!snap) return undefined;
         return enrichPositions(snap, markets.get() ?? []);
-      }) as BaseResource<PositionsSnapshot>;
+      }, this.slot(`livePositions:${account}`)) as BaseResource<PositionsSnapshot>;
     });
   }
 
   triggers(account: Address, _query?: TriggersQuery): Resource<Trigger[]> {
     return this.memo(`triggers:${account}`, () =>
-      new BaseResource(triggersSource(this.ctx, account)),
+      new BaseResource(triggersSource(this.ctx, account), this.slot(`triggers:${account}`)),
     );
   }
 
   /** Live spot holdings + native cash. */
   balances(account: Address): Resource<Balances> {
     return this.memo(`balances:${account}`, () =>
-      new BaseResource(balancesSource(this.ctx, account)),
+      new BaseResource(balancesSource(this.ctx, account), this.slot(`balances:${account}`)),
     );
   }
 
@@ -329,6 +344,6 @@ export class PodTradeClient {
 
   orders(account: Address, query?: OrdersQuery): OrderHistory {
     const key = `orders:${account}:${query ? JSON.stringify(query) : ""}`;
-    return this.memo(key, () => new OrderHistory(this.ctx, account, query));
+    return this.memo(key, () => new OrderHistory(this.ctx, account, query, this.slot(key)));
   }
 }

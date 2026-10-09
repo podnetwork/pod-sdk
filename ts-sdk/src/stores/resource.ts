@@ -2,6 +2,8 @@
 // ref-counted (its source starts on the first subscriber and tears down after
 // the last leaves), and exposes the useSyncExternalStore-shaped contract.
 
+import { parseBig, stringifyBig } from "../codec/json.js";
+
 export interface Resource<T> {
   get(): T | undefined;
   subscribe(listener: () => void): () => void;
@@ -15,11 +17,55 @@ export interface Resource<T> {
   ready(): Promise<T>;
   /** Restart the source for a fresh seed (optional — see BaseResource). */
   refresh?(): void;
+  /**
+   * The newest real value this resource has held, live or persisted from an
+   * earlier visit, and when it was committed — never a provisional `seed`. For display while the backend is away —
+   * never for sizing, pricing or signing, which must read `get()`.
+   */
+  lastKnown(): Snapshot<T> | undefined;
+  /**
+   * True while the current value is a provisional `seed` (e.g. a cached list
+   * not yet confirmed by the backend). Derived resources inherit it.
+   */
+  isProvisional(): boolean;
   readonly error?: Error;
 }
 
+/** A value and the wall-clock ms it was committed at. */
+export interface Snapshot<T> {
+  value: T;
+  at: number;
+}
+
+/**
+ * Host-supplied storage for last-known snapshots (localStorage in a browser).
+ * Key it per backend environment. Implementations may throw (storage denied,
+ * quota); callers ignore failures.
+ */
+export interface SnapshotStore {
+  get(key: string): string | null;
+  set(key: string, value: string): void;
+}
+
+/** Where one resource persists its snapshot. */
+export interface SnapshotSlot {
+  store: SnapshotStore;
+  key: string;
+}
+
+// Bump when a persisted type changes shape: a mismatch reads as no snapshot.
+const SNAPSHOT_VERSION = 1;
+// Account state recomputes on every market tick; storage sees at most one write per window.
+const SNAPSHOT_WRITE_MS = 5_000;
+
 export interface ResourceHandle<T> {
   set(value: T): void;
+  /**
+   * Commit a provisional value from the host's own cache (e.g. last session's
+   * static markets list): readable through `get()`, but neither persisted nor
+   * preferred by `lastKnown()` over a snapshot of real data.
+   */
+  seed(value: T): void;
   update(fn: (prev: T | undefined) => T): void;
   current(): T | undefined;
   fail(err: Error): void;
@@ -30,6 +76,13 @@ export type ResourceSource<T> = (handle: ResourceHandle<T>) => () => void;
 
 export class BaseResource<T> implements Resource<T> {
   private value: T | undefined;
+  private provisional = false;
+  // The newest real value, kept apart from `value` so a later provisional seed
+  // can neither hide it from lastKnown() nor stop it being written.
+  private confirmed: Snapshot<T> | undefined;
+  private dirty = false;
+  private persisted: Snapshot<T> | null | undefined;
+  private writeTimer: ReturnType<typeof setTimeout> | undefined;
   private _error: Error | undefined;
   private readonly listeners = new Set<() => void>();
   private teardown: (() => void) | undefined;
@@ -38,10 +91,23 @@ export class BaseResource<T> implements Resource<T> {
   private readyResolve: ((v: T) => void) | undefined;
   private readyReject: ((e: Error) => void) | undefined;
 
-  constructor(private readonly source: ResourceSource<T>) {}
+  constructor(
+    private readonly source: ResourceSource<T>,
+    private readonly slot?: SnapshotSlot,
+  ) {}
 
   get(): T | undefined {
     return this.value;
+  }
+
+  isProvisional(): boolean {
+    return this.provisional;
+  }
+
+  lastKnown(): Snapshot<T> | undefined {
+    if (this.confirmed) return this.confirmed;
+    if (this.persisted === undefined) this.persisted = this.readSlot();
+    return this.persisted ?? undefined;
   }
 
   get error(): Error | undefined {
@@ -97,6 +163,7 @@ export class BaseResource<T> implements Resource<T> {
     this.started = true;
     const handle: ResourceHandle<T> = {
       set: (v) => this.commit(v),
+      seed: (v) => this.commit(v, true),
       update: (fn) => this.commit(fn(this.value)),
       current: () => this.value,
       fail: (err) => {
@@ -122,13 +189,20 @@ export class BaseResource<T> implements Resource<T> {
   private stop(): void {
     if (!this.started) return;
     this.started = false;
+    this.writeSlot();
     const t = this.teardown;
     this.teardown = undefined;
     if (t) try { t(); } catch { /* ignore */ }
   }
 
-  private commit(v: T): void {
+  private commit(v: T, provisional = false): void {
     this.value = v;
+    this.provisional = provisional;
+    if (!provisional) {
+      this.confirmed = { value: v, at: Date.now() };
+      this.dirty = true;
+      if (this.slot) this.writeTimer ??= setTimeout(() => this.writeSlot(), SNAPSHOT_WRITE_MS);
+    }
     this._error = undefined;
     if (this.readyResolve) {
       this.readyResolve(v);
@@ -138,6 +212,27 @@ export class BaseResource<T> implements Resource<T> {
     this.emit();
   }
 
+  private readSlot(): Snapshot<T> | null {
+    if (!this.slot) return null;
+    try {
+      const raw = this.slot.store.get(this.slot.key);
+      const s = raw ? parseBig<{ v: number; at: number; value: T }>(raw) : undefined;
+      return s?.v === SNAPSHOT_VERSION ? { value: s.value, at: s.at } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private writeSlot(): void {
+    clearTimeout(this.writeTimer);
+    this.writeTimer = undefined;
+    if (!this.slot || !this.confirmed || !this.dirty) return;
+    this.dirty = false;
+    try {
+      this.slot.store.set(this.slot.key, stringifyBig({ v: SNAPSHOT_VERSION, ...this.confirmed }));
+    } catch { /* storage denied or full */ }
+  }
+
   private emit(): void {
     this.listeners.forEach((l) => {
       try { l(); } catch { /* ignore */ }
@@ -145,22 +240,31 @@ export class BaseResource<T> implements Resource<T> {
   }
 }
 
+/**
+ * A value computed from a parent that has nothing yet, or only a provisional
+ * seed, is itself provisional: never persisted or preferred by `lastKnown()`.
+ */
+const unconfirmed = (p: Resource<unknown>): boolean => p.get() === undefined || p.isProvisional();
+
 /** A read-only view derived from several resources; recomputes on any change. */
 export function combineResources<T>(
   parents: Resource<unknown>[],
   compute: () => T | undefined,
+  slot?: SnapshotSlot,
 ): Resource<T> {
   return new BaseResource<T>((handle) => {
     let alive = true;
     const apply = () => {
       if (!alive) return;
       const next = compute();
-      if (next !== undefined) handle.set(next);
+      if (next === undefined) return;
+      if (parents.some(unconfirmed)) handle.seed(next);
+      else handle.set(next);
     };
     const unsubs = parents.map((p) => p.subscribe(apply));
     queueMicrotask(apply);
     return () => { alive = false; unsubs.forEach((u) => u()); };
-  });
+  }, slot);
 }
 
 /** A read-only view derived from another resource. */
@@ -173,7 +277,9 @@ export function derivedResource<S, T>(
     const apply = () => {
       if (!alive) return;
       const next = select(parent.get());
-      if (next !== undefined) handle.set(next);
+      if (next === undefined) return;
+      if (unconfirmed(parent)) handle.seed(next);
+      else handle.set(next);
     };
     const unsub = parent.subscribe(apply);
     // Defer the initial emit: never call handle.set synchronously inside

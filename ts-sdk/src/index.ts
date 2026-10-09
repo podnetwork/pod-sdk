@@ -18,7 +18,7 @@ export type {
 } from "./transport/ws.js";
 
 // Layer 2 — resources
-export type { Resource } from "./stores/resource.js";
+export type { Resource, Snapshot, SnapshotStore } from "./stores/resource.js";
 export { combineResources, derivedResource } from "./stores/resource.js";
 export { enrichPositions } from "./sync/positions-live.js";
 export {
