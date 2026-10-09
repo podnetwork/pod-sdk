@@ -6,7 +6,7 @@ import { WAD } from "../codec/units.js";
 import { enrichPositions } from "./positions-live.js";
 
 const LOT = 10n ** 12n;
-const PRICE = 100n * WAD;
+const PRICE = 100n * WAD; // mark == entry, so price uPnL is 0
 
 const market = (over: Partial<Market> = {}): Market => ({
   id: `0x${"00".repeat(31)}07`,
@@ -19,7 +19,7 @@ const market = (over: Partial<Market> = {}): Market => ({
   lotSize: LOT,
   minNotional: 0n,
   maxLeverage: 20,
-  fundingWindowUs: 0,
+  fundingWindowUs: 0, // no live funding recompute → funding held at snapshot value
   makerFee: 0n,
   takerFee: 0n,
   auctionIntervalMs: 500,
@@ -53,6 +53,47 @@ const snap = (positions: PositionsSnapshot["positions"], cash = 10_000n * WAD): 
   accountValue: cash,
   cash,
   withdrawableCash: cash,
+});
+
+describe("enrichPositions withdrawable floor", () => {
+  it("floors the margin deduction at 10% of open notional when it exceeds summed IM", () => {
+    // 10 units long at 100 → notional 1000. maxLeverage 20 → IM rate 1/20 = 5% of
+    // notional = 50. 10% of notional = 100. The floor binds: deduction is 100, not
+    // 50. Equity 500 - 100 = 400.
+    const out = enrichPositions(snap([perp(10n * WAD)], 500n * WAD), [market({ maxLeverage: 20 })]);
+
+    expect(out.perpsEquity).toBe(500n * WAD);
+    expect(out.withdrawableCash).toBe(400n * WAD);
+  });
+
+  it("deducts summed IM unchanged when IM exceeds 10% of open notional", () => {
+    // maxLeverage 5 → IM rate 1/5 = 20% of notional = 200. 10% of notional = 100.
+    // IM binds: deduction is 200. Equity 500 - 200 = 300.
+    const out = enrichPositions(
+      snap([perp(10n * WAD, { leverage: 5 })], 500n * WAD),
+      [market({ maxLeverage: 5 })],
+    );
+
+    expect(out.perpsEquity).toBe(500n * WAD);
+    expect(out.withdrawableCash).toBe(300n * WAD);
+  });
+
+  it("rounds the 10%-of-notional floor UP when notional is not divisible by 10", () => {
+    // Mark carries a 7-wei tail, so open notional = 100·1e18 + 7, which is not
+    // divisible by 10. mark == entry → zero price uPnL. IM (5% = ~5·1e18) is well
+    // under the 10% term (~10·1e18), so the ratio floor binds. It must round UP:
+    // ceil((100·1e18 + 7) / 10) locks 1 wei more than truncation would, so
+    // withdrawable is exactly 1 wei below the round 490·1e18. A max-withdraw at the
+    // boundary is then admitted by the venue rather than rejected.
+    const ODD = 100n * WAD + 7n;
+    const out = enrichPositions(
+      snap([perp(1n * WAD, { entryPrice: ODD })], 500n * WAD),
+      [market({ markPrice: ODD, maxLeverage: 20 })],
+    );
+
+    expect(out.perpsEquity).toBe(500n * WAD);
+    expect(out.withdrawableCash).toBe(490n * WAD - 1n);
+  });
 });
 
 describe("enrichPositions maintenanceMargin", () => {
