@@ -23,3 +23,7 @@ interface IRecovery {
 2. Send a transaction to the recovery precompile calling `recover(txHash, nonce)` with the values from step 1.
 
 The protocol will finalize the target transaction chain, recover your account state, and increment the nonce. You can then send a new transaction with the next nonce.
+
+## Gas
+
+A `recover` call is charged a flat **21,000 gas** (see [Gas](../README.md#gas)), regardless of how long the transaction chain being finalized is.
