@@ -47,32 +47,18 @@ Every fresh observation counts equally. No source is ranked above another, and t
 
 ### Why a median and not an average
 
-An average lets every source move the result, including a broken one. The median ignores how far off an outlier is and only cares which side of the middle it falls on.
-
-Take three fresh observations where one source is wrong:
+An average moves with every source, including a broken one. The median does not depend on how far off an outlier is.
 
 ```
-100.0, 100.2, 150.0
-
-average = (100.0 + 100.2 + 150.0) / 3 = 116.7    ← dragged 16% off by one bad source
-median  = 100.2                                  ← stays with the honest sources
+prices  = 100.0, 100.2, 150.0
+average = 116.7    ← one bad source moves it 16%
+median  = 100.2    ← same whether the bad price is 150 or 1,000,000
 ```
-
-However wrong the bad price is, whether 150 or 1,000,000, the median stays at 100.2.
 
 ### How many bad sources a market can tolerate
 
-The median stays within the range of the honest prices as long as **fewer than half** of the fresh observations are wrong:
-
-| Fresh observations | Wrong prices the median can outvote |
-| ------------------ | ----------------------------------- |
-| 1                  | 0                                   |
-| 2                  | 0 (a bad price pulls the result halfway) |
-| 3                  | 1                                   |
-| 4                  | 1                                   |
-| 5                  | 2                                   |
-
-Dead sources are a different case. A source that stops publishing does not need to be outvoted at all, because its observations go stale and drop out. As long as **at least one** source is fresh, the market keeps a real price.
+- **Wrong prices:** the median holds while fewer than half of the fresh observations are wrong, i.e. up to `⌊(n − 1) / 2⌋` of `n`: 1 of 3, 2 of 5. With 1 or 2, none: a wrong price sets the result outright, or pulls it halfway with 2.
+- **Dead sources:** any number. They go stale and drop out. One fresh source is enough to keep a real price.
 
 ### Example: sources failing over time
 
