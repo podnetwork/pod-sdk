@@ -47,33 +47,26 @@ describe("PodRestClient.activity", () => {
     return { rest, query: () => new URL(url).searchParams };
   };
 
-  it("joins the activity types and sends the window in micros", async () => {
-    const { rest, query } = served({ activity: [], next_cursor: null, solution_now: 1 });
-    await rest.activity(ACCOUNT as never, {
-      types: ["transfer", "order"], from: 1_000, to: 2_000, limit: 25,
-    });
-    expect(query().get("activity_types")).toBe("transfer,order");
+  it("sends the window bounds in micros and the batch limit, and nothing else", async () => {
+    const { rest, query } = served({ frames: [], next_cursor: null, solution_now: 1 });
+    await rest.activity(ACCOUNT as never, { fromUs: 1_000_000, toUs: 2_000_000, limit: 25 });
     expect(query().get("from")).toBe("1000000");
     expect(query().get("to")).toBe("2000000");
     expect(query().get("limit")).toBe("25");
+    expect([...query().keys()].sort()).toEqual(["from", "limit", "to"]);
   });
 
-  it("omits an empty type list rather than asking for nothing", async () => {
-    const { rest, query } = served({ activity: [], next_cursor: null, solution_now: 1 });
-    await rest.activity(ACCOUNT as never, { types: [] });
-    expect(query().get("activity_types")).toBeNull();
-  });
-
-  it("drops a row whose kind this version does not know", async () => {
-    const { rest } = served({
-      activity: [
-        { activity_type: "transfer", ts: 5_000_000, id: "0x03", token: "0x7e", amount: "1700" },
-        { activity_type: "airdrop", ts: 5_000_000, amount: "1" },
-      ],
-      next_cursor: null,
-      solution_now: 5_000_000,
-    });
+  it("hands the frames through and reads the cursor as a batch", async () => {
+    const frame = { batch: 5_000_000, orders: [], events: [{ k: "transfer", id: "0x03", token: "0x7e", amount: "1700" }] };
+    const { rest } = served({ frames: [frame], next_cursor: "5500000", solution_now: 6_000_000 });
     const page = await rest.activity(ACCOUNT as never);
-    expect(page.activity.map((e) => e.activityType)).toEqual(["transfer"]);
+    expect(page.frames).toEqual([frame]);
+    expect(page.nextCursorUs).toBe(5_500_000);
+    expect(page.solutionNow).toBe(6_000);
+  });
+
+  it("reads an exhausted window as no cursor", async () => {
+    const { rest } = served({ frames: [], next_cursor: null, solution_now: 1 });
+    expect((await rest.activity(ACCOUNT as never)).nextCursorUs).toBeNull();
   });
 });

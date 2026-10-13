@@ -1,76 +1,48 @@
-// ActivityHistory: one account's whole activity (ADR 0057) — `OrderHistory`
-// widened to the money the account moved. Seeded from the first REST page, kept
-// live by `pod_activity`, paged backwards by cursor.
+// ActivityHistory: one account's history as the node serves it (ADR 0057) — the
+// per-batch frames `pod_activity` streams, with `GET /clob/activity` serving the
+// same frames for the batches before the stream. One shape from both sources,
+// so a frame folds the same way however it arrived, and a batch folds once:
+// every frame names its batch, the stream resumes from the last one folded, and
+// REST is asked only for batches the stream did not cover.
 //
-// The cursor is the batch alone. `pod_activity` sends one frame per tick,
-// covering every book, so a frame is already delivered exactly when its batch is
-// at or below `since` — there is no `sinceBook` to resume inside a tick with.
+// REST pages oldest first over an inclusive window, so older history is loaded
+// by window: `loadOlder` walks back from the oldest loaded batch in windows that
+// double until one holds a frame, or the query's `from` is reached. Order state
+// is replayed in batch order whenever an older window lands — a fill folded
+// after the cancel that followed it would leave the order wrong.
 
-import type {
-  ActivityEntry, ActivityEvent, ActivityQuery, Address, MoneyActivity, Order,
-} from "../types/public.js";
+import type { ActivityEvent, ActivityQuery, Address, Order } from "../types/public.js";
 import type { WireActivityFrame } from "../types/wire.js";
 import { applyActivityFrame, isMoney } from "../codec/activity.js";
-import { msToUs, usToMs } from "../codec/units.js";
+import { msToUs } from "../codec/units.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
 import type { SubParams } from "../transport/ws.js";
 import type { SeriesResource } from "./candles.js";
 import type { SyncContext } from "./sources.js";
-import { compareCursor, ResumableStream } from "./stream.js";
+import { ResumableStream } from "./stream.js";
 
 /**
- * No types is no filter, and an empty list says the same thing. One form, so REST,
- * `keep()` and the client's memo key cannot read the same query three ways.
+ * No types is no filter, and an empty list says the same thing. One form, so
+ * `keep()` and the client's memo key cannot read the same query two ways.
  */
 export function normalizeActivityQuery(query: ActivityQuery = {}): ActivityQuery {
   return query.types?.length ? query : { ...query, types: undefined };
 }
 
-/** The node's page order within a tick: `(timestamp, ordinal, key)` descending. */
-const ORDINAL = { order: 1, backstop: 2, bridge_transfer: 3, transfer: 4 } as const;
+/** The first window `loadOlder` asks for; every next one is twice as long. */
+const FIRST_SPAN_US = 3_600_000_000;
 
-/**
- * A money row's identity, read off the row itself — so the same row keys the same
- * whichever page it arrives on and however many of its kind share its tick. A
- * backstop leg has no id of its own, but a sweep touches each market once.
- */
-function moneyKey(entry: MoneyActivity): string {
-  switch (entry.activityType) {
-    case "transfer": return `transfer:${entry.transferId}`;
-    case "bridge_transfer": return `bridge:${entry.txHash}:${entry.idx}`;
-    case "backstop": return `backstop:${entry.timeMs}:${entry.orderbookId ?? "cash"}`;
-  }
-}
-
-const cmp = (a: string, b: string): number => a < b ? -1 : a > b ? 1 : 0;
-
-/**
- * Separate two rows the tick and the ordinal cannot. Insertion order would do it
- * for one source alone, but a tick that arrives as a frame and a tick that arrives
- * as a page are built in different orders, and a reload must not reshuffle the list.
- */
-function tiebreak(a: ActivityEntry, b: ActivityEntry): number {
-  if (a.activityType === "order" && b.activityType === "order") {
-    return b.order.nonce - a.order.nonce || cmp(a.order.id, b.order.id);
-  }
-  // Equal ordinals, so neither is an order.
-  return cmp(moneyKey(a as MoneyActivity), moneyKey(b as MoneyActivity));
-}
-
-export class ActivityHistory implements SeriesResource<ActivityEntry> {
-  private readonly base: BaseResource<ActivityEntry[]>;
-  private handle: ResourceHandle<ActivityEntry[]> | undefined;
-  private readonly orders = new Map<string, Order>();
-  /**
-   * When each order was reported, by order id. Kept beside the row rather than on
-   * it: the node times an order by its signed deadline, which no frame carries, so
-   * neither a later frame nor a re-seed must be able to retime a row already placed.
-   */
-  private readonly orderTimeMs = new Map<string, number>();
-  /** The money rows, by {@link moneyKey}. */
-  private readonly money = new Map<string, ActivityEntry>();
-  private nextCursor: string | null = null;
-  private painted = false;
+export class ActivityHistory implements SeriesResource<ActivityEvent> {
+  private readonly base: BaseResource<ActivityEvent[]>;
+  private handle: ResourceHandle<ActivityEvent[]> | undefined;
+  /** Every frame folded, by batch — the one place a batch is deduplicated. */
+  private readonly frames = new Map<number, WireActivityFrame>();
+  private orders = new Map<string, Order>();
+  /** The folded events, oldest first: the order the frames replay in. */
+  private events: ActivityEvent[] = [];
+  /** The oldest batch (micros) the loaded windows reach; `loadOlder` continues below it. */
+  private oldestUs: number | undefined;
+  private spanUs = FIRST_SPAN_US;
   private seedGen = 0;
   private _hasMore = true;
   private _loading = false;
@@ -78,6 +50,7 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
   private readonly stream: ResumableStream;
 
   private readonly query: ActivityQuery;
+  private readonly floorUs: number;
 
   constructor(
     private readonly ctx: SyncContext,
@@ -85,14 +58,15 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
     query: ActivityQuery = {},
   ) {
     this.query = normalizeActivityQuery(query);
+    this.floorUs = query.from !== undefined ? msToUs(query.from) : 0;
     this.stream = new ResumableStream({
       ws: ctx.ws,
       channel: "pod_activity",
       params: { account },
-      reseed: () => this.fetchFirstPage(),
+      reseed: () => this.seed(),
       onFrame: (r) => this.onFrame(r),
     });
-    this.base = new BaseResource<ActivityEntry[]>((h) => {
+    this.base = new BaseResource<ActivityEvent[]>((h) => {
       this.handle = h;
       this.stream.start();
       return () => {
@@ -102,17 +76,20 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
     });
   }
 
-  get(): ActivityEntry[] | undefined { return this.base.get(); }
+  get(): ActivityEvent[] | undefined { return this.base.get(); }
   subscribe(listener: () => void): () => void { return this.base.subscribe(listener); }
-  ready(): Promise<ActivityEntry[]> { return this.base.ready(); }
+  ready(): Promise<ActivityEvent[]> { return this.base.ready(); }
   get error(): Error | undefined { return this.base.error; }
   hasMore(): boolean { return this._hasMore; }
   loading(): boolean { return this._loading; }
   destroy(): void { this.base.destroy(); }
 
+  /** An order the loaded history touched, as every loaded event left it. */
+  order(id: string): Order | undefined { return this.orders.get(id); }
+
   /**
    * Observe what the stream reported, a tick at a time: the order transitions and
-   * the money that moved. Nothing is emitted for the REST seed.
+   * the money that moved. Nothing is emitted for history loaded over REST.
    */
   onEvent(listener: (events: ActivityEvent[]) => void): () => void {
     this.eventListeners.add(listener);
@@ -122,20 +99,17 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
     return () => { this.eventListeners.delete(listener); release(); };
   }
 
-  setWindow(): void { /* activity pages by cursor, not by time window */ }
+  setWindow(): void { /* the window is the query's; older history comes by `loadOlder` */ }
 
+  /** Load the next older window — widened until it holds a frame, or the query's `from` is reached. */
   async loadOlder(): Promise<void> {
-    if (!this.handle || !this.nextCursor || this._loading) return;
+    const oldest = this.oldestUs;
+    if (!this.handle || this._loading || !this._hasMore || oldest === undefined) return;
     this._loading = true;
     this.rebuild();
     try {
-      const page = await this.ctx.rest.activity(this.account, {
-        ...this.restQuery(),
-        cursor: this.nextCursor,
-      });
-      this.absorb(page.activity, false);
-      this.nextCursor = page.nextCursor;
-      this._hasMore = page.nextCursor !== null;
+      await this.extendBack(oldest);
+      this.refold();
     } finally {
       this._loading = false;
       this.rebuild();
@@ -144,32 +118,60 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
 
   // --- internals ---
 
-  private restQuery() {
-    return { ...this.query, limit: this.query.limit ?? 100 };
+  /**
+   * Walk back from `oldest` (exclusive) in doubling windows until one holds a
+   * frame or the floor is reached, and record how far the history now reaches.
+   */
+  private async extendBack(oldest: number): Promise<void> {
+    while (oldest > this.floorUs) {
+      const from = Math.max(this.floorUs, oldest - this.spanUs);
+      const found = await this.fetchWindow(from, oldest - 1);
+      oldest = from;
+      this.spanUs *= 2;
+      if (found) break;
+    }
+    this.oldestUs = oldest;
+    this._hasMore = oldest > this.floorUs;
   }
 
-  private async fetchFirstPage(): Promise<boolean> {
-    const gen = ++this.seedGen;
-    const before = this.stream.cursor;
-    try {
-      const page = await this.ctx.rest.activity(this.account, this.restQuery());
-      // A seed overtaken by a fresher one is dropped whole: it would absorb rows the
-      // newer page has already corrected, and raise the cursor to an older watermark.
-      if (!this.stream.running || gen !== this.seedGen) return false;
-      // Replayed frames can land while this is in flight, and the indexer trails the
-      // stream by design. Overwriting a row the stream has already advanced would
-      // revert it permanently: the cursor refuses to rewind and `onFrame` drops a
-      // re-delivery, so nothing would repair it.
-      this.absorb(page.activity, compareCursor(this.stream.cursor, before) <= 0);
-      // Paging is the consumer's position in history, not the seed's: a reconnect
-      // re-paints the first page, and taking its cursor again would hand back pages
-      // `loadOlder` has already walked past.
-      if (!this.painted) {
-        this.painted = true;
-        this.nextCursor = page.nextCursor;
-        this._hasMore = page.nextCursor !== null;
+  /** Every frame of `[fromUs, toUs]` into `frames`; whether any new one was kept. */
+  private async fetchWindow(fromUs: number, toUs: number): Promise<boolean> {
+    let found = false;
+    let from: number | null = fromUs;
+    while (from !== null && from <= toUs) {
+      const page = await this.ctx.rest.activity(this.account, { fromUs: from, toUs, limit: this.query.limit });
+      for (const frame of page.frames) {
+        const kept = this.keep(frame);
+        if (kept && !this.frames.has(kept.batch)) {
+          this.frames.set(kept.batch, kept);
+          found = true;
+        }
       }
-      this.stream.raise({ since: msToUs(page.solutionNow) });
+      from = page.nextCursorUs;
+    }
+    return found;
+  }
+
+  /**
+   * The first paint loads the newest window; a reconnect loads the batches the
+   * stream missed. Either way the cursor is raised to the indexer's watermark,
+   * so the subscription resumes right after what REST served.
+   */
+  private async seed(): Promise<boolean> {
+    const gen = ++this.seedGen;
+    try {
+      const nowUs = msToUs((await this.ctx.rest.status()).solutionNow);
+      const end = this.query.to !== undefined ? Math.min(nowUs, msToUs(this.query.to)) : nowUs;
+      if (this.oldestUs === undefined) {
+        await this.extendBack(end + 1);
+      } else if (this.stream.cursor.since !== undefined && this.stream.cursor.since < end) {
+        await this.fetchWindow(this.stream.cursor.since + 1, end);
+      }
+      // A seed overtaken by a fresher one has nothing left to decide: its frames
+      // are in the map either way, and the fresher seed sets the watermark.
+      if (!this.stream.running || gen !== this.seedGen) return false;
+      this.refold();
+      this.stream.raise({ since: nowUs });
       this.rebuild();
       return true;
     } catch (e) {
@@ -180,87 +182,57 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
     }
   }
 
-  private absorb(entries: ActivityEntry[], overwriteOrders: boolean): void {
-    for (const entry of entries) {
-      if (entry.activityType === "order") {
-        if (!overwriteOrders && this.orders.has(entry.order.id)) continue;
-        this.orders.set(entry.order.id, entry.order);
-        // Only the source that first reported the order gets to time it. A re-seed
-        // carries the node's row time for an order the stream already placed by its
-        // batch, and taking it would move the row on every reconnect.
-        if (!this.orderTimeMs.has(entry.order.id)) this.orderTimeMs.set(entry.order.id, entry.timeMs);
-        continue;
-      }
-      const key = moneyKey(entry);
-      if (!this.money.has(key)) this.money.set(key, entry);
-    }
-  }
-
-  /** One frame: everything that happened to the account in one auction batch. */
+  /** One live frame: everything that happened to the account in one batch. */
   private onFrame(result: unknown): void {
     const frame = result as WireActivityFrame;
     if (!frame || !Array.isArray(frame.orders) || !Array.isArray(frame.events)) return;
     // Applying a frame is not idempotent — a fill appends to `order.fills` — and
     // re-delivery is designed in: a resumed subscription replays from the cursor.
     const at: SubParams = { since: frame.batch };
-    if (this.stream.delivered(at)) return;
+    if (this.stream.delivered(at) || this.frames.has(frame.batch)) return;
+    this.stream.advance(at);
     const kept = this.keep(frame);
     if (!kept) return;
-
-    const entries: ActivityEntry[] = [];
-    const events = applyActivityFrame(kept, { orders: this.orders, entries }, {
-      account: this.account,
-    });
-    // An order the stream is the first to report is timed by its batch; one the
-    // seed already placed keeps the time the node gave it.
-    const batchMs = usToMs(kept.batch);
-    for (const o of kept.orders) if (!this.orderTimeMs.has(o.id)) this.orderTimeMs.set(o.id, batchMs);
-    this.absorb(entries, false);
-    this.stream.advance(at);
+    this.frames.set(kept.batch, kept);
+    // Live frames arrive in batch order, after everything loaded, so they fold
+    // on top of the state as they come; only an older window needs a replay.
+    const events = this.fold(kept);
+    this.events.push(...events);
     this.rebuild();
     // Strictly after `rebuild()`: a listener that reads the resource in response to an
     // event must see the state that event produced.
-    if (events.length) {
-      for (const listener of this.eventListeners) {
-        try { listener(events); } catch { /* a listener's failure is not the stream's */ }
-      }
+    for (const listener of this.eventListeners) {
+      try { listener(events); } catch { /* a listener's failure is not the stream's */ }
     }
   }
 
-  /**
-   * Narrow a frame to what the query asked for, or drop it. REST filters both the
-   * kinds and the window server-side; the stream filters neither.
-   */
+  private fold(frame: WireActivityFrame): ActivityEvent[] {
+    return applyActivityFrame(frame, this.orders, { account: this.account });
+  }
+
+  private refold(): void {
+    this.orders = new Map();
+    this.events = [];
+    for (const batch of [...this.frames.keys()].sort((a, b) => a - b)) {
+      this.events.push(...this.fold(this.frames.get(batch)!));
+    }
+  }
+
+  /** Narrow a frame to what the query asked for, or drop it. Neither source filters for us. */
   private keep(frame: WireActivityFrame): WireActivityFrame | undefined {
-    const { types, from, to } = this.query;
-    if (from !== undefined && frame.batch < msToUs(from)) return undefined;
-    if (to !== undefined && frame.batch >= msToUs(to)) return undefined;
+    const { types, to } = this.query;
+    if (frame.batch < this.floorUs) return undefined;
+    if (to !== undefined && frame.batch > msToUs(to)) return undefined;
     if (!types) return frame;
     const want = new Set<string>(types);
-    return {
-      ...frame,
-      // The order events index `orders`, so the two are kept or dropped together.
-      orders: want.has("order") ? frame.orders : [],
-      events: frame.events.filter((e) => want.has(isMoney(e.k) ? e.k : "order")),
-    };
+    const events = frame.events.filter((e) => want.has(isMoney(e.k) ? e.k : "order"));
+    if (!events.length) return undefined;
+    // The order events index `orders`, so the two are kept or dropped together.
+    return { ...frame, orders: want.has("order") ? frame.orders : [], events };
   }
 
   private rebuild(): void {
     if (!this.handle) return;
-    const arr: ActivityEntry[] = new Array(this.orders.size + this.money.size);
-    let i = 0;
-    for (const [id, order] of this.orders) {
-      arr[i++] = {
-        activityType: "order",
-        timeMs: this.orderTimeMs.get(id) ?? Number.MAX_SAFE_INTEGER,
-        order,
-      };
-    }
-    for (const entry of this.money.values()) arr[i++] = entry;
-    arr.sort((a, b) =>
-      b.timeMs - a.timeMs
-      || ORDINAL[b.activityType] - ORDINAL[a.activityType]
-      || tiebreak(a, b));
-    this.handle.set(arr);
+    this.handle.set([...this.events].reverse());
   }
 }

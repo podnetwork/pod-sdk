@@ -2,9 +2,9 @@
 // CDN honor the server's Cache-Control; identical concurrent GETs are deduped.
 // ms in, decoded (bigint / ms) out.
 
-import type { WireFillRow, WireSolutionRow } from "../types/wire.js";
+import type { WireActivityFrame, WireFillRow, WireSolutionRow } from "../types/wire.js";
 import type {
-  ActivityEntry, ActivityType, Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery,
+  Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery,
   Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status,
   Trigger, TxExplorer, Withdrawal, WithdrawalsQuery,
 } from "../types/public.js";
@@ -14,11 +14,11 @@ import type {
   WireStatus, WireTriggersPage, WireWithdrawal,
 } from "../types/wire.js";
 import {
-  decodeActivityEntry, decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle,
+  decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle,
   decodeMarketDynamics, decodeMarketStatic, decodeOrder, decodeOrderbook, decodePositions,
   decodeStatus, decodeTrigger, decodeWithdrawal,
 } from "../codec/decode.js";
-import { msToSecs, msToUs, usToMs } from "../codec/units.js";
+import { msToSecs, usToMs } from "../codec/units.js";
 
 export type MarketDynamicsPatch = Partial<Market> & { id: string };
 
@@ -33,8 +33,11 @@ export interface OrdersPage {
   solutionNow: number;
 }
 export interface ActivityPage {
-  activity: ActivityEntry[];
-  nextCursor: string | null;
+  /** The account's frames, oldest first — exactly what `pod_activity` streams. */
+  frames: WireActivityFrame[];
+  /** The first unserved batch (micros), to pass back as `fromUs`; null once the
+   * window is exhausted. */
+  nextCursorUs: number | null;
   solutionNow: number; // ms
 }
 export interface BackstopPage {
@@ -60,11 +63,11 @@ export interface OrdersQueryRest {
   cursor?: string;
 }
 export interface ActivityQueryRest {
+  /** Whole batches per page; the node caps it. */
   limit?: number;
-  cursor?: string;
-  types?: ActivityType[];
-  from?: number; // ms
-  to?: number; // ms
+  /** Inclusive window of batch deadlines, micros. */
+  fromUs?: number;
+  toUs?: number;
 }
 export interface TriggersQueryRest {
   orderbook?: MarketId;
@@ -191,21 +194,19 @@ export class PodRestClient {
   }
 
   /**
-   * One account's activity, newest first: orders at their placement tick, and the
-   * money that moved (ADR 0057 §5). The seed behind `pod_activity`; page it
-   * with `cursor`.
+   * One account's history as per-batch frames (ADR 0057 §5): oldest first over
+   * the inclusive `[fromUs, toUs]` window, `limit` whole batches at a time. Page
+   * forward by passing `nextCursorUs` back as `fromUs`.
    */
   async activity(account: Address, q?: ActivityQueryRest): Promise<ActivityPage> {
     const w = await this.get<WireActivityPage>(`/clob/activity/${account}`, {
       limit: q?.limit,
-      cursor: q?.cursor,
-      activity_types: q?.types?.length ? q.types.join(",") : undefined,
-      from: q?.from !== undefined ? msToUs(q.from) : undefined,
-      to: q?.to !== undefined ? msToUs(q.to) : undefined,
+      from: q?.fromUs,
+      to: q?.toUs,
     });
     return {
-      activity: w.activity.map(decodeActivityEntry).filter((e): e is ActivityEntry => e !== undefined),
-      nextCursor: w.next_cursor,
+      frames: w.frames,
+      nextCursorUs: w.next_cursor === null ? null : Number(w.next_cursor),
       solutionNow: usToMs(w.solution_now),
     };
   }

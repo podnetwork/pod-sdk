@@ -441,15 +441,16 @@ export interface WireWithdrawalDetail {
 
 // --- account activity (ADR 0057) ---
 //
-// `GET /clob/activity/{account}` serves the seed and `pod_activity` streams it.
-// The seed is a union tagged by `activity_type`: the order variant flattens the
-// orders route's `WireOrder`, and every money variant carries exactly the fields
-// its stream event does, so the two decode through one decoder. The channel is
-// `pod_orders_v2`'s frame for a whole account — one frame per tick, with the
-// money the tick moved as extra event kinds.
+// `GET /clob/activity/{account}` serves history as the frames `pod_activity`
+// streams — one per tick, oldest first over an inclusive window of batch
+// deadlines — so the two fold through one codec. The channel is
+// `pod_orders_v2`'s frame for a whole account, with the money the tick moved
+// as extra event kinds.
 
 export interface WireActivityPage {
-  activity: WireActivityEntry[];
+  frames: WireActivityFrame[];
+  /** The first unserved batch deadline (decimal micros), to pass back as
+   * `from`; null once the window is exhausted. */
   next_cursor: string | null;
   solution_now: number; // micros
 }
@@ -484,19 +485,6 @@ export interface WireTransferMoney {
 }
 
 /**
- * One activity row. `ts` is what the node sorted the page by — for an order that
- * is its **signed deadline**, not the batch it landed in.
- *
- * Money amounts are signed from the account's side: negative left, positive
- * arrived, for the bridge and for a transfer alike.
- */
-export type WireActivityEntry =
-  | ({ activity_type: "order"; ts: number } & WireOrder)
-  | ({ activity_type: "backstop"; ts: number } & WireBackstopMoney)
-  | ({ activity_type: "bridge_transfer"; ts: number } & WireBridgeMoney)
-  | ({ activity_type: "transfer"; ts: number } & WireTransferMoney);
-
-/**
  * One tick of an account's activity. No `book` — a tick covers every book the
  * account traded on, so each entity names its own — and no `accts`, since the
  * channel takes exactly one account.
@@ -505,6 +493,9 @@ export interface WireActivityFrame {
   /** Deadline (micros) of the batch. One frame per tick, so this alone is the
    * resume cursor: a frame is already delivered exactly when `batch <= since`. */
   batch: number;
+  /** This tick's entities — and, on a REST page, the as-placed entity of any
+   * order an event references whose placement lies before the page, attached
+   * to the first frame that references it, with no `new` of its own. */
   orders: WireOrderEntity[];
   events: (WireOrderEvent | WireMoneyEvent)[];
 }

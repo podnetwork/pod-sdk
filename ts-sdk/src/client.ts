@@ -325,9 +325,9 @@ export class PodTradeClient {
   }
 
   /**
-   * One account's whole activity, newest first (ADR 0057): its orders, the
-   * backstop legs it was swept into, and every bridge transfer and transfer that
-   * moved its money.
+   * One account's history as it happened, newest first (ADR 0057): every order
+   * transition, backstop leg, bridge transfer and transfer, each in the batch
+   * it happened in; `loadOlder` reaches further back.
    *
    * `orders` is a separate stream (`pod_orders_v2`), with its own cursor and its
    * own row shape — not this feed narrowed to orders. It is to be retired in
