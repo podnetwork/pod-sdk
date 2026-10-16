@@ -8,7 +8,7 @@
 //   implied_leverage = (Σ current perp notional + notional) / perps_equity
 //   liquidation      = mark where equity falls to Σ maintenance margin (im/2)
 
-import type { Market, PerpPosition, PositionsSnapshot, Trigger } from "../types/public.js";
+import type { Market, Orderbook, PerpPosition, PositionsSnapshot, Trigger } from "../types/public.js";
 import { div, imRate, mul } from "../codec/fixed.js";
 import { alignSize, parseAmount, toNumber, WAD } from "../codec/units.js";
 
@@ -219,4 +219,58 @@ export function closePreview(
     notional,
     fee: mul(notional, input.feeRate ?? 0n),
   };
+}
+
+export interface FillEstimate {
+  /** Base size the book fills within `limit` (≤ `size`). */
+  filled: bigint;
+  /** The price the whole fill clears at were this the batch's only order;
+   * undefined when nothing fills. A batch clears every match at one price and
+   * a market order never sets it, so this is at least the last level reached —
+   * not an average across the levels. */
+  price?: bigint;
+  /** How much worse `price` is than the best level, in percent — the cost of
+   * the size alone, spread excluded. */
+  slippagePct?: number;
+  /** The walk ran off the last level given while still inside `limit`. On a
+   * depth-truncated book `filled` is then a floor, not an estimate. */
+  exhausted: boolean;
+}
+
+/**
+ * What a taker order of `size` (base, magnitude) would fill against `book`:
+ * walks the opposite side best-first — asks for a long, bids for a short — and
+ * stops at `limit`, a market order's protective price. Grouped levels make the
+ * prices approximate to the grouping.
+ */
+export function estimateFill(
+  book: Pick<Orderbook, "bids" | "asks">,
+  side: "long" | "short",
+  size: bigint,
+  limit?: bigint,
+): FillEstimate {
+  const levels = side === "long" ? book.asks : book.bids;
+  const within = (p: bigint) => limit === undefined || (side === "long" ? p <= limit : p >= limit);
+  let filled = 0n;
+  let left = 0n; // volume the last level reached still holds
+  let i = 0;
+  for (; i < levels.length && filled < size; i++) {
+    const l = levels[i]!;
+    if (!within(l.price)) break;
+    const take = l.volume < size - filled ? l.volume : size - filled;
+    filled += take;
+    left = l.volume - take;
+  }
+  const exhausted = filled < size && i === levels.length;
+  if (filled === 0n) return { filled, exhausted };
+  // The clearing range runs from the last level matched to the first level left
+  // unmatched — that same level when only part of it was taken — and settles at
+  // its midpoint, never past the order's own limit (doc/protocol/orderbook.md, Clearing).
+  const last = levels[i - 1]!.price;
+  const unmatched = left > 0n ? last : levels[i]?.price;
+  let price = unmatched === undefined ? last : (last + unmatched) / 2n;
+  if (limit !== undefined && !within(price)) price = limit;
+  const best = levels[0]!.price;
+  const worse = side === "long" ? price - best : best - price;
+  return { filled, price, slippagePct: (Number(worse) / Number(best)) * 100, exhausted };
 }

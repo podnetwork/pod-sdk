@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Market, PerpPosition, PositionsSnapshot } from "../types/public.js";
 import { div, imRate, mul } from "../codec/fixed.js";
 import { WAD } from "../codec/units.js";
-import { previewOrder } from "./order-preview.js";
+import { estimateFill, previewOrder } from "./order-preview.js";
 
 const LOT = 10n ** 12n; // 1e-6 base units — every staging/canary perp
 const PRICE = 100n * WAD;
@@ -174,5 +174,57 @@ describe("previewOrder liquidationPrice", () => {
   it("reports nothing on spot, which has no liquidation", () => {
     const p = previewOrder(snap(), market({ type: "spot" }), { side: "long", price: PRICE, notional: NOTIONAL });
     expect(p.liquidationPrice).toBeUndefined();
+  });
+});
+
+describe("estimateFill", () => {
+  const lvl = (price: number, volume: number) => ({ price: BigInt(price) * WAD, volume: BigInt(volume) * WAD, total: 0n, depth: 0 });
+  const book = {
+    asks: [lvl(100, 1), lvl(101, 2), lvl(103, 5)],
+    bids: [lvl(99, 1), lvl(98, 2)],
+  };
+
+  it("clears at a part-taken best level with no slippage", () => {
+    const f = estimateFill(book, "long", WAD / 2n);
+    expect(f).toEqual({ filled: WAD / 2n, price: 100n * WAD, slippagePct: 0, exhausted: false });
+  });
+
+  it("taking a level whole clears midway to the next one", () => {
+    expect(estimateFill(book, "long", WAD).price).toBe(100n * WAD + WAD / 2n);
+  });
+
+  it("charges the whole fill the last level's price, not the average across levels", () => {
+    const f = estimateFill(book, "long", 2n * WAD);
+    expect(f.price).toBe(101n * WAD); // 101 still holds 1 after this fill
+    expect(f.slippagePct).toBeCloseTo(1, 6);
+  });
+
+  it("stops at the limit, and the clearing price never passes it", () => {
+    // 100 and 101 taken whole: the midpoint to 103 would be 102.5, over the limit.
+    const f = estimateFill(book, "long", 5n * WAD, 102n * WAD);
+    expect(f.filled).toBe(3n * WAD);
+    expect(f.price).toBe(102n * WAD);
+    expect(f.exhausted).toBe(false);
+  });
+
+  it("fills nothing when the best level is already past the limit", () => {
+    expect(estimateFill(book, "long", WAD, 99n * WAD)).toEqual({ filled: 0n, exhausted: false });
+  });
+
+  it("walks the bids for a short, slippage still counted as worse", () => {
+    const f = estimateFill(book, "short", 2n * WAD);
+    expect(f.price).toBe(98n * WAD);
+    expect(f.slippagePct).toBeCloseTo((1 / 99) * 100, 6);
+  });
+
+  it("flags running off the levels given, clearing at the last one with nothing past it", () => {
+    const f = estimateFill(book, "short", 10n * WAD, 90n * WAD);
+    expect(f.filled).toBe(3n * WAD);
+    expect(f.price).toBe(98n * WAD);
+    expect(f.exhausted).toBe(true);
+  });
+
+  it("an empty side fills nothing and is exhausted", () => {
+    expect(estimateFill({ asks: [], bids: [] }, "long", WAD)).toEqual({ filled: 0n, exhausted: true });
   });
 });
