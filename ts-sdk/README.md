@@ -58,8 +58,10 @@ const ob = useSyncExternalStore(
   `SeriesResource` with `setWindow`/`loadOlder`), `.orders(account, query)`,
   `.bridgeConfig`, `.withdrawals(account)`.
 - **Activity (ADR 0057):** `client.activity(account, query)` — one account's
-  orders and the money it moved in one cursor-paged, `onEvent`-observable feed;
-  `.orders(account)` is the narrower view it replaces.
+  history as it happened, batch by batch: every order transition and every
+  money movement, newest first, loaded back in time by `loadOlder` and kept
+  live by `pod_activity` (`onEvent`-observable); `.orders(account)` is the
+  narrower view it replaces.
 - **Charting:** `createPodDatafeed(client)` returns an `IDatafeedChartApi`-shaped
   object for the TradingView Charting Library (framework-agnostic, no React).
 

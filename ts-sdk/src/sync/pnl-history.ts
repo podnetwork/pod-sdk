@@ -13,8 +13,10 @@
 
 import type { Address, MarketId, MoneyActivity } from "../types/public.js";
 import { div, mul } from "../codec/fixed.js";
-import { dec } from "../codec/units.js";
-import type { WireFillRow, WireSolutionRow } from "../types/wire.js";
+import { dec, usToMs } from "../codec/units.js";
+import { isMoney } from "../codec/activity.js";
+import { decodeMoneyEvent } from "../codec/decode.js";
+import type { WireFillRow, WireMoneyEvent, WireSolutionRow } from "../types/wire.js";
 import { rpc, type RpcOptions } from "../transport/jsonrpc.js";
 import { PodHttpError, type PodRestClient } from "../transport/rest.js";
 
@@ -376,19 +378,20 @@ export async function fetchFills(rest: PodRestClient, account: Address, fromUs: 
   return (await drainFills(reads(rest, rpcUrl, opts), account, fromUs, toUs)).fills;
 }
 
-const FLOW_TYPES = ["backstop", "bridge_transfer", "transfer"] as const;
-
 /** Money movements in [fromUs, toUs) from the activity feed, or `undefined`
  * when the node does not serve it. */
 async function drainFlows(rest: PodRestClient, account: Address, fromUs: number, toUs: number): Promise<MoneyActivity[] | undefined> {
   const out: MoneyActivity[] = [];
-  let cursor: string | undefined;
+  let from: number | null = fromUs;
   try {
-    do {
-      const page = await rest.activity(account, { types: [...FLOW_TYPES], from: fromUs / 1000, to: toUs / 1000, limit: 200, cursor });
-      for (const e of page.activity) if (e.activityType !== "order") out.push(e);
-      cursor = page.nextCursor ?? undefined;
-    } while (cursor);
+    while (from !== null && from < toUs) {
+      const page = await rest.activity(account, { fromUs: from, toUs: toUs - 1, limit: 500 });
+      for (const frame of page.frames) {
+        const timeMs = usToMs(frame.batch);
+        for (const e of frame.events) if (isMoney(e.k)) out.push(decodeMoneyEvent(e as unknown as WireMoneyEvent, timeMs));
+      }
+      from = page.nextCursorUs;
+    }
   } catch (e) {
     // Only a missing route means the node has no feed. Anything else (a 503,
     // a timeout) must fail the run, or the range would be cached without

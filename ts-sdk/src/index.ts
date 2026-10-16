@@ -11,6 +11,7 @@ export type {
   CandlesPage, ActivityPage, OrdersQueryRest, ActivityQueryRest, TriggersQueryRest,
   RestClientOptions,
 } from "./transport/rest.js";
+export type { WireActivityFrame } from "./types/wire.js";
 export { PodWsClient, PodSubscriptionClosedError } from "./transport/ws.js";
 export type {
   Channel, SubParams, Subscription, ConnectionState, WsEvent, WebSocketCtor,

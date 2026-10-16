@@ -454,18 +454,11 @@ export interface CandleQuery {
 export type ActivityType = "order" | "backstop" | "bridge_transfer" | "transfer";
 
 /**
- * One row of an account's activity (ADR 0057): an order at its placement tick,
- * or money that moved.
- *
- * `timeMs` is what the row is ordered by. Fills, cancels and amendments are not
- * rows — they are events on the stream, and the order an `order` row carries
- * already reflects them.
- *
- * Money amounts are signed from the account's side — negative left, positive
- * arrived — and say nothing about the other end.
+ * Money that moved in one batch (ADR 0057); `timeMs` is the batch. Amounts are
+ * signed from the account's side — negative left, positive arrived — and say
+ * nothing about the other end.
  */
-export type ActivityEntry =
-  | { activityType: "order"; timeMs: number; order: Order }
+export type MoneyActivity =
   | (BackstopTransfer & { activityType: "backstop"; timeMs: number })
   | {
       activityType: "bridge_transfer";
@@ -488,21 +481,18 @@ export type ActivityEntry =
       error?: string;
     };
 
-/** The activity rows that are not orders. */
-export type MoneyActivity = Exclude<ActivityEntry, { activityType: "order" }>;
-
 /**
- * What the stream reported in one tick: the order transitions, and the money
- * that moved, which is reported as the entry it produced.
- *
- * Discriminate with `"activityType" in event` — an order event is tagged by
- * `kind` and a money one by `activityType`.
+ * One event of an account's history: an order transition, tagged by `kind`, or
+ * money that moved, tagged by `activityType` — discriminate with
+ * `"activityType" in event`. Both carry the batch they happened in.
  */
 export type ActivityEvent = OrderEvent | MoneyActivity;
 
 /**
- * `from` and `to` are milliseconds; `limit` is a row count, not a span of time.
- * `types` names the kinds to keep — absent or empty keeps every kind.
+ * `from` and `to` bound the history to the batches at or after / at or before
+ * them (milliseconds, inclusive); `from` is also where `loadOlder` stops.
+ * `limit` is batches per REST page. `types` names the kinds to keep — absent or
+ * empty keeps every kind.
  */
 export interface ActivityQuery {
   types?: ActivityType[];

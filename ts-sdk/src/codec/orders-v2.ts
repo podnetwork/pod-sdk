@@ -51,7 +51,18 @@ export function applyOrdersFrame<X = never>(
   // The book and the batch are frame constants: resolved once, not per entity.
   const batchMs = usToMs(frame.batch);
   const facts: FrameFacts = { batchMs, accts: frame.accts };
-  const created = frame.orders.map((e) => decodeEntity(e, frame, batchMs, ctx.account));
+  // An entity its own `new`/`reject` places is this batch's. Any other is
+  // hydrated: a REST page attaches the as-placed entity of an order placed
+  // before the page to the first frame that references it, so its state is
+  // whatever the map already holds — a fresh row would reset fills a later
+  // batch already applied — or, when nothing is held, its terms with no
+  // placement time, since the frame is not the batch it landed in.
+  const placed = new Set<number>();
+  for (const e of frame.events) if ((e.k === "new" || e.k === "reject") && e.o !== undefined) placed.add(e.o);
+  const created = frame.orders.map((e, i) =>
+    placed.has(i)
+      ? decodeEntity(e, frame, batchMs, ctx.account)
+      : byId.get(e.id) ?? decodeEntity(e, frame, undefined, ctx.account));
 
   const applied: (OrderEvent | X)[] = [];
   for (const event of frame.events) {
@@ -85,11 +96,13 @@ export function applyOrdersFrame<X = never>(
   // status it lands with. Entities left untouched by every event this version
   // understands are still inserted — the frame said the order exists, and a
   // transition from a newer server is no reason to drop the row.
-  for (const order of created) byId.set(order.id, order);
+  for (const [i, order] of created.entries()) {
+    if (placed.has(i) || !byId.has(order.id)) byId.set(order.id, order);
+  }
   return applied;
 }
 
-function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: number, account: Address): Order {
+function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: number | undefined, account: Address): Order {
   const initialSize = dec(e.sz);
   return {
     id: e.id,
@@ -121,7 +134,7 @@ function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: numbe
     // deliberately not invented from the batch: REST reports both separately, so
     // inclusion time is the one thing every source agrees on and the only honest
     // key to order by.
-    includedMs: batchMs,
+    ...(batchMs !== undefined ? { includedMs: batchMs } : {}),
     fills: [],
     reduceOnly: e.reduce_only ?? false,
     ioc: e.ioc ?? false,

@@ -190,6 +190,20 @@ const fillRows = Array.from({ length: 1_200 }, (_, i) => {
 const stubTickAt = (_m: MarketId, tUs: number): PnlTick => { const t = Math.floor(tUs / TICK_US) * TICK_US; return { mark: markPerp(t), funding: fundingRaw(t) }; };
 const stubEvents = (): PnlEvent[] => fillRows.map((r) => ({ market: PERP, timeUs: r.timestamp, deltaSize: r.initial_size === "-1" ? -(10n ** 16n) : 10n ** 16n, price: BigInt(r.price), kind: "fill" }));
 
+/** A decoded money row back onto the wire, as the feed's frame would carry it. */
+function wireMoney(f: object): object {
+  const r = f as Record<string, unknown>;
+  const str = (v: unknown) => (v === undefined ? "0" : String(v));
+  switch (r.activityType) {
+    case "bridge_transfer":
+      return { k: "bridge_transfer", tx: r.txHash, idx: r.idx ?? 0, token: r.token, amount: str(r.amount), error: r.error };
+    case "transfer":
+      return { k: "transfer", id: r.transferId, token: r.token, amount: str(r.amount), error: r.error };
+    default:
+      return { k: "backstop", book: r.orderbookId, size: str(r.size), cash: str(r.cash), mark: str(r.markPrice), equity: str(r.equity), pnl: str(r.realizedPnl) };
+  }
+}
+
 /** A fake node: one perp market, the fill rows above, ticks from the functions above. Counts fills calls. */
 const STUB_ACCOUNT_VALUE = W(5_000);
 function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRoute?: boolean | "503"; firstTickUs?: number; size?: bigint; restReads?: boolean; lagTicks?: number } = {}) {
@@ -208,11 +222,17 @@ function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRou
       ? async () => { throw new PodHttpError(404, "/clob/activity", "no route"); }
       : opts.activityRoute === "503"
       ? async () => { throw new PodHttpError(503, "/clob/activity", "indexer unavailable"); }
-      : async (_a: string, q: { from: number; to: number }) => ({
-          activity: (opts.flows ?? []).filter((f) => (f as { timeMs: number }).timeMs >= q.from && (f as { timeMs: number }).timeMs < q.to),
-          nextCursor: null,
-          solutionNow: NOW_US / 1000,
-        }),
+      : async (_a: string, q: { fromUs: number; toUs: number }) => {
+          // The feed serves frames: the flows of one batch under its deadline.
+          const byBatch = new Map<number, object[]>();
+          for (const f of (opts.flows ?? []) as { timeMs: number }[]) {
+            const batch = f.timeMs * 1000;
+            if (batch < q.fromUs || batch > q.toUs) continue;
+            byBatch.set(batch, [...(byBatch.get(batch) ?? []), wireMoney(f)]);
+          }
+          const frames = [...byBatch].sort(([a], [b]) => a - b).map(([batch, events]) => ({ batch, orders: [], events }));
+          return { frames, nextCursorUs: null, solutionNow: NOW_US / 1000 };
+        },
     fills: async (_a: string, q: { fromUs: number; toUs?: number; limit?: number }) => {
       if (opts.restReads === false) throw new PodHttpError(404, "/clob/fills", "no route");
       calls.fills++;
