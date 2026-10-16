@@ -85,7 +85,7 @@ When every source for a market is stale, Pod does not keep trading against the l
 It works like this:
 
 1. **Start from the last real price.** This is the last price computed from fresh sources: the **anchor**.
-2. **Look at the order book.** The **book price** is where the book is willing to trade. If the best bids have moved above the anchor, it is the bid side's price. If the best asks have moved below it, it is the ask side's price. If the anchor still lies between the best bid and the best ask, the book price is the anchor itself.
+2. **Look at the order book.** The **book price** is where the book is willing to trade. If the impact bid has moved above the anchor, the book price is the impact bid. If the impact ask has moved below the anchor, it is the impact ask. If the anchor still lies between the impact bid and the impact ask, the book price is the anchor itself.
 3. **Blend the two, giving the book more weight over time.** The book's weight starts at 0 when the sources go stale and grows steadily to 1 over 30 minutes.
 4. **Keep the result within a corridor around the anchor.** See [The corridor](#the-corridor).
 
