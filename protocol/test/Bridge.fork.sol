@@ -186,6 +186,8 @@ contract BridgeForkTest is BridgeClaimProofHelper {
         // Use a specific private key for the user
         uint256 userPrivateKey = 0xA11CE;
         address userWithKey = vm.addr(userPrivateKey);
+        // 0xA11CE has a live EIP-7702 delegation on mainnet; clear it so USDC verifies via ecrecover
+        vm.etch(userWithKey, "");
         address relayer = makeAddr("relayer");
         address callContract = makeAddr("callContract");
 

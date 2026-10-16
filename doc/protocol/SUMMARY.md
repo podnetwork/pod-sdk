@@ -15,6 +15,7 @@
 
 * [Overview](markets-overview.md)
 * [Order Book](orderbook.md)
+* [Oracle](oracle.md)
 * [Key Delegation](key-delegation.md)
 * [Perpetuals](perpetuals.md)
 * [Margin](margin.md)
