@@ -106,7 +106,7 @@ export class PodTradeClient {
   async mint(
     to: Address,
     tokens: Array<{ token?: Address; amount: bigint }>,
-    opts?: { depositToClob?: boolean; onSubmitted?: (hash: string) => void },
+    opts?: { onSubmitted?: (hash: string) => void },
   ): Promise<{ transactionHash: string }> {
     if (!this.rpcUrl) throw new Error("PodTradeClient.mint requires `rpcUrl` in the client options");
     const { mint } = await import("./write/index.js");
@@ -114,7 +114,6 @@ export class PodTradeClient {
       rpcUrl: this.rpcUrl,
       to,
       tokens,
-      depositToClob: opts?.depositToClob,
       onSubmitted: opts?.onSubmitted,
       fetch: this.fetchFn,
     });

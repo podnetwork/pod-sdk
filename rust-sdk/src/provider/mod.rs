@@ -237,14 +237,14 @@ impl Provider<PodNetwork> for PodProvider {
     }
 }
 
-const SEND_RETRY_INTERVAL: Duration = Duration::from_millis(250);
-const SEND_RETRY_BUDGET: Duration = Duration::from_secs(10);
-const VALIDATION_FAILED_MSG: &str = "transaction validation failed";
-const NONCE_REJECTIONS: [&str; 3] = [
-    "Past nonce:",
-    "Future nonce:",
-    "Account has pending transaction",
+const RECEIPT_POLL_INTERVAL: Duration = Duration::from_millis(250);
+const SEND_BACKOFF: [Duration; 3] = [
+    Duration::from_millis(250),
+    Duration::from_millis(500),
+    Duration::from_secs(1),
 ];
+const SEND_RETRY_BUDGET: Duration = Duration::from_secs(10);
+const SEND_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
 
 enum SendRetry {
     Resend,
@@ -254,16 +254,7 @@ enum SendRetry {
 fn send_retry(err: &RpcError<TransportErrorKind>) -> Option<SendRetry> {
     match err {
         RpcError::Transport(_) | RpcError::DeserError { .. } => Some(SendRetry::Resend),
-        RpcError::ErrorResp(payload)
-            if payload.code == INVALID_INPUT_CODE
-                && payload.message == VALIDATION_FAILED_MSG
-                && payload
-                    .try_data_as::<String>()
-                    .and_then(Result::ok)
-                    .is_some_and(|reason| {
-                        NONCE_REJECTIONS.iter().any(|p| reason.starts_with(p))
-                    }) =>
-        {
+        RpcError::ErrorResp(payload) if payload.code == NONCE_REJECTED_CODE => {
             Some(SendRetry::Resign)
         }
         _ => None,
@@ -279,12 +270,13 @@ enum Sent {
 
 async fn pause(
     deadline: tokio::time::Instant,
+    delay: Duration,
     err: RpcError<TransportErrorKind>,
 ) -> TransportResult<()> {
-    if tokio::time::Instant::now() + SEND_RETRY_INTERVAL > deadline {
+    if tokio::time::Instant::now() + delay > deadline {
         return Err(err);
     }
-    tokio::time::sleep(SEND_RETRY_INTERVAL).await;
+    tokio::time::sleep(delay).await;
     Ok(())
 }
 
@@ -302,6 +294,9 @@ where
 {
     let mut signed = None;
     let mut maybe_delivered = false;
+    let mut backoff = SEND_BACKOFF
+        .iter()
+        .chain(std::iter::repeat(&SEND_BACKOFF[2]));
     loop {
         let envelope = match signed.take() {
             Some(envelope) => envelope,
@@ -309,15 +304,18 @@ where
                 Ok(Some(envelope)) => envelope,
                 Ok(None) => return Ok(Sent::Unsigned),
                 Err(err) if send_retry(&err).is_some() => {
-                    pause(deadline, err).await?;
+                    pause(deadline, *backoff.next().unwrap(), err).await?;
                     continue;
                 }
                 Err(err) => return Err(err),
             },
         };
-        let err = match send(envelope.clone()).await {
-            Ok(tx_hash) => return Ok(Sent::Pending(tx_hash)),
-            Err(err) => err,
+        let attempt = SEND_ATTEMPT_TIMEOUT
+            .min(deadline.saturating_duration_since(tokio::time::Instant::now()));
+        let err = match tokio::time::timeout(attempt, send(envelope.clone())).await {
+            Ok(Ok(tx_hash)) => return Ok(Sent::Pending(tx_hash)),
+            Ok(Err(err)) => err,
+            Err(_) => TransportErrorKind::custom_str("send attempt timed out"),
         };
         match send_retry(&err) {
             None => return Err(err),
@@ -333,7 +331,7 @@ where
                 signed = Some(envelope);
             }
         }
-        pause(deadline, err).await?;
+        pause(deadline, *backoff.next().unwrap(), err).await?;
     }
 }
 
@@ -356,6 +354,7 @@ impl PodProvider {
             }
             pause(
                 deadline,
+                RECEIPT_POLL_INTERVAL,
                 RpcError::local_usage(PodSendError::DeliveryUnknown { tx_hash }),
             )
             .await?;
@@ -573,7 +572,7 @@ struct EmptyTxRequiredData {
 const ACCOUNT_LOCKED_CODE: i64 = 999;
 const EMPTY_TX_REQUIRED_CODE: i64 = 997;
 const REJECTED_CODE: i64 = -32003;
-const INVALID_INPUT_CODE: i64 = -32000;
+const NONCE_REJECTED_CODE: i64 = 996;
 
 /// Why pod refused a transaction. `eth_sendRawTransaction` reports none of these
 /// distinctions.
@@ -783,11 +782,13 @@ mod send_tests {
         assert!(response.errors.is_empty());
     }
 
-    fn validation_failed(reason: &str) -> RpcError<TransportErrorKind> {
+    const INVALID_INPUT_CODE: i64 = -32000;
+
+    fn nonce_rejected(label: &str) -> RpcError<TransportErrorKind> {
         rpc_error(
-            INVALID_INPUT_CODE,
-            VALIDATION_FAILED_MSG,
-            Some(&serde_json::to_string(reason).unwrap()),
+            NONCE_REJECTED_CODE,
+            "Past nonce: tx nonce 5, expected 6",
+            Some(&serde_json::to_string(label).unwrap()),
         )
     }
 
@@ -804,6 +805,9 @@ mod send_tests {
     struct Script {
         sign_calls: std::cell::Cell<usize>,
         sign_fails_on_call: Option<usize>,
+        hanging_sends: usize,
+        start: tokio::time::Instant,
+        sent_at: std::cell::RefCell<Vec<Duration>>,
         signed: std::cell::RefCell<Vec<u64>>,
         sent: std::cell::RefCell<Vec<Hash>>,
         replies: std::cell::RefCell<std::collections::VecDeque<TransportResult<()>>>,
@@ -814,6 +818,9 @@ mod send_tests {
             Self {
                 sign_calls: Default::default(),
                 sign_fails_on_call,
+                hanging_sends: 0,
+                start: tokio::time::Instant::now(),
+                sent_at: Default::default(),
                 signed: Default::default(),
                 sent: Default::default(),
                 replies: std::cell::RefCell::new(replies.into()),
@@ -841,6 +848,10 @@ mod send_tests {
                 |envelope| async move {
                     let tx_hash = *envelope.tx_hash();
                     self.sent.borrow_mut().push(tx_hash);
+                    self.sent_at.borrow_mut().push(self.start.elapsed());
+                    if self.sent.borrow().len() <= self.hanging_sends {
+                        std::future::pending::<()>().await;
+                    }
                     self.replies
                         .borrow_mut()
                         .pop_front()
@@ -858,12 +869,8 @@ mod send_tests {
 
     #[tokio::test(start_paused = true)]
     async fn undelivered_rejection_resigns_with_a_fresh_nonce() {
-        for reason in [
-            "Past nonce: tx nonce 5, expected 6",
-            "Future nonce: tx nonce 5, expected 4",
-            "Account has pending transaction",
-        ] {
-            let script = Script::new(vec![Err(validation_failed(reason)), Ok(())], Some(1));
+        for reason in ["past_nonce", "future_nonce", "account_pending"] {
+            let script = Script::new(vec![Err(nonce_rejected(reason)), Ok(())], Some(1));
             assert_eq!(script.run().await.unwrap(), Sent::Pending(hash(6)));
             assert_eq!(*script.signed.borrow(), vec![5, 6]);
             assert_eq!(*script.sent.borrow(), vec![hash(5), hash(6)]);
@@ -872,10 +879,7 @@ mod send_tests {
 
     #[tokio::test(start_paused = true)]
     async fn explicit_nonce_rejection_is_returned_at_once() {
-        let script = Script::new(
-            vec![Err(validation_failed("Past nonce: tx nonce 5, expected 6"))],
-            None,
-        );
+        let script = Script::new(vec![Err(nonce_rejected("past_nonce"))], None);
         assert!(script.run_with(false).await.is_err());
         assert_eq!(*script.signed.borrow(), vec![5]);
         assert_eq!(script.sent.borrow().len(), 1);
@@ -886,7 +890,7 @@ mod send_tests {
         let script = Script::new(
             vec![
                 Err(TransportErrorKind::custom_str("reset")),
-                Err(validation_failed("Past nonce: tx nonce 5, expected 6")),
+                Err(nonce_rejected("past_nonce")),
             ],
             None,
         );
@@ -910,10 +914,37 @@ mod send_tests {
     }
 
     #[tokio::test(start_paused = true)]
+    async fn hung_send_is_cut_and_resent() {
+        let start = tokio::time::Instant::now();
+        let mut script = Script::new(vec![Ok(())], None);
+        script.hanging_sends = 1;
+        assert_eq!(script.run().await.unwrap(), Sent::Pending(hash(5)));
+        assert_eq!(
+            start.elapsed(),
+            SEND_ATTEMPT_TIMEOUT + RECEIPT_POLL_INTERVAL
+        );
+        assert_eq!(*script.sent.borrow(), vec![hash(5), hash(5)]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn hung_sends_end_within_the_budget() {
+        let start = tokio::time::Instant::now();
+        let mut script = Script::new(vec![], None);
+        script.hanging_sends = usize::MAX;
+        assert!(script.run().await.is_err());
+        assert!(start.elapsed() <= SEND_RETRY_BUDGET);
+        assert_eq!(*script.sent.borrow(), vec![hash(5), hash(5)]);
+    }
+
+    #[tokio::test(start_paused = true)]
     async fn terminal_errors_are_not_retried() {
         for err in [
             rpc_error(3, "execution reverted", Some(r#""0x08c379a0""#)),
-            validation_failed("Insufficient balance"),
+            rpc_error(
+                INVALID_INPUT_CODE,
+                "transaction validation failed",
+                Some(r#""Insufficient balance""#),
+            ),
             rpc_error(ACCOUNT_LOCKED_CODE, "Account locked", None),
         ] {
             let script = Script::new(vec![Err(err)], None);
@@ -928,7 +959,10 @@ mod send_tests {
         let script = Script::new(vec![], None);
         assert!(script.run().await.is_err());
         assert!(start.elapsed() <= SEND_RETRY_BUDGET);
-        assert_eq!(script.sent.borrow().len(), 41);
+        let mut expected = vec![0, 250, 750];
+        expected.extend((1750..10_000).step_by(1000));
+        let expected: Vec<_> = expected.into_iter().map(Duration::from_millis).collect();
+        assert_eq!(*script.sent_at.borrow(), expected);
     }
 
     fn mocked_provider() -> PodProvider {
@@ -944,7 +978,7 @@ mod send_tests {
         let script = Script::new(
             vec![
                 Err(TransportErrorKind::custom_str("reset")),
-                Err(validation_failed("Past nonce: tx nonce 5, expected 6")),
+                Err(nonce_rejected("past_nonce")),
             ],
             None,
         );

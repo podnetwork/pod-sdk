@@ -176,8 +176,8 @@ resumes `pod_withdrawals` from `timestampUs`.
 ## Sending
 
 `wallet.submit` owns no nonce: every attempt fetches it with the `pending` tag.
-It retries every 250ms for up to 10s on transport errors, non-JSON or non-2xx
-responses, and past-nonce, future-nonce or account-pending rejections; other
+It retries after 250ms, 500ms, then every 1s, for up to 10s, on transport errors, non-JSON or non-2xx
+responses, and code `996` rejections (past nonce, future nonce, account pending); other
 rejections throw at once. A transport error resends the same signed bytes. Once an
 attempt may have been delivered it is never re-signed: a later nonce rejection
 polls the receipt of that hash and returns it, or throws a "delivery unknown"
