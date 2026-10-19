@@ -352,6 +352,8 @@ export interface PositionsSnapshot {
   cash: bigint;
   withdrawableCash: bigint;
   maintenanceMargin?: bigint;
+  /** Deadline (µs) of the last tick the answering node executed. */
+  timestampUs?: number;
 }
 
 export interface Trigger {
@@ -458,6 +460,8 @@ export interface Balances {
   cash: bigint;
   withdrawableCash: bigint;
   netDeposits: bigint;
+  /** Deadline (µs) of the last tick the answering node executed. */
+  timestampUs?: number;
 }
 
 // --- query / paging types ---

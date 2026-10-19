@@ -104,3 +104,13 @@ describe("PodRestClient.orders", () => {
     expect(order).not.toHaveProperty("fills");
   });
 });
+
+describe("PodRestClient.bridgeWithdrawals", () => {
+  it("reads a node that still serves a bare array", async () => {
+    const rest = new PodRestClient({
+      restUrl: "http://node.test/v1",
+      fetch: (async () => new Response("[]", { status: 200 })) as unknown as typeof fetch,
+    });
+    await expect(rest.bridgeWithdrawals()).resolves.toEqual({ withdrawals: [], timestampUs: 0 });
+  });
+});

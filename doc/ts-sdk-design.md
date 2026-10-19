@@ -44,8 +44,11 @@ Two read surfaces + one live surface, all served by the node.
 
 `from`/`to`/`until` query params are **unix seconds**; response timestamps are
 **microseconds** in `*_us` fields; numerics are **1e18-scaled decimal strings**
-(no longer hex). Every response includes `solution_now` (µs) — the settled
-watermark.
+(no longer hex). The indexer routes (`/clob/status`, `/clob/markets/stats`,
+`/clob/orders`, `/clob/backstop-transfers`) include `solution_now` (µs) — the
+settled watermark. The account-state routes (`/clob/positions`, `/clob/balances`,
+`/clob/triggers`) include `timestamp` (µs) — the deadline of the last executed
+tick on the answering node.
 
 | Route | Params | Returns | Cache-Control |
 |---|---|---|---|
@@ -78,7 +81,7 @@ eligibility is gated on solution time, never wall-clock** — a response goes
 | `pod_candles` | `orderbook_ids` | per-tick hint `{orderbook, timestamp_us, price, volume}` — client folds into the forming bar |
 | `pod_markets` | `orderbook_ids` | market-dynamics per book/tick (clearing/24h/mark/oracle/funding/OI) |
 | `pod_positions` | `bidder`(req) | `{account, data: GetPositionsResponse}`, only when the tick touched the account |
-| `pod_triggers` | `bidder`(req) | `{account, triggers, total_count, next_cursor}`, only when touched |
+| `pod_triggers` | `bidder`(req) | `{account, triggers, total_count, next_cursor, timestamp}`, only when touched |
 
 So **every entity the app polls today now has a push channel.**
 
@@ -224,6 +227,32 @@ pages cache permanently; only the live first page is `no-store` and maintained b
 This replaces the datafeed's 5s `setInterval` outright — and because the server
 already withholds the forming bar from REST, the streamed bar is the *only*
 source of "now," with no double-counting.
+
+**(e) Reads through several nodes.** Clients reach pod through a load balancer
+across eventually-consistent fullnodes, so a lagging node can answer after a
+leading one. Ticks execute in lockstep, so a tick deadline is comparable across
+nodes. Positions, balances and triggers (REST and push) carry it as `timestamp`;
+`pod_markets` pushes carry the indexer watermark under the same name. The SDK
+keeps the highest watermark it has seen **per entity** (account, orderbook) and
+drops any page or push below it; on equal values the later one wins.
+
+Withdrawals resume by the watermark: `GET /v1/bridge/withdrawals[/{account}]`
+returns `{withdrawals, timestamp}` (`rest.bridgeWithdrawals` returns
+`WithdrawalsPage { withdrawals, timestampUs }`), and the SDK subscribes
+`pod_withdrawals` with `since = timestamp`, so the WebSocket node replays the gap
+between a lagging REST node and its own head.
+
+**(f) Send retry.** The delegated wallet's `submit` owns no nonce: each attempt
+fetches it with the `pending` tag. Attempts are 250ms apart and give up after
+10s. Transport errors, non-JSON or non-2xx responses, and node rejections for a
+past nonce, a future nonce or a pending account are retried; any other rejection
+(execution reverted, deterministic rejection, account locked, empty tx required)
+is returned at once. After a transport error the same signed bytes are resent. A
+nonce rejection re-signs with a fresh nonce only when no earlier attempt could
+have been delivered; otherwise the SDK polls the receipt of the last sent hash for
+the rest of the budget and returns that hash or a "delivery unknown" error that
+carries it. `waitForReceipt` treats a non-2xx or non-JSON response as "no
+receipt yet" within its 30s.
 
 **Net caching model:** the server provides the cache *semantics* (headers gated
 on solution time); the SDK provides cache *hit rate* (canonical, settled-aligned,

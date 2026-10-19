@@ -6,7 +6,7 @@ use alloy_network::{
 };
 use alloy_primitives::{Address, Bytes, ChainId, Signature, TxKind, U256};
 use alloy_provider::fillers::{
-    ChainIdFiller, GasFiller, JoinFill, NonceFiller, RecommendedFillers,
+    ChainIdFiller, GasFiller, JoinFill, NonceFiller, RecommendedFillers, SimpleNonceManager,
 };
 
 pub use pod_types::rpc::receipt::PodReceiptResponse;
@@ -254,12 +254,16 @@ impl Network for PodNetwork {
 }
 
 impl RecommendedFillers for PodNetwork {
-    type RecommendedFillers = JoinFill<GasFiller, JoinFill<NonceFiller, ChainIdFiller>>;
+    type RecommendedFillers =
+        JoinFill<GasFiller, JoinFill<NonceFiller<SimpleNonceManager>, ChainIdFiller>>;
 
     fn recommended_fillers() -> Self::RecommendedFillers {
         JoinFill::new(
             GasFiller::default(),
-            JoinFill::new(NonceFiller::default(), ChainIdFiller::default()),
+            JoinFill::new(
+                NonceFiller::<SimpleNonceManager>::default(),
+                ChainIdFiller::default(),
+            ),
         )
     }
 }

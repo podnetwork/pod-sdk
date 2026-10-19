@@ -58,6 +58,7 @@ export interface WireMarketDynamics {
 /** pod_markets push uses `orderbook` instead of `orderbook_id`. */
 export interface WireMarketDynamicsPush extends Omit<WireMarketDynamics, "orderbook_id"> {
   orderbook: Hex;
+  timestamp?: number;
 }
 
 export interface WireMarketStatsPage {
@@ -193,6 +194,8 @@ export interface WirePositionsSnapshot {
   account_value: WireDecimal;
   cash: WireDecimal;
   withdrawable_cash: WireDecimal;
+  net_deposits: WireDecimal;
+  timestamp?: number;
 }
 
 export interface WireSpotHolding {
@@ -213,6 +216,7 @@ export interface WireBalances {
   cash: WireDecimal;
   withdrawable_cash: WireDecimal;
   net_deposits: WireDecimal;
+  timestamp?: number;
 }
 
 export interface WireTrigger {
@@ -235,6 +239,7 @@ export interface WireTriggersPage {
   triggers: WireTrigger[];
   total_count: number;
   next_cursor: string | null;
+  timestamp?: number;
 }
 
 export interface WireBackstopTransfer {
@@ -383,6 +388,7 @@ export interface WireTriggersPush {
   triggers: WireTrigger[];
   total_count: number;
   next_cursor: string | null;
+  timestamp?: number;
 }
 
 // --- bridge / withdrawals (ADR 0033) ---
@@ -416,6 +422,11 @@ export interface WireWithdrawal {
   /** Omitted (not null) when the withdrawal is claimable. */
   error?: string | null;
   timestamp_us: number;
+}
+
+export interface WireWithdrawalsPage {
+  withdrawals: WireWithdrawal[];
+  timestamp: number; // micros, newest tick whose outcomes the answering node can serve
 }
 
 /** `GET /v1/bridge/withdrawals/by-id/{id}`. Nested rather than flattened because

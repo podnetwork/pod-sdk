@@ -224,6 +224,14 @@ Both mean **nothing was debited** and no claim will ever exist. The nonce is spe
 
 A `refused` status can also arrive with **no** `error` at all — a node whose bridge config does not cover the token records the row and signs nothing. Treat `refused` as terminal on the status alone, without requiring a reason.
 
+`GET /v1/bridge/withdrawals[/{account}]?since=` returns the same outcomes as a backfill:
+
+```json
+{ "withdrawals": [ { "tx_hash": "0x…", "withdrawer": "0x…", "to": "0x…", "token": "0x…", "amount": "0x…", "timestamp_us": 1704153600000000 } ], "timestamp": 1704153600500000 }
+```
+
+`timestamp` is the deadline, in microseconds, of the newest tick whose outcomes the answering node serves; it is never ahead of the rows. Pass it as `since` to `pod_withdrawals` to resume with no gap, including when the REST node lags the WebSocket node. When reading through several nodes, keep the highest `timestamp` seen and drop pages below it.
+
 {% hint style="info" %}
 Anyone can submit the claim transaction — it does not need to come from the account that withdrew.
 {% endhint %}

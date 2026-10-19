@@ -13,7 +13,8 @@ import type { Address, Withdrawal } from "../types/public.js";
 import type { WireWithdrawal } from "../types/wire.js";
 import { decodeWithdrawal } from "../codec/decode.js";
 import type { ResourceSource } from "../stores/resource.js";
-import { seedNowAndOnReconnect, type SyncContext } from "./sources.js";
+import type { Subscription } from "../transport/ws.js";
+import { MAX_SUB_RETRIES, subBackoffMs, type SyncContext } from "./sources.js";
 
 /** Page size for the backfill. The server caps at 1000 and defaults to 500. */
 const PAGE_LIMIT = 500;
@@ -21,10 +22,6 @@ const PAGE_LIMIT = 500;
 /** Pages to walk in one backfill before giving up, so a bad cursor can't spin
  * forever. 50 pages × 500 covers 25k outcomes — far past any real account. */
 const MAX_PAGES = 50;
-
-/** Resubscribe attempts after a rejection before leaving the channel alone.
- * Reached only when the rejection is permanent — see the `onError` comment. */
-const MAX_SUB_RETRIES = 5;
 
 export function withdrawalsSource(
   { rest, ws }: SyncContext,
@@ -41,6 +38,9 @@ export function withdrawalsSource(
     let sinceId: Withdrawal["txHash"] | undefined;
     let retries = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    // Newest tick a backfill's node could serve; never behind the rows it returned.
+    let servedUs = 0;
+    let sub: Subscription | undefined;
 
     const publish = () => {
       // Newest first: a user reads their most recent withdrawal at the top, and
@@ -65,8 +65,8 @@ export function withdrawalsSource(
      * reconnect can fire while a retry's backfill is still paging. Both share
      * the cursor, so concurrent loops would re-request each other's pages.
      */
-    let inflight: Promise<void> | undefined;
-    const backfill = (): Promise<void> => (inflight ??= run().finally(() => { inflight = undefined; }));
+    let inflight: Promise<boolean> | undefined;
+    const backfill = (): Promise<boolean> => (inflight ??= run().finally(() => { inflight = undefined; }));
 
     const run = async () => {
       try {
@@ -77,21 +77,21 @@ export function withdrawalsSource(
         let pageSince = sinceUs;
         let pageSinceId = sinceId;
         for (let page = 0; page < MAX_PAGES; page++) {
-          const rows = await rest.bridgeWithdrawals(account, {
+          const res = await rest.bridgeWithdrawals(account, {
             since: pageSince,
             sinceId: pageSinceId,
             limit: PAGE_LIMIT,
           });
-          if (!alive) return;
-          if (rows.length === 0) break;
+          if (!alive) return false;
+          const rows = res.withdrawals;
           absorb(rows);
+          // Pages may come from different nodes: only the one that served the end of the log vouches for it.
+          if (rows.length < PAGE_LIMIT) { servedUs = Math.max(servedUs, res.timestampUs); break; }
           // Rows come back ascending, so the last one is this page's high-water
           // mark — regardless of what the stream did to the shared cursor.
-          // Non-empty by the check above.
           const last = rows[rows.length - 1]!;
           pageSince = last.timeUs;
           pageSinceId = last.txHash;
-          if (rows.length < PAGE_LIMIT) break;
         }
         // Once, after paging: publishing per page re-copies and re-sorts
         // everything accumulated so far for a list the user sees for
@@ -102,6 +102,7 @@ export function withdrawalsSource(
         // on "not loaded yet" and treats the first live outcome as its initial
         // snapshot — silently swallowing a user's first-ever withdrawal.
         publish();
+        return true;
       } catch (e) {
         // Publish on the failure path too, for exactly the reason the success
         // path publishes unconditionally: a consumer left on "not loaded yet"
@@ -113,10 +114,11 @@ export function withdrawalsSource(
         // Only surface the failure when there is nothing to show; otherwise the
         // stream is still feeding a usable list and a toast would be noise.
         if (byHash.size === 0) h.fail(e as Error);
+        return false;
       }
     };
 
-    const sub = ws.subscribe(
+    const subscribe = (since: number | undefined) => sub = ws.subscribe(
       "pod_withdrawals",
       // Live-only until a cursor exists. This is a replay channel, so the server
       // accepts `since` only when its buffer still reaches back that far — and
@@ -124,7 +126,7 @@ export function withdrawalsSource(
       // and burn the retry budget below on a self-inflicted rejection. (The
       // `since: 0` idiom belongs to the *state* channels, which answer it with a
       // snapshot.) REST backfill covers history either way.
-      { account },
+      { account, since },
       (result) => {
         retries = 0;
         // A frame means the subscription is healthy, so a retry armed by an
@@ -135,7 +137,7 @@ export function withdrawalsSource(
         // One message per tick carrying that tick's outcomes for this account.
         absorb((result as WireWithdrawal[]).map(decodeWithdrawal));
         publish();
-        sub.update({ since: sinceUs }); // keep the resume point fresh for a reconnect
+        sub!.update({ since: Math.max(sinceUs, servedUs) }); // keep the resume point fresh for a reconnect
       },
       () => {
         // Rejected — usually a `since` older than the replay buffer. Back off,
@@ -156,22 +158,30 @@ export function withdrawalsSource(
             // Live-only until a real cursor exists (see the subscribe above), and
             // dropped again after a couple of failures in case the replay buffer
             // has outrun it.
-            sub.update({ since: retries > 2 || sinceUs === 0 ? undefined : sinceUs });
-            sub.resubscribe();
+            const since = Math.max(sinceUs, servedUs);
+            sub!.update({ since: retries > 2 || since === 0 ? undefined : since });
+            sub!.resubscribe();
           });
-        }, Math.min(30_000, 500 * 2 ** (retries - 1)));
+        }, subBackoffMs(retries));
       },
     );
 
     // Seed immediately — REST needs no socket, so history paints without waiting
     // on the handshake — and fill the gap again on every reconnect.
-    const offOpen = seedNowAndOnReconnect(ws, () => { if (alive) void backfill(); });
+    const offOpen = ws.on("open", () => { if (alive) void backfill(); });
+    // Subscribing after the first backfill lets `since` cover the gap between a
+    // lagging REST node and the head of the node the socket landed on.
+    void backfill().then((ok) => {
+      if (!alive) return;
+      const since = Math.max(sinceUs, servedUs);
+      subscribe(ok && since > 0 ? since : undefined);
+    });
 
     return () => {
       alive = false;
       offOpen();
       if (retryTimer) clearTimeout(retryTimer);
-      sub.unsubscribe();
+      sub?.unsubscribe();
     };
   };
 }

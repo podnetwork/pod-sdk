@@ -18,7 +18,7 @@ import { RESOLUTION_PAGE_BUCKETS, RESOLUTION_SECONDS } from "../codec/resolution
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
 import type { Subscription } from "../transport/ws.js";
 import { PodHttpError, type PodRestClient } from "../transport/rest.js";
-import type { SyncContext } from "./sources.js";
+import { subBackoffMs, type SyncContext } from "./sources.js";
 
 export interface SeriesResource<Item> {
   get(): Item[] | undefined;
@@ -320,6 +320,8 @@ export class CandleSeries implements SeriesResource<Bar> {
   private _loading = false;
   private _hasMore = true;
   private lastTickUs = 0;
+  /** Newest tick folded into `live`; unlike `lastTickUs` it is not rewound by a resubscribe. */
+  private foldedUs = 0;
   private tickSub: Subscription | undefined;
   private alive = false;
   private subRetries = 0;
@@ -372,6 +374,7 @@ export class CandleSeries implements SeriesResource<Bar> {
         // edge would take it as the answer. Closed pages are immutable, so they
         // stay — dropping them would only refetch what is already correct.
         this.live.clear();
+        this.foldedUs = 0;
       };
     });
   }
@@ -487,6 +490,7 @@ export class CandleSeries implements SeriesResource<Bar> {
           volume: bars.reduce((s, b) => s + b.volume, 0n),
           quoteVolume: bars.reduce((s, b) => s + b.quoteVolume, 0n),
         });
+        this.foldedUs = seedEnd * 1_000_000 - 1;
         this.rebuild();
       }
     } catch { /* seed is best-effort — ticks still build the bar from here on */ }
@@ -498,9 +502,12 @@ export class CandleSeries implements SeriesResource<Bar> {
     const ticks = Array.isArray(result) ? result : [result];
     const bucketMs = this.resSecs * 1000;
     let maxUs = this.lastTickUs;
+    const foldedUs = this.foldedUs;
     for (const t of ticks) {
       const w = t as WireCandleTick;
       maxUs = Math.max(maxUs, w.timestamp_us);
+      if (w.timestamp_us <= foldedUs) continue;
+      this.foldedUs = Math.max(this.foldedUs, w.timestamp_us);
       const tMs = usToMs(w.timestamp_us);
       const start = Math.floor(tMs / bucketMs) * bucketMs;
       const price = dec(w.price);
@@ -547,7 +554,7 @@ export class CandleSeries implements SeriesResource<Bar> {
   private onSubError(): void {
     if (!this.alive) return;
     this.subRetries++;
-    const delay = Math.min(30_000, 500 * 2 ** (this.subRetries - 1));
+    const delay = subBackoffMs(this.subRetries);
     if (this.retryTimer) clearTimeout(this.retryTimer);
     this.retryTimer = setTimeout(() => {
       void this.loadWindow(this.window).then(async () => {

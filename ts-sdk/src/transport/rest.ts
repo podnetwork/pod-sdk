@@ -11,7 +11,7 @@ import type {
 import type {
   WireActivityEntry, WireActivityPage, WireBackstopPage, WireBalances, WireBridgeConfig, WireCandlesEnvelope,
   WireMarketStatic, WireMarketStatsPage, WireOrderbook, WireOrdersPage, WirePositionsSnapshot,
-  WireStatus, WireTriggersPage, WireWithdrawal,
+  WireStatus, WireTriggersPage, WireWithdrawal, WireWithdrawalsPage,
 } from "../types/wire.js";
 import {
   decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle,
@@ -48,6 +48,10 @@ export interface TriggersPage {
   triggers: Trigger[];
   totalCount: number;
   nextCursor: string | null;
+}
+export interface WithdrawalsPage {
+  withdrawals: Withdrawal[];
+  timestampUs: number;
 }
 export interface CandlesPage {
   bars: Bar[]; // oldest-first
@@ -279,14 +283,16 @@ export class PodRestClient {
    * cannot tell which one an outcome arrived on. Page with `since` (the tick
    * cursor) plus `sinceId` to resume *inside* a tick that spanned a page.
    */
-  async bridgeWithdrawals(account?: Address, q?: WithdrawalsQuery): Promise<Withdrawal[]> {
+  async bridgeWithdrawals(account?: Address, q?: WithdrawalsQuery): Promise<WithdrawalsPage> {
     const path = account ? `/bridge/withdrawals/${account}` : "/bridge/withdrawals";
-    const w = await this.get<WireWithdrawal[]>(path, {
+    const w = await this.get<WireWithdrawalsPage | WireWithdrawal[]>(path, {
       since: q?.since,
       since_id: q?.sinceId,
       limit: q?.limit,
     });
-    return w.map(decodeWithdrawal);
+    // A node not yet upgraded serves the bare array.
+    if (Array.isArray(w)) return { withdrawals: w.map(decodeWithdrawal), timestampUs: 0 };
+    return { withdrawals: w.withdrawals.map(decodeWithdrawal), timestampUs: w.timestamp };
   }
 
   async triggers(account: Address, q?: TriggersQueryRest): Promise<TriggersPage> {

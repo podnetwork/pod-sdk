@@ -11,6 +11,7 @@ import type { MarketId } from "../types/public.js";
 import { PodHttpError } from "../transport/rest.js";
 import type { Channel, PodWsClient, SubParams, Subscription } from "../transport/ws.js";
 import { PodSubscriptionClosedError } from "../transport/ws.js";
+import { subBackoffMs } from "./sources.js";
 
 /**
  * Consecutive server closes we resume from before falling back to the re-seed
@@ -242,7 +243,7 @@ export class ResumableStream {
    */
   private scheduleReseed(): void {
     this.subRetries++;
-    const delay = Math.min(30_000, 500 * 2 ** (this.subRetries - 1));
+    const delay = subBackoffMs(this.subRetries);
     this.clearRetry();
     this.retryTimer = setTimeout(() => {
       this.retryTimer = undefined;
