@@ -30,6 +30,7 @@ export {
   closePreview, type ClosePreview,
   priceForReturn, type ReturnPriceInput,
   closestTriggers,
+  estimateFill, type FillEstimate,
 } from "./sync/order-preview.js";
 export type { SeriesResource } from "./sync/candles.js";
 export { CandleSeries } from "./sync/candles.js";
