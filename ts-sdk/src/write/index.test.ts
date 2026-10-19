@@ -6,7 +6,7 @@ import { createDelegatedWallet } from "./delegation.js";
 import {
   alignSize, BRIDGE_ADDRESS, buildClosePosition, CLOB_ADDRESS, buildOrderWithTriggers, buildSubmitBatch,
   buildSubmitOrder, buildSubmitTrigger, buildUpdateOrder, buildUpdateTrigger, buildWithdraw,
-  decodeRevertReason, MINT_ADDRESS, mint, NATIVE_USD_ADDRESS, PodTxRevertError, sendRawTransaction,
+  decodeRevertReason, MINT_ADDRESS, mint, NATIVE_USD_ADDRESS, PodDeliveryUnknownError, PodTxRevertError, sendRawTransaction,
   waitForReceipt, type PodTxRequest,
 } from "./index.js";
 import type { Hash } from "../types/public.js";
@@ -357,8 +357,8 @@ describe("DelegatedWallet.submit", () => {
   it("reports delivery unknown, without re-signing, when no receipt appears", async () => {
     const { wallet, sent, signs } = await setup([new TypeError("fetch failed"), PAST_NONCE], [3]);
     const err = await settle(() => wallet.submit(TX_REQ));
-    expect(String(err)).toMatch(/delivery unknown/);
-    expect(String(err)).toContain(keccak256(sent[0]!));
+    expect(err).toBeInstanceOf(PodDeliveryUnknownError);
+    expect((err as PodDeliveryUnknownError).txHash).toBe(keccak256(sent[0]!));
     expect(sent).toHaveLength(2);
     expect(signs()).toBe(1);
   });
@@ -380,7 +380,8 @@ describe("DelegatedWallet.submit", () => {
   it("aborts each hung send at 5s and reports delivery unknown when nothing lands", async () => {
     const { wallet, sent, signs } = await setup(["hang", "hang"], [3]);
     const err = await settle(() => wallet.submit(TX_REQ));
-    expect(String(err)).toMatch(/delivery unknown/);
+    expect(err).toBeInstanceOf(PodDeliveryUnknownError);
+    expect((err as PodDeliveryUnknownError).txHash).toBe(keccak256(sent[0]!));
     expect(sent).toHaveLength(2);
     expect(sent[1]).toBe(sent[0]);
     expect(signs()).toBe(1);

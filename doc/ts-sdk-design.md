@@ -248,8 +248,8 @@ reverted, deterministic rejection, account locked, empty tx required) is
 returned at once. After a transport error the same signed bytes are resent. A
 nonce rejection re-signs with a fresh nonce only when no earlier attempt could
 have been delivered; otherwise the SDK polls the receipt of the last sent hash
-for the rest of the budget and returns that hash or a "delivery unknown" error
-that carries it. `waitForReceipt` treats a non-2xx or non-JSON response as "no
+for the rest of the budget and returns that hash or throws `PodDeliveryUnknownError` with the hash.
+`waitForReceipt` treats a non-2xx or non-JSON response as "no
 receipt yet" within its 30s.
 
 **Net caching model:** the server provides the cache *semantics* (headers gated
