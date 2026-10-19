@@ -310,9 +310,9 @@ paths:
       summary: Get Orders
       operationId: getOrders
       description: |
-        The account's orders with their fills, newest first by `(deadline, nonce,
-        order_id)`. Backstop position transfers appear as terminal rows with
-        `kind: backstop_transfer`.
+        The account's orders, newest first by `(deadline, nonce, order_id)`; their fills
+        are on `/clob/fills/{account}`. Backstop position transfers appear as terminal rows
+        with `kind: backstop_transfer`.
 
         Two paging modes:
         - Cursor (default): pass `next_cursor` back as `cursor`; `null` on the last page.
@@ -555,46 +555,47 @@ paths:
       summary: Get Account Activity
       operationId: getActivity
       description: |
-        One feed of everything that happened to the account: orders (each with its fills,
-        at its placement tick), backstop sweeps, bridge deposits and withdrawals, and
-        transfers. Entries are a union tagged by `activity_type`, ordered newest first by
-        `(ts, kind, key)`; within one tick the kinds run `transfer`, `bridge_transfer`,
-        `backstop`, `order`.
+        Everything that happened to the account, as an `ActivityFrame`: a map from batch
+        deadline to that batch's entries. Entries are tagged by `k` (`ActivityEntry`). Within a batch, entries are ordered by kind
+        (`order`, `fill`, `modify`, `termination`, `backstop`, `bridge_transfer`,
+        `transfer`, `modify_reject`, `cancel_reject`), then by book ascending, then in engine order.
 
-        Pass `next_cursor` back as `cursor` for the next page. It is set whenever the page
-        is full, so the last page can be empty.
+        Pages are newest first and hold whole batches. Batches are added while the entry
+        count stays within `limit`; the newest batch in the window is always served, even
+        when it alone exceeds `limit`. Pass `next` back as `to` for the older page.
+
+        An `order` entry, at the batch that admitted it, is the order as
+        `/clob/orders/{account}` serves it: its current status and totals, so it needs no
+        folding of the later entries. A `fill`, `modify`, `termination`, `modify_reject` or `cancel_reject` names
+        its order by `id` and `book`; one of an order placed before the window is not
+        hydrated.
 
         Seed from this route, then subscribe to the `pod_activity` websocket channel with
         `since` = `solution_now`.
 
-        `Cache-Control: public, max-age=31536000, immutable` when the page's upper bound
-        (`cursor` or `to`) has been reached by solution time and every order entry is
-        terminal, otherwise `no-store`.
+        `Cache-Control: public, max-age=31536000, immutable` when `to <= solution_now` and
+        every `order` on the page is terminal, otherwise `no-store`.
       parameters:
         - $ref: '#/components/parameters/AccountPath'
+        - name: from
+          in: query
+          description: Lowest batch deadline, microseconds, inclusive. Defaults to `0`.
+          schema: { $ref: '#/components/schemas/TimestampString' }
+        - name: to
+          in: query
+          description: Highest batch deadline, microseconds, inclusive. Defaults to the whole history. `from > to` is a `422` (`from must not exceed to`).
+          schema: { $ref: '#/components/schemas/TimestampString' }
         - name: limit
           in: query
-          description: Page size, clamped to `[1, 200]`.
-          schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
-        - name: cursor
-          in: query
-          description: '`next_cursor` from the previous page, `"{ts}:{ordinal}:{key_hex}"` (`ordinal` `1`-`4` = `order`, `backstop`, `bridge_transfer`, `transfer`; `key_hex` is 40 bytes for an order, 8 otherwise). Treat it as opaque. Malformed is a `400` (`invalid cursor`).'
-          schema: { type: string }
+          description: Entries per page after the type filter, clamped to `[1, 2000]`. A page can exceed it by its newest batch.
+          schema: { type: integer, minimum: 1, maximum: 2000, default: 500 }
         - name: activity_types
           in: query
           description: |
-            Comma-separated kinds to include: `order`, `backstop`, `bridge_transfer`,
-            `transfer`. Defaults to all. An unknown or empty name is a `400`
-            (`invalid activity_types`).
-          schema: { type: string, example: "order,transfer" }
-        - name: from
-          in: query
-          description: Window start, microseconds, inclusive.
-          schema: { type: integer, format: int64 }
-        - name: to
-          in: query
-          description: Window end, microseconds, exclusive. `from >= to` is a `400` (`from must be below to`).
-          schema: { type: integer, format: int64 }
+            Comma-separated kinds to include: `order`, `fill`, `modify`, `termination`,
+            `backstop`, `bridge_transfer`, `transfer`, `modify_reject`, `cancel_reject`. Defaults to all. An unknown or empty
+            name is a `400` (`invalid activity_types`).
+          schema: { type: string, example: "order,fill" }
       responses:
         '200':
           description: Activity page
@@ -602,30 +603,60 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [activity, next_cursor, solution_now]
+                required: [activity, next, solution_now]
                 properties:
                   activity:
-                    type: array
-                    items: { $ref: '#/components/schemas/ActivityEntry' }
-                  next_cursor:
+                    $ref: '#/components/schemas/ActivityFrame'
+                  next:
                     type: string
+                    pattern: "^[0-9]+$"
                     nullable: true
+                    description: The oldest served batch minus 1µs when older history may exist, otherwise `null`. Pass it as `to`.
                   solution_now:
                     $ref: '#/components/schemas/Timestamp'
               example:
                 activity:
-                  - activity_type: transfer
-                    ts: 1704153600000000
-                    id: "0x8f3c0000000000000000000000000000000000000000000000000000000000aa"
-                    token: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-                    amount: "-25000000000000000000"
-                  - activity_type: bridge_transfer
-                    ts: 1704150000000000
-                    tx: "0x51d20000000000000000000000000000000000000000000000000000000000bb"
-                    idx: 0
-                    token: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-                    amount: "1000000000000000000000"
-                next_cursor: null
+                  "1704153600000000":
+                    - k: order
+                      orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                      market_type: spot
+                      kind: user_signed
+                      order_id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
+                      tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                      bidder: "0x1234567890abcdef1234567890abcdef12345678"
+                      nonce: 42
+                      order_type: limit
+                      status: filled
+                      side: sell
+                      price: "0x4563918244f40000"
+                      size: "-1000000000000000000"
+                      initial_price: "0x4563918244f40000"
+                      initial_size: "-1000000000000000000"
+                      filled_base_amount: "0xde0b6b3a7640000"
+                      filled_quote_amount: "0x4563918244f40000"
+                      fee: "0x0"
+                      deadline: "1704153600000000"
+                      end: 18446744073709551615
+                      included_batch: 1704153600000000
+                      effective_price: "0x4563918244f40000"
+                      direction: sell
+                    - k: fill
+                      id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
+                      book: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                      b: "1000000000000000000"
+                      q: "5000000000000000000"
+                      tb: "1000000000000000000"
+                      tq: "5000000000000000000"
+                      tf: "0"
+                      f: "0"
+                      st: filled
+                  "1704150000000000":
+                    - k: bridge_transfer
+                      tx: "0x51d20000000000000000000000000000000000000000000000000000000000bb"
+                      idx: 0
+                      tok: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                      amt: "1000000000000000000000"
+                next: "1704149999999999"
                 solution_now: 1704153600100000
         '400': { $ref: '#/components/responses/BadRequest' }
         '503': { $ref: '#/components/responses/Unavailable' }
@@ -1142,19 +1173,12 @@ components:
     # ==========================================
     # ACCOUNT
     # ==========================================
-    PartialFill:
-      type: object
-      properties:
-        base_amount: { $ref: '#/components/schemas/HexUint256' }
-        quote_amount: { $ref: '#/components/schemas/HexUint256' }
-        timestamp: { $ref: '#/components/schemas/Timestamp' }
-        price: { $ref: '#/components/schemas/HexUint256' }
-
     Order:
       type: object
       description: |
-        An order with its fills. Unsigned amounts and prices are 1e18-scaled `0x` hex,
-        signed ones decimal strings. Perp-only fields are omitted on spot orders.
+        An order and its totals; its fills are `/clob/fills/{account}` rows. Unsigned
+        amounts and prices are 1e18-scaled `0x` hex, signed ones decimal strings.
+        Perp-only fields are omitted on spot orders.
       properties:
         orderbook_id: { $ref: '#/components/schemas/Bytes32' }
         market_type: { $ref: '#/components/schemas/MarketType' }
@@ -1169,9 +1193,15 @@ components:
         status: { $ref: '#/components/schemas/OrderStatus' }
         side: { type: string, enum: [buy, sell] }
         price: { $ref: '#/components/schemas/HexUint256' }
+        size:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Signed size now, as amended; positive buy/long, negative sell/short.
+        initial_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Price the order was placed with.
         initial_size:
           $ref: '#/components/schemas/DecimalInt256'
-          description: Signed; positive buy/long, negative sell/short.
+          description: Signed size the order was placed with.
         filled_base_amount: { $ref: '#/components/schemas/HexUint256' }
         filled_quote_amount: { $ref: '#/components/schemas/HexUint256' }
         fee: { $ref: '#/components/schemas/HexUint256' }
@@ -1188,9 +1218,6 @@ components:
         effective_price:
           $ref: '#/components/schemas/HexUint256'
           description: '`filled_quote / filled_base` so far.'
-        fills:
-          type: array
-          items: { $ref: '#/components/schemas/PartialFill' }
         reduce_only: { type: boolean, description: Perp only. }
         ioc: { type: boolean, description: Perp only. }
         post_only: { type: boolean, description: Omitted when false. }
@@ -1345,44 +1372,171 @@ components:
         realized_pnl: { type: string, description: 'Signed. `"0"` on the cash-sweep row and older rows.' }
         timestamp_us: { $ref: '#/components/schemas/Timestamp' }
 
-    ActivityEntry:
+    ActivityFrame:
       type: object
       description: |
-        Tagged by `activity_type`. Every entry carries `ts`, its tick in microseconds.
+        One account's activity: batch deadline (microseconds, as a decimal-string key) to that
+        batch's entries, in the order given on the route. The `pod_activity` websocket channel
+        sends the same shape with one key per tick.
+      additionalProperties:
+        type: array
+        items: { $ref: '#/components/schemas/ActivityEntry' }
+      example:
+        "1704153600000000":
+          - { k: transfer, id: "0x8f3c0000000000000000000000000000000000000000000000000000000000aa", token: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", amount: "-25000000000000000000" }
 
-        - `order`: the order at its placement tick (`ts` is its `deadline`), with
-          every `Order` field flattened in and the `Order` encodings (unsigned `0x` hex).
-          ADL closes appear as orders with `kind` `adl` or `adl_counterparty`; backstop
-          sweeps appear only as `backstop` entries.
-        - `backstop`: `book` (the swept market; omitted on the cash sweep), `size`, `cash`,
-          `mark` (the sweep's mark price), `equity`, `pnl` (realized; `"0"` on the cash
-          sweep).
-        - `bridge_transfer`: `tx` (the bridge transaction hash), `idx` (position among the
-          tick's deposits, `0` for a withdrawal), `token`, `amount`, `error`.
-        - `transfer`: `id` (the transfer id), `token`, `amount`, `error`.
+    ActivityEntry:
+      description: |
+        One activity entry, discriminated by `k`. Amounts and prices are 1e18-scaled decimal
+        strings. Optional fields are omitted rather than `null`; boolean flags are omitted when
+        false. Ignore kinds and fields you do not recognise.
+      oneOf:
+        - $ref: '#/components/schemas/ActivityOrder'
+        - $ref: '#/components/schemas/ActivityFill'
+        - $ref: '#/components/schemas/ActivityModify'
+        - $ref: '#/components/schemas/ActivityTermination'
+        - $ref: '#/components/schemas/ActivityBackstop'
+        - $ref: '#/components/schemas/ActivityBridgeTransfer'
+        - $ref: '#/components/schemas/ActivityTransfer'
+        - $ref: '#/components/schemas/ActivityModifyReject'
+        - $ref: '#/components/schemas/ActivityCancelReject'
+      discriminator:
+        propertyName: k
+        mapping:
+          order: '#/components/schemas/ActivityOrder'
+          fill: '#/components/schemas/ActivityFill'
+          modify: '#/components/schemas/ActivityModify'
+          termination: '#/components/schemas/ActivityTermination'
+          backstop: '#/components/schemas/ActivityBackstop'
+          bridge_transfer: '#/components/schemas/ActivityBridgeTransfer'
+          transfer: '#/components/schemas/ActivityTransfer'
+          modify_reject: '#/components/schemas/ActivityModifyReject'
+          cancel_reject: '#/components/schemas/ActivityCancelReject'
 
-        Outside the flattened order, amounts are 1e18-scaled decimal strings. `amount`
-        is signed: negative left the account, positive arrived. `error` is omitted on
-        success.
-      required: [activity_type, ts]
+    ActivityOrder:
+      description: |
+        The order as `/clob/orders/{account}` serves it, at the batch that admitted it, in its
+        current state. On the `pod_activity` channel it is the admission state instead:
+        `active`, or `invalid` with `invalid_reason`, and zero totals. ADL closes
+        appear as orders with `kind` `adl` or `adl_counterparty`; backstop sweeps appear only
+        as `backstop` entries.
+      allOf:
+        - type: object
+          required: [k]
+          properties:
+            k: { type: string, enum: [order] }
+        - $ref: '#/components/schemas/Order'
+
+    ActivityFill:
+      type: object
+      description: |
+        One fill of an order. `tb`, `tq`, `tf`, `f` and `st` are omitted on rows indexed before they
+        were recorded.
+      required: [k, id, book, b, q]
       properties:
-        activity_type:
-          type: string
-          enum: [order, backstop, bridge_transfer, transfer]
-        ts: { $ref: '#/components/schemas/Timestamp' }
+        k: { type: string, enum: [fill] }
+        id: { $ref: '#/components/schemas/Bytes32', description: Order id. }
         book: { $ref: '#/components/schemas/Bytes32' }
-        size: { type: string }
-        cash: { type: string }
-        mark: { type: string }
-        equity: { type: string }
-        pnl: { type: string }
-        tx: { $ref: '#/components/schemas/Bytes32' }
-        idx: { type: integer }
-        id: { $ref: '#/components/schemas/Bytes32' }
-        token: { $ref: '#/components/schemas/Address' }
-        amount: { type: string, pattern: "^-?[0-9]+$" }
-        error: { type: string }
-      additionalProperties: true
+        b: { $ref: '#/components/schemas/DecimalUint256', description: Base filled by this fill. }
+        q: { $ref: '#/components/schemas/DecimalUint256', description: Quote filled by this fill. }
+        tb: { $ref: '#/components/schemas/DecimalUint256', description: Order's total base filled after this fill. }
+        tq: { $ref: '#/components/schemas/DecimalUint256', description: Order's total quote filled after this fill. }
+        tf: { $ref: '#/components/schemas/DecimalUint256', description: Order's total fee after this fill. }
+        f: { $ref: '#/components/schemas/DecimalUint256', description: Fee charged by this fill. }
+        st:
+          type: string
+          enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused]
+          description: Terminal status, present only on the fill that closed the order.
+        pa: { $ref: '#/components/schemas/DecimalInt256', description: The position after this fill on a perp book. Omitted when no position moved. }
+
+    ActivityModify:
+      type: object
+      description: A resting order's price and/or size changed in place. Sizes are unsigned.
+      required: [k, id, book, px, sz, old_px, old_sz]
+      properties:
+        k: { type: string, enum: [modify] }
+        id: { $ref: '#/components/schemas/Bytes32', description: Order id. }
+        book: { $ref: '#/components/schemas/Bytes32' }
+        px: { $ref: '#/components/schemas/DecimalUint256' }
+        sz: { $ref: '#/components/schemas/DecimalUint256' }
+        old_px: { $ref: '#/components/schemas/DecimalUint256' }
+        old_sz: { $ref: '#/components/schemas/DecimalUint256' }
+
+    ActivityTermination:
+      type: object
+      description: An order left the book other than by filling.
+      required: [k, id, book, st]
+      properties:
+        k: { type: string, enum: [termination] }
+        id: { $ref: '#/components/schemas/Bytes32', description: Order id. }
+        book: { $ref: '#/components/schemas/Bytes32' }
+        st: { type: string, enum: [canceled, margin_canceled, self_trade_canceled, expired, post_only_refused] }
+
+    ActivityBackstop:
+      type: object
+      description: A perp position swept to the backstop (`book` set), or the terminal cash sweep (`book` omitted).
+      required: [k, sz, cash, mark, eq, pnl]
+      properties:
+        k: { type: string, enum: [backstop] }
+        book: { $ref: '#/components/schemas/Bytes32' }
+        sz: { $ref: '#/components/schemas/DecimalInt256', description: Position size moved. }
+        cash: { $ref: '#/components/schemas/DecimalInt256' }
+        mark: { $ref: '#/components/schemas/DecimalUint256', description: Mark price at the sweep. }
+        eq: { $ref: '#/components/schemas/DecimalInt256', description: Account equity at the sweep. }
+        pnl: { $ref: '#/components/schemas/DecimalInt256', description: 'Realized PnL; `"0"` on the cash sweep.' }
+
+    ActivityBridgeTransfer:
+      type: object
+      description: |
+        A bridge deposit (positive `amt`) or withdrawal (negative). `err` set means it was
+        refused and nothing moved.
+      required: [k, tx, idx, tok, amt]
+      properties:
+        k: { type: string, enum: [bridge_transfer] }
+        tx: { $ref: '#/components/schemas/Bytes32', description: The bridge transaction. }
+        idx: { type: integer, description: Position among the tick's deposits; `0` for a withdrawal. }
+        tok: { $ref: '#/components/schemas/Address' }
+        amt: { $ref: '#/components/schemas/DecimalInt256' }
+        err: { type: string }
+
+    ActivityTransfer:
+      type: object
+      description: |
+        An account-to-account transfer, signed from the account's side: debit negative, credit
+        positive. A self-transfer is two entries, the debit first. A refused transfer is reported
+        to the sender only, with `err`.
+      required: [k, id, cp, tok, amt]
+      properties:
+        k: { type: string, enum: [transfer] }
+        id: { $ref: '#/components/schemas/Bytes32', description: Transfer id. }
+        cp:
+          $ref: '#/components/schemas/Address'
+          description: The other side of the transfer, the receiver when `amt` is negative and the sender otherwise; the account itself on a self-transfer.
+        tok: { $ref: '#/components/schemas/Address' }
+        amt: { $ref: '#/components/schemas/DecimalInt256' }
+        err: { type: string }
+
+    ActivityModifyReject:
+      type: object
+      description: An amendment the engine refused; the order is untouched. `px` and `sz` are what was asked for, `sz` unsigned.
+      required: [k, id, book, px, sz, why]
+      properties:
+        k: { type: string, enum: [modify_reject] }
+        id: { $ref: '#/components/schemas/Bytes32', description: Order id. }
+        book: { $ref: '#/components/schemas/Bytes32' }
+        px: { $ref: '#/components/schemas/DecimalUint256' }
+        sz: { $ref: '#/components/schemas/DecimalUint256' }
+        why: { type: string, description: The engine's reason. }
+
+    ActivityCancelReject:
+      type: object
+      description: A cancel the engine refused; the order still rests.
+      required: [k, id, book, why]
+      properties:
+        k: { type: string, enum: [cancel_reject] }
+        id: { $ref: '#/components/schemas/Bytes32', description: Order id. }
+        book: { $ref: '#/components/schemas/Bytes32' }
+        why: { type: string, description: The engine's reason. }
 
     # ==========================================
     # EXPLORER

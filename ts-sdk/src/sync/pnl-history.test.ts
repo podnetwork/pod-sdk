@@ -190,6 +190,15 @@ const fillRows = Array.from({ length: 1_200 }, (_, i) => {
 const stubTickAt = (_m: MarketId, tUs: number): PnlTick => { const t = Math.floor(tUs / TICK_US) * TICK_US; return { mark: markPerp(t), funding: fundingRaw(t) }; };
 const stubEvents = (): PnlEvent[] => fillRows.map((r) => ({ market: PERP, timeUs: r.timestamp, deltaSize: r.initial_size === "-1" ? -(10n ** 16n) : 10n ** 16n, price: BigInt(r.price), kind: "fill" }));
 
+const toWireFlow = (f: Record<string, unknown>): object => {
+  const str = (v: unknown) => String(v ?? 0n);
+  switch (f.activityType) {
+    case "bridge_transfer": return { k: "bridge_transfer", tx: f.txHash, idx: 0, tok: f.token, amt: str(f.amount), err: f.error };
+    case "transfer": return { k: "transfer", id: f.transferId, cp: f.counterparty, tok: f.token, amt: str(f.amount), err: f.error };
+    default: return { k: "backstop", book: f.orderbookId, sz: str(f.size), cash: str(f.cash), mark: str(f.markPrice), eq: str(f.equity), pnl: "0" };
+  }
+};
+
 /** A fake node: one perp market, the fill rows above, ticks from the functions above. Counts fills calls. */
 const STUB_ACCOUNT_VALUE = W(5_000);
 function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRoute?: boolean | "503"; firstTickUs?: number; size?: bigint; restReads?: boolean; lagTicks?: number } = {}) {
@@ -208,11 +217,16 @@ function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRou
       ? async () => { throw new PodHttpError(404, "/clob/activity", "no route"); }
       : opts.activityRoute === "503"
       ? async () => { throw new PodHttpError(503, "/clob/activity", "indexer unavailable"); }
-      : async (_a: string, q: { from: number; to: number }) => ({
-          activity: (opts.flows ?? []).filter((f) => (f as { timeMs: number }).timeMs >= q.from && (f as { timeMs: number }).timeMs < q.to),
-          nextCursor: null,
-          solutionNow: NOW_US / 1000,
-        }),
+      : async (_a: string, q: { types: string[]; fromUs: number; toUs: number }) => {
+          if (q.types.join(",") !== "backstop,bridge_transfer,transfer") throw new Error(`unexpected activity_types ${q.types}`);
+          const batches = new Map<number, object[]>();
+          for (const f of (opts.flows ?? []) as Record<string, unknown>[]) {
+            const batchUs = (f.timeMs as number) * 1000;
+            if (batchUs < q.fromUs || batchUs > q.toUs) continue;
+            batches.set(batchUs, [...(batches.get(batchUs) ?? []), toWireFlow(f)]);
+          }
+          return { batches: [...batches].sort((x, y) => y[0] - x[0]), nextUs: null, solutionNow: NOW_US / 1000 };
+        },
     fills: async (_a: string, q: { fromUs: number; toUs?: number; limit?: number }) => {
       if (opts.restReads === false) throw new PodHttpError(404, "/clob/fills", "no route");
       calls.fills++;
@@ -333,7 +347,7 @@ describe("account value", () => {
   it("carries the deposits and transfers through as non-PnL money", async () => {
     const flows = [
       { activityType: "bridge_transfer", timeMs: 1_900 * TICK_US / 1000, txHash: "0x1", token: "0xee", amount: W(100) },
-      { activityType: "transfer", timeMs: 1_850 * TICK_US / 1000, transferId: "0x2", token: "0xee", amount: W(-30) },
+      { activityType: "transfer", timeMs: 1_850 * TICK_US / 1000, transferId: "0x2", counterparty: "0x9", token: "0xee", amount: W(-30) },
       { activityType: "bridge_transfer", timeMs: 1_800 * TICK_US / 1000, txHash: "0x3", token: "0xee", amount: W(7), error: "not_included" },
       { activityType: "backstop", timeMs: 1_700 * TICK_US / 1000, size: 0n, cash: W(40), markPrice: 0n, equity: 0n, time: 0 },
     ];

@@ -22,13 +22,15 @@ const client = () => new PodTradeClient({
 });
 
 describe("PodTradeClient.activity", () => {
-  it("reads no filter and an empty filter as one feed", () => {
+  it("keeps one feed per account, a query being a view on it", () => {
     const c = client();
     try {
-      expect(c.activity(ACCOUNT, { types: [] })).toBe(c.activity(ACCOUNT));
+      const feed = c.activity(ACCOUNT);
+      expect(c.activity(ACCOUNT.toUpperCase().replace("0X", "0x") as never)).toBe(feed);
+      expect(c.activity(ACCOUNT, { from: 1 })).toBe(feed.view({ from: 1 }));
+      expect(c.activity(ACCOUNT, { types: [] })).toBe(feed.view({}));
       // Key order is how the caller typed the object, not part of the question.
       expect(c.activity(ACCOUNT, { to: 2, from: 1 })).toBe(c.activity(ACCOUNT, { from: 1, to: 2 }));
-      expect(c.activity(ACCOUNT, { from: 1 })).not.toBe(c.activity(ACCOUNT));
     } finally {
       c.close();
     }

@@ -145,10 +145,10 @@ export class OrderHistory implements SeriesResource<Order> {
     const frame = result as WireOrdersFrame;
     if (!frame || !Array.isArray(frame.orders) || !Array.isArray(frame.events)) return;
 
-    // Drop what we already hold. Applying a frame is not idempotent — a fill event
-    // appends to `order.fills`, and re-creating an entity resets its totals — and
-    // re-delivery is designed in: a resumed subscription replays from a cursor, and
-    // the replay boundary is a whole batch.
+    // Drop what we already hold. Applying a frame is not idempotent — re-creating an
+    // entity resets its totals, and events would be reported twice — and re-delivery is
+    // designed in: a resumed subscription replays from a cursor, and the replay boundary
+    // is a whole batch.
     const at: SubParams = { since: frame.batch, sinceBook: frame.book };
     if (this.stream.delivered(at)) return;
 

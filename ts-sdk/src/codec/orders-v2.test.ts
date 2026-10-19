@@ -62,12 +62,13 @@ function resting(over: Partial<Order> = {}): Order {
     nonce: 7,
     bidder: MM,
     price: 100n * WAD,
+    size: 5n * WAD,
+    initialPrice: 100n * WAD,
     initialSize: 5n * WAD,
     filledBase: 0n,
     filledQuote: 0n,
     fee: 0n,
     deadlineMs: 1785843000000,
-    fills: [],
     ...over,
   };
 }
@@ -102,11 +103,12 @@ describe("applyOrdersFrame — entities", () => {
       kind: "user_signed",
       side: "buy",
       price: 209430000000000000000n,
+      size: 2390000000000000000n,
+      initialPrice: 209430000000000000000n,
       initialSize: 2390000000000000000n,
       filledBase: 0n,
       filledQuote: 0n,
       fee: 0n,
-      fills: [],
       reduceOnly: false,
       ioc: false,
     });
@@ -176,13 +178,24 @@ describe("applyOrdersFrame — events", () => {
   });
 
   it("applies a captured `modify` in place, keeping the side", () => {
-    const byId = apply(MODIFY_FRAME, [resting({ initialSize: -5n * WAD })]);
+    const byId = apply(MODIFY_FRAME, [resting({ size: -5n * WAD, initialSize: -5n * WAD })]);
 
     const o = byId.get("0xa9a5")!;
     expect(o.price).toBe(37990000000000000000n);
     // `sz` is an unsigned magnitude, so the sign has to come from the order we
     // already hold — decoding it as written would flip a sell to a buy.
-    expect(o.initialSize).toBe(-175484776695621584627n);
+    expect(o.size).toBe(-175484776695621584627n);
+    expect(o.initialSize).toBe(-5n * WAD);
+  });
+
+  it("keeps the admitted terms as placed after a `modify`", () => {
+    const byId = apply(NEW_FRAME);
+    applyOrdersFrame({ ...MODIFY_FRAME, events: [{ k: "modify", id: "0x32b8", px: "1", sz: "7" }] }, byId, { account: MM });
+    const o = byId.get("0x32b8")!;
+    expect(o.size).toBe(-7n);
+    expect(o.price).toBe(1n);
+    expect(o.initialSize).toBe(-2380000000000000000n);
+    expect(o.initialPrice).toBe(209840000000000000000n);
   });
 
   it("cancels by id", () => {
@@ -229,10 +242,11 @@ describe("applyOrdersFrame — events", () => {
       events: [{
         k: "fill", id: "0xa9a5",
         b: (2n * WAD).toString(), q: (200n * WAD).toString(),
-        tb: (3n * WAD).toString(), tq: (303n * WAD).toString(), tf: "5000",
+        tb: (3n * WAD).toString(), tq: (303n * WAD).toString(), tf: "5000", f: "2000",
       }],
     };
-    const o = apply(frame, [resting({ filledBase: WAD, filledQuote: 103n * WAD, fills: [{ base: WAD, quote: 103n * WAD, price: 103n * WAD, time: 1 }] })]).get("0xa9a5")!;
+    const seed = () => resting({ filledBase: WAD, filledQuote: 103n * WAD });
+    const o = apply(frame, [seed()]).get("0xa9a5")!;
 
     // Totals come from `tb`/`tq`/`tf` rather than from accumulation, so a client
     // that missed a fill cannot drift.
@@ -240,14 +254,15 @@ describe("applyOrdersFrame — events", () => {
     expect(o.filledQuote).toBe(303n * WAD);
     expect(o.fee).toBe(5000n);
     expect(o.effectivePrice).toBe(101n * WAD);
-    // `b`/`q` are this fill alone, appended to the breakdown.
-    expect(o.fills).toHaveLength(2);
-    expect(o.fills[1]).toEqual({ base: 2n * WAD, quote: 200n * WAD, price: 100n * WAD, time: 1785843559500 });
+    // `b`/`q` are this fill alone.
+    expect(events(frame, [seed()])[0]!.fill).toEqual({
+      base: 2n * WAD, quote: 200n * WAD, price: 100n * WAD, time: 1785843559500, totalBase: 3n * WAD, closedAs: undefined, fee: 2000n,
+    });
     // No `st`: still working.
     expect(o.status).toBe("active");
   });
 
-  it("takes the status from a zero-size fill without inventing a trade for it", () => {
+  it("takes the status from a zero-size fill", () => {
     // The cap-to-filled amendment: shrinking an order to at-or-below what it had already
     // filled leaves nothing to rest, and the engine fabricates a zero-size fill so
     // `st: filled` reaches the indexer, which reads status from fills alone. It also
@@ -263,15 +278,12 @@ describe("applyOrdersFrame — events", () => {
     };
     const seeded = resting({
       filledBase: 6n * WAD, filledQuote: 600n * WAD, direction: "open_long",
-      fills: [{ base: 6n * WAD, quote: 600n * WAD, price: 100n * WAD, time: 1 }],
     });
     const events_ = events(frame, [seeded]);
     const o = apply(frame, [seeded]).get("0xa9a5")!;
 
     expect(o.status).toBe("filled");
     expect(o.filledBase).toBe(6n * WAD);
-    // One fill, the real one. A `0.0000 @ $0.00` row would read as a trade that happened.
-    expect(o.fills).toHaveLength(1);
     expect(o.direction).toBe("open_long");
     // The event still reports itself, so a consumer can announce the close — with the
     // total, which is the figure that means anything here.
@@ -292,7 +304,7 @@ describe("applyOrdersFrame — events", () => {
     // A sell of 6 that left the owner at +4 must have started at +10, so it reduced a
     // long. That is the label the order's own side and `reduceOnly` cannot reach: it
     // is a plain sell, so the derived guess reads "Open Short".
-    const o = apply(frame, [resting({ initialSize: -6n * WAD })]).get("0xa9a5")!;
+    const o = apply(frame, [resting({ size: -6n * WAD, initialSize: -6n * WAD })]).get("0xa9a5")!;
     expect(o.direction).toBe("reduce_long");
   });
 
@@ -309,7 +321,7 @@ describe("applyOrdersFrame — events", () => {
     // The transition says reduce_long; REST says `liquidation`, because
     // `order_direction_for_response` overrides the classifier for that kind. Following
     // only the positions here would disagree with the same row after a refetch.
-    const o = apply(frame, [resting({ initialSize: -6n * WAD, kind: "liquidation" })]).get("0xa9a5")!;
+    const o = apply(frame, [resting({ size: -6n * WAD, initialSize: -6n * WAD, kind: "liquidation" })]).get("0xa9a5")!;
     expect(o.direction).toBe("liquidation");
   });
 
@@ -343,7 +355,6 @@ describe("applyOrdersFrame — events", () => {
     const o = apply(frame).get("0xioc")!;
     expect(o.status).toBe("filled");
     expect(o.filledBase).toBe(1n * WAD);
-    expect(o.fills).toHaveLength(1);
   });
 
   it("records a rejected order with its reason", () => {
@@ -376,6 +387,7 @@ describe("applyOrdersFrame — refused amendments", () => {
     // The amendment did not happen, so price and size are untouched — that is the
     // whole point: a refusal used to be indistinguishable from one still in flight.
     expect(o.price).toBe(100n * WAD);
+    expect(o.size).toBe(5n * WAD);
     expect(o.initialSize).toBe(5n * WAD);
     expect(o.status).toBe("active");
     // And nothing about the refusal is left on the order: it describes an amendment,

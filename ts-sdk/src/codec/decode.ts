@@ -2,14 +2,14 @@
 // representations are normalized into bigint + millisecond numbers.
 
 import type {
-  ActivityEntry, Bar, BackstopTransfer, Balances, BridgeConfig, Market, Order,
-  Orderbook, PartialFill, PerpPosition, Position, PositionsSnapshot, SpotHolding,
-  SpotPosition, Status, Trigger, MarketType, MoneyActivity, OrderDirection, OrderKind,
+  Bar, BackstopTransfer, Balances, BridgeConfig, Market, Order,
+  Orderbook, PerpPosition, Position, PositionsSnapshot, SpotHolding,
+  SpotPosition, Status, Trigger, MarketType, OrderDirection, OrderKind,
   OrderStatus, TriggerType, Withdrawal,
 } from "../types/public.js";
 import type {
-  WireActivityEntry, WireBackstopTransfer, WireBalances, WireBridgeConfig, WireCandle,
-  WireMarketDynamics, WireMarketStatic, WireMoneyEvent, WireOrder, WireOrderbook, WirePartialFill,
+  WireBackstopTransfer, WireBalances, WireBridgeConfig, WireCandle,
+  WireMarketDynamics, WireMarketStatic, WireOrder, WireOrderbook,
   WirePerpPosition, WirePosition, WirePositionsSnapshot, WireSpotHolding, WireSpotPosition,
   WireStatus, WireTrigger, WireWithdrawal,
 } from "../types/wire.js";
@@ -78,16 +78,8 @@ export function decodeCandle(w: WireCandle): Bar {
   };
 }
 
-function decodePartialFill(w: WirePartialFill): PartialFill {
-  return {
-    base: dec(w.base_amount),
-    quote: dec(w.quote_amount),
-    price: dec(w.price),
-    time: usToMs(w.timestamp),
-  };
-}
-
 export function decodeOrder(w: WireOrder): Order {
+  const size = dec(w.size ?? w.initial_size);
   const initialSize = dec(w.initial_size);
   return {
     id: w.order_id,
@@ -97,13 +89,15 @@ export function decodeOrder(w: WireOrder): Order {
     // `MarketType` say "perp". Normalized here so one list of orders cannot carry
     // both spellings — a streamed order takes its type from the market.
     marketType: w.market_type === "perpetual" ? "perp" : (w.market_type as MarketType | undefined),
-    side: w.side ?? (initialSize < 0n ? "sell" : "buy"),
+    side: w.side ?? (size < 0n ? "sell" : "buy"),
     orderType: w.order_type,
     status: w.status as OrderStatus,
     kind: w.kind as OrderKind,
     nonce: w.nonce,
     bidder: w.bidder,
     price: dec(w.price),
+    size,
+    initialPrice: dec(w.initial_price ?? w.price),
     initialSize,
     filledBase: dec(w.filled_base_amount),
     filledQuote: dec(w.filled_quote_amount),
@@ -112,7 +106,7 @@ export function decodeOrder(w: WireOrder): Order {
     deadlineMs: usToMs(w.deadline),
     endMs: endMsFromUs(w.end),
     includedMs: usToMsOpt(w.included_batch),
-    fills: (w.fills ?? []).map(decodePartialFill),
+    rejectReason: w.invalid_reason,
     reduceOnly: w.reduce_only,
     ioc: w.ioc,
     direction: w.direction as OrderDirection | undefined,
@@ -266,65 +260,6 @@ export function decodeBackstopTransfer(w: WireBackstopTransfer): BackstopTransfe
     realizedPnl: dec(w.realized_pnl),
     time: usToMs(w.timestamp_us),
   };
-}
-
-/** One money row (ADR 0057), from a seed entry or a stream event alike — the two
- * carry the same fields under different tags. */
-export function decodeMoneyEvent(event: WireMoneyEvent, timeMs: number): MoneyActivity {
-  switch (event.k) {
-    case "backstop":
-      return {
-        activityType: "backstop",
-        timeMs,
-        time: timeMs,
-        orderbookId: event.book,
-        size: dec(event.size),
-        cash: dec(event.cash),
-        markPrice: dec(event.mark),
-        equity: dec(event.equity),
-        realizedPnl: dec(event.pnl),
-      };
-    case "bridge_transfer":
-      return {
-        activityType: "bridge_transfer",
-        timeMs,
-        txHash: event.tx,
-        idx: event.idx,
-        token: event.token,
-        amount: dec(event.amount),
-        // `||`, as `decodeWithdrawal` does: an empty string is the wire saying
-        // "no reason", and it would otherwise read as a failure.
-        error: event.error || undefined,
-      };
-    case "transfer":
-      return {
-        activityType: "transfer",
-        timeMs,
-        transferId: event.id,
-        token: event.token,
-        amount: dec(event.amount),
-        error: event.error || undefined,
-      };
-  }
-}
-
-/**
- * One activity row (ADR 0057), reusing the decoder its kind already had, or
- * `undefined` for a kind this version does not know — the same silence the frame
- * path keeps, rather than a row with no tag a consumer could act on.
- *
- * `timeMs` is the node's own sort key, which for an order is its **signed
- * deadline** rather than the batch it landed in — `order.includedMs` is that.
- */
-export function decodeActivityEntry(w: WireActivityEntry): ActivityEntry | undefined {
-  const timeMs = usToMs(w.ts);
-  switch (w.activity_type) {
-    case "order": return { activityType: "order", timeMs, order: decodeOrder(w) };
-    case "backstop": return decodeMoneyEvent({ ...w, k: "backstop" }, timeMs);
-    case "bridge_transfer": return decodeMoneyEvent({ ...w, k: "bridge_transfer" }, timeMs);
-    case "transfer": return decodeMoneyEvent({ ...w, k: "transfer" }, timeMs);
-    default: return undefined;
-  }
 }
 
 export function decodeBridgeConfig(w: WireBridgeConfig): BridgeConfig {

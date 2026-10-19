@@ -11,23 +11,17 @@ import type {
   PartialFill, RejectCode, TerminalStatus,
 } from "../types/public.js";
 import type { WireOrderEntity, WireOrderEvent, WireOrdersFrame } from "../types/wire.js";
-import { dec, endMsFromUs, usToMs } from "./units.js";
+import { dec, decOpt, endMsFromUs, usToMs } from "./units.js";
 import { div } from "./fixed.js";
 import { classifyPerpDirection } from "./direction.js";
 
-export interface OrdersFrameContext<X = never> {
+export interface OrdersFrameContext {
   /** The account the subscription is filtered to, used when the frame omits `accts`. */
   account: Address;
-  /**
-   * Events this codec applied nothing for, offered back in wire order — how a
-   * superset channel (`pod_activity`) folds its own kinds without a second pass
-   * that would report the tick's money after all of its order flow.
-   */
-  foreign?(event: WireOrderEvent): X | undefined;
 }
 
 /** Per-frame facts the events need. */
-interface FrameFacts {
+export interface FrameFacts {
   batchMs: number;
   accts?: WireOrdersFrame["accts"];
 }
@@ -43,17 +37,17 @@ interface FrameFacts {
  * mid-frame: they are collected while applying but the rows are mutated in place, so a
  * consumer never sees a half-applied order.
  */
-export function applyOrdersFrame<X = never>(
+export function applyOrdersFrame(
   frame: WireOrdersFrame,
   byId: Map<string, Order>,
-  ctx: OrdersFrameContext<X>,
-): (OrderEvent | X)[] {
+  ctx: OrdersFrameContext,
+): OrderEvent[] {
   // The book and the batch are frame constants: resolved once, not per entity.
   const batchMs = usToMs(frame.batch);
   const facts: FrameFacts = { batchMs, accts: frame.accts };
   const created = frame.orders.map((e) => decodeEntity(e, frame, batchMs, ctx.account));
 
-  const applied: (OrderEvent | X)[] = [];
+  const applied: OrderEvent[] = [];
   for (const event of frame.events) {
     // `o` indexes this frame's entities and `id` names one resting from an earlier
     // batch — but an event kind added later (ADR 0029 §6 reserves several) may name
@@ -75,10 +69,7 @@ export function applyOrdersFrame<X = never>(
         fill: outcome.fill,
         amendRejection: outcome.amendRejection,
       });
-      continue;
     }
-    const foreign = ctx.foreign?.(event);
-    if (foreign !== undefined) applied.push(foreign);
   }
 
   // After the events, not before: an entity's own `new`/`reject` decides the
@@ -112,6 +103,8 @@ function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: numbe
     // `undefined` typed as an address.
     bidder: (e.a !== undefined ? frame.accts?.[e.a] : undefined) ?? account,
     price: dec(e.px),
+    size: initialSize,
+    initialPrice: dec(e.px),
     initialSize,
     filledBase: 0n,
     filledQuote: 0n,
@@ -122,7 +115,6 @@ function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: numbe
     // inclusion time is the one thing every source agrees on and the only honest
     // key to order by.
     includedMs: batchMs,
-    fills: [],
     reduceOnly: e.reduce_only ?? false,
     ioc: e.ioc ?? false,
     triggerType: e.trigger as Order["triggerType"],
@@ -138,6 +130,8 @@ function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: numbe
  * accumulated, so a client that missed a fill cannot drift.
  */
 function applyTotals(event: WireOrderEvent, order: Order): void {
+  // Activity terminations, and activity fills stored before totals were recorded, carry none; `pod_orders_v2` always does.
+  if (event.tb === undefined) return;
   order.filledBase = dec(event.tb);
   order.filledQuote = dec(event.tq);
   order.fee = dec(event.tf);
@@ -150,7 +144,7 @@ function applyTotals(event: WireOrderEvent, order: Order): void {
  * Apply one event. `undefined` when the kind is not one this version knows; otherwise what
  * the event contributed beyond the order's own state — the fill, or the refused amendment.
  */
-function applyEvent(
+export function applyEvent(
   event: WireOrderEvent,
   order: Order,
   facts: FrameFacts,
@@ -175,8 +169,8 @@ function applyEvent(
     case "modify": {
       order.price = dec(event.px);
       // `sz` is an unsigned magnitude, so the side comes from the order we hold.
-      const sign = order.initialSize < 0n ? -1n : 1n;
-      order.initialSize = sign * dec(event.sz);
+      const sign = order.size < 0n ? -1n : 1n;
+      order.size = sign * dec(event.sz);
       return {};
     }
     case "fill": {
@@ -186,11 +180,6 @@ function applyEvent(
       const base = dec(event.b);
       const quote = dec(event.q);
       const fill: PartialFill = { base, quote, price: div(quote, base), time: facts.batchMs };
-      // A real fill always has size. A zero-size one is the engine flipping status: the
-      // cap-to-filled amendment fabricates it so `st: filled` reaches the indexer, which
-      // reads status from fills alone. Its totals and status count; adding a
-      // `0.0000 @ $0.00` row to the order's fill history would only invent a trade.
-      if (base !== 0n) order.fills = [...order.fills, fill];
       // A perp fill reports the position it left. The position it started from is
       // that minus what this fill moved it — a buy raises it, a sell lowers it — and
       // the transition is what says whether the order opened, added to, reduced,
@@ -199,7 +188,7 @@ function applyEvent(
       // "Open Short".
       if (event.pa !== undefined) {
         const after = dec(event.pa);
-        const before = after - (order.initialSize < 0n ? -base : base);
+        const before = after - (order.size < 0n ? -base : base);
         // A forced close is labelled by how it came about, not by the transition it
         // made — `order_direction_for_response` overrides the classifier the same way,
         // and without this a liquidation reads `close_long` here and `liquidation`
@@ -208,10 +197,8 @@ function applyEvent(
       }
       // Present only on the fill that closed the order.
       if (event.st) order.status = event.st as OrderStatus;
-      // Copied rather than shared: the same object is in `order.fills`, and attaching a
-      // per-event field to it would leak the event into the order's fill history.
       return {
-        fill: { ...fill, totalBase: dec(event.tb), closedAs: event.st as TerminalStatus | undefined },
+        fill: { ...fill, totalBase: order.filledBase, closedAs: event.st as TerminalStatus | undefined, fee: decOpt(event.f) },
       };
     }
     case "modify_reject":
