@@ -29,7 +29,8 @@ Every error is returned as a JSON-RPC 2.0 error object:
 | Code     | Message                       | Meaning                                                                                  |
 | -------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
 | `3`      | `execution reverted`          | A contract-level (enshrined application) execution failed. `data` is an ABI-encoded revert. |
-| `-32000` | `transaction validation failed` | A protocol-level validation check failed (nonce, balance, chain ID, gas price, …).      |
+| `-32000` | `transaction validation failed` | A protocol-level validation check failed (balance, chain ID, gas price, …).              |
+| `996`    | the reason, e.g. `Past nonce: tx nonce 3, expected 4` | A past nonce, future nonce or pending account. Retry with a fresh `pending` nonce, after checking the receipt of any attempt that may already have been delivered. |
 | `-32003` | `Transaction rejected: …`     | A quorum of validators rejected the transaction.                                          |
 | `999`    | `Account locked`              | The account is locked pending recovery. `data` carries the recovery target.              |
 | `997`    | `Empty transaction required to make progress` | From `pod_sendRawTransaction`: the account's head nonce will not finalize on its own. `data` carries the nonce to unblock. |
@@ -68,7 +69,23 @@ Returned when a protocol-level check fails before the transaction is attested. `
   "error": {
     "code": -32000,
     "message": "transaction validation failed",
-    "data": "Future nonce: tx nonce 7, expected 5"
+    "data": "Insufficient balance"
+  }
+}
+```
+
+### `996` — retryable rejection
+
+Returned when this node's pre-validation rejects a transaction for a reason a fresh nonce can fix; the transaction was not broadcast. `message` is the human reason (one of the three nonce/pending [validation messages](#transaction-validation-messages)) and `data` is a stable label: `"past_nonce"`, `"future_nonce"` or `"account_pending"`.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": 996,
+    "message": "Future nonce: tx nonce 7, expected 5",
+    "data": "future_nonce"
   }
 }
 ```
@@ -201,9 +218,9 @@ The reason carried in `data` (for code `-32000`) or encoded inside the revert (f
 | --------------------------------------------------------------- | --------------------------------------------------------------------- |
 | `Invalid chain ID: {chain_id}`                                  | The transaction's chain ID does not match the network.                |
 | `Transaction is blacklisted`                                    | The transaction is on the blocklist.                                  |
-| `Account has pending transaction`                               | The account already has an unexecuted (pending) transaction.          |
-| `Future nonce: tx nonce {tx_nonce}, expected {expected}`        | The nonce is higher than the account's next expected nonce.           |
-| `Past nonce: tx nonce {tx_nonce}, expected {expected}`          | The nonce is lower than expected (already used).                      |
+| `Account has pending transaction`                               | The account already has an unexecuted (pending) transaction. Code `996`. |
+| `Future nonce: tx nonce {tx_nonce}, expected {expected}`        | The nonce is higher than the account's next expected nonce. Code `996`. |
+| `Past nonce: tx nonce {tx_nonce}, expected {expected}`          | The nonce is lower than expected (already used). Code `996`.          |
 | `Insufficient balance`                                          | The account cannot cover the transaction.                             |
 | `Underpriced tx: max_fee_per_gas {max_fee_per_gas} < base fee {base_fee}` | `maxFeePerGas` is below the current base fee.               |
 | `Recovery validation failed: {reason}`                          | A recovery transaction failed validation.                             |

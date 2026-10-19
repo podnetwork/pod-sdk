@@ -617,7 +617,7 @@ export const MINT_ADDRESS: Address = "0x00000000000000000000000000000000000fFFFf
 export const NATIVE_USD_ADDRESS: Address = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
 const MINT_ABI = parseAbi([
-  "function mint(address to, (address token, uint256 amount)[] tokens, bool depositToClob)",
+  "function mint(address to, (address token, uint256 amount)[] tokens, uint128 deadline)",
 ]);
 
 export interface MintParams {
@@ -627,8 +627,6 @@ export interface MintParams {
   to: Address;
   /** 1e18-scaled amounts; `token` defaults to the native USD (cash) token. */
   tokens: Array<{ token?: Address; amount: bigint }>;
-  /** Deposit into the CLOB balance (default) instead of crediting the EOA. */
-  depositToClob?: boolean;
   /** Called with the tx hash once the node accepts it (before confirmation). */
   onSubmitted?: (hash: Hash) => void;
   fetch?: typeof fetch;
@@ -648,7 +646,8 @@ export async function mint(p: MintParams): Promise<TxReceipt> {
     args: [
       p.to,
       p.tokens.map((t) => ({ token: t.token ?? NATIVE_USD_ADDRESS, amount: t.amount })),
-      p.depositToClob ?? true,
+      // Only bounds how long the node holds the intent; it executes in the first batch after it finalizes.
+      BigInt(Date.now() + 60_000) * 1000n,
     ],
   });
   const serialized = await signer.signTransaction({

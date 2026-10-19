@@ -39,10 +39,12 @@ const DELEGATED_ABI = parseAbi([
   "function delegated(address master, uint64 validUntil, bytes signature, bytes inner)",
 ]);
 
-// AttestationError Display prefixes in node/src/lib.rs that a fresh nonce can fix.
-const NONCE_REJECTION = /^(Past nonce|Future nonce|Account has pending transaction)/;
+// Past nonce, future nonce or account pending: a pre-validation rejection that a fresh nonce can fix.
+const RETRYABLE_REJECTION_CODE = 996;
 const SUBMIT_RETRY_MS = 250;
 const SUBMIT_GIVE_UP_MS = 10_000;
+// A node that never attests holds a send for its whole wait; the rest of the budget is for the receipt poll.
+const SEND_ATTEMPT_MS = SUBMIT_GIVE_UP_MS / 2;
 
 /** A trading session: public cert facts + the one capability, submit(). */
 export interface DelegatedWallet {
@@ -115,14 +117,14 @@ export async function createDelegatedWallet(p: CreateDelegatedWalletParams): Pro
     // Set once an attempt may have reached a node; from then on the bytes are never re-signed.
     let maybeDelivered: Hash | undefined;
     let err: unknown;
-    for (;;) {
+    for (let attempt = 0; ; attempt++) {
       let sending = false;
       try {
         serialized ??= await sign();
         sending = true;
         // Not AbortSignal.timeout: its clock is not the one setTimeout runs on, which fake timers replace.
         const ctl = new AbortController();
-        const stall = setTimeout(() => ctl.abort(), Math.max(1, giveUpAt - Date.now()));
+        const stall = setTimeout(() => ctl.abort(), Math.max(1, Math.min(SEND_ATTEMPT_MS, giveUpAt - Date.now())));
         try {
           return await sendRawTransaction(p.rpcUrl, serialized, { fetch: doFetch, signal: ctl.signal });
         } finally {
@@ -134,18 +136,19 @@ export async function createDelegatedWallet(p: CreateDelegatedWalletParams): Pro
       if (!sending && (err instanceof PodRpcError
         || (err instanceof BaseError && err.walk((c) => c instanceof RpcRequestError) !== null))) throw err;
       if (err instanceof PodTxRevertError) {
-        if (!(typeof err.data === "string" && NONCE_REJECTION.test(err.data))) throw err;
+        if (err.code !== RETRYABLE_REJECTION_CODE) throw err;
         if (maybeDelivered) break;
         // Rejected by the node's pre-validation, so nothing was broadcast.
         serialized = undefined;
       } else if (sending) {
         maybeDelivered = keccak256(serialized!);
       }
-      if (Date.now() + SUBMIT_RETRY_MS > giveUpAt) {
+      const backoff = Math.min(1_000, SUBMIT_RETRY_MS * 2 ** attempt);
+      if (Date.now() + backoff > giveUpAt) {
         if (maybeDelivered) break;
         throw new Error(`submit gave up after ${SUBMIT_GIVE_UP_MS / 1000}s: ${(err as Error).message}`, { cause: err });
       }
-      await new Promise((r) => setTimeout(r, SUBMIT_RETRY_MS));
+      await new Promise((r) => setTimeout(r, backoff));
     }
     const hash = maybeDelivered;
     try {

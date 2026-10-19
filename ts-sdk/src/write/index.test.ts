@@ -1,12 +1,13 @@
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { decodeFunctionData, getAddress, keccak256, parseAbi, parseTransaction, type Hex } from "viem";
+import { decodeFunctionData, getAddress, keccak256, parseAbi, parseTransaction, toFunctionSelector, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 import { createDelegatedWallet } from "./delegation.js";
 import {
   alignSize, BRIDGE_ADDRESS, buildClosePosition, CLOB_ADDRESS, buildOrderWithTriggers, buildSubmitBatch,
   buildSubmitOrder, buildSubmitTrigger, buildUpdateOrder, buildUpdateTrigger, buildWithdraw,
-  decodeRevertReason, PodTxRevertError, sendRawTransaction, waitForReceipt, type PodTxRequest,
+  decodeRevertReason, MINT_ADDRESS, mint, NATIVE_USD_ADDRESS, PodTxRevertError, sendRawTransaction,
+  waitForReceipt, type PodTxRequest,
 } from "./index.js";
 import type { Hash } from "../types/public.js";
 
@@ -279,6 +280,7 @@ describe("DelegatedWallet.submit", () => {
   ) {
     const sent: Hex[] = [];
     const receiptQueries: string[] = [];
+    const sentAt: number[] = [];
     let signs = 0;
     const fetchFn = vi.fn(async (_url: unknown, init?: RequestInit) => {
       const req = JSON.parse(String(init!.body)) as { id: number; method: string; params: unknown[] };
@@ -294,6 +296,7 @@ describe("DelegatedWallet.submit", () => {
           break;
         case "eth_sendRawTransaction":
           sent.push(req.params[0] as Hex);
+          sentAt.push(Date.now());
           reply = sends.shift()!;
           if (reply === "hang") {
             return new Promise((_, reject) => init!.signal?.addEventListener("abort", () => reject(init!.signal!.reason)));
@@ -310,7 +313,7 @@ describe("DelegatedWallet.submit", () => {
       master: master.address, chainId: 1293, rpcUrl: "http://rpc", ttlMs: 3_600_000, fetch: fetchFn,
       signTypedData: (td) => master.signTypedData(td),
     });
-    return { wallet, sent, receiptQueries, signs: () => signs };
+    return { wallet, sent, sentAt, receiptQueries, signs: () => signs };
   }
 
   const TX_REQ: PodTxRequest = {
@@ -320,7 +323,7 @@ describe("DelegatedWallet.submit", () => {
   const nonceOf = (raw: Hex) => parseTransaction(raw).nonce;
 
   const PAST_NONCE: Reply = {
-    error: { code: -32000, message: "transaction validation failed", data: "Past nonce: tx nonce 3, expected 4" },
+    error: { code: 996, message: "Past nonce: tx nonce 3, expected 4", data: "past_nonce" },
   };
 
   /** Runs `submit` on fake timers, past the whole 10s budget. */
@@ -367,12 +370,35 @@ describe("DelegatedWallet.submit", () => {
     expect(sent[1]).toBe(sent[0]);
   });
 
-  it("aborts a send that never answers, within the budget", async () => {
-    const { wallet, sent, signs } = await setup(["hang"], [3]);
+  it("backs off 250ms, 500ms, then 1s between attempts", async () => {
+    const down = new TypeError("fetch failed");
+    const { wallet, sentAt } = await setup([down, down, down, down, { result: "0xok" }], [3]);
+    expect(await settle(() => wallet.submit(TX_REQ))).toBe("0xok");
+    expect(sentAt.slice(1).map((t, i) => t - sentAt[i]!)).toEqual([250, 500, 1000, 1000]);
+  });
+
+  it("aborts each hung send at 5s and reports delivery unknown when nothing lands", async () => {
+    const { wallet, sent, signs } = await setup(["hang", "hang"], [3]);
     const err = await settle(() => wallet.submit(TX_REQ));
     expect(String(err)).toMatch(/delivery unknown/);
-    expect(sent).toHaveLength(1);
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toBe(sent[0]);
     expect(signs()).toBe(1);
+  });
+
+  it("returns the hash of a hung send once its receipt appears", async () => {
+    const { wallet, sent, signs } = await setup(["hang", PAST_NONCE], [3], [null, null, null, { ...base, blockNumber: "0x1" }]);
+    const hash = await settle(() => wallet.submit(TX_REQ));
+    expect(hash).toBe(keccak256(sent[0]!));
+    expect(signs()).toBe(1);
+  });
+
+  it("does not retry a -32000 validation failure, even one about a nonce", async () => {
+    const { wallet, sent } = await setup([
+      { error: { code: -32000, message: "transaction validation failed", data: "Past nonce: tx nonce 3, expected 4" } },
+    ], [3]);
+    await expect(wallet.submit(TX_REQ)).rejects.toBeInstanceOf(PodTxRevertError);
+    expect(sent).toHaveLength(1);
   });
 
   it("does not retry an execution revert", async () => {
@@ -391,5 +417,42 @@ describe("DelegatedWallet.submit", () => {
     expect(String(err)).toContain(`${method} unavailable`);
     expect(signs()).toBe(1);
     expect(sent).toHaveLength(0);
+  });
+});
+
+describe("sendRawTransaction", () => {
+  it("keeps the JSON-RPC error code on the rejection", async () => {
+    const fetchFn = (async () => new Response(JSON.stringify({
+      jsonrpc: "2.0", id: 1, error: { code: 996, message: "Account has pending transaction", data: "account_pending" },
+    }))) as unknown as typeof fetch;
+    const err = await sendRawTransaction("http://rpc", "0x01", { fetch: fetchFn }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PodTxRevertError);
+    expect(err).toMatchObject({ code: 996, data: "account_pending", reason: "Account has pending transaction" });
+  });
+});
+
+describe("mint", () => {
+  it("encodes mint(address, (address, uint256)[], uint128 deadline) for the faucet", async () => {
+    let raw: Hex | undefined;
+    const fetchFn = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const req = JSON.parse(String(init!.body)) as { method: string; params: unknown[] };
+      if (req.method === "eth_sendRawTransaction") raw = req.params[0] as Hex;
+      const result = req.method === "eth_gasPrice" ? "0x1"
+        : req.method === "eth_sendRawTransaction" ? TX
+        : { ...base, blockNumber: "0x1" };
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }));
+    }) as unknown as typeof fetch;
+    const to = "0x00000000000000000000000000000000000000aa" as const;
+    const before = BigInt(Date.now()) * 1000n;
+    await mint({ rpcUrl: "http://rpc", chainId: 1293, to, tokens: [{ amount: 5n }], fetch: fetchFn });
+
+    const tx = parseTransaction(raw!);
+    expect(tx.to?.toLowerCase()).toBe(MINT_ADDRESS.toLowerCase());
+    const abi = parseAbi(["function mint(address to, (address token, uint256 amount)[] tokens, uint128 deadline)"]);
+    expect(tx.data!.slice(0, 10)).toBe(toFunctionSelector(abi[0]));
+    const { args } = decodeFunctionData({ abi, data: tx.data! });
+    expect(args[0].toLowerCase()).toBe(to);
+    expect(args[1]).toEqual([{ token: NATIVE_USD_ADDRESS, amount: 5n }]);
+    expect(args[2]).toBeGreaterThan(before);
   });
 });
