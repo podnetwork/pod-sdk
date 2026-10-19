@@ -827,6 +827,6 @@ export function deriveOrderId(signer: Address, nonce: number, sequence = 0): Has
 }
 
 export {
-  createDelegatedWallet, delegationTypedData,
+  createDelegatedWallet, delegationTypedData, PodDeliveryUnknownError,
   type CreateDelegatedWalletParams, type DelegatedWallet, type DelegationTypedData,
 } from "./delegation.js";

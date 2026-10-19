@@ -180,8 +180,8 @@ It retries after 250ms, 500ms, then every 1s, for up to 10s, on transport errors
 responses, and code `996` rejections (past nonce, future nonce, account pending); other
 rejections throw at once. A transport error resends the same signed bytes. Once an
 attempt may have been delivered it is never re-signed: a later nonce rejection
-polls the receipt of that hash and returns it, or throws a "delivery unknown"
-error naming it.
+polls the receipt of that hash and returns it, or throws `PodDeliveryUnknownError`
+with the hash.
 
 ## How caching / low traffic works
 

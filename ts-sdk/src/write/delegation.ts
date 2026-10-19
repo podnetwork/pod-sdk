@@ -46,6 +46,14 @@ const SUBMIT_GIVE_UP_MS = 10_000;
 // A node that never attests holds a send for its whole wait; the rest of the budget is for the receipt poll.
 const SEND_ATTEMPT_MS = SUBMIT_GIVE_UP_MS / 2;
 
+/** `submit` could not tell whether its transaction reached the chain. */
+export class PodDeliveryUnknownError extends Error {
+  constructor(readonly txHash: Hash, options?: { cause?: unknown }) {
+    super(`submit: delivery unknown for ${txHash} after ${SUBMIT_GIVE_UP_MS / 1000}s`, options);
+    this.name = "PodDeliveryUnknownError";
+  }
+}
+
 /** A trading session: public cert facts + the one capability, submit(). */
 export interface DelegatedWallet {
   readonly master: Address;
@@ -157,7 +165,7 @@ export async function createDelegatedWallet(p: CreateDelegatedWalletParams): Pro
       });
       return hash;
     } catch {
-      throw new Error(`submit: delivery unknown for ${hash} after ${SUBMIT_GIVE_UP_MS / 1000}s`, { cause: err });
+      throw new PodDeliveryUnknownError(hash, { cause: err });
     }
   };
 
