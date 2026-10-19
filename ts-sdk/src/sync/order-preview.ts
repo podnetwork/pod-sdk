@@ -9,7 +9,7 @@
 //   liquidation      = mark where equity falls to Σ maintenance margin (im/2)
 
 import type { Market, Orderbook, PerpPosition, PositionsSnapshot, Trigger } from "../types/public.js";
-import { div, imRate, mul } from "../codec/fixed.js";
+import { div, imRate, min, mul } from "../codec/fixed.js";
 import { alignSize, parseAmount, toNumber, WAD } from "../codec/units.js";
 
 export interface ReturnPriceInput {
@@ -257,7 +257,7 @@ export function estimateFill(
   for (; i < levels.length && filled < size; i++) {
     const l = levels[i]!;
     if (!within(l.price)) break;
-    const take = l.volume < size - filled ? l.volume : size - filled;
+    const take = min(l.volume, size - filled);
     filled += take;
     left = l.volume - take;
   }

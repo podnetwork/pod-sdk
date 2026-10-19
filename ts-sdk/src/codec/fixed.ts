@@ -5,6 +5,9 @@ import { WAD } from "./units.js";
 
 const absB = (x: bigint) => (x < 0n ? -x : x);
 
+/** `Math.min` for bigints, which it rejects. */
+export const min = (a: bigint, b: bigint) => (a < b ? a : b);
+
 /** Decimal `*`: (a*b)/1e18 truncated toward zero. */
 export function mul(a: bigint, b: bigint): bigint {
   const n = a * b;
