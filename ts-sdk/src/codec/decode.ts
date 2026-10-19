@@ -202,6 +202,7 @@ export function decodePositions(w: WirePositionsSnapshot): PositionsSnapshot {
     accountValue: dec(w.account_value),
     cash: dec(w.cash),
     withdrawableCash: dec(w.withdrawable_cash),
+    timestampUs: w.timestamp,
   };
 }
 
@@ -226,6 +227,7 @@ export function decodeBalances(w: WireBalances): Balances {
     cash: dec(w.cash),
     withdrawableCash: dec(w.withdrawable_cash),
     netDeposits: dec(w.net_deposits),
+    timestampUs: w.timestamp,
   };
 }
 

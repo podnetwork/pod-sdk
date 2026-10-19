@@ -134,3 +134,7 @@ ws.onopen = () => {
 * `pod_markets` pushes the `/clob/markets/stats` entry plus the market's lifecycle (`status`, and `live_at_us`, `disable_at_us`, `settlement_price` once set).
 
 If `since` is older than the node's replay buffer, the subscribe call fails with `-32602` `since too old`: seed again over REST and resubscribe with the new watermark. A subscription the server ends itself (a slow consumer, a node shutdown) arrives as a notification carrying `error`; see [JSON-RPC Errors](../json-rpc-errors.md#subscription-close-notifications) for how to resume.
+
+## Reading through several nodes
+
+Account reads and pushes carry `timestamp`: the deadline of the last executed tick on the answering node, in microseconds. This covers `ob_getPositions`, `ob_getTriggers`, `GET /v1/clob/positions|balances|triggers/{account}`, and the `pod_positions` and `pod_triggers` pushes; `pod_markets` pushes carry the indexer watermark under the same name. Ticks execute in lockstep on every node, so the value is comparable across nodes. Behind a load balancer a lagging node can answer after a leading one: keep the highest `timestamp` seen per account or orderbook and drop any response or push below it. On equal values, keep the later one.

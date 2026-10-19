@@ -212,7 +212,7 @@ function stubDeps(cache?: PnlHistoryCache, opts: { flows?: object[]; activityRou
     balances: async () => ({ holdings: [] }),
     status: async () => { calls.status++; return { solutionNow: watermark() / 1000 }; },
     backstopTransfers: async () => ({ transfers: [] }),
-    bridgeWithdrawals: async () => [],
+    bridgeWithdrawals: async () => ({ withdrawals: [], timestampUs: 0 }),
     activity: opts.activityRoute === false
       ? async () => { throw new PodHttpError(404, "/clob/activity", "no route"); }
       : opts.activityRoute === "503"

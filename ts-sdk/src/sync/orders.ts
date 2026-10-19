@@ -102,20 +102,16 @@ export class OrderHistory implements SeriesResource<Order> {
 
   private async fetchFirstPage(): Promise<boolean> {
     const gen = ++this.seedGen;
-    const before = this.stream.cursor;
     try {
       const page = await this.ctx.rest.orders(this.account, { limit: this.query.limit ?? 100 });
       // A seed overtaken by a fresher one is dropped whole: it would absorb rows the
       // newer page has already corrected, and raise the cursor to an older watermark.
       if (!this.stream.running || gen !== this.seedGen) return false;
-      // The transport resubscribes synchronously right after the `open` event that
-      // starts this fetch, so replayed frames can land while it is still in flight —
-      // and the indexer trails the stream by design. Overwriting a row the stream has
-      // already advanced would revert it, permanently: the cursor refuses to rewind
-      // and `onFrame` drops a re-delivery, so nothing would repair it.
-      const streamMovedOn = compareCursor(this.stream.cursor, before) > 0;
+      const settled: SubParams = { since: page.solutionNow * 1000, sinceBook: undefined };
+      // A page settled behind the stream would revert rows the stream advanced.
+      const stale = compareCursor(this.stream.cursor, settled) > 0;
       for (const o of page.orders) {
-        if (streamMovedOn && this.byId.has(o.id)) continue;
+        if (stale && this.byId.has(o.id)) continue;
         this.byId.set(o.id, o);
       }
       // Paging is the consumer's position in history, not the seed's: a reconnect
@@ -129,7 +125,7 @@ export class OrderHistory implements SeriesResource<Order> {
       // Only ever forward, and a page settles whole batches, so its watermark
       // carries no book — which makes it *ahead* of a stream position in the same
       // batch, not equal to it.
-      this.stream.raise({ since: page.solutionNow * 1000, sinceBook: undefined });
+      this.stream.raise(settled);
       this.rebuild();
       return true;
     } catch (e) {

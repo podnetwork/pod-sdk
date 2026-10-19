@@ -62,7 +62,7 @@ const wire = (n: number, timeUs: number): WireWithdrawal => ({
  * at a time, so a test can describe a multi-page backfill; `calls` records the
  * cursor each call was made with.
  */
-async function started(pages: Withdrawal[][], holdCall?: number) {
+async function started(pages: Withdrawal[][], holdCall?: number, timestamps: (number | Error)[] = []) {
   const calls: WithdrawalsQuery[] = [];
   const remaining = [...pages];
   // `holdCall` parks that call's RESPONSE, leaving the walk mid-backfill so a
@@ -77,7 +77,9 @@ async function started(pages: Withdrawal[][], holdCall?: number) {
       calls.push(q ?? {});
       const rows = remaining.shift() ?? [];
       if (n === holdCall) await held;
-      return rows;
+      const ts = timestamps[n];
+      if (ts instanceof Error) throw ts;
+      return { withdrawals: rows, timestampUs: ts ?? rows.at(-1)?.timeUs ?? 0 };
     }),
   } as unknown as PodRestClient;
 
@@ -127,6 +129,89 @@ describe("withdrawalsSource", () => {
   // cursor only while its buffer still reaches back that far, and `since: 0`
   // never does — sending it would fail every subscribe and spend the retry
   // budget on a self-inflicted rejection. History comes from REST regardless.
+  it("subscribes from the backfill's timestamp, so the replay covers a lagging REST node", async () => {
+    const { resource, push } = await started([[outcome(1, 1_000)]], undefined, [3_000]);
+    const req = FakeSocket.last!.sent.find((m) => m.method === "eth_subscribe");
+    expect(req?.params).toEqual(["pod_withdrawals", { account: ACCOUNT, since: 3_000 }]);
+    await push([wire(2, 4_000)]);
+    expect(resource.get()?.map((w) => w.txHash)).toEqual([id(2), id(1)]);
+  });
+
+  // Pages can come from different nodes; only the node that answered the short
+  // page vouches the log is complete, so its watermark is the resume point.
+  it("resumes from the last page's timestamp, not the highest", async () => {
+    const full = Array.from({ length: 500 }, (_, i) => outcome(i + 1, 120));
+    await started([full, [outcome(501, 130)]], undefined, [200, 150]);
+    const req = FakeSocket.last!.sent.find((m) => m.method === "eth_subscribe");
+    expect(req?.params).toEqual(["pod_withdrawals", { account: ACCOUNT, since: 150 }]);
+  });
+
+  it("subscribes from the timestamp of an empty backfill", async () => {
+    await started([[]], undefined, [3_000]);
+    const req = FakeSocket.last!.sent.find((m) => m.method === "eth_subscribe");
+    expect(req?.params).toEqual(["pod_withdrawals", { account: ACCOUNT, since: 3_000 }]);
+  });
+
+  it("subscribes live-only when the first backfill fails", async () => {
+    await started([[]], undefined, [new Error("down")]);
+    const req = FakeSocket.last!.sent.find((m) => m.method === "eth_subscribe");
+    expect(req?.params).toEqual(["pod_withdrawals", { account: ACCOUNT }]);
+  });
+
+  // The server skips every tick at or below `since`, so a page's timestamp may
+  // only become the resume point once the walk has reached the end of the log.
+  it("does not resume from a page's timestamp when a later page fails", async () => {
+    const updates: unknown[] = [];
+    let onFrame: ((r: unknown) => void) | undefined;
+    const ws = {
+      on: () => () => {},
+      subscribe: (_c: string, _p: unknown, m: (r: unknown) => void) => {
+        onFrame = m;
+        return { unsubscribe() {}, update: (p: unknown) => updates.push(p), resubscribe() {} };
+      },
+    };
+    const full = Array.from({ length: 500 }, (_, i) => outcome(i + 1, 5_000));
+    const rest = {
+      bridgeWithdrawals: vi.fn()
+        .mockResolvedValueOnce({ withdrawals: full, timestampUs: 9_000 })
+        .mockRejectedValueOnce(new Error("down")),
+    } as unknown as PodRestClient;
+    const ctx = { rest, ws, positionResyncMs: 0, marketResyncMs: 0 } as unknown as SyncContext;
+    const resource = new BaseResource(withdrawalsSource(ctx, ACCOUNT));
+    onTestFinished(() => resource.destroy());
+    resource.subscribe(() => {});
+    await vi.waitUntil(() => onFrame !== undefined);
+
+    onFrame!([wire(900, 6_000)]);
+    expect(updates).toEqual([{ since: 6_000 }]);
+  });
+
+  it("retries a rejected subscribe from the backfill's timestamp when there are no rows", async () => {
+    vi.useFakeTimers();
+    onTestFinished(() => { vi.useRealTimers(); });
+    const updates: unknown[] = [];
+    let onError: (() => void) | undefined;
+    const ws = {
+      on: () => () => {},
+      subscribe: (_c: string, _p: unknown, _m: unknown, e: () => void) => {
+        onError = e;
+        return { unsubscribe() {}, update: (p: unknown) => updates.push(p), resubscribe() {} };
+      },
+    };
+    const rest = {
+      bridgeWithdrawals: vi.fn(async () => ({ withdrawals: [], timestampUs: 3_000 })),
+    } as unknown as PodRestClient;
+    const ctx = { rest, ws, positionResyncMs: 0, marketResyncMs: 0 } as unknown as SyncContext;
+    const resource = new BaseResource(withdrawalsSource(ctx, ACCOUNT));
+    onTestFinished(() => resource.destroy());
+    resource.subscribe(() => {});
+    await vi.advanceTimersByTimeAsync(0);
+
+    onError!();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(updates).toEqual([{ since: 3_000 }]);
+  });
+
   it("subscribes live-only until a real cursor exists", async () => {
     await started([[]]);
     const req = FakeSocket.last!.sent.find((m) => m.method === "eth_subscribe");
@@ -218,7 +303,9 @@ describe("withdrawalsSource", () => {
     vi.useFakeTimers();
     onTestFinished(() => { vi.useRealTimers(); });
 
-    const rest = { bridgeWithdrawals: vi.fn(async () => []) } as unknown as PodRestClient;
+    const rest = {
+      bridgeWithdrawals: vi.fn(async () => ({ withdrawals: [], timestampUs: 0 })),
+    } as unknown as PodRestClient;
     const ws = new PodWsClient({
       wsUrl: "ws://test",
       WebSocket: FakeSocket as unknown as WebSocketCtor,

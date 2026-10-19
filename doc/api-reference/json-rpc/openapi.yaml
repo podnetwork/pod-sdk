@@ -1343,11 +1343,11 @@ paths:
           lifecycle (`status`, `live_at_us`, `disable_at_us`, `settlement_price`). Sent each tick
           for the orderbooks that cleared or had a lifecycle event.
         - `pod_positions` — a `PositionsUpdate` (`{ account, data }`, where `data` matches
-          `ob_getPositions`) for the subscribed account, pushed for a tick that touches it: order
+          `ob_getPositions`, including its `timestamp`) for the subscribed account, pushed for a tick that touches it: order
           flow on any orderbook (new, fill, cancel, expiry, modification, trigger arm/cancel/update),
           a backstop sweep or ADL close, a bridge deposit or withdrawal, or a transfer either way.
           **Requires** `account` (alias `bidder`).
-        - `pod_triggers` — a `TriggersUpdate` (the `ob_getTriggers` fields plus `account`, at most
+        - `pod_triggers` — a `TriggersUpdate` (the `ob_getTriggers` fields, `timestamp` included, plus `account`, at most
           200 triggers) for the subscribed account, pushed for a tick that touches it, on the same
           rule as `pod_positions`. **Requires** `account`.
         - `newHeads` — a `BlockHeader` per block as it is flushed, in height order, each height
@@ -1481,7 +1481,7 @@ paths:
         `since` predates the retained buffer — or the buffer is empty, as right after a node start
         — the subscription is rejected with `-32602` "since too old; backfill via REST then
         resubscribe" (for `pod_withdrawals` that is `GET /v1/bridge/withdrawals[/{account}]?since=`,
-        which takes the same cursor and serves the same shape; `pod_transfers` has no REST
+        which takes the same cursor and serves the same rows inside `{withdrawals, timestamp}`; `pod_transfers` has no REST
         backfill: resubscribe live). State channels (`pod_markets`, `pod_positions`,
         `pod_triggers`) emit one current snapshot immediately when `since` is passed (any value),
         then stream live. Omitted = live-only: a state channel sends nothing until a tick touches
@@ -3441,6 +3441,10 @@ components:
           type: string
           nullable: true
           description: 'Pass back as `query.cursor` to fetch the next page. Wire format `"{orderbook_id}:{order_id}"`. Null if no more results.'
+        timestamp:
+          type: integer
+          format: int64
+          description: 'Deadline of the last executed tick on the answering node, in microseconds, read together with the state above; 0 before the first tick. Ticks execute in lockstep, so this value is comparable across nodes: when reading through several nodes, keep the response with the highest `timestamp` seen for the account and drop lower ones. Also returned by `GET /v1/clob/triggers/{account}`.'
 
     BackstopTransferResponse:
       type: object
@@ -4213,6 +4217,10 @@ components:
         net_deposits:
           type: string
           description: Net native collateral deposited minus withdrawn (signed, 1e18 USD). Negative once realized profit is withdrawn; lifetime PnL is `account_value − net_deposits`.
+        timestamp:
+          type: integer
+          format: int64
+          description: 'Deadline of the last executed tick on the answering node, in microseconds, read together with the state above; 0 before the first tick. Ticks execute in lockstep, so this value is comparable across nodes: when reading through several nodes, keep the response with the highest `timestamp` seen for the account and drop lower ones. Also returned by `GET /v1/clob/positions/{account}` and `GET /v1/clob/balances/{account}`.'
 
     # ==========================================
     # Network & Consensus (pod_) RESPONSE TYPES
@@ -4732,6 +4740,10 @@ components:
         settlement_price:
           type: string
           description: Price every position was (or will be) closed at (decimal, 1e18). Present once the market is disabled with a settlement price.
+        timestamp:
+          type: integer
+          format: int64
+          description: The indexer watermark in microseconds, the same value `GET /v1/clob/markets/stats` returns as `solution_now`. Keep the highest seen per orderbook and drop pushes below it.
 
     CandleTick:
       type: object
@@ -4781,13 +4793,30 @@ components:
           type: string
           nullable: true
           description: 'Pagination cursor, wire format `"{orderbook_id}:{order_id}"`. Null if no more results.'
+        timestamp:
+          type: integer
+          format: int64
+          description: Deadline of the last executed tick on the pushing node, in microseconds; also on the subscribe-time snapshot. Keep the highest seen per account and drop pushes below it; on equal values the later one wins.
+
+    WithdrawalsResponse:
+      type: object
+      description: Body of `GET /v1/bridge/withdrawals` and `GET /v1/bridge/withdrawals/{account}`.
+      required: [withdrawals, timestamp]
+      properties:
+        withdrawals:
+          type: array
+          items: { $ref: '#/components/schemas/WithdrawalUpdate' }
+        timestamp:
+          type: integer
+          format: int64
+          description: Deadline of the newest tick whose withdrawal outcomes the answering node serves, in microseconds. Never ahead of the rows. Pass it as `since` to `pod_withdrawals` to resume with no gap.
 
     WithdrawalUpdate:
       type: object
       description: |
         One outcome from `pod_withdrawals` — what became of a single bridge withdrawal when its
         tick executed. The REST backfill (`GET /v1/bridge/withdrawals[/{account}]?since=`) serves the
-        identical shape, so an outcome read after a reconnect is indistinguishable from one that
+        identical rows inside a `WithdrawalsResponse`, so an outcome read after a reconnect is indistinguishable from one that
         arrived live.
 
         A withdrawal debits the account's balance, is burned on Pod, and is claimed on the bridge's

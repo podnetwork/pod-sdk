@@ -541,7 +541,7 @@ export async function* streamPnlHistory(
     use(b.orderbookId);
     fixed.push({ market: b.orderbookId, timeUs, deltaSize: -b.size, price: b.markPrice, kind: "sweep" });
   }
-  for (const w of withdrawals) {
+  for (const w of withdrawals.withdrawals) {
     if (w.error || w.timeUs < fromUs || w.timeUs > nowUs) continue;
     const m = spotByToken.get(w.token);
     if (!m) { fixed.push({ timeUs: w.timeUs, deltaSize: -w.amount, price: 0n, kind: "cash" }); continue; }

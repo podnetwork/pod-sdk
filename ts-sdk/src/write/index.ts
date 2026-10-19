@@ -13,7 +13,7 @@
 import { decodeAbiParameters, encodeAbiParameters, encodeFunctionData, keccak256, parseAbi } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Address, Hash, Hex, MarketId } from "../types/public.js";
-import { rpc } from "../transport/jsonrpc.js";
+import { rpc, tryRpc } from "../transport/jsonrpc.js";
 // In codec/ so the read entry reaches it too; re-exported so all three align* are here.
 import { alignSize } from "../codec/units.js";
 
@@ -195,20 +195,22 @@ export function decodeRevertReason(data: unknown): string | undefined {
 export async function sendRawTransaction(
   rpcUrl: string,
   signedTx: Hex,
-  opts?: { fetch?: typeof fetch },
+  opts?: { fetch?: typeof fetch; signal?: AbortSignal },
 ): Promise<Hash> {
   const doFetch = opts?.fetch ?? fetch;
   const res = await doFetch(rpcUrl, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_sendRawTransaction", params: [signedTx] }),
+    signal: opts?.signal,
   });
   const json = (await res.json()) as { result?: Hash; error?: { code?: number; message?: string; data?: unknown } };
   if (json.error) {
     const reason = decodeRevertReason(json.error.data) ?? json.error.message ?? "transaction failed";
     throw new PodTxRevertError(reason, json.error.data, json.error.code);
   }
-  return json.result!;
+  if (!res.ok || !json.result) throw new Error(`eth_sendRawTransaction: HTTP ${res.status}, no result`);
+  return json.result;
 }
 
 export interface UpdateOrderParams {
@@ -579,25 +581,16 @@ export async function waitForReceipt(
   hash: Hash,
   opts?: { fetch?: typeof fetch; timeoutMs?: number; pollMs?: number },
 ): Promise<TxReceipt> {
-  const doFetch = opts?.fetch ?? fetch;
   const timeoutMs = opts?.timeoutMs ?? 30_000;
   const pollMs = opts?.pollMs ?? 250;
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    const res = await doFetch(rpcUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionReceipt", params: [hash] }),
-    });
-    const json = (await res.json()) as {
-      result?: {
-        status: string;
-        transactionHash: Hash;
-        blockNumber?: string | null;
-        gasUsed: string;
-      } | null;
-    };
-    const r = json.result;
+    const r = await tryRpc<{
+      status: string;
+      transactionHash: Hash;
+      blockNumber?: string | null;
+      gasUsed: string;
+    } | null>(rpcUrl, "eth_getTransactionReceipt", [hash], { fetch: opts?.fetch });
     if (r) {
       return {
         status: r.status === "0x1" ? "success" : "reverted",

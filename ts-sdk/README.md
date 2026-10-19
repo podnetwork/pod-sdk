@@ -164,6 +164,25 @@ raised only for an id whose hash was actually in the query that covered it.
 the watcher forgets settled ids, so not re-announcing an outcome you already
 acted on stays with the caller.
 
+## Reading through a load balancer
+
+Account reads and pushes carry `timestamp` (µs), the deadline of the last executed
+tick on the answering node; ticks execute in lockstep, so it is comparable across
+nodes. The resources keep the highest value seen per entity and drop any page or
+push below it, so a lagging node cannot roll a store back. `rest.bridgeWithdrawals`
+returns `WithdrawalsPage { withdrawals, timestampUs }`, and `client.withdrawals`
+resumes `pod_withdrawals` from `timestampUs`.
+
+## Sending
+
+`wallet.submit` owns no nonce: every attempt fetches it with the `pending` tag.
+It retries every 250ms for up to 10s on transport errors, non-JSON or non-2xx
+responses, and past-nonce, future-nonce or account-pending rejections; other
+rejections throw at once. A transport error resends the same signed bytes. Once an
+attempt may have been delivered it is never re-signed: a later nonce rejection
+polls the receipt of that hash and returns it, or throws a "delivery unknown"
+error naming it.
+
 ## How caching / low traffic works
 
 - Each resource **seeds once** over REST, then lives off WS pushes — no polling.
