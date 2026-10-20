@@ -12,9 +12,9 @@ A single price feed is a single point of failure: if it goes down or reports a w
 | ------------ | ----------------------------------------------- |
 | Price        | The price the source reported                   |
 | Publish time | When the source published that price            |
-| Source       | Which source it came from                       |
+| Source       | Which source it came from: its position in the market's oracle list |
 
-All sources carry equal weight. The order in which they arrive does not matter.
+Each source carries a [weight](#source-weights). The order in which observations arrive does not matter.
 
 ### Dropping stale observations
 
@@ -28,22 +28,47 @@ An observation is **fresh** if its age is at most the staleness threshold (30 se
 
 Age is measured against the batch deadline, not the wall clock, so every validator reaches the same verdict for the same batch.
 
-### Combining the fresh observations: the median
+### Combining the fresh observations: the weighted median
 
-The oracle price for the batch is the **median** of the fresh observations. If no observation is fresh, the market switches to the [internal price](#internal-price).
+The oracle price for the batch is the **weighted median** of the fresh observations. If no observation is fresh, the market switches to the [internal price](#internal-price).
 
 | Fresh observations | Oracle price for the batch                                          |
 | ------------------ | ------------------------------------------------------------------- |
-| One or more        | The median of the fresh observations                               |
+| One or more        | The weighted median of the fresh observations                      |
 | None               | The [internal price](#internal-price), derived from the order book |
 
-To compute the median, sort the fresh prices and take the one in the middle:
+Each fresh price counts as many times as its source's weight. Sort the fresh prices, then walk up from the lowest, adding up their weights:
+
+- The first price where the running weight passes **more than half** of the total fresh weight is the oracle price.
+- If the running weight lands **exactly on half**, the oracle price is the average of that price and the next one.
+
+With every weight at 1 this is the plain median:
 
 - **Odd count:** the middle value. `99.9, 100.0, 100.2` → `100.0`
 - **Even count:** the average of the two middle values. `99.9, 100.0, 100.2, 100.4` → `(100.0 + 100.2) / 2 = 100.1`
 - **One observation:** that observation's price.
 
-Every fresh observation counts equally. No source is ranked above another, and the order the observations arrive in does not change the result.
+With weights:
+
+| Fresh prices (weight)        | Counted as                  | Oracle price                 |
+| ---------------------------- | --------------------------- | ---------------------------- |
+| 98 (1), 100 (2), 104 (2)     | 98, 100, 100, 104, 104      | 100                          |
+| 100 (1), 102 (1), 110 (3)    | 100, 102, 110, 110, 110     | 110 (the plain median: 102)  |
+| 100 (2), 104 (2)             | 100, 100, 104, 104          | 102 (exactly half: average)  |
+
+The order the observations arrive in does not change the result.
+
+### Source weights
+
+Each source in a market's oracle list has a weight, a whole number from 1 to 65,535. It is written as an `N*` prefix on the source in the market's oracle spec; no prefix means weight 1:
+
+```
+2*PythPro/NVDA,Nobi/Equity:US:NVDA/USD    ← PythPro counts twice, Nobi once
+```
+
+Weights are set when the market is created and changed with `updateMarketOracle`, like the sources themselves. A list cannot name the same source and asset twice: `PythPro/BTC,2*PythPro/BTC` is rejected. A change applies from the batch after the one it lands in.
+
+A stale source leaves the vote with its whole weight, so the weighted median is taken over the fresh sources only. In the first example above, if the weight-2 source at 100 goes stale, the fresh prices are `98, 104, 104` and the oracle price is 104.
 
 ### Why a median and not an average
 
@@ -57,12 +82,12 @@ median  = 100.2    ← same whether the bad price is 150 or 1,000,000
 
 ### How many bad sources a market can tolerate
 
-- **Wrong prices:** the median holds while fewer than half of the fresh observations are wrong, i.e. up to `⌊(n − 1) / 2⌋` of `n`: 1 of 3, 2 of 5. With 1 or 2, none: a wrong price sets the result outright, or pulls it halfway with 2.
+- **Wrong prices:** the weighted median holds while the wrong sources carry less than half of the total fresh weight. With equal weights that is up to `⌊(n − 1) / 2⌋` of `n` sources: 1 of 3, 2 of 5. With 1 or 2 equal-weight sources, none: a wrong price sets the result outright, or pulls it halfway with 2. A source carrying more than half of the fresh weight sets the price on its own, so a heavy weight trades robustness for trust in that source.
 - **Dead sources:** any number. They go stale and drop out. One fresh source is enough to keep a real price.
 
 ### Example: sources failing over time
 
-A market with three sources, A, B and C. Each row is a batch:
+A market with three sources, A, B and C, all weight 1. Each row is a batch:
 
 | Batch | A              | B              | C              | Fresh | Oracle price             |
 | ----- | -------------- | -------------- | -------------- | ----- | ------------------------ |
@@ -135,7 +160,7 @@ The guarantee covers the oracle price, but liquidation is checked against the [m
 
 ## New markets
 
-A perp market comes into existence on the first price it receives. If every observation in that first batch is already stale, there is no previous real price and no book to derive one from. In that case the market starts from the median of all its observations, stale or not, and uses that value as its first anchor.
+A perp market comes into existence on the first price it receives. If every observation in that first batch is already stale, there is no previous real price and no book to derive one from. In that case the market starts from the plain median of all its observations, stale or not and ignoring weights, and uses that value as its first anchor.
 
 ## Trust model and limitations
 
@@ -152,3 +177,4 @@ A perp market comes into existence on the first price it receives. If every obse
 | `tau`               | 30 minutes                                                                           | Network-wide            |
 | Corridor `w`        | `(initial_margin_ratio − maintenance_margin_ratio) / (1 + maintenance_margin_ratio)` | Per market, derived     |
 | Oracle sources      | One or more                                                                          | Per market              |
+| Source weight       | 1 to 65,535, default 1                                                               | Per source, per market  |
