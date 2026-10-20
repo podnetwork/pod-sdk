@@ -68,6 +68,7 @@ export interface ResourceHandle<T> {
   seed(value: T): void;
   update(fn: (prev: T | undefined) => T): void;
   current(): T | undefined;
+  lastKnown(): Snapshot<T> | undefined;
   fail(err: Error): void;
 }
 
@@ -166,6 +167,7 @@ export class BaseResource<T> implements Resource<T> {
       seed: (v) => this.commit(v, true),
       update: (fn) => this.commit(fn(this.value)),
       current: () => this.value,
+      lastKnown: () => this.lastKnown(),
       fail: (err) => {
         this._error = err;
         if (this.readyReject) {

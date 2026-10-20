@@ -232,6 +232,8 @@ A `refused` status can also arrive with **no** `error` at all — a node whose b
 
 `timestamp` is the deadline, in microseconds, of the newest tick whose outcomes the answering node serves; it is never ahead of the rows. Pass it as `since` to `pod_withdrawals` to resume with no gap, including when the REST node lags the WebSocket node. When reading through several nodes, keep the highest `timestamp` seen and drop pages below it.
 
+To get a page at least that fresh, pass the highest `timestamp` you hold as the `timestamp` query parameter. If the node cannot reach it within its wait, it answers HTTP 503 with `Retry-After: 1` and `{"timestamp": <node's current value>}`; retry after `Retry-After`.
+
 {% hint style="info" %}
 Anyone can submit the claim transaction — it does not need to come from the account that withdrew.
 {% endhint %}

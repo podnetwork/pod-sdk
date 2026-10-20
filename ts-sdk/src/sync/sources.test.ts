@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { stringifyBig } from "../codec/json.js";
 import type { Address, Balances, Market, PositionsSnapshot } from "../types/public.js";
 import { BaseResource, type ResourceSource } from "../stores/resource.js";
+import { PodRestClient } from "../transport/rest.js";
 import {
   balancesSource, marketsSource, positionsSource, triggersSource, watermarks, type SyncContext,
 } from "./sources.js";
@@ -51,6 +52,7 @@ it("removes a delisted market on a reconnect seed", async () => {
     seed: (value) => { current = value; },
     update: () => {},
     current: () => current,
+    lastKnown: () => undefined,
     fail: (error) => { throw error; },
   });
 
@@ -93,6 +95,7 @@ it("ignores a markets cache written in an older format", async () => {
     seed: (value) => { current = value; seen.push(value); },
     update: () => {},
     current: () => current,
+    lastKnown: () => undefined,
     fail: (error) => { throw error; },
   });
 
@@ -133,6 +136,7 @@ it("keeps the cached list provisional until REST's static list lands", async () 
     seed,
     update: () => {},
     current: () => undefined,
+    lastKnown: () => undefined,
     fail: (error) => { throw error; },
   });
 
@@ -243,6 +247,19 @@ describe("balancesSource", () => {
     await flush();
     expect(r.get()!.cash).toBe(7n);
   });
+
+  it("takes the restored snapshot's timestamp as the watermark", async () => {
+    const { ws } = fakeWs();
+    const mins: (number | undefined)[] = [];
+    const rest = { balances: (_a: unknown, min?: number) => { mins.push(min); return Promise.resolve(balances(1_000, 1n)); } };
+    const store = { get: () => stringifyBig({ v: 1, at: 0, value: balances(2_000, 7n) }), set: () => {} };
+    const r = new BaseResource(balancesSource(ctx(rest, ws), ACCT), { store, key: "balances" });
+    onTestFinished(() => r.destroy());
+    r.subscribe(() => {});
+    await flush();
+    expect(mins[0]).toBe(2_000);
+    expect(r.get()).toBeUndefined();
+  });
 });
 
 describe("triggersSource", () => {
@@ -305,5 +322,49 @@ describe("since:0 subscriptions", () => {
     sub.onMessage({ account: ACCT, triggers: [], total_count: 0, next_cursor: null });
     await vi.advanceTimersByTimeAsync(60_000);
     expect(sub.resubscribes).toBe(1);
+  });
+});
+
+describe("minimum timestamp on REST reads", () => {
+  const body = (timestamp: number) => JSON.stringify(wirePositions(timestamp, "1"));
+
+  it("asks for nothing on the first seed, then for the held watermark", async () => {
+    vi.useFakeTimers();
+    const asked: (string | null)[] = [];
+    const rest = new PodRestClient({
+      restUrl: "http://node.test/v1",
+      fetch: (async (url: string) => {
+        asked.push(new URL(url).searchParams.get("timestamp"));
+        return new Response(body(1_000));
+      }) as unknown as typeof fetch,
+    });
+    const { ws, subs } = fakeWs();
+    start(positionsSource({ rest, ws, positionResyncMs: 500, marketResyncMs: 0 } as unknown as SyncContext, ACCT));
+    await vi.advanceTimersByTimeAsync(0);
+    subs[0]!.onMessage({ account: ACCT, data: wirePositions(2_000, "7") });
+    await vi.advanceTimersByTimeAsync(500);
+    expect(asked).toEqual([null, "2000"]);
+  });
+
+  it("retries once after a 503 from a node behind the watermark", async () => {
+    vi.useFakeTimers();
+    const replies = [
+      () => new Response(body(1_000)),
+      () => new Response(JSON.stringify({ timestamp: 1_500 }), { status: 503, headers: { "retry-after": "1" } }),
+      () => new Response(body(2_500)),
+    ];
+    const at: number[] = [];
+    const rest = new PodRestClient({
+      restUrl: "http://node.test/v1",
+      fetch: (async () => { at.push(Date.now()); return replies.shift()!(); }) as unknown as typeof fetch,
+    });
+    const { ws, subs } = fakeWs();
+    const r = start(positionsSource({ rest, ws, positionResyncMs: 10_000, marketResyncMs: 0 } as unknown as SyncContext, ACCT));
+    await vi.advanceTimersByTimeAsync(0);
+    subs[0]!.onMessage({ account: ACCT, data: wirePositions(2_000, "7") });
+    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(at[2]! - at[1]!).toBe(1_000);
+    expect(r.get()!.timestampUs).toBe(2_500);
   });
 });

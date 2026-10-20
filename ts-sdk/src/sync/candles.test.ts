@@ -380,3 +380,21 @@ describe("CandleSeries tick fold", () => {
     off();
   });
 });
+
+describe("candle pages and the minimum timestamp", () => {
+  it("asks a settled page for its end, and the trailing page for nothing", async () => {
+    const asked: { to: number; min?: number }[] = [];
+    const rest = {
+      candles: async (_id: MarketId, q: { to: number }, min?: number) => {
+        asked.push({ to: q.to, min });
+        return { bars: [], solutionNow: Number.MAX_SAFE_INTEGER };
+      },
+    } as unknown as PodRestClient;
+    const now = T0 + 30 * MIN + 30_000;
+    await fetchCandleHistory(rest, ID, "1m", { from: T0 - 400 * MIN, to: now }, now).catch(() => {});
+    const whole = asked.filter((a) => a.min !== undefined);
+    expect(whole.length).toBeGreaterThan(0);
+    for (const a of whole) expect(a.min).toBe(a.to * 1000);
+    expect(asked.find((a) => a.to === T0 + 30 * MIN)).toEqual({ to: T0 + 30 * MIN, min: undefined });
+  });
+});

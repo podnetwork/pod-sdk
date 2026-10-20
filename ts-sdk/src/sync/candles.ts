@@ -18,7 +18,7 @@ import { RESOLUTION_PAGE_BUCKETS, RESOLUTION_SECONDS } from "../codec/resolution
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
 import type { Subscription } from "../transport/ws.js";
 import { PodHttpError, type PodRestClient } from "../transport/rest.js";
-import { subBackoffMs, type SyncContext } from "./sources.js";
+import { readAtLeast, subBackoffMs, type SyncContext } from "./sources.js";
 
 export interface SeriesResource<Item> {
   get(): Item[] | undefined;
@@ -179,12 +179,9 @@ async function fetchCandlePage(
   if (hit) return { bars: hit, watermarkMs: Number.MAX_SAFE_INTEGER };
   for (let attempt = 1; ; attempt++) {
     try {
-      const page = await rest.candles(id, {
-        resolution,
-        from: window.fromMs,
-        to: window.toMs,
-        limit: RESOLUTION_PAGE_BUCKETS[resolution],
-      });
+      const query = { resolution, from: window.fromMs, to: window.toMs, limit: RESOLUTION_PAGE_BUCKETS[resolution] };
+      // The trailing page is clamped by our clock, so only a whole page can ask the node to have reached its end.
+      const page = await readAtLeast((min) => rest.candles(id, query, min), wholePage ? window.toMs * 1000 : undefined);
       // Two different questions, so two predicates. Cacheable? Only a whole
       // page the indexer has passed can never change again.
       const covered = page.solutionNow >= window.toMs;

@@ -196,11 +196,12 @@ paths:
                     Parameters:
                     1. `orderbook_id` (bytes32): The 32-byte orderbook identifier
                     2. `depth` (integer, optional, at least 1): Maximum number of price levels to return for each side — the best `depth` levels. If omitted, all available price levels are returned.
+                    3. `timestamp` (integer, optional): The lowest tick deadline accepted, in microseconds — typically the highest `timestamp` already held. The node answers once its last executed tick reaches it; otherwise error `995` after its wait (default 2s). Pass `null` for `depth` to omit it.
                   items:
                     oneOf:
                       - $ref: '#/components/schemas/Bytes32'
                       - type: integer
-                        description: Depth - maximum price levels per side
+                        description: Depth - maximum price levels per side, or the trailing `timestamp`
                   example: ["0x0000000000000000000000000000000000000000000000000000000000000001", 20]
       responses:
         '200':
@@ -427,7 +428,12 @@ paths:
                   description: |
                     Parameters:
                     1. `address` (address): The address to get positions for
-                  items: { $ref: '#/components/schemas/Address' }
+                    2. `timestamp` (integer, optional): The lowest tick deadline accepted, in microseconds — typically the highest `timestamp` already held. The node answers once its last executed tick reaches it; otherwise error `995` after its wait (default 2s).
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/Address'
+                      - type: integer
+                        format: int64
                   example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"]
       responses:
         '200':
@@ -647,10 +653,13 @@ paths:
                     Positional parameters:
                     1. `address` (Address): The address to get triggers for
                     2. `query` (TriggersQuery): Optional filters — `orderbook_id`, `limit` (clamped to `[1, 200]`), and `cursor`
+                    3. `timestamp` (integer, optional): The lowest tick deadline accepted, in microseconds — typically the highest `timestamp` already held. The node answers once its last executed tick reaches it; otherwise error `995` after its wait (default 2s). Pass `null` for `query` to omit it.
                   items:
                     oneOf:
                       - $ref: '#/components/schemas/Address'
                       - $ref: '#/components/schemas/TriggersQuery'
+                      - type: integer
+                        format: int64
                   example:
                     - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
                     - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
@@ -4798,25 +4807,12 @@ components:
           format: int64
           description: Deadline of the last executed tick on the pushing node, in microseconds; also on the subscribe-time snapshot. Keep the highest seen per account and drop pushes below it; on equal values the later one wins.
 
-    WithdrawalsResponse:
-      type: object
-      description: Body of `GET /v1/bridge/withdrawals` and `GET /v1/bridge/withdrawals/{account}`.
-      required: [withdrawals, timestamp]
-      properties:
-        withdrawals:
-          type: array
-          items: { $ref: '#/components/schemas/WithdrawalUpdate' }
-        timestamp:
-          type: integer
-          format: int64
-          description: Deadline of the newest tick whose withdrawal outcomes the answering node serves, in microseconds. Never ahead of the rows. Pass it as `since` to `pod_withdrawals` to resume with no gap.
-
     WithdrawalUpdate:
       type: object
       description: |
         One outcome from `pod_withdrawals` — what became of a single bridge withdrawal when its
         tick executed. The REST backfill (`GET /v1/bridge/withdrawals[/{account}]?since=`) serves the
-        identical rows inside a `WithdrawalsResponse`, so an outcome read after a reconnect is indistinguishable from one that
+        identical rows inside `{withdrawals, timestamp}`, so an outcome read after a reconnect is indistinguishable from one that
         arrived live.
 
         A withdrawal debits the account's balance, is burned on Pod, and is claimed on the bridge's

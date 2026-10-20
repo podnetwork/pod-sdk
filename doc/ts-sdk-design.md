@@ -232,7 +232,10 @@ source of "now," with no double-counting.
 `timestamp`, the deadline of the last executed tick; `pod_markets` pushes carry
 the indexer watermark under the same name. The SDK keeps the highest watermark it
 has seen **per entity** (account, orderbook) and drops any page or push below
-it; on equal values the later one wins.
+it; on equal values the later one wins. Each REST re-read sends the held
+watermark as `?timestamp=`, so a lagging node waits up to ~2s or answers 503
+with its own `timestamp`; the SDK retries once after `Retry-After` and then reads
+without the parameter, leaving the drop-older check as the fallback.
 
 Withdrawals resume by the watermark: `GET /v1/bridge/withdrawals[/{account}]`
 returns `{withdrawals, timestamp}` (`rest.bridgeWithdrawals` returns

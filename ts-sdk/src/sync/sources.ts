@@ -23,7 +23,7 @@ import {
   decodeBalances, decodeMarketDynamics, decodeOrderbook, decodePositions, decodeTrigger,
 } from "../codec/decode.js";
 import { parseBig, stringifyBig } from "../codec/json.js";
-import type { PodRestClient } from "../transport/rest.js";
+import { PodBehindError, type PodRestClient } from "../transport/rest.js";
 import type { Channel, PodWsClient, SubParams } from "../transport/ws.js";
 import { usToMs } from "../codec/units.js";
 import type { ResourceSource } from "../stores/resource.js";
@@ -91,6 +91,24 @@ export function watermarks(): (ts: number | undefined, key?: string) => boolean 
     seen.set(key, ts);
     return true;
   };
+}
+
+/**
+ * A REST read that asks the node for state at or past `minUs`. A node that
+ * cannot get there in time is retried once after its `Retry-After`; then the
+ * read is made without the minimum and the caller's watermark check decides.
+ */
+export async function readAtLeast<T>(read: (minUs?: number) => Promise<T>, minUs: number | undefined): Promise<T> {
+  if (!minUs) return read(undefined);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await read(minUs);
+    } catch (e) {
+      if (!(e instanceof PodBehindError)) throw e;
+      if (attempt === 0) await new Promise((r) => setTimeout(r, e.retryAfterMs));
+    }
+  }
+  return read(undefined);
 }
 
 export const MAX_SUB_RETRIES = 5;
@@ -171,6 +189,7 @@ export function marketsSource(
           || a.id.localeCompare(b.id)),
     );
     const fresh = watermarks();
+    let heldUs = 0;
     const mergePatch = (patch: Partial<Market> & { id: string }) => {
       const existing = byId.get(patch.id);
       byId.set(patch.id, existing ? { ...existing, ...patch } : (patch as Market));
@@ -206,8 +225,9 @@ export function marketsSource(
 
     // 24h vol/high/low slide with time and only the REST stats reflect that
     // (the WS only pushes on a clear) — so poll them periodically.
-    const seedStats = () => rest.marketStats().then((page) => {
+    const seedStats = () => readAtLeast((min) => rest.marketStats(undefined, min), heldUs).then((page) => {
       if (!alive) return;
+      heldUs = Math.max(heldUs, page.solutionNow * 1000);
       page.markets.forEach((m) => { if (fresh(page.solutionNow, m.id)) mergePatch(m); });
       publish();
     }).catch(() => { /* live dynamics also arrive on the stream */ });
@@ -221,6 +241,7 @@ export function marketsSource(
       for (const it of items) {
         const w = it as Record<string, unknown>;
         const id = (w.orderbook_id ?? w.orderbook) as string;
+        if (typeof w.timestamp === "number") heldUs = Math.max(heldUs, w.timestamp);
         if (!fresh(typeof w.timestamp === "number" ? usToMs(w.timestamp) : undefined, id)) continue;
         mergePatch(decodeMarketDynamics({ ...w, orderbook_id: id } as WireMarketDynamics));
       }
@@ -239,7 +260,7 @@ export function orderbookSource(
   return (h) => {
     let alive = true;
     const seed = () => {
-      rest.orderbook(id).then((ob) => {
+      readAtLeast((min) => rest.orderbook(id, min), (h.current()?.timeMs ?? 0) * 1000).then((ob) => {
         const cur = h.current();
         if (alive && (!cur || cur.timeMs <= ob.timeMs)) h.set(ob);
       }).catch((e) => { if (!h.current()) h.fail(e); });
@@ -266,7 +287,8 @@ export function positionsSource(
     //    (corrects mark-extrapolation drift even when the account isn't touched).
     const fresh = watermarks();
     const accept = (s: PositionsSnapshot) => { if (alive && fresh(s.timestampUs)) h.set(s); };
-    const reseed = () => rest.positions(account).then(accept).catch(() => {});
+    const reseed = () =>
+      readAtLeast((min) => rest.positions(account, min), h.current()?.timestampUs).then(accept).catch(() => {});
     reseed();
     const timer = positionResyncMs > 0 ? setInterval(reseed, positionResyncMs) : undefined;
     const sub = subscribeRetrying(ws, "pod_positions", { account, since: 0 }, (result) => {
@@ -285,8 +307,10 @@ export function balancesSource(
     // No dedicated balances stream: the pod_positions push carries the spot
     // holdings and cash too, so it is folded in; REST seeds and re-aligns.
     const fresh = watermarks();
+    fresh(h.lastKnown()?.value.timestampUs);
     const accept = (b: Balances) => { if (alive && fresh(b.timestampUs)) h.set(b); };
-    const seed = () => rest.balances(account).then(accept).catch((e) => { if (!h.current()) h.fail(e as Error); });
+    const seed = () => readAtLeast((min) => rest.balances(account, min), h.lastKnown()?.value.timestampUs)
+      .then(accept).catch((e) => { if (!h.current()) h.fail(e as Error); });
     const offOpen = seedNowAndOnReconnect(ws, seed);
     const timer = positionResyncMs > 0 ? setInterval(seed, positionResyncMs) : undefined;
     const sub = subscribeRetrying(ws, "pod_positions", { account, since: 0 }, (result) => {
