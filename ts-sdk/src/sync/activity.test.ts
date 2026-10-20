@@ -78,7 +78,7 @@ function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuer
   };
   const queries: unknown[] = [];
   const rest = {
-    activity: vi.fn((_account: Address, q?: unknown) => {
+    activity: vi.fn((_account: Address, q?: unknown, _minTimestampUs?: number) => {
       queries.push(q);
       if (opts?.defer) return new Promise<ActivityPage>((resolve) => { pending.push(resolve); });
       const next = pages.shift() ?? page({});
@@ -101,6 +101,7 @@ function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuer
     pending,
     settle: (i: number, p: ActivityPage) => pending[i]!(p),
     restCalls: () => rest.activity.mock.calls.length,
+    minTimestamps: () => rest.activity.mock.calls.map((c) => c[2]),
     resubscribes: () => resubscribes,
   };
 }
@@ -344,6 +345,17 @@ describe("ActivityHistory.onEvent", () => {
 });
 
 describe("ActivityHistory re-seed", () => {
+  it("asks a re-seed for at least the batch the stream holds", async () => {
+    const { history, frame, open, minTimestamps } = harness();
+    history.subscribe(() => {});
+    await flush();
+    frame({ [LIVE_TICK]: [transfer(4)] });
+
+    open();
+    await flush();
+    expect(minTimestamps()).toEqual([undefined, LIVE_TICK]);
+  });
+
   it("fills the gap above the cursor and keeps the paging position", async () => {
     const { history, frame, open, queries } = harness({
       pages: [

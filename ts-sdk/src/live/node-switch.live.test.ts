@@ -31,14 +31,17 @@ function roundRobin(firstToB: string[] = []) {
   const log: { origin: string; method?: string }[] = [];
   const pending = new Set(firstToB);
   let n = 0;
-  const lb = ((input: string | URL | Request, init?: RequestInit) => {
+  let onBody: ((path: string, body: unknown) => void) | undefined;
+  const lb = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     const method = typeof init?.body === "string" ? (JSON.parse(init.body) as { method?: string }).method : undefined;
     const origin = method && pending.delete(method) ? B : n++ % 2 ? B : A;
     log.push({ origin, method });
-    return fetch(new URL(url.pathname + url.search, origin), init);
+    const res = await fetch(new URL(url.pathname + url.search, origin), init);
+    if (onBody && res.ok && !method) onBody(url.pathname, await res.clone().json().catch(() => undefined));
+    return res;
   }) as typeof fetch;
-  return { lb, log };
+  return { lb, log, observe: (fn?: typeof onBody) => { onBody = fn; } };
 }
 
 async function until<T>(what: string, read: () => Promise<T | undefined> | T | undefined, timeoutMs = 30_000): Promise<T> {
@@ -71,7 +74,7 @@ describe.skipIf(!A || !B)("load balancer node switch", () => {
 
     const master = privateKeyToAccount(generatePrivateKey());
     const acct = master.address as Address;
-    const { lb, log } = roundRobin();
+    const { lb, log, observe } = roundRobin();
     await mint({ rpcUrl: A, chainId, to: acct, tokens: [{ token: NATIVE_USD_ADDRESS, amount: 5_000n * E18 }], fetch: lb });
     await until("B has the deposit", async () => {
       const [a, b] = await Promise.all([restA.balances(acct), restB.balances(acct)]);
@@ -124,6 +127,15 @@ describe.skipIf(!A || !B)("load balancer node switch", () => {
       return (a.timestampUs ?? 0) - (b.timestampUs ?? 0) >= 3 * tickUs ? true : undefined;
     });
 
+    // A response older than what the resource holds is one the drop-older check
+    // had to discard; with `?timestamp=` in play the node should never send one.
+    let drops = 0;
+    observe((path, body) => {
+      const ts = (body as { timestamp?: number } | undefined)?.timestamp;
+      const held = path.includes("/clob/positions/") ? positions.get()?.timestampUs
+        : path.includes("/clob/balances/") ? balances.get()?.timestampUs : undefined;
+      if (ts !== undefined && held !== undefined && ts < held) drops++;
+    });
     for (let i = 0; i < 4; i++) {
       const count = sockets.length;
       sockets.at(-1)!.close();
@@ -134,8 +146,11 @@ describe.skipIf(!A || !B)("load balancer node switch", () => {
 
     console.info("node-switch", JSON.stringify({
       restOnB: log.filter((r) => r.origin === B && !r.method).length,
+      drops,
       wallet: walletLb.log.map((r) => `${r.method}@${r.origin === B ? "B" : "A"}`),
     }));
+    observe(undefined);
+    expect(drops, "responses the drop-older check had to discard").toBe(0);
     expect(nonDecreasing(seen.positions)).toBe(true);
     expect(nonDecreasing(seen.balances.map((b) => b.timestampUs))).toBe(true);
     expect(nonDecreasing(seen.book)).toBe(true);

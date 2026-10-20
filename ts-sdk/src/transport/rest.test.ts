@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { PodRestClient } from "./rest.js";
+import { PodBehindError, PodRestClient } from "./rest.js";
 
 describe("PodRestClient request timeout", () => {
   const clientWith = (fetchFn: unknown, timeoutMs?: number) =>
@@ -112,5 +112,22 @@ describe("PodRestClient.bridgeWithdrawals", () => {
       fetch: (async () => new Response("[]", { status: 200 })) as unknown as typeof fetch,
     });
     await expect(rest.bridgeWithdrawals()).resolves.toEqual({ withdrawals: [], timestampUs: 0 });
+  });
+});
+
+describe("PodRestClient minimum timestamp", () => {
+  it("sends the minimum as ?timestamp= and reports a node that cannot reach it", async () => {
+    const urls: string[] = [];
+    const rest = new PodRestClient({
+      restUrl: "http://node.test/v1",
+      fetch: (async (url: string) => {
+        urls.push(url);
+        return new Response(JSON.stringify({ timestamp: 1_500 }), { status: 503, headers: { "retry-after": "2" } });
+      }) as unknown as typeof fetch,
+    });
+    const err = await rest.positions("0xabc", 2_000).catch((e: unknown) => e);
+    expect(new URL(urls[0]!).searchParams.get("timestamp")).toBe("2000");
+    expect(err).toBeInstanceOf(PodBehindError);
+    expect(err).toMatchObject({ name: "PodBehindError", currentUs: 1_500, retryAfterMs: 2_000 });
   });
 });

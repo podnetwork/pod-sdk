@@ -171,7 +171,10 @@ tick on the answering node; ticks execute in lockstep, so it is comparable acros
 nodes. The resources keep the highest value seen per entity and drop any page or
 push below it, so a lagging node cannot roll a store back. `rest.bridgeWithdrawals`
 returns `WithdrawalsPage { withdrawals, timestampUs }`, and `client.withdrawals`
-resumes `pod_withdrawals` from `timestampUs`.
+resumes `pod_withdrawals` from `timestampUs`. Every re-read also sends the held
+watermark as `?timestamp=` (the `minTimestampUs` argument on `PodRestClient`), so the
+node waits until it has caught up or answers 503 (`PodBehindError`); the SDK retries
+once after `Retry-After`, then reads without it.
 
 ## Sending
 

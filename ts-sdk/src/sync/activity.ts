@@ -10,7 +10,7 @@ import { BaseResource, type ResourceHandle } from "../stores/resource.js";
 import type { ActivityPage } from "../transport/rest.js";
 import type { SubParams } from "../transport/ws.js";
 import type { SeriesResource } from "./candles.js";
-import type { SyncContext } from "./sources.js";
+import { readAtLeast, type SyncContext } from "./sources.js";
 import { ResumableStream } from "./stream.js";
 
 export interface ActivityView extends SeriesResource<ActivityEntry> {
@@ -90,7 +90,11 @@ export class ActivityHistory implements ActivityView {
     this._loading = true;
     this.rebuild();
     try {
-      const page = await this.ctx.rest.activity(this.account, { toUs: this.nextUs });
+      const toUs = this.nextUs;
+      const page = await readAtLeast(
+        (min) => this.ctx.rest.activity(this.account, { toUs }, min),
+        this.stream.cursor.since,
+      );
       this.store([page]);
       this.nextUs = page.nextUs;
       this._hasMore = page.nextUs !== null;
@@ -121,7 +125,7 @@ export class ActivityHistory implements ActivityView {
       let toUs: number | undefined;
       const pages: ActivityPage[] = [];
       do {
-        const page = await this.ctx.rest.activity(this.account, { fromUs, toUs });
+        const page = await readAtLeast((min) => this.ctx.rest.activity(this.account, { fromUs, toUs }, min), since);
         if (stale()) return false;
         pages.push(page);
         toUs = page.nextUs ?? undefined;

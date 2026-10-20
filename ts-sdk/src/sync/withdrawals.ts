@@ -14,7 +14,7 @@ import type { WireWithdrawal } from "../types/wire.js";
 import { decodeWithdrawal } from "../codec/decode.js";
 import type { ResourceSource } from "../stores/resource.js";
 import type { Subscription } from "../transport/ws.js";
-import { MAX_SUB_RETRIES, subBackoffMs, type SyncContext } from "./sources.js";
+import { MAX_SUB_RETRIES, readAtLeast, subBackoffMs, type SyncContext } from "./sources.js";
 
 /** Page size for the backfill. The server caps at 1000 and defaults to 500. */
 const PAGE_LIMIT = 500;
@@ -77,11 +77,11 @@ export function withdrawalsSource(
         let pageSince = sinceUs;
         let pageSinceId = sinceId;
         for (let page = 0; page < MAX_PAGES; page++) {
-          const res = await rest.bridgeWithdrawals(account, {
-            since: pageSince,
-            sinceId: pageSinceId,
-            limit: PAGE_LIMIT,
-          });
+          const query = { since: pageSince, sinceId: pageSinceId, limit: PAGE_LIMIT };
+          const res = await readAtLeast(
+            (min) => rest.bridgeWithdrawals(account, query, min),
+            Math.max(sinceUs, servedUs),
+          );
           if (!alive) return false;
           const rows = res.withdrawals;
           absorb(rows);
