@@ -103,9 +103,7 @@ export interface WireOrder {
   order_type: "limit" | "market";
   status: string;
   price: WireDecimal;
-  size?: WireDecimal; // signed, as amended
-  initial_price?: WireDecimal; // as placed
-  initial_size: WireDecimal; // signed, as placed
+  initial_size: WireDecimal; // signed
   filled_base_amount: WireDecimal;
   filled_quote_amount: WireDecimal;
   fee: WireDecimal;

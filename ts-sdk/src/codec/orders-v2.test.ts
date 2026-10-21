@@ -62,8 +62,6 @@ function resting(over: Partial<Order> = {}): Order {
     nonce: 7,
     bidder: MM,
     price: 100n * WAD,
-    size: 5n * WAD,
-    initialPrice: 100n * WAD,
     initialSize: 5n * WAD,
     filledBase: 0n,
     filledQuote: 0n,
@@ -103,8 +101,6 @@ describe("applyOrdersFrame — entities", () => {
       kind: "user_signed",
       side: "buy",
       price: 209430000000000000000n,
-      size: 2390000000000000000n,
-      initialPrice: 209430000000000000000n,
       initialSize: 2390000000000000000n,
       filledBase: 0n,
       filledQuote: 0n,
@@ -178,24 +174,13 @@ describe("applyOrdersFrame — events", () => {
   });
 
   it("applies a captured `modify` in place, keeping the side", () => {
-    const byId = apply(MODIFY_FRAME, [resting({ size: -5n * WAD, initialSize: -5n * WAD })]);
+    const byId = apply(MODIFY_FRAME, [resting({ initialSize: -5n * WAD })]);
 
     const o = byId.get("0xa9a5")!;
     expect(o.price).toBe(37990000000000000000n);
     // `sz` is an unsigned magnitude, so the sign has to come from the order we
     // already hold — decoding it as written would flip a sell to a buy.
-    expect(o.size).toBe(-175484776695621584627n);
-    expect(o.initialSize).toBe(-5n * WAD);
-  });
-
-  it("keeps the admitted terms as placed after a `modify`", () => {
-    const byId = apply(NEW_FRAME);
-    applyOrdersFrame({ ...MODIFY_FRAME, events: [{ k: "modify", id: "0x32b8", px: "1", sz: "7" }] }, byId, { account: MM });
-    const o = byId.get("0x32b8")!;
-    expect(o.size).toBe(-7n);
-    expect(o.price).toBe(1n);
-    expect(o.initialSize).toBe(-2380000000000000000n);
-    expect(o.initialPrice).toBe(209840000000000000000n);
+    expect(o.initialSize).toBe(-175484776695621584627n);
   });
 
   it("cancels by id", () => {
@@ -304,7 +289,7 @@ describe("applyOrdersFrame — events", () => {
     // A sell of 6 that left the owner at +4 must have started at +10, so it reduced a
     // long. That is the label the order's own side and `reduceOnly` cannot reach: it
     // is a plain sell, so the derived guess reads "Open Short".
-    const o = apply(frame, [resting({ size: -6n * WAD, initialSize: -6n * WAD })]).get("0xa9a5")!;
+    const o = apply(frame, [resting({ initialSize: -6n * WAD })]).get("0xa9a5")!;
     expect(o.direction).toBe("reduce_long");
   });
 
@@ -321,7 +306,7 @@ describe("applyOrdersFrame — events", () => {
     // The transition says reduce_long; REST says `liquidation`, because
     // `order_direction_for_response` overrides the classifier for that kind. Following
     // only the positions here would disagree with the same row after a refetch.
-    const o = apply(frame, [resting({ size: -6n * WAD, initialSize: -6n * WAD, kind: "liquidation" })]).get("0xa9a5")!;
+    const o = apply(frame, [resting({ initialSize: -6n * WAD, kind: "liquidation" })]).get("0xa9a5")!;
     expect(o.direction).toBe("liquidation");
   });
 
@@ -387,7 +372,6 @@ describe("applyOrdersFrame — refused amendments", () => {
     // The amendment did not happen, so price and size are untouched — that is the
     // whole point: a refusal used to be indistinguishable from one still in flight.
     expect(o.price).toBe(100n * WAD);
-    expect(o.size).toBe(5n * WAD);
     expect(o.initialSize).toBe(5n * WAD);
     expect(o.status).toBe("active");
     // And nothing about the refusal is left on the order: it describes an amendment,

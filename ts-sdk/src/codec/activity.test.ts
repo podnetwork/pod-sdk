@@ -133,7 +133,7 @@ describe("foldActivityBatch", () => {
     const [placed, refused] = rows;
     if (placed?.activityType !== "order" || refused?.activityType !== "order") throw new Error("expected orders");
     expect(placed.order).toMatchObject({
-      status: "canceled", price: 99n * WAD, size: 4n * WAD, initialPrice: 100n * WAD, initialSize: 2n * WAD, filledBase: WAD, filledQuote: 100n * WAD,
+      status: "canceled", price: 99n * WAD, initialSize: 4n * WAD, filledBase: WAD, filledQuote: 100n * WAD,
       fee: 7n, bidder: ALICE, orderbookId: BOOK, includedMs: MS, endMs: 3_605_000, reduceOnly: true, kind: "user_signed",
     });
     expect(refused.order).toMatchObject({ status: "invalid", rejectReason: "insufficient balance", side: "sell" });

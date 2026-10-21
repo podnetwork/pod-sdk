@@ -384,8 +384,6 @@ paths:
                       status: "active"
                       side: "buy"
                       price: "0x4563918244f40000"
-                      size: "1000000000000000000"
-                      initial_price: "0x4563918244f40000"
                       initial_size: "1000000000000000000"
                       filled_base_amount: "0x6f05b59d3b20000"
                       filled_quote_amount: "0x22b1c8c1227a0000"
@@ -1671,8 +1669,6 @@ paths:
                           status: "active"
                           side: "buy"
                           price: "0x4563918244f40000"
-                          size: "1000000000000000000"
-                          initial_price: "0x4563918244f40000"
                           initial_size: "1000000000000000000"
                           filled_base_amount: "0x0"
                           filled_quote_amount: "0x0"
@@ -2724,7 +2720,7 @@ components:
     Order:
       type: object
       description: |
-        An order returned by `ob_getOrders`. Carries spot and perp shapes — perp-only fields (`reduce_only`, `ioc`, `direction`) are present only when `market_type = perpetual`. `post_only` is reported on both. `size` and `initial_size` are signed (positive for Buy/Long, negative for Sell/Short); `initial_size` is as placed.
+        An order returned by `ob_getOrders`. Carries spot and perp shapes — perp-only fields (`reduce_only`, `ioc`, `direction`) are present only when `market_type = perpetual`. `post_only` is reported on both. The `initial_size` is signed: positive for Buy/Long, negative for Sell/Short.
       properties:
         orderbook_id:
           $ref: '#/components/schemas/Bytes32'
@@ -2762,15 +2758,9 @@ components:
         price:
           $ref: '#/components/schemas/HexUint256'
           description: Limit price in quote/base units with 1e18 scale
-        size:
-          type: string
-          description: Signed size now, as amended (positive = Buy/Long, negative = Sell/Short)
-        initial_price:
-          $ref: '#/components/schemas/HexUint256'
-          description: Price the order was placed with
         initial_size:
           type: string
-          description: Signed size the order was placed with (positive = Buy/Long, negative = Sell/Short)
+          description: Original signed order size (positive = Buy/Long, negative = Sell/Short)
         filled_base_amount:
           $ref: '#/components/schemas/HexUint256'
           description: Cumulative amount of base tokens filled

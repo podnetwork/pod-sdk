@@ -629,8 +629,6 @@ paths:
                       status: filled
                       side: sell
                       price: "0x4563918244f40000"
-                      size: "-1000000000000000000"
-                      initial_price: "0x4563918244f40000"
                       initial_size: "-1000000000000000000"
                       filled_base_amount: "0xde0b6b3a7640000"
                       filled_quote_amount: "0x4563918244f40000"
@@ -1193,15 +1191,9 @@ components:
         status: { $ref: '#/components/schemas/OrderStatus' }
         side: { type: string, enum: [buy, sell] }
         price: { $ref: '#/components/schemas/HexUint256' }
-        size:
-          $ref: '#/components/schemas/DecimalInt256'
-          description: Signed size now, as amended; positive buy/long, negative sell/short.
-        initial_price:
-          $ref: '#/components/schemas/HexUint256'
-          description: Price the order was placed with.
         initial_size:
           $ref: '#/components/schemas/DecimalInt256'
-          description: Signed size the order was placed with.
+          description: Signed; positive buy/long, negative sell/short.
         filled_base_amount: { $ref: '#/components/schemas/HexUint256' }
         filled_quote_amount: { $ref: '#/components/schemas/HexUint256' }
         fee: { $ref: '#/components/schemas/HexUint256' }

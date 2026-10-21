@@ -103,8 +103,6 @@ function decodeEntity(e: WireOrderEntity, frame: WireOrdersFrame, batchMs: numbe
     // `undefined` typed as an address.
     bidder: (e.a !== undefined ? frame.accts?.[e.a] : undefined) ?? account,
     price: dec(e.px),
-    size: initialSize,
-    initialPrice: dec(e.px),
     initialSize,
     filledBase: 0n,
     filledQuote: 0n,
@@ -169,8 +167,8 @@ export function applyEvent(
     case "modify": {
       order.price = dec(event.px);
       // `sz` is an unsigned magnitude, so the side comes from the order we hold.
-      const sign = order.size < 0n ? -1n : 1n;
-      order.size = sign * dec(event.sz);
+      const sign = order.initialSize < 0n ? -1n : 1n;
+      order.initialSize = sign * dec(event.sz);
       return {};
     }
     case "fill": {
@@ -188,7 +186,7 @@ export function applyEvent(
       // "Open Short".
       if (event.pa !== undefined) {
         const after = dec(event.pa);
-        const before = after - (order.size < 0n ? -base : base);
+        const before = after - (order.initialSize < 0n ? -base : base);
         // A forced close is labelled by how it came about, not by the transition it
         // made — `order_direction_for_response` overrides the classifier the same way,
         // and without this a liquidation reads `close_long` here and `liquidation`

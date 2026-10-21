@@ -79,7 +79,6 @@ export function decodeCandle(w: WireCandle): Bar {
 }
 
 export function decodeOrder(w: WireOrder): Order {
-  const size = dec(w.size ?? w.initial_size);
   const initialSize = dec(w.initial_size);
   return {
     id: w.order_id,
@@ -89,15 +88,13 @@ export function decodeOrder(w: WireOrder): Order {
     // `MarketType` say "perp". Normalized here so one list of orders cannot carry
     // both spellings — a streamed order takes its type from the market.
     marketType: w.market_type === "perpetual" ? "perp" : (w.market_type as MarketType | undefined),
-    side: w.side ?? (size < 0n ? "sell" : "buy"),
+    side: w.side ?? (initialSize < 0n ? "sell" : "buy"),
     orderType: w.order_type,
     status: w.status as OrderStatus,
     kind: w.kind as OrderKind,
     nonce: w.nonce,
     bidder: w.bidder,
     price: dec(w.price),
-    size,
-    initialPrice: dec(w.initial_price ?? w.price),
     initialSize,
     filledBase: dec(w.filled_base_amount),
     filledQuote: dec(w.filled_quote_amount),

@@ -274,9 +274,7 @@ export interface Order {
   nonce: number;
   bidder: Address;
   price: bigint;
-  size: bigint; // signed, as amended: + buy/long, - sell/short
-  initialPrice: bigint; // as placed
-  initialSize: bigint; // signed, as placed
+  initialSize: bigint; // signed: + buy/long, - sell/short
   filledBase: bigint;
   filledQuote: bigint;
   fee: bigint;
