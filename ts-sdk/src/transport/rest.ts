@@ -303,15 +303,17 @@ export class PodRestClient {
    */
   async bridgeWithdrawals(account?: Address, q?: WithdrawalsQuery, minTimestampUs?: number): Promise<WithdrawalsPage> {
     const path = account ? `/bridge/withdrawals/${account}` : "/bridge/withdrawals";
-    const w = await this.get<WireWithdrawalsPage | WireWithdrawal[]>(path, {
-      since: q?.since,
-      since_id: q?.sinceId,
-      limit: q?.limit,
-      timestamp: minTimestampUs,
-    });
-    // A node not yet upgraded serves the bare array.
-    if (Array.isArray(w)) return { withdrawals: w.map(decodeWithdrawal), timestampUs: 0 };
-    return { withdrawals: w.withdrawals.map(decodeWithdrawal), timestampUs: w.timestamp };
+    const query = { since: q?.since, since_id: q?.sinceId, limit: q?.limit };
+    try {
+      // `restUrl` ends in the API version, so this resolves to its v2 sibling.
+      const w = await this.get<WireWithdrawalsPage>(`/../v2${path}`, { ...query, timestamp: minTimestampUs });
+      return { withdrawals: w.withdrawals.map(decodeWithdrawal), timestampUs: w.timestamp };
+    } catch (e) {
+      if (!(e instanceof PodHttpError && e.status === 404)) throw e;
+    }
+    // A node without v2 serves the bare array and has no watermark.
+    const rows = await this.get<WireWithdrawal[]>(path, query);
+    return { withdrawals: rows.map(decodeWithdrawal), timestampUs: 0 };
   }
 
   async triggers(account: Address, q?: TriggersQueryRest, minTimestampUs?: number): Promise<TriggersPage> {

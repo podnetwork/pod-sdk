@@ -106,12 +106,38 @@ describe("PodRestClient.orders", () => {
 });
 
 describe("PodRestClient.bridgeWithdrawals", () => {
-  it("reads a node that still serves a bare array", async () => {
+  const clientWith = (reply: (url: URL) => Response) => {
+    const urls: URL[] = [];
     const rest = new PodRestClient({
       restUrl: "http://node.test/v1",
-      fetch: (async () => new Response("[]", { status: 200 })) as unknown as typeof fetch,
+      fetch: (async (url: string) => { urls.push(new URL(url)); return reply(new URL(url)); }) as unknown as typeof fetch,
     });
-    await expect(rest.bridgeWithdrawals()).resolves.toEqual({ withdrawals: [], timestampUs: 0 });
+    return { rest, urls };
+  };
+
+  it("reads the v2 object body with the minimum timestamp", async () => {
+    const { rest, urls } = clientWith(() => new Response(JSON.stringify({ withdrawals: [], timestamp: 7_000 })));
+    await expect(rest.bridgeWithdrawals("0xabc", { since: 5 }, 6_000))
+      .resolves.toEqual({ withdrawals: [], timestampUs: 7_000 });
+    expect(urls.map((u) => u.pathname)).toEqual(["/v2/bridge/withdrawals/0xabc"]);
+    expect(urls[0]!.searchParams.get("timestamp")).toBe("6000");
+  });
+
+  it("falls back to the v1 array on a node without v2", async () => {
+    const { rest, urls } = clientWith((u) =>
+      u.pathname.startsWith("/v2/") ? new Response("not found", { status: 404 }) : new Response("[]"));
+    await expect(rest.bridgeWithdrawals(undefined, { since: 5 }, 6_000))
+      .resolves.toEqual({ withdrawals: [], timestampUs: 0 });
+    expect(urls.map((u) => u.pathname)).toEqual(["/v2/bridge/withdrawals", "/v1/bridge/withdrawals"]);
+    expect(urls[1]!.searchParams.get("timestamp")).toBeNull();
+    expect(urls[1]!.searchParams.get("since")).toBe("5");
+  });
+
+  it("reports a v2 node behind the minimum", async () => {
+    const { rest, urls } = clientWith(() =>
+      new Response(JSON.stringify({ timestamp: 1_500 }), { status: 503, headers: { "retry-after": "1" } }));
+    await expect(rest.bridgeWithdrawals("0xabc", undefined, 2_000)).rejects.toBeInstanceOf(PodBehindError);
+    expect(urls).toHaveLength(1);
   });
 });
 

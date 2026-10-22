@@ -801,6 +801,68 @@ paths:
 
         Legacy `Bridge.withdraw` rows are excluded.
 
+        `/v2/bridge/withdrawals` returns the same rows with the node's `timestamp`.
+
+        No `Cache-Control` header is set.
+      parameters:
+        - $ref: '#/components/parameters/WithdrawalSince'
+        - $ref: '#/components/parameters/WithdrawalSinceId'
+        - $ref: '#/components/parameters/WithdrawalLimit'
+      responses:
+        '200':
+          description: Withdrawal outcomes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Withdrawal' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /bridge/withdrawals/{account}:
+    get:
+      tags: [Bridge]
+      summary: List Account Withdrawals
+      operationId: listAccountWithdrawals
+      description: |
+        As `/bridge/withdrawals`, restricted to withdrawals debited from `account` (the
+        `withdrawer`, which is the master for a delegated withdrawal).
+
+        No `Cache-Control` header is set.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/WithdrawalSince'
+        - $ref: '#/components/parameters/WithdrawalSinceId'
+        - $ref: '#/components/parameters/WithdrawalLimit'
+      responses:
+        '200':
+          description: Withdrawal outcomes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Withdrawal' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /v2/bridge/withdrawals:
+    servers:
+      - url: https://rpc.podtestnet.dev
+    get:
+      tags: [Bridge]
+      summary: List Withdrawals (v2)
+      operationId: listWithdrawalsV2
+      description: |
+        As `/v1/bridge/withdrawals`, wrapped in an object that adds `timestamp`, and
+        accepting `timestamp` as a minimum state to wait for.
+
+        Withdrawal outcomes for every account, oldest first by `(timestamp_us,
+        tx_hash)`. Same entries as the `pod_withdrawals` websocket channel, and `since` is
+        the same cursor. To continue, pass the last entry's `timestamp_us` as `since` and its
+        `tx_hash` as `since_id`.
+
+        Legacy `Bridge.withdraw` rows are excluded.
+
         No `Cache-Control` header is set.
       parameters:
         - $ref: '#/components/parameters/WithdrawalSince'
@@ -821,18 +883,20 @@ paths:
                     items: { $ref: '#/components/schemas/Withdrawal' }
                   timestamp:
                     $ref: '#/components/schemas/Timestamp'
-                    description: Deadline of the newest tick whose outcomes the answering node serves. Never ahead of the rows. Pass it as `since` to `pod_withdrawals` to resume with no gap. Nodes before this field return the bare array.
+                    description: Deadline of the newest tick whose outcomes the answering node serves. Never ahead of the rows. Pass it as `since` to `pod_withdrawals` to resume with no gap.
         '400': { $ref: '#/components/responses/BadRequest' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/NodeBehind' }
 
-  /bridge/withdrawals/{account}:
+  /v2/bridge/withdrawals/{account}:
+    servers:
+      - url: https://rpc.podtestnet.dev
     get:
       tags: [Bridge]
-      summary: List Account Withdrawals
-      operationId: listAccountWithdrawals
+      summary: List Account Withdrawals (v2)
+      operationId: listAccountWithdrawalsV2
       description: |
-        As `/bridge/withdrawals`, restricted to withdrawals debited from `account` (the
+        As `/v2/bridge/withdrawals`, restricted to withdrawals debited from `account` (the
         `withdrawer`, which is the master for a delegated withdrawal).
 
         No `Cache-Control` header is set.
@@ -856,7 +920,7 @@ paths:
                     items: { $ref: '#/components/schemas/Withdrawal' }
                   timestamp:
                     $ref: '#/components/schemas/Timestamp'
-                    description: Deadline of the newest tick whose outcomes the answering node serves. Never ahead of the rows. Pass it as `since` to `pod_withdrawals` to resume with no gap. Nodes before this field return the bare array.
+                    description: Deadline of the newest tick whose outcomes the answering node serves. Never ahead of the rows. Pass it as `since` to `pod_withdrawals` to resume with no gap.
         '400': { $ref: '#/components/responses/BadRequest' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/NodeBehind' }
