@@ -82,7 +82,6 @@ median  = 100.2    ← same whether the bad price is 150 or 1,000,000
 
 ### How many bad sources a market can tolerate
 
-- **Wrong prices:** the weighted median holds while the wrong sources carry less than half of the total fresh weight. With equal weights that is up to `⌊(n − 1) / 2⌋` of `n` sources: 1 of 3, 2 of 5. With 1 or 2 equal-weight sources, none: a wrong price sets the result outright, or pulls it halfway with 2. A source carrying more than half of the fresh weight sets the price on its own, so a heavy weight trades robustness for trust in that source.
 - **Dead sources:** any number. They go stale and drop out. One fresh source is enough to keep a real price.
 
 ### Example: sources failing over time
