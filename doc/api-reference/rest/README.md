@@ -15,13 +15,13 @@ Responses carry a `Cache-Control` header:
 
 | Header                                | Routes                                                                                                                                    |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `public, max-age=31536000, immutable` | `candles` once every bucket of the requested window has closed; `orders` and `activity` once the page's upper bound has been reached by solution time and every order on it is terminal. |
+| `public, max-age=31536000, immutable` | `candles` once every bucket of the requested window has closed; `orders` and `activity` once the page's upper bound has been reached by solution time and every order on it is terminal; `solutions` and `fills` once `until_us` / `to_us` is at or before solution time. |
 | `public, max-age=60`                  | `markets`.                                                                                                                                |
 | `no-store`                            | Everything else under `/v1/clob`, `/v1/tx` and `/v1/transactions`, and the cases above that are not yet final.                            |
 
 Bridge routes set no `Cache-Control` header.
 
-To get a cacheable page, bound it in the past: pass `to` on `candles` and `activity`, and `until` or a `cursor` on `orders`.
+To get a cacheable page, bound it in the past: pass `to` on `candles` and `activity`, `until` or a `cursor` on `orders`, `until_us` on `solutions` and `to_us` on `fills`.
 
 ### Encodings
 
