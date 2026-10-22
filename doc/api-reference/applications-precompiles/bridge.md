@@ -64,7 +64,8 @@ Outcomes are published once per batch:
 | Surface                                                         | Use                                                                                                                                                       |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `eth_subscribe("pod_withdrawals", { account, since })`          | Live outcomes. Each carries `tx_hash`, `withdrawer`, `to`, `token`, `amount` (18 decimals), `error` and `timestamp_us`.                                     |
-| `GET /v1/bridge/withdrawals/{account}?since=&since_id=&limit=`  | Backfill after a disconnect — `{"withdrawals": [...], "timestamp": N}`: the same rows, plus the deadline (µs) of the newest tick whose outcomes the node serves. `since` is the same cursor the subscription takes. |
+| `GET /v1/bridge/withdrawals/{account}?since=&since_id=&limit=`  | Backfill after a disconnect — an array of the same rows. `since` is the same cursor the subscription takes. |
+| `GET /v2/bridge/withdrawals/{account}?since=&since_id=&limit=&timestamp=` | As v1, as `{"withdrawals": [...], "timestamp": N}`: adds the deadline (µs) of the newest tick whose outcomes the node serves, and waits for `timestamp` when given (503 if it cannot reach it). |
 | `GET /v1/bridge/withdrawals/by-id/{tx_hash}`                    | One withdrawal: its `status` (`claimable`, `pending` or `refused`) and, once assembled, the claim `proof`.                                                  |
 | `pod_getBridgeClaimProof(txHash)`                               | The claim proof on its own, by the same key.                                                                                                                |
 

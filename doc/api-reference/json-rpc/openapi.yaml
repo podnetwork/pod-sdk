@@ -1490,7 +1490,7 @@ paths:
         `since` predates the retained buffer — or the buffer is empty, as right after a node start
         — the subscription is rejected with `-32602` "since too old; backfill via REST then
         resubscribe" (for `pod_withdrawals` that is `GET /v1/bridge/withdrawals[/{account}]?since=`,
-        which takes the same cursor and serves the same rows inside `{withdrawals, timestamp}`; `pod_transfers` has no REST
+        which takes the same cursor and serves the same rows; `/v2` wraps them in `{withdrawals, timestamp}`; `pod_transfers` has no REST
         backfill: resubscribe live). State channels (`pod_markets`, `pod_positions`,
         `pod_triggers`) emit one current snapshot immediately when `since` is passed (any value),
         then stream live. Omitted = live-only: a state channel sends nothing until a tick touches
@@ -4812,7 +4812,7 @@ components:
       description: |
         One outcome from `pod_withdrawals` — what became of a single bridge withdrawal when its
         tick executed. The REST backfill (`GET /v1/bridge/withdrawals[/{account}]?since=`) serves the
-        identical rows inside `{withdrawals, timestamp}`, so an outcome read after a reconnect is indistinguishable from one that
+        identical rows (`/v2` wraps them in `{withdrawals, timestamp}`), so an outcome read after a reconnect is indistinguishable from one that
         arrived live.
 
         A withdrawal debits the account's balance, is burned on Pod, and is claimed on the bridge's

@@ -237,9 +237,10 @@ watermark as `?timestamp=`, so a lagging node waits up to ~2s or answers 503
 with its own `timestamp`; the SDK retries once after `Retry-After` and then reads
 without the parameter, leaving the drop-older check as the fallback.
 
-Withdrawals resume by the watermark: `GET /v1/bridge/withdrawals[/{account}]`
+Withdrawals resume by the watermark: `GET /v2/bridge/withdrawals[/{account}]`
 returns `{withdrawals, timestamp}` (`rest.bridgeWithdrawals` returns
-`WithdrawalsPage { withdrawals, timestampUs }`), and the SDK subscribes
+`WithdrawalsPage { withdrawals, timestampUs }`, falling back to the v1 array with
+`timestampUs: 0` on a 404), and the SDK subscribes
 `pod_withdrawals` with `since = timestamp` of the page that ended the backfill.
 
 **(f) Send retry.** The delegated wallet's `submit` owns no nonce: each attempt
