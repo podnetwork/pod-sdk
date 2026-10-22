@@ -15,7 +15,7 @@ import {
 import { withdrawalsSource } from "./sync/withdrawals.js";
 import { CandleSeries, candleTailFrom, fetchCandleHistory } from "./sync/candles.js";
 import { OrderHistory } from "./sync/orders.js";
-import { ActivityHistory, normalizeActivityQuery } from "./sync/activity.js";
+import { ActivityHistory, type ActivityView } from "./sync/activity.js";
 import { enrichPositions } from "./sync/positions-live.js";
 import { fetchPnlHistory, streamPnlHistory, PnlHistoryCache, type PnlHistory, type PnlHistoryChunk, type PnlHistoryQuery } from "./sync/pnl-history.js";
 
@@ -325,21 +325,18 @@ export class PodTradeClient {
   }
 
   /**
-   * One account's whole activity, newest first (ADR 0057): its orders, the
-   * backstop legs it was swept into, and every bridge transfer and transfer that
-   * moved its money.
+   * One account's whole activity as rows, newest first (ADR 0057): one feed per
+   * account, and a query is a view on it (`activity(account).view(query)`).
    *
    * `orders` is a separate stream (`pod_orders_v2`), with its own cursor and its
    * own row shape — not this feed narrowed to orders. It is to be retired in
    * favour of this one, so new code should start here.
    */
-  activity(account: Address, query?: ActivityQuery): ActivityHistory {
-    // The constructor normalises too, so the key must — otherwise `{}` and
-    // `{ types: [] }` ask for the same feed and get two of them, each with its own
-    // socket subscription. Sorted, since key order is an argument's accident.
-    const q = normalizeActivityQuery(query);
-    const key = `activity:${account.toLowerCase()}:${JSON.stringify(q, Object.keys(q).sort())}`;
-    return this.memo(key, () => new ActivityHistory(this.ctx, account, query));
+  activity(account: Address): ActivityHistory;
+  activity(account: Address, query?: ActivityQuery): ActivityView;
+  activity(account: Address, query?: ActivityQuery): ActivityView {
+    const feed = this.memo(`activity:${account.toLowerCase()}`, () => new ActivityHistory(this.ctx, account));
+    return query ? feed.view(query) : feed;
   }
 
   orders(account: Address, query?: OrdersQuery): OrderHistory {

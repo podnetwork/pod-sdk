@@ -1,281 +1,225 @@
-// The activity seed's entry union and the `pod_activity` frame fold. None of
-// it is reachable from `typecheck`: an entry is `unknown` off REST and a frame is
-// `unknown` off the socket, so every field mapping is only ever checked here.
-//
-// Shapes are written from the node: `ActivityEntry` in `node/src/rpc/types.rs`,
-// `ActivityFrame`/`MoneyEvent` in `node/src/rpc/activity.rs`, and the JSON its
-// own tests assert (`node/tests/activity_frame.rs`, `clob_indexer::rest::tests`).
-// Encodings follow from those types: a `U256` is `0x` hex, an `I256` a signed
-// decimal string, a `WireDec` a signed decimal string, and an absent field is
-// absent rather than null.
+// Shapes follow `ActivityEntry` in `node/src/rpc/activity.rs`.
 
 import { describe, expect, it } from "vitest";
 
-import type { ActivityEntry, Address, MarketId } from "../types/public.js";
-import type { WireActivityEntry, WireActivityFrame } from "../types/wire.js";
-import { decodeActivityEntry } from "./decode.js";
-import { applyActivityFrame } from "./activity.js";
+import type { Address, Hex, MarketId, Order } from "../types/public.js";
+import type { WireActivityEntry, WireOrder } from "../types/wire.js";
+import { decodeActivityEntry, foldActivityBatch } from "./activity.js";
 import { WAD } from "./units.js";
 
 const ALICE = "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1" as Address;
+const BOB = "0xb0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0" as Address;
 const TOKEN = "0x7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e" as Address;
 const BOOK = "0x000000000000000000000000000000000000000000000000000000000000000a" as MarketId;
-const TICK = 5_000_000;
+const BATCH = 5_000_000;
+const MS = BATCH / 1000;
 
+const units = (n: bigint) => (n * WAD).toString();
+const id = (n: number) => `0x${n.toString(16).padStart(64, "0")}` as Hex;
 const hex = (n: bigint) => `0x${n.toString(16)}`;
-const units = (n: bigint) => n * WAD;
 
-/** `{ activity_type: "order", ts, ...OrderResponse }`. */
-const ORDER_ENTRY: WireActivityEntry = {
-  activity_type: "order",
-  ts: 8_000_000,
-  orderbook_id: BOOK,
-  market_type: "perpetual",
-  kind: "user_signed",
-  order_id: "0x0101010101010101010101010101010101010101010101010101010101010101",
-  tx_hash: "0x6565656565656565656565656565656565656565656565656565656565656565",
-  bidder: ALICE,
-  nonce: 1,
-  order_type: "limit",
-  status: "active",
-  side: "buy",
-  price: hex(units(100n)),
-  initial_size: units(2n).toString(),
-  filled_base_amount: hex(units(1n)),
-  filled_quote_amount: hex(units(100n)),
-  fee: "0x7",
-  deadline: 8_000_000,
-  end: 3_605_000_000,
-  included_batch: TICK,
-  effective_price: hex(units(100n)),
-  fills: [{
-    base_amount: hex(units(1n)),
-    quote_amount: hex(units(100n)),
-    timestamp: TICK,
-    price: hex(units(100n)),
-  }],
-  reduce_only: false,
-  ioc: false,
+const order = (n: number, over: Partial<WireOrder> = {}): WireActivityEntry => ({
+  k: "order", order_id: id(n), orderbook_id: BOOK, market_type: "perpetual", kind: "user_signed", tx_hash: id(n + 100),
+  bidder: ALICE, nonce: n, order_type: "limit", status: "active", side: "buy", price: hex(100n * WAD),
+  initial_size: units(2n), filled_base_amount: "0x0", filled_quote_amount: "0x0", fee: "0x0",
+  deadline: String(BATCH), end: 3_605_000_000, included_batch: BATCH, effective_price: "0x0", ...over,
+});
+const FILLED = order(1, {
+  status: "filled", filled_base_amount: hex(2n * WAD), filled_quote_amount: hex(200n * WAD), fee: "0x7",
+});
+const fill = (n: number, over: Partial<Extract<WireActivityEntry, { k: "fill" }>> = {}): WireActivityEntry => ({
+  k: "fill", id: id(n), book: BOOK, b: units(1n), q: units(100n), tb: units(1n), tq: units(100n), tf: "7", f: "2", ...over,
+});
+const BACKSTOP: WireActivityEntry = {
+  k: "backstop", book: BOOK, sz: `-${units(2n)}`, cash: "0", mark: units(100n), eq: `-${units(5n)}`, pnl: `-${units(1n)}`,
 };
+const BRIDGE: WireActivityEntry = { k: "bridge_transfer", tx: id(21), idx: 1, tok: TOKEN, amt: "-900", err: "insufficient_balance" };
+const TRANSFER: WireActivityEntry = { k: "transfer", id: id(22), cp: BOB, tok: TOKEN, amt: "1700" };
 
-/** The money entries name their fields exactly as the stream's money events do. */
-const BACKSTOP_ENTRY: WireActivityEntry = {
-  activity_type: "backstop",
-  ts: TICK,
-  book: BOOK,
-  size: (-units(2n)).toString(),
-  cash: "0",
-  mark: units(100n).toString(),
-  equity: (-units(5n)).toString(),
-  pnl: (-units(1n)).toString(),
-};
-
-const BRIDGE_ENTRY: WireActivityEntry = {
-  activity_type: "bridge_transfer",
-  ts: TICK,
-  tx: "0x0000000000000000000000000000000000000000000000000000000000000001",
-  idx: 1,
-  token: TOKEN,
-  amount: "-900",
-  error: "insufficient_balance",
-};
-
-const TRANSFER_ENTRY: WireActivityEntry = {
-  activity_type: "transfer",
-  ts: TICK,
-  id: "0x0000000000000000000000000000000000000000000000000000000000000003",
-  token: TOKEN,
-  amount: "1700",
-};
+const pageOrders = (entries: WireActivityEntry[]) => new Set(entries.flatMap((e) => (e.k === "order" ? [e.order_id] : [])));
+const fold = (entries: WireActivityEntry[], orders = new Map<string, Order>(), source: "rest" | "stream" = "stream") =>
+  ({ ...foldActivityBatch(BATCH, entries, orders, source === "rest" ? { pageOrders: pageOrders(entries) } : "stream"), orders });
+const kindOf = (e: { activityType: string } | { kind: string }) => ("activityType" in e ? e.activityType : e.kind);
 
 describe("decodeActivityEntry", () => {
-  it("carries an order through with its fills", () => {
-    const entry = decodeActivityEntry(ORDER_ENTRY);
-    if (entry?.activityType !== "order") throw new Error("expected an order");
-    // The node timestamps an order entry by its SIGNED deadline, not the batch it
-    // landed in, so `timeMs` and `order.includedMs` are deliberately different.
-    expect(entry.timeMs).toBe(8_000);
-    expect(entry.order.includedMs).toBe(5_000);
-    expect(entry.order.marketType).toBe("perp");
-    expect(entry.order.price).toBe(units(100n));
-    expect(entry.order.initialSize).toBe(units(2n));
-    expect(entry.order.fills).toHaveLength(1);
+  it("decodes a fill with its totals, closing status and position", () => {
+    expect(decodeActivityEntry(fill(1, { st: "filled", pa: `-${units(3n)}` }), MS)).toEqual({
+      activityType: "fill", timeMs: MS, orderId: id(1), orderbookId: BOOK,
+      base: WAD, quote: 100n * WAD, totalBase: WAD, totalQuote: 100n * WAD, totalFee: 7n, fee: 2n,
+      closedAs: "filled", positionAfter: -3n * WAD,
+    });
   });
 
-  it("carries a backstop leg with its realized PnL", () => {
-    const entry = decodeActivityEntry(BACKSTOP_ENTRY);
-    if (entry?.activityType !== "backstop") throw new Error("expected a backstop");
-    expect(entry.timeMs).toBe(5_000);
-    expect(entry.orderbookId).toBe(BOOK);
-    expect(entry.size).toBe(-units(2n));
-    expect(entry.markPrice).toBe(units(100n));
-    expect(entry.equity).toBe(-units(5n));
-    expect(entry.realizedPnl).toBe(-units(1n));
+  it("leaves the totals absent on a fill stored before they were recorded", () => {
+    const row = decodeActivityEntry(fill(1, { tb: undefined, tq: undefined, tf: undefined, f: undefined }), MS);
+    if (row?.activityType !== "fill") throw new Error("expected a fill");
+    expect([row.totalBase, row.totalQuote, row.totalFee, row.fee, row.closedAs, row.positionAfter]).toEqual([
+      undefined, undefined, undefined, undefined, undefined, undefined,
+    ]);
   });
 
-  it("keeps money signed from the account's side, with its refusal", () => {
-    const bridge = decodeActivityEntry(BRIDGE_ENTRY);
-    if (bridge?.activityType !== "bridge_transfer") throw new Error("expected a bridge transfer");
-    expect(bridge.txHash).toBe(BRIDGE_ENTRY.tx);
-    // One tx can carry several deposits, so the hash alone does not identify a row.
-    expect(bridge.idx).toBe(1);
-    expect(bridge.amount).toBe(-900n);
-    expect(bridge.error).toBe("insufficient_balance");
+  it("decodes a modify, a termination and both refusals", () => {
+    expect(decodeActivityEntry({
+      k: "modify", id: id(1), book: BOOK, px: units(101n), sz: units(3n), old_px: units(100n), old_sz: units(2n),
+    }, MS)).toMatchObject({ activityType: "modify", price: 101n * WAD, size: 3n * WAD, oldPrice: 100n * WAD, oldSize: 2n * WAD });
+    const termination = decodeActivityEntry({ k: "termination", id: id(1), book: BOOK, st: "self_trade_canceled" }, MS);
+    expect(termination).toMatchObject({ activityType: "termination", status: "self_trade_canceled" });
+    expect(termination).not.toHaveProperty("totalBase");
+    expect(decodeActivityEntry({
+      k: "modify_reject", id: id(1), book: BOOK, px: units(1n), sz: units(1n), why: "price off tick",
+    }, MS)).toEqual({
+      activityType: "modify_reject", timeMs: MS, orderId: id(1), orderbookId: BOOK,
+      requestedPrice: WAD, requestedSize: WAD, message: "price off tick",
+    });
+    expect(decodeActivityEntry({
+      k: "cancel_reject", id: id(1), book: BOOK, why: "gone",
+    }, MS)).toEqual({ activityType: "cancel_reject", timeMs: MS, orderId: id(1), orderbookId: BOOK, message: "gone" });
+  });
 
-    const transfer = decodeActivityEntry(TRANSFER_ENTRY);
-    if (transfer?.activityType !== "transfer") throw new Error("expected a transfer");
-    expect(transfer.transferId).toBe(TRANSFER_ENTRY.id);
-    expect(transfer.amount).toBe(1700n);
-    expect(transfer.error).toBeUndefined();
+  it("keeps money signed from the account's side", () => {
+    expect(decodeActivityEntry(BACKSTOP, MS)).toMatchObject({
+      activityType: "backstop", timeMs: MS, orderbookId: BOOK, size: -2n * WAD, equity: -5n * WAD, realizedPnl: -WAD,
+    });
+    expect(decodeActivityEntry(BRIDGE, MS)).toMatchObject({
+      activityType: "bridge_transfer", txHash: id(21), idx: 1, amount: -900n, error: "insufficient_balance",
+    });
+    expect(decodeActivityEntry(TRANSFER, MS)).toMatchObject({ activityType: "transfer", transferId: id(22), amount: 1700n });
+  });
+
+  it("names the other side of a transfer on both legs", () => {
+    expect(decodeActivityEntry({ k: "transfer", id: id(23), cp: BOB, tok: TOKEN, amt: "-1700" }, MS))
+      .toMatchObject({ activityType: "transfer", counterparty: BOB, token: TOKEN, amount: -1700n });
+    expect(decodeActivityEntry({ k: "transfer", id: id(23), cp: ALICE, tok: TOKEN, amt: "1700", err: "" }, MS))
+      .toEqual({ activityType: "transfer", timeMs: MS, transferId: id(23), counterparty: ALICE, token: TOKEN, amount: 1700n, error: undefined });
+  });
+
+  it("decodes an order with the state it carries", () => {
+    const row = decodeActivityEntry(FILLED, MS);
+    if (row?.activityType !== "order") throw new Error("expected an order");
+    expect(row.timeMs).toBe(MS);
+    expect(row.order).toMatchObject({
+      id: id(1), status: "filled", marketType: "perp", filledBase: 2n * WAD, filledQuote: 200n * WAD, fee: 7n, includedMs: MS,
+    });
+    expect(row.order).not.toHaveProperty("fills");
+  });
+
+  it("returns undefined for a kind it does not know", () => {
+    expect(decodeActivityEntry({ k: "airdrop" } as never, MS)).toBeUndefined();
   });
 });
 
-/** The shape `the_wire_is_tagged_stringly_and_never_null` asserts: one frame per
- * tick, no `book` on the frame, books first and then the tick's money. */
-const FRAME: WireActivityFrame = {
-  batch: TICK,
-  orders: [{
-    id: "0x0101010101010101010101010101010101010101010101010101010101010101",
-    tx: "0x6565656565656565656565656565656565656565656565656565656565656565",
-    book: BOOK,
-    n: 1,
-    px: units(100n).toString(),
-    sz: units(2n).toString(),
-    end: 3_605_000_000,
-  }],
-  events: [
-    { k: "new", o: 0 },
-    {
-      k: "fill",
-      o: 0,
-      b: units(1n).toString(),
-      q: units(100n).toString(),
-      tb: units(1n).toString(),
-      tq: units(100n).toString(),
-      tf: "7",
-    },
-    {
-      k: "backstop",
-      book: BOOK,
-      size: (-units(2n)).toString(),
-      cash: "0",
-      mark: units(100n).toString(),
-      equity: (-units(5n)).toString(),
-      pnl: (-units(1n)).toString(),
-    },
-    {
-      k: "bridge_transfer",
-      tx: "0x0000000000000000000000000000000000000000000000000000000000000001",
-      idx: 1,
-      token: TOKEN,
-      amount: units(10n).toString(),
-    },
-    {
-      k: "transfer",
-      id: "0x0000000000000000000000000000000000000000000000000000000000000005",
-      token: TOKEN,
-      amount: (-units(5n)).toString(),
-      error: "insufficient_balance",
-    },
-  ],
-};
+describe("foldActivityBatch", () => {
+  const BATCH_ENTRIES: WireActivityEntry[] = [
+    order(1, { reduce_only: true }),
+    order(2, { side: "sell", initial_size: `-${units(1n)}`, status: "invalid", invalid_reason: "insufficient balance" }),
+    fill(1, { b: units(1n), tb: units(1n) }),
+    fill(9),
+    { k: "modify", id: id(1), book: BOOK, px: units(99n), sz: units(4n), old_px: units(100n), old_sz: units(2n) },
+    { k: "termination", id: id(1), book: BOOK, st: "canceled" },
+    BACKSTOP,
+    BRIDGE,
+    { k: "airdrop" } as never,
+    TRANSFER,
+    { k: "cancel_reject", id: id(1), book: BOOK, why: "order not found" },
+  ];
 
-const emptyState = () => ({ orders: new Map(), entries: [] as ActivityEntry[] });
+  it("emits a stream batch's rows in wire order, with the placement carrying the folded order", () => {
+    const { rows } = fold(BATCH_ENTRIES);
+    expect(rows.map(kindOf)).toEqual([
+      "order", "order", "fill", "fill", "modify", "termination", "backstop", "bridge_transfer", "transfer", "cancel_reject",
+    ]);
+    expect(rows.every((r) => r.timeMs === MS)).toBe(true);
 
-describe("applyActivityFrame", () => {
-  it("folds the order flow and collects the money the tick moved", () => {
-    const state = emptyState();
-    const events = applyActivityFrame(FRAME, state, { account: ALICE });
-
-    expect(events.map((e) => ("activityType" in e ? e.activityType : e.kind)))
-      .toEqual(["new", "fill", "backstop", "bridge_transfer", "transfer"]);
-
-    const order = state.orders.get(FRAME.orders[0]!.id);
-    expect(order?.status).toBe("active");
-    expect(order?.filledBase).toBe(units(1n));
-    // `book` moved from the frame onto the entity; there is no frame-level one.
-    expect(order?.orderbookId).toBe(BOOK);
-    // A frame with no `accts` covers exactly one account.
-    expect(order?.bidder).toBe(ALICE);
-
-    expect(state.entries.map((e) => e.activityType))
-      .toEqual(["backstop", "bridge_transfer", "transfer"]);
-    // Every money entry is timed by the batch that moved it.
-    expect(state.entries.every((e) => e.timeMs === 5_000)).toBe(true);
+    const [placed, refused] = rows;
+    if (placed?.activityType !== "order" || refused?.activityType !== "order") throw new Error("expected orders");
+    expect(placed.order).toMatchObject({
+      status: "canceled", price: 99n * WAD, initialSize: 4n * WAD, filledBase: WAD, filledQuote: 100n * WAD,
+      fee: 7n, bidder: ALICE, orderbookId: BOOK, includedMs: MS, endMs: 3_605_000, reduceOnly: true, kind: "user_signed",
+    });
+    expect(refused.order).toMatchObject({ status: "invalid", rejectReason: "insufficient balance", side: "sell" });
   });
 
-  it("decodes each money kind into the entry the seed would have served", () => {
-    const state = emptyState();
-    applyActivityFrame(FRAME, state, { account: ALICE });
-    const [backstop, bridge, transfer] = state.entries;
-
-    if (backstop?.activityType !== "backstop") throw new Error("expected a backstop entry");
-    expect(backstop.orderbookId).toBe(BOOK);
-    expect(backstop.size).toBe(-units(2n));
-    expect(backstop.markPrice).toBe(units(100n));
-    expect(backstop.realizedPnl).toBe(-units(1n));
-
-    if (bridge?.activityType !== "bridge_transfer") throw new Error("expected a bridge entry");
-    expect(bridge.txHash).toBe("0x0000000000000000000000000000000000000000000000000000000000000001");
-    expect(bridge.idx).toBe(1);
-    expect(bridge.token).toBe(TOKEN);
-    expect(bridge.amount).toBe(units(10n));
-    expect(bridge.error).toBeUndefined();
-
-    if (transfer?.activityType !== "transfer") throw new Error("expected a transfer entry");
-    expect(transfer.amount).toBe(-units(5n));
-    expect(transfer.error).toBe("insufficient_balance");
+  it("reports a stream batch's events for held orders only, and the money it moved", () => {
+    const { events } = fold(BATCH_ENTRIES);
+    expect(events.map(kindOf)).toEqual([
+      "new", "reject", "fill", "modify", "cancel", "backstop", "bridge_transfer", "transfer", "cancel_reject",
+    ]);
+    const cancelReject = events.at(-1);
+    if (!cancelReject || "activityType" in cancelReject) throw new Error("expected an order event");
+    expect(cancelReject.cancelRejection).toEqual({ code: "unspecified", message: "order not found", batchMs: MS });
   });
 
-  it("ignores a kind it does not know, on either side of the union", () => {
-    const state = emptyState();
-    const events = applyActivityFrame(
-      { ...FRAME, events: [{ k: "liquidation_notice", o: 0 }, { k: "airdrop", amount: "1" } as never] },
-      state,
-      { account: ALICE },
-    );
+  it("applies a refused amendment to nothing, and reports it", () => {
+    const { rows, events } = fold([
+      order(1),
+      { k: "modify_reject", id: id(1), book: BOOK, px: units(1n), sz: units(9n), why: "tick" },
+    ]);
+    const placed = rows[0];
+    if (placed?.activityType !== "order") throw new Error("expected an order");
+    expect(placed.order.price).toBe(100n * WAD);
+    const reject = events[1];
+    if (!reject || "activityType" in reject) throw new Error("expected an order event");
+    expect(reject.amendRejection).toEqual({
+      requestedPrice: WAD, requestedSize: 9n * WAD, code: "unspecified", message: "tick", batchMs: MS,
+    });
+  });
+
+  it("maps an expiry termination to an `expire` event", () => {
+    const { events, orders } = fold([order(1), { k: "termination", id: id(1), book: BOOK, st: "expired" }]);
+    expect(events.map(kindOf)).toEqual(["new", "expire"]);
+    expect(orders.get(id(1))?.status).toBe("expired");
+  });
+
+  it("closes an order on a cap-to-filled zero-base fill", () => {
+    const { orders } = fold([
+      order(1),
+      fill(1),
+      fill(1, { b: "0", q: "0", tb: units(1n), tq: units(100n), st: "filled" }),
+    ]);
+    const o = orders.get(id(1))!;
+    expect(o.status).toBe("filled");
+    expect(o.filledBase).toBe(WAD);
+  });
+
+  it("folds an ADL synthetic order through its slices", () => {
+    const { orders, events } = fold([
+      order(1, { kind: "adl", order_type: "market", side: "sell", initial_size: `-${units(3n)}` }),
+      fill(1, { b: units(1n), q: units(100n), tb: units(1n), tq: units(100n), tf: "1", f: "1" }),
+      fill(1, { b: units(2n), q: units(200n), tb: units(3n), tq: units(300n), tf: "3", f: "2", st: "filled" }),
+    ]);
+    const o = orders.get(id(1))!;
+    expect(o).toMatchObject({ kind: "adl", orderType: "market", side: "sell", status: "filled", filledBase: 3n * WAD });
+    const fills = events.flatMap((e) => ("kind" in e && e.fill ? [[e.fill.totalBase, e.fill.fee]] : []));
+    expect(fills).toEqual([[WAD, 1n], [3n * WAD, 2n]]);
+    expect(o.fee).toBe(3n);
+  });
+
+  it("leaves the totals alone on a legacy fill without them", () => {
+    const orders = new Map<string, Order>();
+    fold([order(1), fill(1, { tb: units(2n), tq: units(200n), tf: "5" })], orders);
+    foldActivityBatch(BATCH + 1, [fill(1, { tb: undefined, tq: undefined, tf: undefined })], orders, "stream");
+    expect(orders.get(id(1))).toMatchObject({ filledBase: 2n * WAD, filledQuote: 200n * WAD, fee: 5n });
+  });
+
+  it("applies nothing and emits nothing for a REST page", () => {
+    const { rows, events, orders } = fold(BATCH_ENTRIES, new Map(), "rest");
+    expect(rows.map(kindOf)).toEqual([
+      "order", "order", "fill", "fill", "modify", "termination", "backstop", "bridge_transfer", "transfer", "cancel_reject",
+    ]);
     expect(events).toEqual([]);
-    expect(state.entries).toEqual([]);
-    // The entity still lands: the frame said the order exists.
-    expect(state.orders.size).toBe(1);
+    expect(orders.get(id(1))).toMatchObject({ status: "active", price: 100n * WAD, filledBase: 0n });
   });
-});
 
-const BOOK_B = "0x000000000000000000000000000000000000000000000000000000000000000b" as MarketId;
-
-const sweep = (book: MarketId) => ({
-  k: "backstop" as const,
-  book,
-  size: (-units(2n)).toString(),
-  cash: "0",
-  mark: units(100n).toString(),
-  equity: (-units(5n)).toString(),
-  pnl: (-units(1n)).toString(),
-});
-
-describe("applyActivityFrame interleaving", () => {
-  it("emits order and money events in the node's wire order", () => {
-    const state = emptyState();
-    const events = applyActivityFrame({
-      batch: TICK,
-      orders: [
-        { id: "0x0a", tx: "0xaa", book: BOOK, n: 1, px: units(100n).toString(), sz: units(1n).toString() },
-        { id: "0x0b", tx: "0xbb", book: BOOK_B, n: 2, px: units(100n).toString(), sz: units(1n).toString() },
-      ],
-      events: [{ k: "new", o: 0 }, sweep(BOOK), { k: "new", o: 1 }, sweep(BOOK_B)],
-    }, state, { account: ALICE });
-
-    // Folding the orders first and appending the money would report the tick as
-    // two placements followed by two sweeps, which is not what happened.
-    expect(events.map((e) => ("activityType" in e ? e.activityType : e.kind)))
-      .toEqual(["new", "backstop", "new", "backstop"]);
-    expect(state.entries.map((e) => e.activityType === "backstop" ? e.orderbookId : e.activityType))
-      .toEqual([BOOK, BOOK_B]);
+  it("shows a pre-upgrade REST order filled from its own state", () => {
+    const { rows, orders } = fold([FILLED], new Map(), "rest");
+    expect(rows).toHaveLength(1);
+    expect(orders.get(id(1))).toMatchObject({ status: "filled", filledBase: 2n * WAD });
   });
-});
 
-describe("decodeActivityEntry on an unknown kind", () => {
-  it("returns undefined rather than an untagged row", () => {
-    expect(decodeActivityEntry({ activity_type: "airdrop", ts: TICK } as never)).toBeUndefined();
+  it("replaces a held order with the one a REST page carries", () => {
+    const orders = new Map<string, Order>();
+    fold([order(1)], orders, "stream");
+    fold([FILLED], orders, "rest");
+    expect(orders.get(id(1))?.status).toBe("filled");
   });
 });

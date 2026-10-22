@@ -4,21 +4,21 @@
 
 import type { WireFillRow, WireSolutionRow } from "../types/wire.js";
 import type {
-  ActivityEntry, ActivityType, Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery,
+  ActivityType, Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery,
   Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status,
   Trigger, TxExplorer, Withdrawal, WithdrawalsQuery,
 } from "../types/public.js";
 import type {
-  WireActivityPage, WireBackstopPage, WireBalances, WireBridgeConfig, WireCandlesEnvelope,
+  WireActivityEntry, WireActivityPage, WireBackstopPage, WireBalances, WireBridgeConfig, WireCandlesEnvelope,
   WireMarketStatic, WireMarketStatsPage, WireOrderbook, WireOrdersPage, WirePositionsSnapshot,
   WireStatus, WireTriggersPage, WireWithdrawal,
 } from "../types/wire.js";
 import {
-  decodeActivityEntry, decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle,
+  decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle,
   decodeMarketDynamics, decodeMarketStatic, decodeOrder, decodeOrderbook, decodePositions,
   decodeStatus, decodeTrigger, decodeWithdrawal,
 } from "../codec/decode.js";
-import { msToSecs, msToUs, usToMs } from "../codec/units.js";
+import { msToSecs, usToMs } from "../codec/units.js";
 
 export type MarketDynamicsPatch = Partial<Market> & { id: string };
 
@@ -33,8 +33,10 @@ export interface OrdersPage {
   solutionNow: number;
 }
 export interface ActivityPage {
-  activity: ActivityEntry[];
-  nextCursor: string | null;
+  /** Newest first, each batch's entries in the node's order. */
+  batches: Array<[batchUs: number, entries: WireActivityEntry[]]>;
+  /** Pass back as `toUs` for the next, older page; null when the window is exhausted. */
+  nextUs: number | null;
   solutionNow: number; // ms
 }
 export interface BackstopPage {
@@ -60,11 +62,11 @@ export interface OrdersQueryRest {
   cursor?: string;
 }
 export interface ActivityQueryRest {
-  limit?: number;
-  cursor?: string;
   types?: ActivityType[];
-  from?: number; // ms
-  to?: number; // ms
+  fromUs?: number; // inclusive
+  toUs?: number; // inclusive
+  /** Entries per page, 1..=2000; the newest batch is served whole even past it. */
+  limit?: number;
 }
 export interface TriggersQueryRest {
   orderbook?: MarketId;
@@ -190,22 +192,20 @@ export class PodRestClient {
     };
   }
 
-  /**
-   * One account's activity, newest first: orders at their placement tick, and the
-   * money that moved (ADR 0057 §5). The seed behind `pod_activity`; page it
-   * with `cursor`.
-   */
+  /** One page of an account's activity by batch, newest batches first (ADR 0057 §5); page with `nextUs`. */
   async activity(account: Address, q?: ActivityQueryRest): Promise<ActivityPage> {
     const w = await this.get<WireActivityPage>(`/clob/activity/${account}`, {
-      limit: q?.limit,
-      cursor: q?.cursor,
       activity_types: q?.types?.length ? q.types.join(",") : undefined,
-      from: q?.from !== undefined ? msToUs(q.from) : undefined,
-      to: q?.to !== undefined ? msToUs(q.to) : undefined,
+      from: q?.fromUs !== undefined ? String(q.fromUs) : undefined,
+      to: q?.toUs !== undefined ? String(q.toUs) : undefined,
+      limit: q?.limit,
     });
+    const batches = Object.entries(w.activity)
+      .map(([batch, entries]): [number, WireActivityEntry[]] => [Number(batch), entries])
+      .sort((a, b) => b[0] - a[0]);
     return {
-      activity: w.activity.map(decodeActivityEntry).filter((e): e is ActivityEntry => e !== undefined),
-      nextCursor: w.next_cursor,
+      batches,
+      nextUs: w.next === null ? null : Number(w.next),
       solutionNow: usToMs(w.solution_now),
     };
   }

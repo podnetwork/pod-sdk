@@ -47,33 +47,60 @@ describe("PodRestClient.activity", () => {
     return { rest, query: () => new URL(url).searchParams };
   };
 
-  it("joins the activity types and sends the window in micros", async () => {
-    const { rest, query } = served({ activity: [], next_cursor: null, solution_now: 1 });
+  it("sends the types, the window in micros and the limit, and nothing else", async () => {
+    const { rest, query } = served({ activity: {}, next: null, solution_now: 1 });
     await rest.activity(ACCOUNT as never, {
-      types: ["transfer", "order"], from: 1_000, to: 2_000, limit: 25,
+      types: ["transfer", "order", "cancel_reject"], fromUs: 1_000_000, toUs: 2_000_000, limit: 25,
     });
-    expect(query().get("activity_types")).toBe("transfer,order");
-    expect(query().get("from")).toBe("1000000");
-    expect(query().get("to")).toBe("2000000");
-    expect(query().get("limit")).toBe("25");
+    expect(Object.fromEntries(query())).toEqual({
+      activity_types: "transfer,order,cancel_reject",
+      from: "1000000",
+      to: "2000000",
+      limit: "25",
+    });
   });
 
   it("omits an empty type list rather than asking for nothing", async () => {
-    const { rest, query } = served({ activity: [], next_cursor: null, solution_now: 1 });
+    const { rest, query } = served({ activity: {}, next: null, solution_now: 1 });
     await rest.activity(ACCOUNT as never, { types: [] });
     expect(query().get("activity_types")).toBeNull();
   });
 
-  it("drops a row whose kind this version does not know", async () => {
+  it("orders the batches newest first and reads the next bound", async () => {
+    const transfer = { k: "transfer", id: "0x03", cp: "0x7f", tok: "0x7e", amt: "1700" };
     const { rest } = served({
-      activity: [
-        { activity_type: "transfer", ts: 5_000_000, id: "0x03", token: "0x7e", amount: "1700" },
-        { activity_type: "airdrop", ts: 5_000_000, amount: "1" },
-      ],
-      next_cursor: null,
-      solution_now: 5_000_000,
+      activity: { "900000": [transfer], "10000000": [transfer], "5000000": [transfer, transfer] },
+      next: "899999",
+      solution_now: 12_000_000,
     });
     const page = await rest.activity(ACCOUNT as never);
-    expect(page.activity.map((e) => e.activityType)).toEqual(["transfer"]);
+    expect(page.batches.map(([b, e]) => [b, e.length])).toEqual([[10_000_000, 1], [5_000_000, 2], [900_000, 1]]);
+    expect(page.nextUs).toBe(899_999);
+    expect(page.solutionNow).toBe(12_000);
+  });
+
+  it("reports an exhausted window as a null next", async () => {
+    const { rest } = served({ activity: {}, next: null, solution_now: 1 });
+    expect((await rest.activity(ACCOUNT as never)).nextUs).toBeNull();
+  });
+});
+
+describe("PodRestClient.orders", () => {
+  it("decodes a row without nested fills, ignoring an old server's", async () => {
+    const row = {
+      order_id: "0x01", tx_hash: "0x02", bidder: "0xa1", nonce: 1, kind: "user_signed", order_type: "limit",
+      status: "filled", price: "0x0", initial_size: "1", filled_base_amount: "0x1", filled_quote_amount: "0x0",
+      fee: "0x0", deadline: 1, end: 1,
+      fills: [{ base_amount: "1", quote_amount: "0", timestamp: 1, price: "0" }],
+    };
+    const rest = new PodRestClient({
+      restUrl: "http://node.test/v1",
+      fetch: (() => Promise.resolve(new Response(
+        JSON.stringify({ orders: [row], next_cursor: null, total_count: 1, solution_now: 1_000 }), { status: 200 },
+      ))) as unknown as typeof fetch,
+    });
+    const [order] = (await rest.orders("0xa1" as never)).orders;
+    expect(order).toMatchObject({ id: "0x01", status: "filled", filledBase: 1n });
+    expect(order).not.toHaveProperty("fills");
   });
 });

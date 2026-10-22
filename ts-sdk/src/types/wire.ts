@@ -91,13 +91,6 @@ export interface WireCandleTick {
   volume: WireDecimal;
 }
 
-export interface WirePartialFill {
-  base_amount: WireDecimal;
-  quote_amount: WireDecimal;
-  timestamp: number; // micros
-  price: WireDecimal;
-}
-
 export interface WireOrder {
   orderbook_id?: Hex;
   /** The order endpoints say "perpetual" where `/clob/markets` says "perp". */
@@ -118,13 +111,13 @@ export interface WireOrder {
   end: number | string; // micros
   included_batch?: number | string; // micros; batch-inclusion time (REST order history)
   effective_price?: WireDecimal | null;
-  fills?: WirePartialFill[];
   side?: "buy" | "sell";
   reduce_only?: boolean;
   ioc?: boolean;
   direction?: string;
   grouping?: WireDecimal;
   trigger_type?: string | null;
+  invalid_reason?: string;
 }
 
 export interface WireOrdersPage {
@@ -269,8 +262,7 @@ export interface WireBackstopPage {
 // means something specific — noted per field.
 
 export interface WireOrdersFrame {
-  /** The orderbook these actions happened on; constant for the frame. Absent on
-   * `pod_activity`, which is one frame per tick and names the book per entity. */
+  /** The orderbook these actions happened on; constant for the frame. */
   book?: Hex;
   /** Deadline (micros) of the batch the actions **landed in**. Half of the resume cursor; `book` is the other half. */
   batch: number;
@@ -289,8 +281,6 @@ export interface WireOrderEntity {
   id: Hex;
   /** Creating transaction, or its parent `submitBatch` envelope. */
   tx: Hex;
-  /** The order's book. Sent here by `pod_activity`, which covers a whole
-   * account; `pod_orders_v2` names it once on the frame instead. */
   book?: Hex;
   /** Index into the frame's `accts`; present iff `accts` is. */
   a?: number;
@@ -357,13 +347,15 @@ export interface WireOrderEvent {
   tb?: WireDecimal;
   /** Total quote filled so far; travels with `tb`. */
   tq?: WireDecimal;
-  /** Total fee charged so far; travels with `tb`. There is no per-fill counterpart. */
+  /** Total fee charged so far; travels with `tb`. */
   tf?: WireDecimal;
+  /** `fill` only: this fill's fee. */
+  f?: WireDecimal;
   /**
    * The terminal status an event closed the order with. On `fill`, only on the fill that
    * closed it. On `cancel`, only when the engine removed the order rather than the owner.
    */
-  st?: "filled" | "canceled" | "margin_canceled" | "expired" | "post_only_refused";
+  st?: WireTerminalStatus;
   /**
    * `fill` on a perp market: the owner's position after this fill, signed and
    * 1e18-scaled. Omitted on spot, which has no position.
@@ -441,80 +433,79 @@ export interface WireWithdrawalDetail {
 
 // --- account activity (ADR 0057) ---
 //
-// `GET /clob/activity/{account}` serves the seed and `pod_activity` streams it.
-// The seed is a union tagged by `activity_type`: the order variant flattens the
-// orders route's `WireOrder`, and every money variant carries exactly the fields
-// its stream event does, so the two decode through one decoder. The channel is
-// `pod_orders_v2`'s frame for a whole account — one frame per tick, with the
-// money the tick moved as extra event kinds.
+// REST pages and `pod_activity` frames are `{ "<batch micros>": [entry, ...] }`; absent fields are absent, never null.
 
-export interface WireActivityPage {
-  activity: WireActivityEntry[];
-  next_cursor: string | null;
-  solution_now: number; // micros
-}
-
-/** What each money kind carries. Shared because the seed row and the stream
- * event differ only in how they are tagged. */
 export interface WireBackstopMoney {
   /** Absent on the terminal cash sweep, which belongs to no market. */
   book?: Hex;
-  size: WireDecimal; // signed
+  sz: WireDecimal; // signed
   cash: WireDecimal; // signed
   mark: WireDecimal;
-  equity: WireDecimal; // signed
+  eq: WireDecimal; // signed
   pnl: WireDecimal; // signed
 }
 
 export interface WireBridgeMoney {
   tx: Hex;
-  /** Position within the transaction: one tx can bridge several amounts, so the
-   * hash alone does not identify the row. */
   idx: number;
-  token: Hex;
-  amount: WireDecimal; // signed
-  error?: string;
+  tok: Hex;
+  amt: WireDecimal; // signed
+  err?: string;
 }
 
 export interface WireTransferMoney {
   id: Hex;
-  token: Hex;
-  amount: WireDecimal; // signed
-  error?: string;
+  /** The receiver when `amt` is negative, the sender otherwise. */
+  cp: Hex;
+  tok: Hex;
+  amt: WireDecimal; // signed
+  err?: string;
 }
 
+type WireTerminalStatus =
+  | "filled" | "canceled" | "margin_canceled" | "self_trade_canceled" | "expired" | "post_only_refused";
+
 /**
- * One activity row. `ts` is what the node sorted the page by — for an order that
- * is its **signed deadline**, not the batch it landed in.
- *
- * Money amounts are signed from the account's side: negative left, positive
- * arrived, for the bridge and for a transfer alike.
+ * An unknown `k` from a newer node is dropped by the decoder; it is not in this union
+ * because an open member would defeat narrowing on the known ones.
  */
 export type WireActivityEntry =
-  | ({ activity_type: "order"; ts: number } & WireOrder)
-  | ({ activity_type: "backstop"; ts: number } & WireBackstopMoney)
-  | ({ activity_type: "bridge_transfer"; ts: number } & WireBridgeMoney)
-  | ({ activity_type: "transfer"; ts: number } & WireTransferMoney);
-
-/**
- * One tick of an account's activity. No `book` — a tick covers every book the
- * account traded on, so each entity names its own — and no `accts`, since the
- * channel takes exactly one account.
- */
-export interface WireActivityFrame {
-  /** Deadline (micros) of the batch. One frame per tick, so this alone is the
-   * resume cursor: a frame is already delivered exactly when `batch <= since`. */
-  batch: number;
-  orders: WireOrderEntity[];
-  events: (WireOrderEvent | WireMoneyEvent)[];
-}
-
-/** Money the tick moved, discriminated by `k` — disjoint from the order kinds,
- * which is what lets the two share one untagged union on the wire. */
-export type WireMoneyEvent =
+  | ({ k: "order" } & WireOrder)
+  | {
+      k: "fill";
+      id: Hex;
+      book: Hex;
+      b: WireDecimal;
+      q: WireDecimal;
+      tb?: WireDecimal;
+      tq?: WireDecimal;
+      tf?: WireDecimal;
+      f?: WireDecimal;
+      st?: WireTerminalStatus;
+      pa?: WireDecimal;
+    }
+  | { k: "modify"; id: Hex; book: Hex; px: WireDecimal; sz: WireDecimal; old_px: WireDecimal; old_sz: WireDecimal }
+  | {
+      k: "termination";
+      id: Hex;
+      book: Hex;
+      st: Exclude<WireTerminalStatus, "filled">;
+    }
   | ({ k: "backstop" } & WireBackstopMoney)
   | ({ k: "bridge_transfer" } & WireBridgeMoney)
-  | ({ k: "transfer" } & WireTransferMoney);
+  | ({ k: "transfer" } & WireTransferMoney)
+  | { k: "modify_reject"; id: Hex; book: Hex; px: WireDecimal; sz: WireDecimal; why: string }
+  | { k: "cancel_reject"; id: Hex; book: Hex; why: string };
+
+/** Entries by batch (micros, decimal string key); the stream sends one key per message. */
+export type WireActivityFrame = Record<string, WireActivityEntry[]>;
+
+export interface WireActivityPage {
+  activity: WireActivityFrame;
+  /** Pass back as `to` for the next, older page; null when the window is exhausted. */
+  next: string | null;
+  solution_now: number; // micros
+}
 
 /** One `/clob/fills/{account}` row: a fill of one order in one batch. */
 export interface WireFillRow {

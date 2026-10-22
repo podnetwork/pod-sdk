@@ -13,7 +13,8 @@
 
 import type { Address, MarketId, MoneyActivity } from "../types/public.js";
 import { div, mul } from "../codec/fixed.js";
-import { dec } from "../codec/units.js";
+import { dec, usToMs } from "../codec/units.js";
+import { decodeActivityEntry } from "../codec/activity.js";
 import type { WireFillRow, WireSolutionRow } from "../types/wire.js";
 import { rpc, type RpcOptions } from "../transport/jsonrpc.js";
 import { PodHttpError, type PodRestClient } from "../transport/rest.js";
@@ -380,15 +381,20 @@ const FLOW_TYPES = ["backstop", "bridge_transfer", "transfer"] as const;
 
 /** Money movements in [fromUs, toUs) from the activity feed, or `undefined`
  * when the node does not serve it. */
-async function drainFlows(rest: PodRestClient, account: Address, fromUs: number, toUs: number): Promise<MoneyActivity[] | undefined> {
+async function drainFlows(rest: PodRestClient, account: Address, fromUs: number, toUsExclusive: number): Promise<MoneyActivity[] | undefined> {
   const out: MoneyActivity[] = [];
-  let cursor: string | undefined;
+  let toUs: number | null = toUsExclusive - 1;
   try {
     do {
-      const page = await rest.activity(account, { types: [...FLOW_TYPES], from: fromUs / 1000, to: toUs / 1000, limit: 200, cursor });
-      for (const e of page.activity) if (e.activityType !== "order") out.push(e);
-      cursor = page.nextCursor ?? undefined;
-    } while (cursor);
+      const page = await rest.activity(account, { types: [...FLOW_TYPES], fromUs, toUs, limit: 500 });
+      for (const [batchUs, entries] of page.batches) {
+        for (const e of entries) {
+          if (e.k !== "backstop" && e.k !== "bridge_transfer" && e.k !== "transfer") continue;
+          out.push(decodeActivityEntry(e, usToMs(batchUs)) as MoneyActivity);
+        }
+      }
+      toUs = page.nextUs;
+    } while (toUs !== null);
   } catch (e) {
     // Only a missing route means the node has no feed. Anything else (a 503,
     // a timeout) must fail the run, or the range would be cached without

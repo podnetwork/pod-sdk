@@ -35,7 +35,7 @@ export {
 export type { SeriesResource } from "./sync/candles.js";
 export { CandleSeries } from "./sync/candles.js";
 export { OrderHistory } from "./sync/orders.js";
-export { ActivityHistory } from "./sync/activity.js";
+export { ActivityHistory, type ActivityView } from "./sync/activity.js";
 export {
   fetchPnlHistory, streamPnlHistory, PnlHistoryCache,
   type PnlHistory, type PnlHistoryChunk, type PnlHistoryDeps, type PnlHistoryQuery, type PnlPoint,
@@ -46,6 +46,7 @@ export { createPodDatafeed } from "./datafeed.js";
 
 // Public data types
 export * from "./types/public.js";
+export type { WireActivityEntry, WireActivityFrame } from "./types/wire.js";
 
 // Codec helpers
 export {

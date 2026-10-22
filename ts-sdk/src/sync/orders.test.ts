@@ -5,7 +5,7 @@
 // This is the mirror of `already_delivered` in `node/src/rpc/orders_v2.rs`:
 // `(frame_batch, frame_book) <= (since, since_book.unwrap_or(0xff…))`. If the two
 // sides disagree, the server re-sends frames the client has applied, and applying a
-// frame twice appends its fills twice.
+// frame twice re-applies its events.
 
 import { describe, expect, it } from "vitest";
 

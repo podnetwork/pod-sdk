@@ -20,7 +20,7 @@ export type OrderSide = "buy" | "sell";
 export type OrderType = "limit" | "market";
 export type OrderStatus =
   | "pending" | "active" | "filled" | "expired"
-  | "canceled" | "margin_canceled" | "invalid" | "post_only_refused";
+  | "canceled" | "margin_canceled" | "self_trade_canceled" | "invalid" | "post_only_refused";
 export type OrderKind =
   | "user_signed" | "liquidation" | "triggered" | "adl" | "adl_counterparty"
   /** A backstop transfer merged into the order feed as a synthetic terminal row. */
@@ -76,20 +76,21 @@ export interface AmendRejection {
    * Absent when the stream names a single account.
    */
   requestedBy?: Address;
-  /** The batch the refusal landed in (ms). */
   batchMs: number;
 }
 
 /** What the engine did to an order, as `pod_orders_v2` reports it (ADR 0029 §3). */
 export type OrderEventKind =
-  | "new" | "reject" | "fill" | "cancel" | "expire" | "modify" | "modify_reject";
+  | "new" | "reject" | "fill" | "cancel" | "expire" | "modify" | "modify_reject" | "cancel_reject";
 
 /**
  * The statuses an order can *close* with. Narrower than `OrderStatus`, which also
  * covers the states a live order passes through — so a `switch` over this one can be
  * exhaustive.
  */
-export type TerminalStatus = Extract<OrderStatus, "filled" | "canceled" | "margin_canceled" | "expired" | "post_only_refused">;
+export type TerminalStatus = Extract<
+  OrderStatus, "filled" | "canceled" | "margin_canceled" | "self_trade_canceled" | "expired" | "post_only_refused"
+>;
 
 /** One fill, plus the status it closed the order with when it did. */
 export interface OrderEventFill extends PartialFill {
@@ -110,6 +111,8 @@ export interface OrderEventFill extends PartialFill {
    * 0029 §6 reserves a `why` for that), so do not try to re-derive it from `status`.
    */
   closedAs?: TerminalStatus;
+  /** This fill's fee; absent on activity rows stored before it was recorded. */
+  fee?: bigint;
 }
 
 /**
@@ -149,6 +152,16 @@ export interface OrderEvent {
    * from REST.
    */
   amendRejection?: AmendRejection;
+  /** `cancel_reject` only. */
+  cancelRejection?: CancelRejection;
+}
+
+/** A cancel the engine refused; the order is untouched. */
+export interface CancelRejection {
+  code: RejectCode;
+  message?: string;
+  /** The batch the refusal landed in (ms). */
+  batchMs: number;
 }
 
 export interface TokenInfo {
@@ -277,7 +290,6 @@ export interface Order {
   endMs?: number;
   /** Batch-inclusion time (ms) — when the order entered the book. */
   includedMs?: number;
-  fills: PartialFill[];
   /** Why the engine rejected the order; set only on `status: "invalid"`. */
   rejectReason?: string;
   // perpetual-only
@@ -451,21 +463,53 @@ export interface CandleQuery {
   limit?: number;
 }
 
-export type ActivityType = "order" | "backstop" | "bridge_transfer" | "transfer";
+export type ActivityType =
+  | "order" | "fill" | "modify" | "termination" | "backstop" | "bridge_transfer" | "transfer"
+  | "modify_reject" | "cancel_reject";
 
 /**
- * One row of an account's activity (ADR 0057): an order at its placement tick,
- * or money that moved.
- *
- * `timeMs` is what the row is ordered by. Fills, cancels and amendments are not
- * rows — they are events on the stream, and the order an `order` row carries
- * already reflects them.
- *
- * Money amounts are signed from the account's side — negative left, positive
- * arrived — and say nothing about the other end.
+ * One row of an account's activity (ADR 0057). Money amounts are signed from the
+ * account's side: negative left, positive arrived.
  */
 export type ActivityEntry =
+  /** The placement, carrying the order as every later row seen so far left it. */
   | { activityType: "order"; timeMs: number; order: Order }
+  | {
+      activityType: "fill";
+      timeMs: number;
+      orderId: Hash;
+      orderbookId: MarketId;
+      /** This fill alone. */
+      base: bigint;
+      quote: bigint;
+      /** Life-to-date totals; absent only on rows stored before they were recorded. */
+      totalBase?: bigint;
+      totalQuote?: bigint;
+      totalFee?: bigint;
+      /** This fill's fee; absent on rows stored before it was recorded. */
+      fee?: bigint;
+      closedAs?: TerminalStatus;
+      /** Perp only; signed. */
+      positionAfter?: bigint;
+    }
+  | {
+      activityType: "modify";
+      timeMs: number;
+      orderId: Hash;
+      orderbookId: MarketId;
+      price: bigint;
+      /** Unsigned magnitude. */
+      size: bigint;
+      oldPrice: bigint;
+      oldSize: bigint;
+    }
+  | {
+      activityType: "termination";
+      timeMs: number;
+      orderId: Hash;
+      orderbookId: MarketId;
+      status: TerminalStatus;
+    }
   | (BackstopTransfer & { activityType: "backstop"; timeMs: number })
   | {
       activityType: "bridge_transfer";
@@ -483,13 +527,33 @@ export type ActivityEntry =
       activityType: "transfer";
       timeMs: number;
       transferId: Hash;
+      /** The receiver when `amount` is negative, the sender otherwise; the account itself on a self-transfer. */
+      counterparty: Address;
       token: Address;
       amount: bigint;
       error?: string;
+    }
+  /** An amendment the engine refused; `message` is the engine's reason. */
+  | {
+      activityType: "modify_reject";
+      timeMs: number;
+      orderId: Hash;
+      orderbookId: MarketId;
+      requestedPrice: bigint;
+      requestedSize: bigint;
+      message: string;
+    }
+  /** A cancel the engine refused; `message` is the engine's reason. */
+  | {
+      activityType: "cancel_reject";
+      timeMs: number;
+      orderId: Hash;
+      orderbookId: MarketId;
+      message: string;
     };
 
-/** The activity rows that are not orders. */
-export type MoneyActivity = Exclude<ActivityEntry, { activityType: "order" }>;
+/** The activity rows that move money. */
+export type MoneyActivity = Extract<ActivityEntry, { activityType: "backstop" | "bridge_transfer" | "transfer" }>;
 
 /**
  * What the stream reported in one tick: the order transitions, and the money
@@ -501,14 +565,13 @@ export type MoneyActivity = Exclude<ActivityEntry, { activityType: "order" }>;
 export type ActivityEvent = OrderEvent | MoneyActivity;
 
 /**
- * `from` and `to` are milliseconds; `limit` is a row count, not a span of time.
- * `types` names the kinds to keep — absent or empty keeps every kind.
+ * `from` and `to` are milliseconds, both inclusive. `types` names the kinds to
+ * keep — absent or empty keeps every kind.
  */
 export interface ActivityQuery {
   types?: ActivityType[];
   from?: number;
   to?: number;
-  limit?: number;
 }
 
 export interface OrdersQuery {

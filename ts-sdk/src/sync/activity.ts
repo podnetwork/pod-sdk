@@ -1,95 +1,47 @@
-// ActivityHistory: one account's whole activity (ADR 0057) — `OrderHistory`
-// widened to the money the account moved. Seeded from the first REST page, kept
-// live by `pod_activity`, paged backwards by cursor.
-//
-// The cursor is the batch alone. `pod_activity` sends one frame per tick,
-// covering every book, so a frame is already delivered exactly when its batch is
-// at or below `since` — there is no `sinceBook` to resume inside a tick with.
+// `pod_activity` sends one batch per tick, so the batch alone is the resume cursor (ADR 0057).
 
 import type {
-  ActivityEntry, ActivityEvent, ActivityQuery, Address, MoneyActivity, Order,
+  ActivityEntry, ActivityEvent, ActivityQuery, ActivityType, Address, Order, OrderEventKind,
 } from "../types/public.js";
-import type { WireActivityFrame } from "../types/wire.js";
-import { applyActivityFrame, isMoney } from "../codec/activity.js";
-import { msToUs, usToMs } from "../codec/units.js";
+import type { WireActivityEntry } from "../types/wire.js";
+import { foldActivityBatch } from "../codec/activity.js";
+import { msToUs } from "../codec/units.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
+import type { ActivityPage } from "../transport/rest.js";
 import type { SubParams } from "../transport/ws.js";
 import type { SeriesResource } from "./candles.js";
 import type { SyncContext } from "./sources.js";
-import { compareCursor, ResumableStream } from "./stream.js";
+import { ResumableStream } from "./stream.js";
 
-/**
- * No types is no filter, and an empty list says the same thing. One form, so REST,
- * `keep()` and the client's memo key cannot read the same query three ways.
- */
-export function normalizeActivityQuery(query: ActivityQuery = {}): ActivityQuery {
-  return query.types?.length ? query : { ...query, types: undefined };
+export interface ActivityView extends SeriesResource<ActivityEntry> {
+  onEvent(listener: (events: ActivityEvent[]) => void): () => void;
 }
 
-/** The node's page order within a tick: `(timestamp, ordinal, key)` descending. */
-const ORDINAL = { order: 1, backstop: 2, bridge_transfer: 3, transfer: 4 } as const;
-
-/**
- * A money row's identity, read off the row itself — so the same row keys the same
- * whichever page it arrives on and however many of its kind share its tick. A
- * backstop leg has no id of its own, but a sweep touches each market once.
- */
-function moneyKey(entry: MoneyActivity): string {
-  switch (entry.activityType) {
-    case "transfer": return `transfer:${entry.transferId}`;
-    case "bridge_transfer": return `bridge:${entry.txHash}:${entry.idx}`;
-    case "backstop": return `backstop:${entry.timeMs}:${entry.orderbookId ?? "cash"}`;
-  }
-}
-
-const cmp = (a: string, b: string): number => a < b ? -1 : a > b ? 1 : 0;
-
-/**
- * Separate two rows the tick and the ordinal cannot. Insertion order would do it
- * for one source alone, but a tick that arrives as a frame and a tick that arrives
- * as a page are built in different orders, and a reload must not reshuffle the list.
- */
-function tiebreak(a: ActivityEntry, b: ActivityEntry): number {
-  if (a.activityType === "order" && b.activityType === "order") {
-    return b.order.nonce - a.order.nonce || cmp(a.order.id, b.order.id);
-  }
-  // Equal ordinals, so neither is an order.
-  return cmp(moneyKey(a as MoneyActivity), moneyKey(b as MoneyActivity));
-}
-
-export class ActivityHistory implements SeriesResource<ActivityEntry> {
+/** One account's whole feed: the one subscription, batch map and paging state its views share. */
+export class ActivityHistory implements ActivityView {
   private readonly base: BaseResource<ActivityEntry[]>;
   private handle: ResourceHandle<ActivityEntry[]> | undefined;
+  /** Every batch's rows, from either source; what dedupes one against the other. */
+  private readonly batches = new Map<number, ActivityEntry[]>();
   private readonly orders = new Map<string, Order>();
-  /**
-   * When each order was reported, by order id. Kept beside the row rather than on
-   * it: the node times an order by its signed deadline, which no frame carries, so
-   * neither a later frame nor a re-seed must be able to retime a row already placed.
-   */
-  private readonly orderTimeMs = new Map<string, number>();
-  /** The money rows, by {@link moneyKey}. */
-  private readonly money = new Map<string, ActivityEntry>();
-  private nextCursor: string | null = null;
-  private painted = false;
+  private rows: ActivityEntry[] = [];
+  private nextUs: number | null = null;
   private seedGen = 0;
   private _hasMore = true;
   private _loading = false;
   private readonly eventListeners = new Set<(events: ActivityEvent[]) => void>();
   private readonly stream: ResumableStream;
-
-  private readonly query: ActivityQuery;
+  private readonly views = new Map<string, FilteredActivity>();
 
   constructor(
     private readonly ctx: SyncContext,
     private readonly account: Address,
-    query: ActivityQuery = {},
   ) {
-    this.query = normalizeActivityQuery(query);
     this.stream = new ResumableStream({
       ws: ctx.ws,
       channel: "pod_activity",
       params: { account },
-      reseed: () => this.fetchFirstPage(),
+      reseed: () => this.seed(),
       onFrame: (r) => this.onFrame(r),
     });
     this.base = new BaseResource<ActivityEntry[]>((h) => {
@@ -110,67 +62,73 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
   loading(): boolean { return this._loading; }
   destroy(): void { this.base.destroy(); }
 
+  /** The rows of `types` whose `timeMs` is within inclusive `from`/`to`. */
+  view(query: ActivityQuery): ActivityView {
+    // An empty `types` is no filter; sorted, since key order is an argument's accident.
+    const q = query.types?.length ? query : { ...query, types: undefined };
+    const key = JSON.stringify(q, Object.keys(q).sort());
+    let view = this.views.get(key);
+    if (!view) this.views.set(key, view = new FilteredActivity(this, q));
+    return view;
+  }
+
   /**
    * Observe what the stream reported, a tick at a time: the order transitions and
-   * the money that moved. Nothing is emitted for the REST seed.
+   * the money that moved. Nothing is emitted for REST pages.
    */
   onEvent(listener: (events: ActivityEvent[]) => void): () => void {
     this.eventListeners.add(listener);
-    // Listening starts the stream, like subscribing does — the resource is
-    // ref-counted from `subscribe`/`ready` alone.
+    // Listening starts the stream, like subscribing does.
     const release = this.base.subscribe(() => {});
     return () => { this.eventListeners.delete(listener); release(); };
   }
 
-  setWindow(): void { /* activity pages by cursor, not by time window */ }
+  setWindow(): void { /* activity pages by batch, not by time window */ }
 
   async loadOlder(): Promise<void> {
-    if (!this.handle || !this.nextCursor || this._loading) return;
+    if (!this.handle || this.nextUs === null || this._loading) return;
     this._loading = true;
     this.rebuild();
     try {
-      const page = await this.ctx.rest.activity(this.account, {
-        ...this.restQuery(),
-        cursor: this.nextCursor,
-      });
-      this.absorb(page.activity, false);
-      this.nextCursor = page.nextCursor;
-      this._hasMore = page.nextCursor !== null;
+      const page = await this.ctx.rest.activity(this.account, { toUs: this.nextUs });
+      this.store([page]);
+      this.nextUs = page.nextUs;
+      this._hasMore = page.nextUs !== null;
+      this.restack();
     } finally {
       this._loading = false;
       this.rebuild();
     }
   }
 
-  // --- internals ---
-
-  private restQuery() {
-    return { ...this.query, limit: this.query.limit ?? 100 };
-  }
-
-  private async fetchFirstPage(): Promise<boolean> {
+  private async seed(): Promise<boolean> {
     const gen = ++this.seedGen;
-    const before = this.stream.cursor;
+    const since = this.stream.cursor.since;
+    const stale = () => !this.stream.running || gen !== this.seedGen;
     try {
-      const page = await this.ctx.rest.activity(this.account, this.restQuery());
-      // A seed overtaken by a fresher one is dropped whole: it would absorb rows the
-      // newer page has already corrected, and raise the cursor to an older watermark.
-      if (!this.stream.running || gen !== this.seedGen) return false;
-      // Replayed frames can land while this is in flight, and the indexer trails the
-      // stream by design. Overwriting a row the stream has already advanced would
-      // revert it permanently: the cursor refuses to rewind and `onFrame` drops a
-      // re-delivery, so nothing would repair it.
-      this.absorb(page.activity, compareCursor(this.stream.cursor, before) <= 0);
-      // Paging is the consumer's position in history, not the seed's: a reconnect
-      // re-paints the first page, and taking its cursor again would hand back pages
-      // `loadOlder` has already walked past.
-      if (!this.painted) {
-        this.painted = true;
-        this.nextCursor = page.nextCursor;
-        this._hasMore = page.nextCursor !== null;
+      if (since === undefined) {
+        const page = await this.ctx.rest.activity(this.account);
+        if (stale()) return false;
+        this.store([page]);
+        this.nextUs = page.nextUs;
+        this._hasMore = page.nextUs !== null;
+        this.restack();
+        this.stream.raise({ since: msToUs(page.solutionNow) });
+        return true;
       }
-      this.stream.raise({ since: msToUs(page.solutionNow) });
-      this.rebuild();
+      // A reconnect: fill the gap above the cursor, and keep the consumer's paging position.
+      const fromUs = since + 1;
+      let toUs: number | undefined;
+      const pages: ActivityPage[] = [];
+      do {
+        const page = await this.ctx.rest.activity(this.account, { fromUs, toUs });
+        if (stale()) return false;
+        pages.push(page);
+        toUs = page.nextUs ?? undefined;
+      } while (toUs !== undefined);
+      this.store(pages);
+      this.restack();
+      for (const page of pages) this.stream.raise({ since: msToUs(page.solutionNow) });
       return true;
     } catch (e) {
       // Only before the first paint: an account whose history is genuinely empty has
@@ -180,46 +138,33 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
     }
   }
 
-  private absorb(entries: ActivityEntry[], overwriteOrders: boolean): void {
-    for (const entry of entries) {
-      if (entry.activityType === "order") {
-        if (!overwriteOrders && this.orders.has(entry.order.id)) continue;
-        this.orders.set(entry.order.id, entry.order);
-        // Only the source that first reported the order gets to time it. A re-seed
-        // carries the node's row time for an order the stream already placed by its
-        // batch, and taking it would move the row on every reconnect.
-        if (!this.orderTimeMs.has(entry.order.id)) this.orderTimeMs.set(entry.order.id, entry.timeMs);
-        continue;
-      }
-      const key = moneyKey(entry);
-      if (!this.money.has(key)) this.money.set(key, entry);
+  /** Oldest batch first, so transitions to held orders land in order; a batch already held is skipped. */
+  private store(pages: ActivityPage[]): void {
+    const fresh = pages.flatMap((p) => p.batches).filter(([batchUs]) => !this.batches.has(batchUs));
+    const pageOrders = new Set(fresh.flatMap(([, entries]) => entries.flatMap((e) => (e.k === "order" ? [e.order_id] : []))));
+    for (const [batchUs, entries] of fresh.sort((a, b) => a[0] - b[0])) {
+      this.batches.set(batchUs, foldActivityBatch(batchUs, entries, this.orders, { pageOrders }).rows);
     }
   }
 
-  /** One frame: everything that happened to the account in one auction batch. */
   private onFrame(result: unknown): void {
-    const frame = result as WireActivityFrame;
-    if (!frame || !Array.isArray(frame.orders) || !Array.isArray(frame.events)) return;
-    // Applying a frame is not idempotent — a fill appends to `order.fills` — and
-    // re-delivery is designed in: a resumed subscription replays from the cursor.
-    const at: SubParams = { since: frame.batch };
+    if (!result || typeof result !== "object") return;
+    const keys = Object.keys(result);
+    if (keys.length !== 1) return;
+    const key = keys[0]!;
+    const entries = (result as Record<string, unknown>)[key];
+    const batchUs = Number(key);
+    if (!Array.isArray(entries) || !Number.isSafeInteger(batchUs)) return;
+    // Folding is not idempotent (events would be reported twice) and a resume replays from the cursor.
+    const at: SubParams = { since: batchUs };
     if (this.stream.delivered(at)) return;
-    const kept = this.keep(frame);
-    if (!kept) return;
-
-    const entries: ActivityEntry[] = [];
-    const events = applyActivityFrame(kept, { orders: this.orders, entries }, {
-      account: this.account,
-    });
-    // An order the stream is the first to report is timed by its batch; one the
-    // seed already placed keeps the time the node gave it.
-    const batchMs = usToMs(kept.batch);
-    for (const o of kept.orders) if (!this.orderTimeMs.has(o.id)) this.orderTimeMs.set(o.id, batchMs);
-    this.absorb(entries, false);
     this.stream.advance(at);
+    if (!entries.length || this.batches.has(batchUs)) return;
+    const { rows, events } = foldActivityBatch(batchUs, entries as WireActivityEntry[], this.orders, "stream");
+    this.batches.set(batchUs, rows);
+    this.rows = [...rows, ...this.rows];
+    // Listeners run after rebuild() so one that reads the resource sees what the event produced.
     this.rebuild();
-    // Strictly after `rebuild()`: a listener that reads the resource in response to an
-    // event must see the state that event produced.
     if (events.length) {
       for (const listener of this.eventListeners) {
         try { listener(events); } catch { /* a listener's failure is not the stream's */ }
@@ -227,40 +172,69 @@ export class ActivityHistory implements SeriesResource<ActivityEntry> {
     }
   }
 
-  /**
-   * Narrow a frame to what the query asked for, or drop it. REST filters both the
-   * kinds and the window server-side; the stream filters neither.
-   */
-  private keep(frame: WireActivityFrame): WireActivityFrame | undefined {
-    const { types, from, to } = this.query;
-    if (from !== undefined && frame.batch < msToUs(from)) return undefined;
-    if (to !== undefined && frame.batch >= msToUs(to)) return undefined;
-    if (!types) return frame;
-    const want = new Set<string>(types);
-    return {
-      ...frame,
-      // The order events index `orders`, so the two are kept or dropped together.
-      orders: want.has("order") ? frame.orders : [],
-      events: frame.events.filter((e) => want.has(isMoney(e.k) ? e.k : "order")),
-    };
+  /** Rows newest batch first, wire order within a batch. */
+  private restack(): void {
+    this.rows = [...this.batches.keys()].sort((a, b) => b - a).flatMap((b) => this.batches.get(b)!);
+    this.rebuild();
   }
 
   private rebuild(): void {
-    if (!this.handle) return;
-    const arr: ActivityEntry[] = new Array(this.orders.size + this.money.size);
-    let i = 0;
-    for (const [id, order] of this.orders) {
-      arr[i++] = {
-        activityType: "order",
-        timeMs: this.orderTimeMs.get(id) ?? Number.MAX_SAFE_INTEGER,
-        order,
-      };
+    this.handle?.set(this.rows.slice());
+  }
+}
+
+const EVENT_TYPE: Record<OrderEventKind, ActivityType> = {
+  new: "order", reject: "order", modify_reject: "modify_reject", cancel_reject: "cancel_reject",
+  fill: "fill", modify: "modify", cancel: "termination", expire: "termination",
+};
+
+class FilteredActivity implements ActivityView {
+  private readonly want: Set<ActivityType> | undefined;
+  private held: ActivityEntry[] | undefined;
+  private shown: ActivityEntry[] | undefined;
+
+  constructor(private readonly parent: ActivityHistory, private readonly query: ActivityQuery) {
+    this.want = query.types && new Set(query.types);
+  }
+
+  get(): ActivityEntry[] | undefined {
+    const rows = this.parent.get();
+    if (rows !== this.held) {
+      this.held = rows;
+      this.shown = rows?.filter((r) => this.keeps(r));
     }
-    for (const entry of this.money.values()) arr[i++] = entry;
-    arr.sort((a, b) =>
-      b.timeMs - a.timeMs
-      || ORDINAL[b.activityType] - ORDINAL[a.activityType]
-      || tiebreak(a, b));
-    this.handle.set(arr);
+    return this.shown;
+  }
+
+  subscribe(listener: () => void): () => void { return this.parent.subscribe(listener); }
+  async ready(): Promise<ActivityEntry[]> { return (await this.parent.ready()).filter((r) => this.keeps(r)); }
+  get error(): Error | undefined { return this.parent.error; }
+  loading(): boolean { return this.parent.loading(); }
+  setWindow(): void { /* a view's window is its query */ }
+
+  hasMore(): boolean {
+    const oldest = this.parent.get()?.at(-1)?.timeMs;
+    const floor = this.query.from;
+    return this.parent.hasMore() && (floor === undefined || oldest === undefined || oldest > floor);
+  }
+
+  async loadOlder(): Promise<void> {
+    if (this.hasMore()) await this.parent.loadOlder();
+  }
+
+  onEvent(listener: (events: ActivityEvent[]) => void): () => void {
+    const want = this.want;
+    if (!want) return this.parent.onEvent(listener);
+    return this.parent.onEvent((events) => {
+      const kept = events.filter((e) => want.has("activityType" in e ? e.activityType : EVENT_TYPE[e.kind]));
+      if (kept.length) listener(kept);
+    });
+  }
+
+  private keeps(r: ActivityEntry): boolean {
+    const { from, to } = this.query;
+    if (from !== undefined && r.timeMs < from) return false;
+    if (to !== undefined && r.timeMs > to) return false;
+    return !this.want || this.want.has(r.activityType);
   }
 }

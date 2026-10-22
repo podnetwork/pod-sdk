@@ -57,9 +57,13 @@ const ob = useSyncExternalStore(
   `.backstopTransfers(account)`, `.candles(id, resolution, range)` (a
   `SeriesResource` with `setWindow`/`loadOlder`), `.orders(account, query)`,
   `.bridgeConfig`, `.withdrawals(account)`.
-- **Activity (ADR 0057):** `client.activity(account, query)` — one account's
-  orders and the money it moved in one cursor-paged, `onEvent`-observable feed;
-  `.orders(account)` is the narrower view it replaces.
+- **Activity (ADR 0057):** `client.activity(account)` — one feed per account:
+  every kind of its activity (placements, fills, amendments, terminations,
+  money) as rows, newest first, from one subscription; an order row is the order
+  as `/clob/orders` serves it, without nested fills. `.view({ types, from, to })`
+  (or `client.activity(account, query)`) filters those rows and events without a
+  feed of its own. `loadOlder()` pages back by whole batches (a page can exceed
+  the node's `limit` by its newest batch), `onEvent` reports live transitions.
 - **Charting:** `createPodDatafeed(client)` returns an `IDatafeedChartApi`-shaped
   object for the TradingView Charting Library (framework-agnostic, no React).
 
