@@ -1,0 +1,113 @@
+[package]
+name = "pod-types-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1.4.2", features = ["derive"] }
+serde_json = "1.0"
+bincode = { version = "2.0.1", features = ["serde"] }
+base64 = "0.22.1"
+hex = "0.4.3"
+bytes = "1.11"
+alloy-rlp = "0.3.15"
+
+[dependencies.pod-types]
+path = ".."
+features = ["arbitrary"]
+
+# The fuzz crate is deliberately its own workspace so it doesn't join the
+# pod-sdk workspace (fuzz targets are nightly-only and not part of normal builds).
+[workspace]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "merkle_build_prove"
+path = "fuzz_targets/merkle_build_prove.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "merkle_proof_soundness"
+path = "fuzz_targets/merkle_proof_soundness.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "merkle_verify"
+path = "fuzz_targets/merkle_verify.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "transaction_decode"
+path = "fuzz_targets/transaction_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "transaction_roundtrip"
+path = "fuzz_targets/transaction_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "signed_tx_serde"
+path = "fuzz_targets/signed_tx_serde.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "signed_tx_deserialize"
+path = "fuzz_targets/signed_tx_deserialize.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "receipt_serde"
+path = "fuzz_targets/receipt_serde.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "timestamp_parse"
+path = "fuzz_targets/timestamp_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "pagination_cursor"
+path = "fuzz_targets/pagination_cursor.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "calldata_serde"
+path = "fuzz_targets/calldata_serde.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "log_filter_serde"
+path = "fuzz_targets/log_filter_serde.rs"
+test = false
+doc = false
+bench = false
