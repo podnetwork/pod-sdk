@@ -15,23 +15,25 @@ Responses carry a `Cache-Control` header:
 
 | Header                                | Routes                                                                                                                                    |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `public, max-age=31536000, immutable` | `candles` once every bucket of the requested window has closed; `orders` and `activity` once the page's upper bound has been reached by solution time and every order on it is terminal. |
+| `public, max-age=31536000, immutable` | `candles` once every bucket of the requested window has closed; `orders` once the page's upper bound has been reached by solution time and every order on it is terminal; `activity` once `to` is at or below `solution_now`. |
 | `public, max-age=60`                  | `markets`.                                                                                                                                |
 | `no-store`                            | Everything else under `/v1/clob`, `/v1/tx` and `/v1/transactions`, and the cases above that are not yet final.                            |
 
 Bridge routes set no `Cache-Control` header.
 
-To get a cacheable page, bound it in the past: pass `to` on `candles` and `activity`, and `until` or a `cursor` on `orders`.
+To get a cacheable page, bound it in the past: pass `to` on `candles` and `activity` (an `activity` page's `next` is the `to` for the older page), and `until` or a `cursor` on `orders`.
+
+An `activity` page holds whole batches: `limit` counts entries, but the newest batch is always served whole, so a page can exceed `limit` when one batch alone holds more.
 
 ### Encodings
 
 | Value                                 | Encoding                                                               |
 | ------------------------------------- | ---------------------------------------------------------------------- |
 | Addresses, hashes, orderbook ids      | `0x` hex. Orderbook ids are always the full 32 bytes.                  |
-| Timestamps                            | Microseconds, as JSON numbers — except order and trigger `deadline`, which is a decimal string. |
-| Unsigned amounts and prices (1e18)    | `0x` hex on `candles`, `orderbook` (price-level keys are decimal strings), `solutions`, `orders`, `fills`, `positions`, `balances`, `triggers`, the `order` entries of `activity`, and the bridge routes. |
+| Timestamps                            | Microseconds, as JSON numbers — except order and trigger `deadline`, and the `activity` batch keys, `next` and `end`, which are decimal strings. |
+| Unsigned amounts and prices (1e18)    | `0x` hex on `candles`, `orderbook` (price-level keys are decimal strings), `solutions`, `orders`, `fills`, `positions`, `balances`, `triggers`, and the bridge routes. |
 | Signed amounts (sizes, PnL, funding)  | Decimal strings everywhere.                                            |
-| `markets`, `markets/stats`, `backstop-transfers`, non-order `activity` entries | Every amount and price is a decimal string.   |
+| `markets`, `markets/stats`, `backstop-transfers`, `activity` | Every amount and price is a decimal string.   |
 | Bridge `proof`, `aux_tx_suffix`       | JSON arrays of byte values.                                            |
 
 Query parameters follow their route: `candles` `from`/`to` and `orders` `until` are unix seconds; every other time parameter is microseconds.
