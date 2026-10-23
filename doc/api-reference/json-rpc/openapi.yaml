@@ -858,7 +858,10 @@ paths:
         The amount withdrawable now is the orderbook contract's `withdrawableBalance(token, account)`
         (via `eth_call`), or `withdrawable_cash` from `ob_getPositions`.
 
-        The `block_number` parameter is accepted for Ethereum compatibility but is ignored.
+        A numeric block is the lowest block the client accepts: the node answers once its
+        flushed block tip reaches it, waiting up to its wait (default 2s, `POD_RPC_TIMESTAMP_WAIT`),
+        else it answers error `995` with its current block height as `data`. Tags answer at once.
+        The value returned is the current state; there is no per-block history.
       requestBody:
         content:
           application/json:
@@ -874,7 +877,7 @@ paths:
                   description: |
                     Parameters:
                     1. `address` (address): The address to check balance for
-                    2. `block_number` (string): Block identifier (accepted but ignored)
+                    2. `block_number` (string): A tag, or a block number: the lowest block the client accepts
                   items:
                     anyOf:
                       - $ref: '#/components/schemas/Address'
@@ -976,6 +979,11 @@ paths:
         yet finalized transactions. Every other tag (`latest`, `safe`, `finalized`, `earliest`, or a
         block number) returns the finalized nonce. A tag that does not parse is rejected with
         invalid params.
+
+        A numeric block is the lowest block the client accepts: the node answers once its
+        flushed block tip reaches it, waiting up to its wait (default 2s, `POD_RPC_TIMESTAMP_WAIT`),
+        else it answers error `995` with its current block height as `data`. Tags answer at once.
+        The value returned is the current state; there is no per-block history.
       requestBody:
         content:
           application/json:
@@ -991,7 +999,7 @@ paths:
                   description: |
                     Parameters:
                     1. `address` (address): The address to get nonce for
-                    2. `block_tag` (string): `pending` for the next nonce including in-flight transactions; any other tag or block number for the committed nonce
+                    2. `block_tag` (string): `pending` for the next nonce including in-flight transactions; any other tag or block number for the committed nonce; a block number is the lowest block the client accepts
                   example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", "pending"]
       responses:
         '200':
