@@ -6,9 +6,11 @@ import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { stringifyBig } from "../codec/json.js";
 import type { Address, Balances, Market, PositionsSnapshot } from "../types/public.js";
 import { BaseResource, type ResourceSource } from "../stores/resource.js";
-import { PodRestClient } from "../transport/rest.js";
+import { PodBehindError, PodRestClient } from "../transport/rest.js";
+import { PodWsClient, type WebSocketCtor } from "../transport/ws.js";
 import {
-  balancesSource, marketsSource, positionsSource, triggersSource, watermarks, type SyncContext,
+  balancesSource, marketsSource, MAX_SUB_RETRIES, positionsSource, readAtLeast, triggersSource, watermarks,
+  type SyncContext,
 } from "./sources.js";
 
 const market = (id: `0x${string}`, name: string): Market => ({
@@ -214,7 +216,7 @@ describe("watermarks", () => {
 });
 
 describe("positionsSource", () => {
-  it("keeps a pushed snapshot over a REST poll from a lagging node", async () => {
+  it("keeps a pushed snapshot over a REST poll that lands later", async () => {
     const { ws, subs } = fakeWs();
     let resolve!: (s: PositionsSnapshot) => void;
     const rest = { positions: () => new Promise<PositionsSnapshot>((r) => { resolve = r; }) };
@@ -224,6 +226,39 @@ describe("positionsSource", () => {
     resolve(positions(1_000, 1n));
     await flush();
     expect(r.get()!.cash).toBe(7n);
+  });
+
+  it("resubscribes from the timestamp of the snapshot it holds", async () => {
+    vi.useFakeTimers();
+    const sockets: Socket[] = [];
+    class Socket {
+      sent: { id: number; method: string; params: unknown[] }[] = [];
+      onopen?: () => void;
+      onmessage?: (ev: { data: string }) => void;
+      onclose?: () => void;
+      constructor() { sockets.push(this); setTimeout(() => this.onopen?.(), 0); }
+      send(raw: string) { this.sent.push(JSON.parse(raw)); }
+      close() { this.onclose?.(); }
+    }
+    const ws = new PodWsClient({ wsUrl: "ws://test", WebSocket: Socket as unknown as WebSocketCtor, idleTimeoutMs: 3_600_000 });
+    onTestFinished(() => ws.close());
+    const rest = { positions: () => new Promise(() => {}) };
+    start(positionsSource(ctx(rest, ws), ACCT));
+    await vi.advanceTimersByTimeAsync(0);
+
+    const first = sockets[0]!;
+    const req = first.sent.find((m) => m.method === "eth_subscribe")!;
+    expect(req.params[1]).toMatchObject({ since: 0 });
+    first.onmessage!({ data: JSON.stringify({ jsonrpc: "2.0", id: req.id, result: "0xs" }) });
+    first.onmessage!({ data: JSON.stringify({
+      jsonrpc: "2.0", method: "eth_subscription",
+      params: { subscription: "0xs", result: { account: ACCT, data: wirePositions(2_000, "7") } },
+    }) });
+    first.close();
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    const again = sockets[1]!.sent.find((m) => m.method === "eth_subscribe")!;
+    expect(again.params).toEqual(["pod_positions", { account: ACCT, since: 2_000 }]);
   });
 });
 
@@ -237,7 +272,7 @@ describe("balancesSource", () => {
     expect(r.get()!.holdings).toEqual([expect.objectContaining({ orderbookId: MKT, balance: 3n, baseSymbol: "B" })]);
   });
 
-  it("keeps a pushed snapshot over a REST seed from a lagging node", async () => {
+  it("keeps a pushed snapshot over a REST seed that lands later", async () => {
     const { ws, subs } = fakeWs();
     let resolve!: (b: Balances) => void;
     const rest = { balances: () => new Promise<Balances>((res) => { resolve = res; }) };
@@ -263,7 +298,7 @@ describe("balancesSource", () => {
 });
 
 describe("triggersSource", () => {
-  it("ignores a push older than the one held", () => {
+  it("ignores a push below the one held", () => {
     const { ws, subs } = fakeWs();
     const r = start(triggersSource(ctx({}, ws), ACCT));
     subs[0]!.onMessage({ account: ACCT, triggers: [], total_count: 0, next_cursor: null, timestamp: 2_000 });
@@ -273,7 +308,7 @@ describe("triggersSource", () => {
 });
 
 describe("marketsSource", () => {
-  it("keeps live dynamics over a stats page from a lagging node", async () => {
+  it("keeps live dynamics over a stats page that lands later", async () => {
     const { ws, subs } = fakeWs();
     let resolveStats!: (p: unknown) => void;
     const rest = {
@@ -294,7 +329,7 @@ describe("marketsSource", () => {
   });
 });
 
-describe("since:0 subscriptions", () => {
+describe("state-channel subscriptions", () => {
   it("ignores a rejection that arrives after unsubscribe", async () => {
     vi.useFakeTimers();
     const { ws, subs } = fakeWs();
@@ -323,9 +358,36 @@ describe("since:0 subscriptions", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     expect(sub.resubscribes).toBe(1);
   });
+
+  it("retries a 995 rejection every second without spending the retry budget", async () => {
+    vi.useFakeTimers();
+    const { ws, subs } = fakeWs();
+    start(triggersSource(ctx({}, ws), ACCT));
+    const sub = subs[0]!;
+
+    for (let i = 1; i <= MAX_SUB_RETRIES + 2; i++) {
+      sub.onError!({ code: 995, message: "behind", data: 1_000 });
+      await vi.advanceTimersByTimeAsync(999);
+      expect(sub.resubscribes).toBe(i - 1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(sub.resubscribes).toBe(i);
+    }
+    sub.onError!(new Error("rejected"));
+    await vi.advanceTimersByTimeAsync(500);
+    expect(sub.resubscribes).toBe(MAX_SUB_RETRIES + 3);
+  });
 });
 
 describe("minimum timestamp on REST reads", () => {
+  it("rethrows the 503 when the retry is behind too", async () => {
+    vi.useFakeTimers();
+    const read = vi.fn((_min?: number) => Promise.reject(new PodBehindError("http://node.test", 1_500, 1_000)));
+    const caught = readAtLeast(read, 2_000).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(await caught).toBeInstanceOf(PodBehindError);
+    expect(read.mock.calls).toEqual([[2_000], [2_000]]);
+  });
+
   const body = (timestamp: number) => JSON.stringify(wirePositions(timestamp, "1"));
 
   it("asks for nothing on the first seed, then for the held watermark", async () => {

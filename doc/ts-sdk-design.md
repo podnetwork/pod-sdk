@@ -232,10 +232,16 @@ source of "now," with no double-counting.
 `timestamp`, the deadline of the last executed tick; `pod_markets` pushes carry
 the indexer watermark under the same name. The SDK keeps the highest watermark it
 has seen **per entity** (account, orderbook) and drops any page or push below
-it; on equal values the later one wins. Each REST re-read sends the held
-watermark as `?timestamp=`, so a lagging node waits up to ~2s or answers 503
-with its own `timestamp`; the SDK retries once after `Retry-After` and then reads
-without the parameter, leaving the drop-older check as the fallback.
+it; on equal values the later one wins. The node's minimum holds per request,
+but concurrent answers for one entity (a REST poll and a push, a reconnect seed
+and a resubscribe snapshot) land in either order. Each REST
+re-read sends the held watermark as `?timestamp=`, so a lagging node waits up to
+~2s or answers 503 with its own `timestamp`; the SDK retries once after
+`Retry-After` and then throws the `PodBehindError` to the resource's own retry
+path. Each (re)subscribe to `pod_positions`, `pod_triggers` and `pod_markets`
+sends the held watermark as `since`; a node that does not reach it within its
+wait rejects with `995`, and the SDK resubscribes after 1s for as long as the
+subscription is open, without counting it toward the retry cap.
 
 Withdrawals resume by the watermark: `GET /v2/bridge/withdrawals[/{account}]`
 returns `{withdrawals, timestamp}` (`rest.bridgeWithdrawals` returns

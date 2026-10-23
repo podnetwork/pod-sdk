@@ -1492,8 +1492,9 @@ paths:
         resubscribe" (for `pod_withdrawals` that is `GET /v1/bridge/withdrawals[/{account}]?since=`,
         which takes the same cursor and serves the same rows; `/v2` wraps them in `{withdrawals, timestamp}`; `pod_transfers` has no REST
         backfill: resubscribe live). State channels (`pod_markets`, `pod_positions`,
-        `pod_triggers`) emit one current snapshot immediately when `since` is passed (any value),
-        then stream live. Omitted = live-only: a state channel sends nothing until a tick touches
+        `pod_triggers`) take `since` as the minimum timestamp: the node waits until its state is at
+        or past it (default 2s), then emits one current snapshot and streams live, or rejects the
+        subscription with `995` and its current value in `data`. Omitted = live-only: a state channel sends nothing until a tick touches
         it. Which option applies to which subscription type is summarised in
         `SubscriptionParams`.
 
@@ -3661,7 +3662,7 @@ components:
         since:
           type: integer
           format: int64
-          description: 'Catch-up watermark: a solution time in microseconds. Delta channels replay buffered ticks after it (`pod_orders_v2` from the tick at it, see `since_book`); state channels emit one current snapshot then stream live. Omit for live-only. If a delta channel''s `since` predates the retained buffer, or the buffer is empty, the subscription is rejected with `-32602`.'
+          description: 'Catch-up watermark: a solution time in microseconds. Delta channels replay buffered ticks after it (`pod_orders_v2` from the tick at it, see `since_book`); state channels take it as the minimum timestamp, wait for it (default 2s), emit one snapshot at or past it, then stream live, or reject with `995` if the node did not reach it. Omit for live-only. If a delta channel''s `since` predates the retained buffer, or the buffer is empty, the subscription is rejected with `-32602`.'
         since_book:
           $ref: '#/components/schemas/Bytes32'
           description: '`pod_orders_v2` only: the `book` of the last frame accepted at `since`, which together with it forms the resume cursor. A batch is delivered as one frame per orderbook, so a client can hold part of a batch; replay skips every book at or below this one within `since`, then delivers later batches whole. Omit when the whole of `since` arrived (always true when subscribed to a single orderbook).'

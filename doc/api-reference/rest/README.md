@@ -40,7 +40,7 @@ Query parameters follow their route: `candles` `from`/`to` and `orders` `until` 
 
 ### REST then websocket
 
-REST seeds state; the [websocket subscriptions](../json-rpc/README.md) keep it current. Seed responses carry `solution_now` (`solution_now_us` on `candles`), the newest batch deadline they reflect. Subscribe with `since` set to that value. Delta channels replay every tick after it; state channels (`pod_markets`, `pod_positions`, `pod_triggers`) send one current snapshot. If the channel rejects `since` as too old, seed from REST again.
+REST seeds state; the [websocket subscriptions](../json-rpc/README.md) keep it current. Seed responses carry `solution_now` (`solution_now_us` on `candles`), the newest batch deadline they reflect. Subscribe with `since` set to that value. Delta channels replay every tick after it; state channels (`pod_markets`, `pod_positions`, `pod_triggers`) send one current snapshot at or past `since`, or reject with `995` if the node does not reach it within its wait. If the channel rejects `since` as too old, seed from REST again.
 
 | Seed from                           | Then subscribe to |
 | ----------------------------------- | ----------------- |
