@@ -1041,7 +1041,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/NodeBehindBody' }
     NodeBehind:
-      description: "The node did not reach the requested `timestamp` within its wait. Sent with `Retry-After: 1` and `Cache-Control: no-store`."
+      description: "The node did not reach the requested `timestamp` within its wait; a value later than the node's clock plus the wait is rejected without waiting. Sent with `Retry-After: 1` and `Cache-Control: no-store`."
       headers:
         Retry-After:
           schema: { type: integer, example: 1 }
