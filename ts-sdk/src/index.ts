@@ -5,9 +5,9 @@ export type { PodTradeClientOptions } from "./client.js";
 export type { MarketsCache } from "./sync/sources.js";
 
 // Layer 1 — low-level transports (exposed for one-shot reads & debugging)
-export { PodRestClient, PodHttpError } from "./transport/rest.js";
+export { PodBehindError, PodRestClient, PodHttpError } from "./transport/rest.js";
 export type {
-  MarketDynamicsPatch, MarketStatsPage, OrdersPage, BackstopPage, TriggersPage,
+  MarketDynamicsPatch, MarketStatsPage, OrdersPage, BackstopPage, TriggersPage, WithdrawalsPage,
   CandlesPage, ActivityPage, OrdersQueryRest, ActivityQueryRest, TriggersQueryRest,
   RestClientOptions,
 } from "./transport/rest.js";

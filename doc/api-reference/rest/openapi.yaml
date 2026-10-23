@@ -119,6 +119,8 @@ paths:
         `pod_markets` websocket channel. Sorted by `orderbook_id`.
 
         `Cache-Control: no-store`.
+      parameters:
+        - $ref: '#/components/parameters/MinTimestamp'
       responses:
         '200':
           description: Statistics for every market
@@ -168,6 +170,7 @@ paths:
         window has closed, otherwise `no-store`.
       parameters:
         - $ref: '#/components/parameters/OrderbookPath'
+        - $ref: '#/components/parameters/MinTimestamp'
         - name: resolution
           in: query
           required: true
@@ -237,6 +240,7 @@ paths:
         `Cache-Control: no-store`.
       parameters:
         - $ref: '#/components/parameters/OrderbookPath'
+        - $ref: '#/components/parameters/MinTimestamp'
         - name: depth
           in: query
           description: Best price levels per side. `0` is a `400`. Omit for the whole book.
@@ -326,6 +330,7 @@ paths:
         is terminal, otherwise `no-store`. Offset pages are `no-store`.
       parameters:
         - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/MinTimestamp'
         - name: until
           in: query
           description: Upper bound on order deadline, unix seconds. Ignored when `cursor` or `offset` is set.
@@ -429,6 +434,7 @@ paths:
         `Cache-Control: no-store`.
       parameters:
         - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/MinTimestamp'
       responses:
         '200':
           description: Positions
@@ -449,6 +455,7 @@ paths:
         `Cache-Control: no-store`.
       parameters:
         - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/MinTimestamp'
       responses:
         '200':
           description: Balances
@@ -470,6 +477,7 @@ paths:
         `Cache-Control: no-store`.
       parameters:
         - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/MinTimestamp'
         - $ref: '#/components/parameters/OrderbookQuery'
         - name: limit
           in: query
@@ -498,6 +506,9 @@ paths:
                     type: string
                     nullable: true
                     description: Cursor for the next page. `null` on the last page.
+                    timestamp:
+                      $ref: '#/components/schemas/Timestamp'
+                      description: Deadline of the last executed tick on the answering node, read together with the state above; 0 before the first tick. Comparable across nodes.
         '400': { $ref: '#/components/responses/BadRequest' }
         '503': { $ref: '#/components/responses/Unavailable' }
 
@@ -586,6 +597,7 @@ paths:
           in: query
           description: Highest batch deadline, microseconds, inclusive. Defaults to the whole history. `from > to` is a `422` (`from must not exceed to`).
           schema: { $ref: '#/components/schemas/TimestampString' }
+        - $ref: '#/components/parameters/MinTimestamp'
         - name: limit
           in: query
           description: Entries per page after the type filter, clamped to `[1, 2000]`. A page can exceed it by its newest batch.
@@ -789,6 +801,8 @@ paths:
 
         Legacy `Bridge.withdraw` rows are excluded.
 
+        `/v2/bridge/withdrawals` returns the same rows with the node's `timestamp`.
+
         No `Cache-Control` header is set.
       parameters:
         - $ref: '#/components/parameters/WithdrawalSince'
@@ -830,6 +844,86 @@ paths:
                 items: { $ref: '#/components/schemas/Withdrawal' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '500': { $ref: '#/components/responses/InternalError' }
+
+  /v2/bridge/withdrawals:
+    servers:
+      - url: https://rpc.podtestnet.dev
+    get:
+      tags: [Bridge]
+      summary: List Withdrawals (v2)
+      operationId: listWithdrawalsV2
+      description: |
+        As `/v1/bridge/withdrawals`, wrapped in an object that adds `timestamp`, and
+        accepting `timestamp` as a minimum state to wait for.
+
+        Withdrawal outcomes for every account, oldest first by `(timestamp_us,
+        tx_hash)`. Same entries as the `pod_withdrawals` websocket channel, and `since` is
+        the same cursor. To continue, pass the last entry's `timestamp_us` as `since` and its
+        `tx_hash` as `since_id`.
+
+        Legacy `Bridge.withdraw` rows are excluded.
+
+        No `Cache-Control` header is set.
+      parameters:
+        - $ref: '#/components/parameters/WithdrawalSince'
+        - $ref: '#/components/parameters/MinTimestamp'
+        - $ref: '#/components/parameters/WithdrawalSinceId'
+        - $ref: '#/components/parameters/WithdrawalLimit'
+      responses:
+        '200':
+          description: Withdrawal outcomes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [withdrawals, timestamp]
+                properties:
+                  withdrawals:
+                    type: array
+                    items: { $ref: '#/components/schemas/Withdrawal' }
+                  timestamp:
+                    $ref: '#/components/schemas/Timestamp'
+                    description: Deadline of the newest tick whose outcomes the answering node serves. Never ahead of the rows. Pass it as `since` to `pod_withdrawals` to resume with no gap.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/NodeBehind' }
+
+  /v2/bridge/withdrawals/{account}:
+    servers:
+      - url: https://rpc.podtestnet.dev
+    get:
+      tags: [Bridge]
+      summary: List Account Withdrawals (v2)
+      operationId: listAccountWithdrawalsV2
+      description: |
+        As `/v2/bridge/withdrawals`, restricted to withdrawals debited from `account` (the
+        `withdrawer`, which is the master for a delegated withdrawal).
+
+        No `Cache-Control` header is set.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/MinTimestamp'
+        - $ref: '#/components/parameters/WithdrawalSince'
+        - $ref: '#/components/parameters/WithdrawalSinceId'
+        - $ref: '#/components/parameters/WithdrawalLimit'
+      responses:
+        '200':
+          description: Withdrawal outcomes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [withdrawals, timestamp]
+                properties:
+                  withdrawals:
+                    type: array
+                    items: { $ref: '#/components/schemas/Withdrawal' }
+                  timestamp:
+                    $ref: '#/components/schemas/Timestamp'
+                    description: Deadline of the newest tick whose outcomes the answering node serves. Never ahead of the rows. Pass it as `since` to `pod_withdrawals` to resume with no gap.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/NodeBehind' }
 
   /bridge/withdrawals/by-id/{tx_hash}:
     get:
@@ -921,6 +1015,15 @@ components:
       in: query
       description: Page size. Values above 1000 are capped at 1000.
       schema: { type: integer, minimum: 0, maximum: 1000, default: 500 }
+    MinTimestamp:
+      name: timestamp
+      in: query
+      description: |
+        The lowest tick deadline accepted, in microseconds — typically the highest `timestamp`
+        (or `solution_now`) already held. The node answers once the state behind the route has
+        reached it, otherwise `503` after its wait (default 2s, `POD_RPC_TIMESTAMP_WAIT`).
+        Omitted means answer now.
+      schema: { type: integer, format: int64 }
 
   responses:
     BadRequest:
@@ -930,15 +1033,32 @@ components:
           schema: { type: string }
           example: invalid cursor
     Unavailable:
-      description: "The indexer or execution engine read failed. Body `clob indexer unavailable`, with `Cache-Control: no-store`."
+      description: "The indexer or execution engine read failed. Body `clob indexer unavailable`, with `Cache-Control: no-store`. When the request set `timestamp`, a 503 may instead be the `NodeBehind` answer (JSON body, `Retry-After: 1`)."
       content:
         text/plain:
           schema: { type: string }
           example: clob indexer unavailable
+        application/json:
+          schema: { $ref: '#/components/schemas/NodeBehindBody' }
+    NodeBehind:
+      description: "The node did not reach the requested `timestamp` within its wait; a value later than the node's clock plus the wait is rejected without waiting. Sent with `Retry-After: 1` and `Cache-Control: no-store`."
+      headers:
+        Retry-After:
+          schema: { type: integer, example: 1 }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/NodeBehindBody' }
     InternalError:
       description: The ledger read failed. Empty body.
 
   schemas:
+    NodeBehindBody:
+      type: object
+      required: [timestamp]
+      properties:
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+          description: The node's current value for the route.
     # ==========================================
     # PRIMITIVE TYPES
     # ==========================================
@@ -1341,6 +1461,9 @@ components:
         net_deposits:
           $ref: '#/components/schemas/DecimalInt256'
           description: Native collateral deposited minus withdrawn. Lifetime PnL is `account_value − net_deposits`.
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+          description: Deadline of the last executed tick on the answering node, read together with the state above; 0 before the first tick. Comparable across nodes.
 
     BalancesResponse:
       type: object
@@ -1351,6 +1474,9 @@ components:
         cash: { $ref: '#/components/schemas/DecimalInt256' }
         withdrawable_cash: { $ref: '#/components/schemas/HexUint256' }
         net_deposits: { $ref: '#/components/schemas/DecimalInt256' }
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+          description: Deadline of the last executed tick on the answering node, read together with the state above; 0 before the first tick. Comparable across nodes.
 
     Trigger:
       type: object

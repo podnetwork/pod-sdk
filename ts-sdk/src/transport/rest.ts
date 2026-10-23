@@ -11,7 +11,7 @@ import type {
 import type {
   WireActivityEntry, WireActivityPage, WireBackstopPage, WireBalances, WireBridgeConfig, WireCandlesEnvelope,
   WireMarketStatic, WireMarketStatsPage, WireOrderbook, WireOrdersPage, WirePositionsSnapshot,
-  WireStatus, WireTriggersPage, WireWithdrawal,
+  WireStatus, WireTriggersPage, WireWithdrawalsPage,
 } from "../types/wire.js";
 import {
   decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle,
@@ -49,6 +49,10 @@ export interface TriggersPage {
   totalCount: number;
   nextCursor: string | null;
 }
+export interface WithdrawalsPage {
+  withdrawals: Withdrawal[];
+  timestampUs: number;
+}
 export interface CandlesPage {
   bars: Bar[]; // oldest-first
   resolution: Resolution;
@@ -77,6 +81,14 @@ export class PodHttpError extends Error {
   constructor(public status: number, public url: string, message: string) {
     super(message);
     this.name = "PodHttpError";
+  }
+}
+
+/** 503 from a node whose state has not reached the requested `timestamp`. */
+export class PodBehindError extends PodHttpError {
+  constructor(url: string, public currentUs: number, public retryAfterMs: number) {
+    super(503, url, `GET ${url} -> 503 behind at ${currentUs}`);
+    this.name = "PodBehindError";
   }
 }
 
@@ -138,6 +150,12 @@ export class PodRestClient {
     if (!res.ok) {
       let body = "";
       try { body = await res.text(); } catch { /* ignore */ }
+      if (res.status === 503) {
+        let current: unknown;
+        try { current = (JSON.parse(body) as { timestamp?: unknown }).timestamp; } catch { /* not ours */ }
+        const retryAfter = Number(res.headers.get("retry-after"));
+        if (typeof current === "number") throw new PodBehindError(url, current, retryAfter > 0 ? retryAfter * 1000 : 1000);
+      }
       throw new PodHttpError(res.status, url, `GET ${url} -> ${res.status} ${body}`.trim());
     }
     return (await res.json()) as T;
@@ -152,9 +170,10 @@ export class PodRestClient {
     return w.map(decodeMarketStatic);
   }
 
-  async marketStats(opts?: { to?: number }): Promise<MarketStatsPage> {
+  async marketStats(opts?: { to?: number }, minTimestampUs?: number): Promise<MarketStatsPage> {
     const w = await this.get<WireMarketStatsPage>("/clob/markets/stats", {
       to: opts?.to !== undefined ? msToSecs(opts.to) : undefined,
+      timestamp: minTimestampUs,
     });
     return {
       solutionNow: Math.trunc(w.solution_now / 1000),
@@ -162,12 +181,13 @@ export class PodRestClient {
     };
   }
 
-  async candles(id: MarketId, q: CandleQuery): Promise<CandlesPage> {
+  async candles(id: MarketId, q: CandleQuery, minTimestampUs?: number): Promise<CandlesPage> {
     const w = await this.get<WireCandlesEnvelope>(`/clob/candles/${id}`, {
       resolution: q.resolution,
       from: q.from !== undefined ? msToSecs(q.from) : undefined,
       to: q.to !== undefined ? msToSecs(q.to) : undefined,
       limit: q.limit,
+      timestamp: minTimestampUs,
     });
     return {
       // Wire is newest-first; return oldest-first for chart consumption.
@@ -178,11 +198,12 @@ export class PodRestClient {
     };
   }
 
-  async orders(account: Address, q?: OrdersQueryRest): Promise<OrdersPage> {
+  async orders(account: Address, q?: OrdersQueryRest, minTimestampUs?: number): Promise<OrdersPage> {
     const w = await this.get<WireOrdersPage>(`/clob/orders/${account}`, {
       until: q?.until !== undefined ? msToSecs(q.until) : undefined,
       limit: q?.limit,
       cursor: q?.cursor,
+      timestamp: minTimestampUs,
     });
     return {
       orders: w.orders.map(decodeOrder),
@@ -193,12 +214,13 @@ export class PodRestClient {
   }
 
   /** One page of an account's activity by batch, newest batches first (ADR 0057 §5); page with `nextUs`. */
-  async activity(account: Address, q?: ActivityQueryRest): Promise<ActivityPage> {
+  async activity(account: Address, q?: ActivityQueryRest, minTimestampUs?: number): Promise<ActivityPage> {
     const w = await this.get<WireActivityPage>(`/clob/activity/${account}`, {
       activity_types: q?.types?.length ? q.types.join(",") : undefined,
       from: q?.fromUs !== undefined ? String(q.fromUs) : undefined,
       to: q?.toUs !== undefined ? String(q.toUs) : undefined,
       limit: q?.limit,
+      timestamp: minTimestampUs,
     });
     const batches = Object.entries(w.activity)
       .map(([batch, entries]): [number, WireActivityEntry[]] => [Number(batch), entries])
@@ -243,18 +265,18 @@ export class PodRestClient {
     };
   }
 
-  async orderbook(id: MarketId): Promise<Orderbook> {
-    return decodeOrderbook(await this.get<WireOrderbook>(`/clob/orderbook/${id}`));
+  async orderbook(id: MarketId, minTimestampUs?: number): Promise<Orderbook> {
+    return decodeOrderbook(await this.get<WireOrderbook>(`/clob/orderbook/${id}`, { timestamp: minTimestampUs }));
   }
 
   /** Perp positions + account aggregates (spot holdings are at `/clob/balances`). */
-  async positions(account: Address): Promise<PositionsSnapshot> {
-    return decodePositions(await this.get<WirePositionsSnapshot>(`/clob/positions/${account}`));
+  async positions(account: Address, minTimestampUs?: number): Promise<PositionsSnapshot> {
+    return decodePositions(await this.get<WirePositionsSnapshot>(`/clob/positions/${account}`, { timestamp: minTimestampUs }));
   }
 
   /** Spot holdings + native cash. */
-  async balances(account: Address): Promise<Balances> {
-    return decodeBalances(await this.get<WireBalances>(`/clob/balances/${account}`));
+  async balances(account: Address, minTimestampUs?: number): Promise<Balances> {
+    return decodeBalances(await this.get<WireBalances>(`/clob/balances/${account}`, { timestamp: minTimestampUs }));
   }
 
   /** Flat explorer view of a transaction (fields, receipt, logs, attestations,
@@ -279,20 +301,19 @@ export class PodRestClient {
    * cannot tell which one an outcome arrived on. Page with `since` (the tick
    * cursor) plus `sinceId` to resume *inside* a tick that spanned a page.
    */
-  async bridgeWithdrawals(account?: Address, q?: WithdrawalsQuery): Promise<Withdrawal[]> {
+  async bridgeWithdrawals(account?: Address, q?: WithdrawalsQuery, minTimestampUs?: number): Promise<WithdrawalsPage> {
     const path = account ? `/bridge/withdrawals/${account}` : "/bridge/withdrawals";
-    const w = await this.get<WireWithdrawal[]>(path, {
-      since: q?.since,
-      since_id: q?.sinceId,
-      limit: q?.limit,
-    });
-    return w.map(decodeWithdrawal);
+    const query = { since: q?.since, since_id: q?.sinceId, limit: q?.limit };
+    // `restUrl` ends in the API version, so this resolves to its v2 sibling.
+    const w = await this.get<WireWithdrawalsPage>(`/../v2${path}`, { ...query, timestamp: minTimestampUs });
+    return { withdrawals: w.withdrawals.map(decodeWithdrawal), timestampUs: w.timestamp };
   }
 
-  async triggers(account: Address, q?: TriggersQueryRest): Promise<TriggersPage> {
+  async triggers(account: Address, q?: TriggersQueryRest, minTimestampUs?: number): Promise<TriggersPage> {
     const w = await this.get<WireTriggersPage>(`/clob/triggers/${account}`, {
       orderbook: q?.orderbook,
       limit: q?.limit,
+      timestamp: minTimestampUs,
     });
     return {
       triggers: w.triggers.map(decodeTrigger),

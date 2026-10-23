@@ -196,11 +196,12 @@ paths:
                     Parameters:
                     1. `orderbook_id` (bytes32): The 32-byte orderbook identifier
                     2. `depth` (integer, optional, at least 1): Maximum number of price levels to return for each side — the best `depth` levels. If omitted, all available price levels are returned.
+                    3. `timestamp` (integer, optional): The lowest tick deadline accepted, in microseconds — typically the highest `timestamp` already held. The node answers once its last executed tick reaches it; otherwise error `995` after its wait (default 2s). Pass `null` for `depth` to omit it.
                   items:
                     oneOf:
                       - $ref: '#/components/schemas/Bytes32'
                       - type: integer
-                        description: Depth - maximum price levels per side
+                        description: Depth - maximum price levels per side, or the trailing `timestamp`
                   example: ["0x0000000000000000000000000000000000000000000000000000000000000001", 20]
       responses:
         '200':
@@ -427,7 +428,12 @@ paths:
                   description: |
                     Parameters:
                     1. `address` (address): The address to get positions for
-                  items: { $ref: '#/components/schemas/Address' }
+                    2. `timestamp` (integer, optional): The lowest tick deadline accepted, in microseconds — typically the highest `timestamp` already held. The node answers once its last executed tick reaches it; otherwise error `995` after its wait (default 2s).
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/Address'
+                      - type: integer
+                        format: int64
                   example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"]
       responses:
         '200':
@@ -647,10 +653,13 @@ paths:
                     Positional parameters:
                     1. `address` (Address): The address to get triggers for
                     2. `query` (TriggersQuery): Optional filters — `orderbook_id`, `limit` (clamped to `[1, 200]`), and `cursor`
+                    3. `timestamp` (integer, optional): The lowest tick deadline accepted, in microseconds — typically the highest `timestamp` already held. The node answers once its last executed tick reaches it; otherwise error `995` after its wait (default 2s). Pass `null` for `query` to omit it.
                   items:
                     oneOf:
                       - $ref: '#/components/schemas/Address'
                       - $ref: '#/components/schemas/TriggersQuery'
+                      - type: integer
+                        format: int64
                   example:
                     - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
                     - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
@@ -849,7 +858,10 @@ paths:
         The amount withdrawable now is the orderbook contract's `withdrawableBalance(token, account)`
         (via `eth_call`), or `withdrawable_cash` from `ob_getPositions`.
 
-        The `block_number` parameter is accepted for Ethereum compatibility but is ignored.
+        A numeric block is the lowest block the client accepts: the node answers once its
+        flushed block tip reaches it, waiting up to its wait (default 2s, `POD_RPC_TIMESTAMP_WAIT`),
+        else it answers error `995` with its current block height as `data`. Tags answer at once.
+        The value returned is the current state; there is no per-block history.
       requestBody:
         content:
           application/json:
@@ -865,7 +877,7 @@ paths:
                   description: |
                     Parameters:
                     1. `address` (address): The address to check balance for
-                    2. `block_number` (string): Block identifier (accepted but ignored)
+                    2. `block_number` (string): A tag, or a block number: the lowest block the client accepts
                   items:
                     anyOf:
                       - $ref: '#/components/schemas/Address'
@@ -967,6 +979,11 @@ paths:
         yet finalized transactions. Every other tag (`latest`, `safe`, `finalized`, `earliest`, or a
         block number) returns the finalized nonce. A tag that does not parse is rejected with
         invalid params.
+
+        A numeric block is the lowest block the client accepts: the node answers once its
+        flushed block tip reaches it, waiting up to its wait (default 2s, `POD_RPC_TIMESTAMP_WAIT`),
+        else it answers error `995` with its current block height as `data`. Tags answer at once.
+        The value returned is the current state; there is no per-block history.
       requestBody:
         content:
           application/json:
@@ -982,7 +999,7 @@ paths:
                   description: |
                     Parameters:
                     1. `address` (address): The address to get nonce for
-                    2. `block_tag` (string): `pending` for the next nonce including in-flight transactions; any other tag or block number for the committed nonce
+                    2. `block_tag` (string): `pending` for the next nonce including in-flight transactions; any other tag or block number for the committed nonce; a block number is the lowest block the client accepts
                   example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", "pending"]
       responses:
         '200':
@@ -1343,11 +1360,11 @@ paths:
           lifecycle (`status`, `live_at_us`, `disable_at_us`, `settlement_price`). Sent each tick
           for the orderbooks that cleared or had a lifecycle event.
         - `pod_positions` — a `PositionsUpdate` (`{ account, data }`, where `data` matches
-          `ob_getPositions`) for the subscribed account, pushed for a tick that touches it: order
+          `ob_getPositions`, including its `timestamp`) for the subscribed account, pushed for a tick that touches it: order
           flow on any orderbook (new, fill, cancel, expiry, modification, trigger arm/cancel/update),
           a backstop sweep or ADL close, a bridge deposit or withdrawal, or a transfer either way.
           **Requires** `account` (alias `bidder`).
-        - `pod_triggers` — a `TriggersUpdate` (the `ob_getTriggers` fields plus `account`, at most
+        - `pod_triggers` — a `TriggersUpdate` (the `ob_getTriggers` fields, `timestamp` included, plus `account`, at most
           200 triggers) for the subscribed account, pushed for a tick that touches it, on the same
           rule as `pod_positions`. **Requires** `account`.
         - `newHeads` — a `BlockHeader` per block as it is flushed, in height order, each height
@@ -1481,10 +1498,11 @@ paths:
         `since` predates the retained buffer — or the buffer is empty, as right after a node start
         — the subscription is rejected with `-32602` "since too old; backfill via REST then
         resubscribe" (for `pod_withdrawals` that is `GET /v1/bridge/withdrawals[/{account}]?since=`,
-        which takes the same cursor and serves the same shape; `pod_transfers` has no REST
+        which takes the same cursor and serves the same rows; `/v2` wraps them in `{withdrawals, timestamp}`; `pod_transfers` has no REST
         backfill: resubscribe live). State channels (`pod_markets`, `pod_positions`,
-        `pod_triggers`) emit one current snapshot immediately when `since` is passed (any value),
-        then stream live. Omitted = live-only: a state channel sends nothing until a tick touches
+        `pod_triggers`) take `since` as the minimum timestamp: the node waits until its state is at
+        or past it (default 2s), then emits one current snapshot and streams live, or rejects the
+        subscription with `995` and its current value in `data`. Omitted = live-only: a state channel sends nothing until a tick touches
         it. Which option applies to which subscription type is summarised in
         `SubscriptionParams`.
 
@@ -3441,6 +3459,10 @@ components:
           type: string
           nullable: true
           description: 'Pass back as `query.cursor` to fetch the next page. Wire format `"{orderbook_id}:{order_id}"`. Null if no more results.'
+        timestamp:
+          type: integer
+          format: int64
+          description: 'Deadline of the last executed tick on the answering node, in microseconds, read together with the state above; 0 before the first tick. Ticks execute in lockstep, so this value is comparable across nodes: when reading through several nodes, keep the response with the highest `timestamp` seen for the account and drop lower ones. Also returned by `GET /v1/clob/triggers/{account}`.'
 
     BackstopTransferResponse:
       type: object
@@ -3648,7 +3670,7 @@ components:
         since:
           type: integer
           format: int64
-          description: 'Catch-up watermark: a solution time in microseconds. Delta channels replay buffered ticks after it (`pod_orders_v2` from the tick at it, see `since_book`); state channels emit one current snapshot then stream live. Omit for live-only. If a delta channel''s `since` predates the retained buffer, or the buffer is empty, the subscription is rejected with `-32602`.'
+          description: 'Catch-up watermark: a solution time in microseconds. Delta channels replay buffered ticks after it (`pod_orders_v2` from the tick at it, see `since_book`); state channels take it as the minimum timestamp, wait for it (default 2s), emit one snapshot at or past it, then stream live, or reject with `995` if the node did not reach it. Omit for live-only. If a delta channel''s `since` predates the retained buffer, or the buffer is empty, the subscription is rejected with `-32602`.'
         since_book:
           $ref: '#/components/schemas/Bytes32'
           description: '`pod_orders_v2` only: the `book` of the last frame accepted at `since`, which together with it forms the resume cursor. A batch is delivered as one frame per orderbook, so a client can hold part of a batch; replay skips every book at or below this one within `since`, then delivers later batches whole. Omit when the whole of `since` arrived (always true when subscribed to a single orderbook).'
@@ -4213,6 +4235,10 @@ components:
         net_deposits:
           type: string
           description: Net native collateral deposited minus withdrawn (signed, 1e18 USD). Negative once realized profit is withdrawn; lifetime PnL is `account_value − net_deposits`.
+        timestamp:
+          type: integer
+          format: int64
+          description: 'Deadline of the last executed tick on the answering node, in microseconds, read together with the state above; 0 before the first tick. Ticks execute in lockstep, so this value is comparable across nodes: when reading through several nodes, keep the response with the highest `timestamp` seen for the account and drop lower ones. Also returned by `GET /v1/clob/positions/{account}` and `GET /v1/clob/balances/{account}`.'
 
     # ==========================================
     # Network & Consensus (pod_) RESPONSE TYPES
@@ -4732,6 +4758,10 @@ components:
         settlement_price:
           type: string
           description: Price every position was (or will be) closed at (decimal, 1e18). Present once the market is disabled with a settlement price.
+        timestamp:
+          type: integer
+          format: int64
+          description: The indexer watermark in microseconds, the same value `GET /v1/clob/markets/stats` returns as `solution_now`. Keep the highest seen per orderbook and drop pushes below it.
 
     CandleTick:
       type: object
@@ -4781,13 +4811,17 @@ components:
           type: string
           nullable: true
           description: 'Pagination cursor, wire format `"{orderbook_id}:{order_id}"`. Null if no more results.'
+        timestamp:
+          type: integer
+          format: int64
+          description: Deadline of the last executed tick on the pushing node, in microseconds; also on the subscribe-time snapshot. Keep the highest seen per account and drop pushes below it; on equal values the later one wins.
 
     WithdrawalUpdate:
       type: object
       description: |
         One outcome from `pod_withdrawals` — what became of a single bridge withdrawal when its
         tick executed. The REST backfill (`GET /v1/bridge/withdrawals[/{account}]?since=`) serves the
-        identical shape, so an outcome read after a reconnect is indistinguishable from one that
+        identical rows (`/v2` wraps them in `{withdrawals, timestamp}`), so an outcome read after a reconnect is indistinguishable from one that
         arrived live.
 
         A withdrawal debits the account's balance, is burned on Pod, and is claimed on the bridge's

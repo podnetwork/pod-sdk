@@ -10,7 +10,7 @@
 //     indistinguishable from "no bars here" — so the hole was permanent: later
 //     loads only fetch pages they don't already have.
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { RESOLUTION_PAGE_BUCKETS, RESOLUTION_SECONDS } from "../codec/resolution.js";
 import type { PodRestClient } from "../transport/rest.js";
@@ -343,5 +343,58 @@ describe("CandleSeries page cache", () => {
     await until(() => asked.filter((a) => a.from === oldest).length > before);
     await until(() => (s.get() ?? []).some((b) => b.time === bars[0]!.time));
     off();
+  });
+});
+
+describe("CandleSeries tick fold", () => {
+  it("does not re-fold ticks replayed after a subscription error", async () => {
+    vi.useFakeTimers({ now: T0 + 30_000 });
+    onTestFinished(() => { vi.useRealTimers(); });
+    let onTick: ((r: unknown) => void) | undefined;
+    let onError: (() => void) | undefined;
+    let resubscribes = 0;
+    const ctx = {
+      rest: restStub([]).rest,
+      ws: {
+        subscribe: (_c: string, _p: unknown, m: (r: unknown) => void, e: () => void) => {
+          onTick = m; onError = e;
+          return { unsubscribe() {}, update() {}, resubscribe() { resubscribes++; } };
+        },
+        on: () => () => {},
+      },
+    } as unknown as SyncContext;
+    const s = new CandleSeries(ctx, ID, "1m");
+    const off = s.subscribe(() => {});
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onTick).toBeDefined();
+
+    const nowUs = Date.now() * 1000;
+    const tick = (us: number) => ({ orderbook: ID, timestamp_us: us, price: "1000000000000000000", volume: "1000000000000000000" });
+    onTick!([tick(nowUs - 2), tick(nowUs - 1)]);
+    onError!();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(resubscribes).toBe(1);
+    onTick!([tick(nowUs - 2), tick(nowUs - 1), tick(nowUs)]);
+
+    expect(s.get()!.at(-1)!.volume).toBe(3n * 10n ** 18n);
+    off();
+  });
+});
+
+describe("candle pages and the minimum timestamp", () => {
+  it("asks a settled page for its end, and the trailing page for nothing", async () => {
+    const asked: { to: number; min?: number }[] = [];
+    const rest = {
+      candles: async (_id: MarketId, q: { to: number }, min?: number) => {
+        asked.push({ to: q.to, min });
+        return { bars: [], solutionNow: Number.MAX_SAFE_INTEGER };
+      },
+    } as unknown as PodRestClient;
+    const now = T0 + 30 * MIN + 30_000;
+    await fetchCandleHistory(rest, ID, "1m", { from: T0 - 400 * MIN, to: now }, now).catch(() => {});
+    const whole = asked.filter((a) => a.min !== undefined);
+    expect(whole.length).toBeGreaterThan(0);
+    for (const a of whole) expect(a.min).toBe(a.to * 1000);
+    expect(asked.find((a) => a.to === T0 + 30 * MIN)).toEqual({ to: T0 + 30 * MIN, min: undefined });
   });
 });

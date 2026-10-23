@@ -29,7 +29,9 @@ Every error is returned as a JSON-RPC 2.0 error object:
 | Code     | Message                       | Meaning                                                                                  |
 | -------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
 | `3`      | `execution reverted`          | A contract-level (enshrined application) execution failed. `data` is an ABI-encoded revert. |
-| `-32000` | `transaction validation failed` | A protocol-level validation check failed (nonce, balance, chain ID, gas price, …).      |
+| `-32000` | `transaction validation failed` | A protocol-level validation check failed (balance, chain ID, gas price, …).              |
+| `996`    | the reason, e.g. `Past nonce: tx nonce 3, expected 4` | A past nonce, future nonce or pending account. Retry with a fresh `pending` nonce, after checking the receipt of any attempt that may already have been delivered. |
+| `995`    | `node behind requested timestamp` | The node did not reach the requested `timestamp` (or a state-channel subscription's `since`, or the block number passed to `eth_getBalance` or `eth_getTransactionCount`) within its wait. A value later than the node's clock plus the wait is rejected without waiting. `data` is its current value. Retry, through any node. |
 | `-32003` | `Transaction rejected: …`     | A quorum of validators rejected the transaction.                                          |
 | `999`    | `Account locked`              | The account is locked pending recovery. `data` carries the recovery target.              |
 | `997`    | `Empty transaction required to make progress` | From `pod_sendRawTransaction`: the account's head nonce will not finalize on its own. `data` carries the nonce to unblock. |
@@ -68,7 +70,41 @@ Returned when a protocol-level check fails before the transaction is attested. `
   "error": {
     "code": -32000,
     "message": "transaction validation failed",
-    "data": "Future nonce: tx nonce 7, expected 5"
+    "data": "Insufficient balance"
+  }
+}
+```
+
+### `996` — retryable rejection
+
+Returned when this node's pre-validation rejects a transaction for a reason a fresh nonce can fix; the transaction was not broadcast. `message` is the human reason (one of the three nonce/pending [validation messages](#transaction-validation-messages)) and `data` is a stable label: `"past_nonce"`, `"future_nonce"` or `"account_pending"`.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": 996,
+    "message": "Future nonce: tx nonce 7, expected 5",
+    "data": "future_nonce"
+  }
+}
+```
+
+### `995` — node behind requested timestamp
+
+Returned by `ob_getPositions`, `ob_getTriggers` and `ob_getOrderbook` when the call passed a `timestamp` (the lowest tick deadline the client accepts, in microseconds), and by `eth_subscribe` to `pod_positions`, `pod_triggers` and `pod_markets` when it passed `since` (the same minimum), and the node's last executed tick did not reach it within the node's wait (default 2s, `POD_RPC_TIMESTAMP_WAIT`). A value later than the node's clock plus the wait is rejected without waiting. `data` is the node's current value, an integer in microseconds.
+
+Also returned by `eth_getBalance` and `eth_getTransactionCount` when the call passed a block number (the lowest block the client accepts) and the node's flushed block tip did not reach it within the same wait, with message `node behind requested block`. A block whose earliest possible deadline is later than the node's clock plus the wait is rejected without waiting. `data` is the node's current block height.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": 995,
+    "message": "node behind requested timestamp",
+    "data": 1704153600000000
   }
 }
 ```
@@ -201,9 +237,9 @@ The reason carried in `data` (for code `-32000`) or encoded inside the revert (f
 | --------------------------------------------------------------- | --------------------------------------------------------------------- |
 | `Invalid chain ID: {chain_id}`                                  | The transaction's chain ID does not match the network.                |
 | `Transaction is blacklisted`                                    | The transaction is on the blocklist.                                  |
-| `Account has pending transaction`                               | The account already has an unexecuted (pending) transaction.          |
-| `Future nonce: tx nonce {tx_nonce}, expected {expected}`        | The nonce is higher than the account's next expected nonce.           |
-| `Past nonce: tx nonce {tx_nonce}, expected {expected}`          | The nonce is lower than expected (already used).                      |
+| `Account has pending transaction`                               | The account already has an unexecuted (pending) transaction. Code `996`. |
+| `Future nonce: tx nonce {tx_nonce}, expected {expected}`        | The nonce is higher than the account's next expected nonce. Code `996`. |
+| `Past nonce: tx nonce {tx_nonce}, expected {expected}`          | The nonce is lower than expected (already used). Code `996`.          |
 | `Insufficient balance`                                          | The account cannot cover the transaction.                             |
 | `Underpriced tx: max_fee_per_gas {max_fee_per_gas} < base fee {base_fee}` | `maxFeePerGas` is below the current base fee.               |
 | `Recovery validation failed: {reason}`                          | A recovery transaction failed validation.                             |

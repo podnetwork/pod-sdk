@@ -164,6 +164,33 @@ raised only for an id whose hash was actually in the query that covered it.
 the watcher forgets settled ids, so not re-announcing an outcome you already
 acted on stays with the caller.
 
+## Reading through a load balancer
+
+Account reads and pushes carry `timestamp` (µs), the deadline of the last executed
+tick on the answering node; ticks execute in lockstep, so it is comparable across
+nodes. The resources keep the highest value seen per entity and drop any page or
+push below it, because concurrent answers for one entity (a REST poll and a push, a
+reconnect seed and a resubscribe snapshot) land in either order. `rest.bridgeWithdrawals`
+reads `/v2/bridge/withdrawals` and returns `WithdrawalsPage { withdrawals, timestampUs }`,
+and `client.withdrawals`
+resumes `pod_withdrawals` from `timestampUs`. Every re-read sends the held
+watermark as `?timestamp=` (the `minTimestampUs` argument on `PodRestClient`), so the
+node waits until it has caught up or answers 503 (`PodBehindError`); the SDK retries
+once after `Retry-After`, then throws the `PodBehindError`. Every (re)subscribe to
+`pod_positions`, `pod_triggers` and `pod_markets` sends the held watermark as `since`;
+the node answers with a snapshot at or past it or rejects with code `995`, which the
+SDK retries every second.
+
+## Sending
+
+`wallet.submit` owns no nonce: every attempt fetches it with the `pending` tag.
+It retries after 250ms, 500ms, then every 1s, for up to 10s, on transport errors, non-JSON or non-2xx
+responses, and code `996` rejections (past nonce, future nonce, account pending); other
+rejections throw at once. A transport error resends the same signed bytes. Once an
+attempt may have been delivered it is never re-signed: a later nonce rejection
+polls the receipt of that hash and returns it, or throws `PodDeliveryUnknownError`
+with the hash.
+
 ## How caching / low traffic works
 
 - Each resource **seeds once** over REST, then lives off WS pushes — no polling.

@@ -165,3 +165,38 @@ describe("OrderHistory.onEvent", () => {
     off();
   });
 });
+
+describe("OrderHistory re-seed", () => {
+  it("keeps a row the stream advanced over a page from a lagging node", async () => {
+    let deliver: ((r: unknown) => void) | undefined;
+    let reopen: (() => void) | undefined;
+    const ws = {
+      state: "open",
+      on: (_e: string, fn: () => void) => { reopen = fn; return () => {}; },
+      subscribe: (_c: string, _p: unknown, onMessage: (r: unknown) => void) => {
+        deliver = onMessage;
+        return { unsubscribe: () => {}, update: () => {}, resubscribe: () => {} };
+      },
+    };
+    const pages = [
+      { orders: [], nextCursor: null, totalCount: 0, solutionNow: 0 },
+      { orders: [] as unknown[], nextCursor: null, totalCount: 1, solutionNow: 500 },
+    ];
+    const rest = { orders: async () => pages.shift()! };
+    const history = new OrderHistory(
+      { rest, ws, positionResyncMs: 0, marketResyncMs: 0 } as unknown as SyncContext,
+      "0xabc" as Address,
+    );
+    const off = history.subscribe(() => {});
+    await flush();
+
+    deliver!(FRAME); // batch T2 = 1_000_000 µs
+    const held = history.get()!.find((o) => o.id === "0xnew")!;
+    pages[0]!.orders.push({ ...held, status: "stale-copy" });
+    reopen!(); // re-seed from a page settled at T1 = 500 ms < T2
+    await flush();
+
+    expect(history.get()!.find((o) => o.id === "0xnew")).toEqual(held);
+    off();
+  });
+});

@@ -1,15 +1,16 @@
-use std::{sync::Arc, time::Duration};
+use std::{future::Future, sync::Arc, time::Duration};
 
 pub use alloy_provider;
 use alloy_rpc_types::TransactionReceipt;
 use anyhow::Context;
 
 use crate::network::{PodNetwork, PodTransactionRequest};
+use alloy_consensus::TxEnvelope;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_json_rpc::{RpcError, RpcRecv, RpcSend};
 use alloy_network::{EthereumWallet, Network, NetworkWallet, TransactionBuilder};
 use alloy_provider::{
-    fillers::{JoinFill, RecommendedFillers, TxFiller, WalletFiller},
+    fillers::{FillProvider, JoinFill, RecommendedFillers, TxFiller, WalletFiller},
     Identity, PendingTransactionBuilder, Provider, ProviderBuilder, ProviderLayer, RootProvider,
     SendableTx,
 };
@@ -67,11 +68,24 @@ impl<L, F> PodProviderBuilder<L, F> {
     pub async fn on_url<U: AsRef<str>>(self, url: U) -> Result<PodProvider, TransportError>
     where
         L: ProviderLayer<RootProvider<PodNetwork>, PodNetwork>,
-        F: TxFiller<PodNetwork> + ProviderLayer<L::Provider, PodNetwork>,
-        F::Provider: 'static,
+        L::Provider: 'static,
+        F: TxFiller<PodNetwork> + 'static,
     {
-        let alloy_provider = self.0.connect(url.as_ref()).await?;
-        Ok(PodProvider::new(alloy_provider))
+        let mut filler = None;
+        let inner = self
+            .0
+            .map_filler(|f| {
+                filler = Some(f);
+                Identity
+            })
+            .connect(url.as_ref())
+            .await?;
+        Ok(PodProvider {
+            inner: Arc::new(FillProvider::new(
+                inner,
+                filler.expect("map_filler calls its closure"),
+            )),
+        })
     }
 
     /// Configure a wallet to be used for signing transactions and spending funds.
@@ -127,15 +141,54 @@ impl<L, F> PodProviderBuilder<L, F> {
 
 /// A provider tailored for pod, extending capabilities of alloy [Provider]
 /// with pod-specific features.
+#[derive(Clone)]
 pub struct PodProvider {
-    inner: Arc<dyn Provider<PodNetwork>>,
+    inner: Arc<dyn Fill>,
 }
 
-impl Clone for PodProvider {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+trait Fill: Provider<PodNetwork> {
+    async fn fill(&self, tx: PodTransactionRequest) -> TransportResult<Option<TxEnvelope>>;
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl<F, P> Fill for FillProvider<F, P, PodNetwork>
+where
+    F: TxFiller<PodNetwork>,
+    P: Provider<PodNetwork>,
+{
+    async fn fill(&self, tx: PodTransactionRequest) -> TransportResult<Option<TxEnvelope>> {
+        Ok(match FillProvider::fill(self, tx).await? {
+            SendableTx::Envelope(envelope) => Some(envelope),
+            SendableTx::Builder(_) => None,
+        })
+    }
+}
+
+struct Unfilled<P>(P);
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl<P: Provider<PodNetwork>> Provider<PodNetwork> for Unfilled<P> {
+    fn root(&self) -> &RootProvider<PodNetwork> {
+        self.0.root()
+    }
+
+    async fn send_transaction_internal(
+        &self,
+        tx: SendableTx<PodNetwork>,
+    ) -> TransportResult<PendingTransactionBuilder<PodNetwork>> {
+        self.0.send_transaction_internal(tx).await
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl<P: Provider<PodNetwork>> Fill for Unfilled<P> {
+    async fn fill(&self, _tx: PodTransactionRequest) -> TransportResult<Option<TxEnvelope>> {
+        Ok(None)
     }
 }
 
@@ -154,7 +207,131 @@ impl Provider<PodNetwork> for PodProvider {
         &self,
         tx: SendableTx<PodNetwork>,
     ) -> TransportResult<PendingTransactionBuilder<PodNetwork>> {
-        self.inner.send_transaction_internal(tx).await
+        let SendableTx::Builder(request) = tx else {
+            return self.inner.send_transaction_internal(tx).await;
+        };
+        let deadline = tokio::time::Instant::now() + SEND_RETRY_BUDGET;
+        let (inner, borrowed) = (&self.inner, &request);
+        let sent = send_with_retry(
+            deadline,
+            request.nonce().is_none(),
+            move || inner.fill(borrowed.clone()),
+            move |envelope| async move {
+                let pending = inner
+                    .send_transaction_internal(SendableTx::Envelope(envelope))
+                    .await?;
+                Ok(*pending.tx_hash())
+            },
+        )
+        .await?;
+        let tx_hash = match sent {
+            Sent::Pending(tx_hash) => tx_hash,
+            Sent::Unsigned => {
+                return inner
+                    .send_transaction_internal(SendableTx::Builder(request))
+                    .await
+            }
+            Sent::DeliveryUnknown(tx_hash) => self.await_receipt(tx_hash, deadline).await?,
+        };
+        Ok(PendingTransactionBuilder::new(self.root().clone(), tx_hash))
+    }
+}
+
+const RECEIPT_POLL_INTERVAL: Duration = Duration::from_millis(250);
+const SEND_BACKOFF: [Duration; 3] = [
+    Duration::from_millis(250),
+    Duration::from_millis(500),
+    Duration::from_secs(1),
+];
+const SEND_RETRY_BUDGET: Duration = Duration::from_secs(10);
+const SEND_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
+
+enum SendRetry {
+    Resend,
+    Resign,
+}
+
+fn send_retry(err: &RpcError<TransportErrorKind>) -> Option<SendRetry> {
+    match err {
+        RpcError::Transport(_) | RpcError::DeserError { .. } => Some(SendRetry::Resend),
+        RpcError::ErrorResp(payload) if payload.code == NONCE_REJECTED_CODE => {
+            Some(SendRetry::Resign)
+        }
+        _ => None,
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum Sent {
+    Pending(Hash),
+    Unsigned,
+    DeliveryUnknown(Hash),
+}
+
+async fn pause(
+    deadline: tokio::time::Instant,
+    delay: Duration,
+    err: RpcError<TransportErrorKind>,
+) -> TransportResult<()> {
+    if tokio::time::Instant::now() + delay > deadline {
+        return Err(err);
+    }
+    tokio::time::sleep(delay).await;
+    Ok(())
+}
+
+async fn send_with_retry<S, SF, T, TF>(
+    deadline: tokio::time::Instant,
+    nonce_unset: bool,
+    mut sign: S,
+    mut send: T,
+) -> TransportResult<Sent>
+where
+    S: FnMut() -> SF,
+    SF: Future<Output = TransportResult<Option<TxEnvelope>>>,
+    T: FnMut(TxEnvelope) -> TF,
+    TF: Future<Output = TransportResult<Hash>>,
+{
+    let mut signed = None;
+    let mut maybe_delivered = false;
+    let mut backoff = SEND_BACKOFF
+        .iter()
+        .chain(std::iter::repeat(&SEND_BACKOFF[2]));
+    loop {
+        let envelope = match signed.take() {
+            Some(envelope) => envelope,
+            None => match sign().await {
+                Ok(Some(envelope)) => envelope,
+                Ok(None) => return Ok(Sent::Unsigned),
+                Err(err) if send_retry(&err).is_some() => {
+                    pause(deadline, *backoff.next().unwrap(), err).await?;
+                    continue;
+                }
+                Err(err) => return Err(err),
+            },
+        };
+        let attempt = SEND_ATTEMPT_TIMEOUT
+            .min(deadline.saturating_duration_since(tokio::time::Instant::now()));
+        let err = match tokio::time::timeout(attempt, send(envelope.clone())).await {
+            Ok(Ok(tx_hash)) => return Ok(Sent::Pending(tx_hash)),
+            Ok(Err(err)) => err,
+            Err(_) => TransportErrorKind::custom_str("send attempt timed out"),
+        };
+        match send_retry(&err) {
+            None => return Err(err),
+            // The rejection may be the delivered attempt's own nonce taking effect, so
+            // signing a new tx could execute both.
+            Some(SendRetry::Resign) if maybe_delivered => {
+                return Ok(Sent::DeliveryUnknown(*envelope.tx_hash()))
+            }
+            Some(SendRetry::Resign) if nonce_unset => {}
+            Some(SendRetry::Resign) => return Err(err),
+            Some(SendRetry::Resend) => {
+                maybe_delivered = true;
+                signed = Some(envelope);
+            }
+        }
+        pause(deadline, *backoff.next().unwrap(), err).await?;
     }
 }
 
@@ -162,7 +339,25 @@ impl PodProvider {
     /// Create a new [PodProvider] using the underlying alloy [Provider].
     pub fn new(provider: impl Provider<PodNetwork> + 'static) -> Self {
         Self {
-            inner: Arc::new(provider),
+            inner: Arc::new(Unfilled(provider)),
+        }
+    }
+
+    async fn await_receipt(
+        &self,
+        tx_hash: Hash,
+        deadline: tokio::time::Instant,
+    ) -> TransportResult<Hash> {
+        loop {
+            if let Ok(Some(_)) = self.get_transaction_receipt(tx_hash).await {
+                return Ok(tx_hash);
+            }
+            pause(
+                deadline,
+                RECEIPT_POLL_INTERVAL,
+                RpcError::local_usage(PodSendError::DeliveryUnknown { tx_hash }),
+            )
+            .await?;
         }
     }
 
@@ -212,10 +407,10 @@ impl PodProvider {
         loop {
             let result = self
                 .client()
-                .request::<_, String>("pod_waitPastPerfectTime", (timestamp.as_micros() as u64,))
+                .request::<_, ()>("pod_waitPastPerfectTime", (timestamp.as_micros() as u64,))
                 .await;
 
-            match &result {
+            match result {
                 Err(e)
                     if retries < MAX_RETRIES
                         && e.as_error_resp().is_some_and(|r| {
@@ -227,7 +422,7 @@ impl PodProvider {
                         .await;
                     continue;
                 }
-                _ => return Ok(()),
+                result => return result,
             }
         }
     }
@@ -377,6 +572,7 @@ struct EmptyTxRequiredData {
 const ACCOUNT_LOCKED_CODE: i64 = 999;
 const EMPTY_TX_REQUIRED_CODE: i64 = 997;
 const REJECTED_CODE: i64 = -32003;
+const NONCE_REJECTED_CODE: i64 = 996;
 
 /// Why pod refused a transaction. `eth_sendRawTransaction` reports none of these
 /// distinctions.
@@ -397,13 +593,17 @@ pub enum PodSendError {
     /// Transport failure, or an unclassified server error. May still have been
     /// delivered.
     Transport(TransportError),
+    /// A possibly delivered send was followed by a nonce rejection and no receipt
+    /// appeared in time; the transaction may still execute.
+    DeliveryUnknown { tx_hash: Hash },
 }
 
 impl PodSendError {
     /// Whether the transaction is known never to execute, so replacing it cannot
-    /// split votes. False for [`Self::Transport`], which may have been delivered.
+    /// split votes. False for [`Self::Transport`] and [`Self::DeliveryUnknown`],
+    /// which may have been delivered.
     pub fn is_terminal(&self) -> bool {
-        !matches!(self, Self::Transport(_))
+        !matches!(self, Self::Transport(_) | Self::DeliveryUnknown { .. })
     }
 }
 
@@ -426,6 +626,9 @@ impl std::fmt::Display for PodSendError {
                 errors.join(", ")
             ),
             Self::Transport(e) => write!(f, "{e}"),
+            Self::DeliveryUnknown { tx_hash } => {
+                write!(f, "delivery of transaction {tx_hash} unknown")
+            }
         }
     }
 }
@@ -441,6 +644,13 @@ impl std::error::Error for PodSendError {
 
 impl From<RpcError<TransportErrorKind>> for PodSendError {
     fn from(err: RpcError<TransportErrorKind>) -> Self {
+        let err = match err {
+            RpcError::LocalUsageError(e) => match e.downcast::<PodSendError>() {
+                Ok(inner) => return *inner,
+                Err(e) => RpcError::LocalUsageError(e),
+            },
+            err => err,
+        };
         let Some(payload) = err.as_error_resp() else {
             return Self::Transport(err);
         };
@@ -548,7 +758,7 @@ mod send_tests {
     /// Must not be terminal: replacing here could put a second tx at the nonce.
     #[test]
     fn unknown_codes_are_transport_and_not_terminal() {
-        let err = PodSendError::from(rpc_error(-32000, "something else", None));
+        let err = PodSendError::from(rpc_error(INVALID_INPUT_CODE, "something else", None));
         assert!(matches!(err, PodSendError::Transport(_)));
         assert!(!err.is_terminal());
     }
@@ -570,5 +780,274 @@ mod send_tests {
         )
         .unwrap();
         assert!(response.errors.is_empty());
+    }
+
+    const INVALID_INPUT_CODE: i64 = -32000;
+
+    fn nonce_rejected(label: &str) -> RpcError<TransportErrorKind> {
+        rpc_error(
+            NONCE_REJECTED_CODE,
+            "Past nonce: tx nonce 5, expected 6",
+            Some(&serde_json::to_string(label).unwrap()),
+        )
+    }
+
+    fn envelope(nonce: u64) -> TxEnvelope {
+        TxEnvelope::Eip1559(alloy_consensus::Signed::new_unhashed(
+            alloy_consensus::TxEip1559 {
+                nonce,
+                ..Default::default()
+            },
+            alloy_primitives::Signature::new(U256::from(1), U256::from(1), false),
+        ))
+    }
+
+    struct Script {
+        sign_calls: std::cell::Cell<usize>,
+        sign_fails_on_call: Option<usize>,
+        hanging_sends: usize,
+        start: tokio::time::Instant,
+        sent_at: std::cell::RefCell<Vec<Duration>>,
+        signed: std::cell::RefCell<Vec<u64>>,
+        sent: std::cell::RefCell<Vec<Hash>>,
+        replies: std::cell::RefCell<std::collections::VecDeque<TransportResult<()>>>,
+    }
+
+    impl Script {
+        fn new(replies: Vec<TransportResult<()>>, sign_fails_on_call: Option<usize>) -> Self {
+            Self {
+                sign_calls: Default::default(),
+                sign_fails_on_call,
+                hanging_sends: 0,
+                start: tokio::time::Instant::now(),
+                sent_at: Default::default(),
+                signed: Default::default(),
+                sent: Default::default(),
+                replies: std::cell::RefCell::new(replies.into()),
+            }
+        }
+
+        async fn run(&self) -> TransportResult<Sent> {
+            self.run_with(true).await
+        }
+
+        async fn run_with(&self, nonce_unset: bool) -> TransportResult<Sent> {
+            let deadline = tokio::time::Instant::now() + SEND_RETRY_BUDGET;
+            send_with_retry(
+                deadline,
+                nonce_unset,
+                || async {
+                    let call = self.sign_calls.replace(self.sign_calls.get() + 1);
+                    if Some(call) == self.sign_fails_on_call {
+                        return Err(TransportErrorKind::custom_str("nonce fetch failed"));
+                    }
+                    let nonce = 5 + self.signed.borrow().len() as u64;
+                    self.signed.borrow_mut().push(nonce);
+                    Ok(Some(envelope(nonce)))
+                },
+                |envelope| async move {
+                    let tx_hash = *envelope.tx_hash();
+                    self.sent.borrow_mut().push(tx_hash);
+                    self.sent_at.borrow_mut().push(self.start.elapsed());
+                    if self.sent.borrow().len() <= self.hanging_sends {
+                        std::future::pending::<()>().await;
+                    }
+                    self.replies
+                        .borrow_mut()
+                        .pop_front()
+                        .unwrap_or_else(|| Err(TransportErrorKind::custom_str("down")))
+                        .map(|()| tx_hash)
+                },
+            )
+            .await
+        }
+    }
+
+    fn hash(nonce: u64) -> Hash {
+        *envelope(nonce).tx_hash()
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn undelivered_rejection_resigns_with_a_fresh_nonce() {
+        for reason in ["past_nonce", "future_nonce", "account_pending"] {
+            let script = Script::new(vec![Err(nonce_rejected(reason)), Ok(())], Some(1));
+            assert_eq!(script.run().await.unwrap(), Sent::Pending(hash(6)));
+            assert_eq!(*script.signed.borrow(), vec![5, 6]);
+            assert_eq!(*script.sent.borrow(), vec![hash(5), hash(6)]);
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn explicit_nonce_rejection_is_returned_at_once() {
+        let script = Script::new(vec![Err(nonce_rejected("past_nonce"))], None);
+        assert!(script.run_with(false).await.is_err());
+        assert_eq!(*script.signed.borrow(), vec![5]);
+        assert_eq!(script.sent.borrow().len(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn possibly_delivered_rejection_is_delivery_unknown() {
+        let script = Script::new(
+            vec![
+                Err(TransportErrorKind::custom_str("reset")),
+                Err(nonce_rejected("past_nonce")),
+            ],
+            None,
+        );
+        assert_eq!(script.run().await.unwrap(), Sent::DeliveryUnknown(hash(5)));
+        assert_eq!(*script.signed.borrow(), vec![5]);
+        assert_eq!(*script.sent.borrow(), vec![hash(5), hash(5)]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn transport_error_resends_the_same_bytes() {
+        let script = Script::new(
+            vec![
+                Err(TransportErrorKind::custom_str("connection reset")),
+                Ok(()),
+            ],
+            None,
+        );
+        assert_eq!(script.run().await.unwrap(), Sent::Pending(hash(5)));
+        assert_eq!(*script.signed.borrow(), vec![5]);
+        assert_eq!(*script.sent.borrow(), vec![hash(5), hash(5)]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn hung_send_is_cut_and_resent() {
+        let start = tokio::time::Instant::now();
+        let mut script = Script::new(vec![Ok(())], None);
+        script.hanging_sends = 1;
+        assert_eq!(script.run().await.unwrap(), Sent::Pending(hash(5)));
+        assert_eq!(
+            start.elapsed(),
+            SEND_ATTEMPT_TIMEOUT + RECEIPT_POLL_INTERVAL
+        );
+        assert_eq!(*script.sent.borrow(), vec![hash(5), hash(5)]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn hung_sends_end_within_the_budget() {
+        let start = tokio::time::Instant::now();
+        let mut script = Script::new(vec![], None);
+        script.hanging_sends = usize::MAX;
+        assert!(script.run().await.is_err());
+        assert!(start.elapsed() <= SEND_RETRY_BUDGET);
+        assert_eq!(*script.sent.borrow(), vec![hash(5), hash(5)]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn terminal_errors_are_not_retried() {
+        for err in [
+            rpc_error(3, "execution reverted", Some(r#""0x08c379a0""#)),
+            rpc_error(
+                INVALID_INPUT_CODE,
+                "transaction validation failed",
+                Some(r#""Insufficient balance""#),
+            ),
+            rpc_error(ACCOUNT_LOCKED_CODE, "Account locked", None),
+        ] {
+            let script = Script::new(vec![Err(err)], None);
+            assert!(script.run().await.is_err());
+            assert_eq!(script.sent.borrow().len(), 1);
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn gives_up_after_the_budget() {
+        let start = tokio::time::Instant::now();
+        let script = Script::new(vec![], None);
+        assert!(script.run().await.is_err());
+        assert!(start.elapsed() <= SEND_RETRY_BUDGET);
+        let mut expected = vec![0, 250, 750];
+        expected.extend((1750..10_000).step_by(1000));
+        let expected: Vec<_> = expected.into_iter().map(Duration::from_millis).collect();
+        assert_eq!(*script.sent_at.borrow(), expected);
+    }
+
+    fn mocked_provider() -> PodProvider {
+        PodProvider::new(
+            PodProviderBuilder::new()
+                .0
+                .connect_mocked_client(alloy_transport::mock::Asserter::new()),
+        )
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn possibly_delivered_tx_returns_once_its_receipt_appears() {
+        let script = Script::new(
+            vec![
+                Err(TransportErrorKind::custom_str("reset")),
+                Err(nonce_rejected("past_nonce")),
+            ],
+            None,
+        );
+        let deadline = tokio::time::Instant::now() + SEND_RETRY_BUDGET;
+        let Sent::DeliveryUnknown(tx_hash) = script.run().await.unwrap() else {
+            panic!("expected DeliveryUnknown");
+        };
+        let asserter = alloy_transport::mock::Asserter::new();
+        asserter.push_success(&serde_json::Value::Null);
+        asserter.push_success(&serde_json::json!({
+            "type": "0x2",
+            "status": "0x1",
+            "cumulativeGasUsed": "0x0",
+            "logs": [],
+            "logsBloom": format!("0x{}", "0".repeat(512)),
+            "transactionHash": tx_hash,
+            "transactionIndex": "0x0",
+            "blockHash": Hash::ZERO,
+            "blockNumber": "0x1",
+            "gasUsed": "0x0",
+            "effectiveGasPrice": "0x0",
+            "from": Address::ZERO,
+            "to": Address::ZERO,
+            "contractAddress": null,
+            "pod_metadata": {"attestations": [], "committee_epoch": 0},
+        }));
+        let provider = PodProvider::new(
+            PodProviderBuilder::new()
+                .0
+                .connect_mocked_client(asserter.clone()),
+        );
+        assert_eq!(
+            provider.await_receipt(tx_hash, deadline).await.unwrap(),
+            hash(5)
+        );
+        assert!(asserter.read_q().is_empty());
+        assert_eq!(*script.signed.borrow(), vec![5]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn missing_receipt_ends_in_delivery_unknown() {
+        let deadline = tokio::time::Instant::now() + SEND_RETRY_BUDGET;
+        let err = mocked_provider()
+            .await_receipt(hash(5), deadline)
+            .await
+            .unwrap_err();
+        match PodSendError::from(err) {
+            PodSendError::DeliveryUnknown { tx_hash } => assert_eq!(tx_hash, hash(5)),
+            other => panic!("expected DeliveryUnknown, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn wait_past_perfect_time_accepts_null() {
+        let asserter = alloy_transport::mock::Asserter::new();
+        asserter.push_success(&serde_json::Value::Null);
+        let provider =
+            PodProvider::new(PodProviderBuilder::new().0.connect_mocked_client(asserter));
+        provider
+            .wait_past_perfect_time(Timestamp::from_micros(1))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn wait_past_perfect_time_reports_transport_errors() {
+        assert!(mocked_provider()
+            .wait_past_perfect_time(Timestamp::from_micros(1))
+            .await
+            .is_err());
     }
 }

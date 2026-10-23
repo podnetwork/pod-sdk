@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { PodRestClient } from "./rest.js";
+import { PodBehindError, PodRestClient } from "./rest.js";
 
 describe("PodRestClient request timeout", () => {
   const clientWith = (fetchFn: unknown, timeoutMs?: number) =>
@@ -102,5 +102,48 @@ describe("PodRestClient.orders", () => {
     const [order] = (await rest.orders("0xa1" as never)).orders;
     expect(order).toMatchObject({ id: "0x01", status: "filled", filledBase: 1n });
     expect(order).not.toHaveProperty("fills");
+  });
+});
+
+describe("PodRestClient.bridgeWithdrawals", () => {
+  const clientWith = (reply: (url: URL) => Response) => {
+    const urls: URL[] = [];
+    const rest = new PodRestClient({
+      restUrl: "http://node.test/v1",
+      fetch: (async (url: string) => { urls.push(new URL(url)); return reply(new URL(url)); }) as unknown as typeof fetch,
+    });
+    return { rest, urls };
+  };
+
+  it("reads the v2 object body with the minimum timestamp", async () => {
+    const { rest, urls } = clientWith(() => new Response(JSON.stringify({ withdrawals: [], timestamp: 7_000 })));
+    await expect(rest.bridgeWithdrawals("0xabc", { since: 5 }, 6_000))
+      .resolves.toEqual({ withdrawals: [], timestampUs: 7_000 });
+    expect(urls.map((u) => u.pathname)).toEqual(["/v2/bridge/withdrawals/0xabc"]);
+    expect(urls[0]!.searchParams.get("timestamp")).toBe("6000");
+  });
+
+  it("reports a v2 node behind the minimum", async () => {
+    const { rest, urls } = clientWith(() =>
+      new Response(JSON.stringify({ timestamp: 1_500 }), { status: 503, headers: { "retry-after": "1" } }));
+    await expect(rest.bridgeWithdrawals("0xabc", undefined, 2_000)).rejects.toBeInstanceOf(PodBehindError);
+    expect(urls).toHaveLength(1);
+  });
+});
+
+describe("PodRestClient minimum timestamp", () => {
+  it("sends the minimum as ?timestamp= and reports a node that cannot reach it", async () => {
+    const urls: string[] = [];
+    const rest = new PodRestClient({
+      restUrl: "http://node.test/v1",
+      fetch: (async (url: string) => {
+        urls.push(url);
+        return new Response(JSON.stringify({ timestamp: 1_500 }), { status: 503, headers: { "retry-after": "2" } });
+      }) as unknown as typeof fetch,
+    });
+    const err = await rest.positions("0xabc", 2_000).catch((e: unknown) => e);
+    expect(new URL(urls[0]!).searchParams.get("timestamp")).toBe("2000");
+    expect(err).toBeInstanceOf(PodBehindError);
+    expect(err).toMatchObject({ name: "PodBehindError", currentUs: 1_500, retryAfterMs: 2_000 });
   });
 });

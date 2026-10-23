@@ -44,8 +44,11 @@ Two read surfaces + one live surface, all served by the node.
 
 `from`/`to`/`until` query params are **unix seconds**; response timestamps are
 **microseconds** in `*_us` fields; numerics are **1e18-scaled decimal strings**
-(no longer hex). Every response includes `solution_now` (µs) — the settled
-watermark.
+(no longer hex). The indexer routes (`/clob/status`, `/clob/markets/stats`,
+`/clob/orders`, `/clob/backstop-transfers`) include `solution_now` (µs) — the
+settled watermark. The account-state routes (`/clob/positions`, `/clob/balances`,
+`/clob/triggers`) include `timestamp` (µs) — the deadline of the last executed
+tick on the answering node.
 
 | Route | Params | Returns | Cache-Control |
 |---|---|---|---|
@@ -78,7 +81,7 @@ eligibility is gated on solution time, never wall-clock** — a response goes
 | `pod_candles` | `orderbook_ids` | per-tick hint `{orderbook, timestamp_us, price, volume}` — client folds into the forming bar |
 | `pod_markets` | `orderbook_ids` | market-dynamics per book/tick (clearing/24h/mark/oracle/funding/OI) |
 | `pod_positions` | `bidder`(req) | `{account, data: GetPositionsResponse}`, only when the tick touched the account |
-| `pod_triggers` | `bidder`(req) | `{account, triggers, total_count, next_cursor}`, only when touched |
+| `pod_triggers` | `bidder`(req) | `{account, triggers, total_count, next_cursor, timestamp}`, only when touched |
 
 So **every entity the app polls today now has a push channel.**
 
@@ -224,6 +227,39 @@ pages cache permanently; only the live first page is `no-store` and maintained b
 This replaces the datafeed's 5s `setInterval` outright — and because the server
 already withholds the forming bar from REST, the streamed bar is the *only*
 source of "now," with no double-counting.
+
+**(e) Watermarks.** Positions, balances and triggers (REST and push) carry
+`timestamp`, the deadline of the last executed tick; `pod_markets` pushes carry
+the indexer watermark under the same name. The SDK keeps the highest watermark it
+has seen **per entity** (account, orderbook) and drops any page or push below
+it; on equal values the later one wins. The node's minimum holds per request,
+but concurrent answers for one entity (a REST poll and a push, a reconnect seed
+and a resubscribe snapshot) land in either order. Each REST
+re-read sends the held watermark as `?timestamp=`, so a lagging node waits up to
+~2s or answers 503 with its own `timestamp`; the SDK retries once after
+`Retry-After` and then throws the `PodBehindError` to the resource's own retry
+path. Each (re)subscribe to `pod_positions`, `pod_triggers` and `pod_markets`
+sends the held watermark as `since`; a node that does not reach it within its
+wait rejects with `995`, and the SDK resubscribes after 1s for as long as the
+subscription is open, without counting it toward the retry cap.
+
+Withdrawals resume by the watermark: `GET /v2/bridge/withdrawals[/{account}]`
+returns `{withdrawals, timestamp}` (`rest.bridgeWithdrawals` returns
+`WithdrawalsPage { withdrawals, timestampUs }`), and the SDK subscribes
+`pod_withdrawals` with `since = timestamp` of the page that ended the backfill.
+
+**(f) Send retry.** The delegated wallet's `submit` owns no nonce: each attempt
+fetches it with the `pending` tag. Attempts back off 250ms, 500ms, then 1s apart, each send is cut
+off after 5s, and the whole submit gives up after 10s. Transport errors, cut-off
+sends, non-JSON or non-2xx responses, and code `996` node rejections (past nonce,
+future nonce, pending account) are retried; any other rejection (execution
+reverted, deterministic rejection, account locked, empty tx required) is
+returned at once. After a transport error the same signed bytes are resent. A
+nonce rejection re-signs with a fresh nonce only when no earlier attempt could
+have been delivered; otherwise the SDK polls the receipt of the last sent hash
+for the rest of the budget and returns that hash or throws `PodDeliveryUnknownError` with the hash.
+`waitForReceipt` treats a non-2xx or non-JSON response as "no
+receipt yet" within its 30s.
 
 **Net caching model:** the server provides the cache *semantics* (headers gated
 on solution time); the SDK provides cache *hit rate* (canonical, settled-aligned,

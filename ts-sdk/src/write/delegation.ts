@@ -10,11 +10,15 @@
 // DelegatedWallet exposes is submit(); "logging out" is dropping the object.
 // Keep it that way.
 
-import { createWalletClient, defineChain, encodeFunctionData, http, parseAbi, recoverTypedDataAddress } from "viem";
+import {
+  BaseError, RpcRequestError, createWalletClient, defineChain, encodeFunctionData, http, keccak256, parseAbi, recoverTypedDataAddress,
+} from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Address, Hash, Hex } from "../types/public.js";
-import { rpc } from "../transport/jsonrpc.js";
-import { CLOB_ADDRESS, sendRawTransaction, type PodTxRequest } from "./index.js";
+import { PodRpcError, rpc } from "../transport/jsonrpc.js";
+import {
+  CLOB_ADDRESS, PodTxRevertError, sendRawTransaction, waitForReceipt, type PodTxRequest,
+} from "./index.js";
 
 /** EIP-712 payload the master signs (domain "pod delegation" v1). */
 export function delegationTypedData(delegate: Address, validUntil: bigint, chainId: number) {
@@ -34,6 +38,21 @@ export type DelegationTypedData = ReturnType<typeof delegationTypedData>;
 const DELEGATED_ABI = parseAbi([
   "function delegated(address master, uint64 validUntil, bytes signature, bytes inner)",
 ]);
+
+// Past nonce, future nonce or account pending: a pre-validation rejection that a fresh nonce can fix.
+const RETRYABLE_REJECTION_CODE = 996;
+const SUBMIT_RETRY_MS = 250;
+const SUBMIT_GIVE_UP_MS = 10_000;
+// A node that never attests holds a send for its whole wait; the rest of the budget is for the receipt poll.
+const SEND_ATTEMPT_MS = SUBMIT_GIVE_UP_MS / 2;
+
+/** `submit` could not tell whether its transaction reached the chain. */
+export class PodDeliveryUnknownError extends Error {
+  constructor(readonly txHash: Hash, options?: { cause?: unknown }) {
+    super(`submit: delivery unknown for ${txHash} after ${SUBMIT_GIVE_UP_MS / 1000}s`, options);
+    this.name = "PodDeliveryUnknownError";
+  }
+}
 
 /** A trading session: public cert facts + the one capability, submit(). */
 export interface DelegatedWallet {
@@ -79,7 +98,7 @@ export async function createDelegatedWallet(p: CreateDelegatedWalletParams): Pro
     nativeCurrency: { name: "pETH", symbol: "pETH", decimals: 18 },
     rpcUrls: { default: { http: [p.rpcUrl] } },
   });
-  const client = createWalletClient({ account, chain, transport: http(p.rpcUrl) });
+  const client = createWalletClient({ account, chain, transport: http(p.rpcUrl, { fetchFn: p.fetch }) });
   const doFetch = p.fetch ?? fetch;
 
   const submit = async (tx: PodTxRequest): Promise<Hash> => {
@@ -96,10 +115,58 @@ export async function createDelegatedWallet(p: CreateDelegatedWalletParams): Pro
       functionName: "delegated",
       args: [p.master, validUntil, signature, tx.data],
     });
-    const maxFeePerGas = BigInt(await rpc<string>(p.rpcUrl, "eth_gasPrice", [], { fetch: doFetch }));
-    const prepared = await client.prepareTransactionRequest({ ...tx, data, account, chain, maxFeePerGas });
-    const serialized = await client.signTransaction(prepared as never);
-    return sendRawTransaction(p.rpcUrl, serialized, { fetch: doFetch });
+    const sign = async () => {
+      const maxFeePerGas = BigInt(await rpc<string>(p.rpcUrl, "eth_gasPrice", [], { fetch: doFetch }));
+      const prepared = await client.prepareTransactionRequest({ ...tx, data, account, chain, maxFeePerGas });
+      return client.signTransaction(prepared as never);
+    };
+    const giveUpAt = Date.now() + SUBMIT_GIVE_UP_MS;
+    let serialized: Hex | undefined;
+    // Set once an attempt may have reached a node; from then on the bytes are never re-signed.
+    let maybeDelivered: Hash | undefined;
+    let err: unknown;
+    for (let attempt = 0; ; attempt++) {
+      let sending = false;
+      try {
+        serialized ??= await sign();
+        sending = true;
+        // Not AbortSignal.timeout: its clock is not the one setTimeout runs on, which fake timers replace.
+        const ctl = new AbortController();
+        const stall = setTimeout(() => ctl.abort(), Math.max(1, Math.min(SEND_ATTEMPT_MS, giveUpAt - Date.now())));
+        try {
+          return await sendRawTransaction(p.rpcUrl, serialized, { fetch: doFetch, signal: ctl.signal });
+        } finally {
+          clearTimeout(stall);
+        }
+      } catch (e) {
+        err = e;
+      }
+      if (!sending && (err instanceof PodRpcError
+        || (err instanceof BaseError && err.walk((c) => c instanceof RpcRequestError) !== null))) throw err;
+      if (err instanceof PodTxRevertError) {
+        if (err.code !== RETRYABLE_REJECTION_CODE) throw err;
+        if (maybeDelivered) break;
+        // Rejected by the node's pre-validation, so nothing was broadcast.
+        serialized = undefined;
+      } else if (sending) {
+        maybeDelivered = keccak256(serialized!);
+      }
+      const backoff = Math.min(1_000, SUBMIT_RETRY_MS * 2 ** attempt);
+      if (Date.now() + backoff > giveUpAt) {
+        if (maybeDelivered) break;
+        throw new Error(`submit gave up after ${SUBMIT_GIVE_UP_MS / 1000}s: ${(err as Error).message}`, { cause: err });
+      }
+      await new Promise((r) => setTimeout(r, backoff));
+    }
+    const hash = maybeDelivered;
+    try {
+      await waitForReceipt(p.rpcUrl, hash, {
+        fetch: doFetch, pollMs: SUBMIT_RETRY_MS, timeoutMs: Math.max(0, giveUpAt - Date.now()),
+      });
+      return hash;
+    } catch {
+      throw new PodDeliveryUnknownError(hash, { cause: err });
+    }
   };
 
   return Object.freeze({ master: p.master, delegate: account.address, validUntil, submit });

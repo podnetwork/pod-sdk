@@ -2,9 +2,8 @@
 // maintain in memory from the matching `pod_*` channel.
 //
 // Reconnect model:
-//  - Current-state channels (markets/positions/triggers) subscribe with
-//    `since: 0`, so every (re)subscribe yields a fresh immediate snapshot — no
-//    staleness possible, nothing to re-seed.
+//  - Current-state channels (markets/positions/triggers) (re)subscribe with
+//    `since` = the held timestamp; the node answers with a snapshot at or past it.
 //  - REST-seeded channels (markets static, orderbook, balances) seed
 //    immediately — the fetch doesn't need the socket, so first data isn't
 //    held behind the WS handshake — and re-seed on every (re)connect via
@@ -17,14 +16,15 @@ import type {
   Address, Balances, BridgeConfig, Market, MarketId, Orderbook, PositionsSnapshot, Status, Trigger,
 } from "../types/public.js";
 import type {
-  WireMarketDynamics, WireOrderbook, WirePositionsPush, WireTriggersPush,
+  WireMarketDynamics, WireOrderbook, WirePositionsPush, WireSpotHolding, WireTriggersPush,
 } from "../types/wire.js";
 import {
-  decodeMarketDynamics, decodeOrderbook, decodePositions, decodeTrigger,
+  decodeBalances, decodeMarketDynamics, decodeOrderbook, decodePositions, decodeTrigger,
 } from "../codec/decode.js";
 import { parseBig, stringifyBig } from "../codec/json.js";
-import type { PodRestClient } from "../transport/rest.js";
-import type { PodWsClient } from "../transport/ws.js";
+import { PodBehindError, type PodRestClient } from "../transport/rest.js";
+import type { Channel, PodWsClient, SubParams } from "../transport/ws.js";
+import { usToMs } from "../codec/units.js";
 import type { ResourceSource } from "../stores/resource.js";
 
 export interface SyncContext {
@@ -77,6 +77,68 @@ export function seedNowAndOnReconnect(ws: PodWsClient, fn: () => void): () => vo
   return off;
 }
 
+/** Concurrent answers for one entity land in either order, so an answer below what is held is dropped. */
+export function watermarks(): (ts: number | undefined, key?: string) => boolean {
+  const seen = new Map<string, number>();
+  return (ts, key = "") => {
+    if (ts === undefined) return true;
+    if (ts < (seen.get(key) ?? -Infinity)) return false;
+    seen.set(key, ts);
+    return true;
+  };
+}
+
+/**
+ * A REST read that asks the node for state at or past `minUs`. A node that
+ * cannot get there in time is retried once after its `Retry-After`; a second
+ * {@link PodBehindError} is thrown to the caller.
+ */
+export async function readAtLeast<T>(read: (minUs?: number) => Promise<T>, minUs: number | undefined): Promise<T> {
+  if (!minUs) return read(undefined);
+  try {
+    return await read(minUs);
+  } catch (e) {
+    if (!(e instanceof PodBehindError)) throw e;
+    await new Promise((r) => setTimeout(r, e.retryAfterMs));
+    return read(minUs);
+  }
+}
+
+export const MAX_SUB_RETRIES = 5;
+export const subBackoffMs = (retries: number) => Math.min(30_000, 500 * 2 ** (retries - 1));
+
+/** `ws.subscribe` for channels that need no cursor: a rejected or server-closed
+ * sub is resubscribed with bounded backoff, cancelled once it is live again. A
+ * 995 rejection (node not yet at `since`) is retried every second while alive. */
+function subscribeRetrying(
+  ws: PodWsClient,
+  channel: Channel,
+  params: SubParams | (() => SubParams),
+  onMessage: (result: unknown) => void,
+): { unsubscribe(): void } {
+  let retries = 0;
+  let dead = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cancel = () => { if (timer) { clearTimeout(timer); timer = undefined; } };
+  // A reconnect resubscribes from `onopen`; a timer firing after that would drop the live server id.
+  const offOpen = ws.on("open", cancel);
+  const sub = ws.subscribe(channel, params, (result) => {
+    retries = 0;
+    cancel();
+    onMessage(result);
+  }, (err) => {
+    if (dead) return;
+    const behind = (err as { code?: unknown } | undefined)?.code === 995;
+    if (!behind) {
+      if (retries >= MAX_SUB_RETRIES) return;
+      retries++;
+    }
+    cancel();
+    timer = setTimeout(() => { timer = undefined; if (!dead) sub.resubscribe(); }, behind ? 1_000 : subBackoffMs(retries));
+  });
+  return { unsubscribe: () => { dead = true; cancel(); offOpen(); sub.unsubscribe(); } };
+}
+
 export function statusSource({ rest, ws }: SyncContext): ResourceSource<Status> {
   return (h) => {
     let alive = true;
@@ -124,6 +186,8 @@ export function marketsSource(
           (orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER)
           || a.id.localeCompare(b.id)),
     );
+    const fresh = watermarks();
+    let heldUs = 0;
     const mergePatch = (patch: Partial<Market> & { id: string }) => {
       const existing = byId.get(patch.id);
       byId.set(patch.id, existing ? { ...existing, ...patch } : (patch as Market));
@@ -159,9 +223,10 @@ export function marketsSource(
 
     // 24h vol/high/low slide with time and only the REST stats reflect that
     // (the WS only pushes on a clear) — so poll them periodically.
-    const seedStats = () => rest.marketStats().then((page) => {
+    const seedStats = () => readAtLeast((min) => rest.marketStats(undefined, min), heldUs).then((page) => {
       if (!alive) return;
-      page.markets.forEach(mergePatch);
+      heldUs = Math.max(heldUs, page.solutionNow * 1000);
+      page.markets.forEach((m) => { if (fresh(page.solutionNow, m.id)) mergePatch(m); });
       publish();
     }).catch(() => { /* live dynamics also arrive on the stream */ });
 
@@ -169,11 +234,14 @@ export function marketsSource(
     const timer = marketResyncMs > 0 ? setInterval(seedStats, marketResyncMs) : undefined;
 
     // Live clearing/mark/funding between polls.
-    const sub = ws.subscribe("pod_markets", { since: 0 }, (result) => {
+    const sub = subscribeRetrying(ws, "pod_markets", () => ({ since: heldUs }), (result) => {
       const items = Array.isArray(result) ? result : [result];
       for (const it of items) {
         const w = it as Record<string, unknown>;
-        mergePatch(decodeMarketDynamics({ ...w, orderbook_id: w.orderbook_id ?? w.orderbook } as WireMarketDynamics));
+        const id = (w.orderbook_id ?? w.orderbook) as string;
+        if (typeof w.timestamp === "number") heldUs = Math.max(heldUs, w.timestamp);
+        if (!fresh(typeof w.timestamp === "number" ? usToMs(w.timestamp) : undefined, id)) continue;
+        mergePatch(decodeMarketDynamics({ ...w, orderbook_id: id } as WireMarketDynamics));
       }
       publish();
     });
@@ -190,13 +258,13 @@ export function orderbookSource(
   return (h) => {
     let alive = true;
     const seed = () => {
-      rest.orderbook(id).then((ob) => {
+      readAtLeast((min) => rest.orderbook(id, min), (h.current()?.timeMs ?? 0) * 1000).then((ob) => {
         const cur = h.current();
         if (alive && (!cur || cur.timeMs <= ob.timeMs)) h.set(ob);
       }).catch((e) => { if (!h.current()) h.fail(e); });
     };
     const offOpen = seedNowAndOnReconnect(ws, seed);
-    const sub = ws.subscribe("pod_orderbook", { clobIds: [id], depth }, (result) => {
+    const sub = subscribeRetrying(ws, "pod_orderbook", { clobIds: [id], depth }, (result) => {
       const ob = decodeOrderbook(result as WireOrderbook);
       const cur = h.current();
       if (!cur || ob.timeMs >= cur.timeMs) h.set(ob);
@@ -212,14 +280,17 @@ export function positionsSource(
   return (h) => {
     let alive = true;
     // Baseline refreshes from three triggers, all just replacing the snapshot:
-    //  - WS since:0 immediate + on every account-touching tick,
+    //  - WS snapshot on every (re)subscribe + on every account-touching tick,
     //  - a periodic REST poll that re-aligns to the backend's exact accounting
     //    (corrects mark-extrapolation drift even when the account isn't touched).
-    const reseed = () => rest.positions(account).then((s) => { if (alive) h.set(s); }).catch(() => {});
+    const fresh = watermarks();
+    const accept = (s: PositionsSnapshot) => { if (alive && fresh(s.timestampUs)) h.set(s); };
+    const reseed = () =>
+      readAtLeast((min) => rest.positions(account, min), h.current()?.timestampUs).then(accept).catch(() => {});
     reseed();
     const timer = positionResyncMs > 0 ? setInterval(reseed, positionResyncMs) : undefined;
-    const sub = ws.subscribe("pod_positions", { account, since: 0 }, (result) => {
-      if (alive) h.set(decodePositions((result as WirePositionsPush).data));
+    const sub = subscribeRetrying(ws, "pod_positions", () => ({ account, since: h.current()?.timestampUs ?? 0 }), (result) => {
+      accept(decodePositions((result as WirePositionsPush).data));
     });
     return () => { alive = false; if (timer) clearInterval(timer); sub.unsubscribe(); };
   };
@@ -231,22 +302,29 @@ export function balancesSource(
 ): ResourceSource<Balances> {
   return (h) => {
     let alive = true;
-    // No dedicated balances stream — seed over REST, re-poll periodically, and
-    // re-fetch (debounced) whenever the account is touched on pod_positions, so
-    // a spot fill / deposit reflects promptly without spamming a fetch per tick.
-    const seed = () => rest.balances(account).then((b) => { if (alive) h.set(b); }).catch((e) => { if (!h.current()) h.fail(e as Error); });
+    // No dedicated balances stream: the pod_positions push carries the spot
+    // holdings and cash too, so it is folded in; REST seeds and re-aligns.
+    const fresh = watermarks();
+    fresh(h.lastKnown()?.value.timestampUs);
+    const accept = (b: Balances) => { if (alive && fresh(b.timestampUs)) h.set(b); };
+    const seed = () => readAtLeast((min) => rest.balances(account, min), h.lastKnown()?.value.timestampUs)
+      .then(accept).catch((e) => { if (!h.current()) h.fail(e as Error); });
     const offOpen = seedNowAndOnReconnect(ws, seed);
     const timer = positionResyncMs > 0 ? setInterval(seed, positionResyncMs) : undefined;
-    let debounce: ReturnType<typeof setTimeout> | undefined;
-    const sub = ws.subscribe("pod_positions", { account, since: 0 }, () => {
-      if (!alive || debounce) return;
-      debounce = setTimeout(() => { debounce = undefined; seed(); }, 500);
+    const sub = subscribeRetrying(ws, "pod_positions", () => ({ account, since: h.lastKnown()?.value.timestampUs ?? 0 }), (result) => {
+      const w = (result as WirePositionsPush).data;
+      accept(decodeBalances({
+        balances: w.positions.filter((p) => p.kind === "spot") as unknown as WireSpotHolding[],
+        cash: w.cash,
+        withdrawable_cash: w.withdrawable_cash,
+        net_deposits: w.net_deposits,
+        timestamp: w.timestamp,
+      }));
     });
     return () => {
       alive = false;
       offOpen();
       if (timer) clearInterval(timer);
-      if (debounce) clearTimeout(debounce);
       sub.unsubscribe();
     };
   };
@@ -257,8 +335,12 @@ export function triggersSource(
   account: Address,
 ): ResourceSource<Trigger[]> {
   return (h) => {
-    const sub = ws.subscribe("pod_triggers", { account, since: 0 }, (result) => {
-      h.set((result as WireTriggersPush).triggers.map(decodeTrigger));
+    const fresh = watermarks();
+    let heldUs = 0;
+    const sub = subscribeRetrying(ws, "pod_triggers", () => ({ account, since: heldUs }), (result) => {
+      const w = result as WireTriggersPush;
+      heldUs = Math.max(heldUs, w.timestamp ?? 0);
+      if (fresh(w.timestamp)) h.set(w.triggers.map(decodeTrigger));
     });
     return () => sub.unsubscribe();
   };

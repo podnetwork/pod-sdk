@@ -13,7 +13,7 @@
 import { decodeAbiParameters, encodeAbiParameters, encodeFunctionData, keccak256, parseAbi } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Address, Hash, Hex, MarketId } from "../types/public.js";
-import { rpc } from "../transport/jsonrpc.js";
+import { rpc, tryRpc } from "../transport/jsonrpc.js";
 // In codec/ so the read entry reaches it too; re-exported so all three align* are here.
 import { alignSize } from "../codec/units.js";
 
@@ -195,20 +195,22 @@ export function decodeRevertReason(data: unknown): string | undefined {
 export async function sendRawTransaction(
   rpcUrl: string,
   signedTx: Hex,
-  opts?: { fetch?: typeof fetch },
+  opts?: { fetch?: typeof fetch; signal?: AbortSignal },
 ): Promise<Hash> {
   const doFetch = opts?.fetch ?? fetch;
   const res = await doFetch(rpcUrl, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_sendRawTransaction", params: [signedTx] }),
+    signal: opts?.signal,
   });
   const json = (await res.json()) as { result?: Hash; error?: { code?: number; message?: string; data?: unknown } };
   if (json.error) {
     const reason = decodeRevertReason(json.error.data) ?? json.error.message ?? "transaction failed";
     throw new PodTxRevertError(reason, json.error.data, json.error.code);
   }
-  return json.result!;
+  if (!res.ok || !json.result) throw new Error(`eth_sendRawTransaction: HTTP ${res.status}, no result`);
+  return json.result;
 }
 
 export interface UpdateOrderParams {
@@ -579,25 +581,16 @@ export async function waitForReceipt(
   hash: Hash,
   opts?: { fetch?: typeof fetch; timeoutMs?: number; pollMs?: number },
 ): Promise<TxReceipt> {
-  const doFetch = opts?.fetch ?? fetch;
   const timeoutMs = opts?.timeoutMs ?? 30_000;
   const pollMs = opts?.pollMs ?? 250;
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    const res = await doFetch(rpcUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionReceipt", params: [hash] }),
-    });
-    const json = (await res.json()) as {
-      result?: {
-        status: string;
-        transactionHash: Hash;
-        blockNumber?: string | null;
-        gasUsed: string;
-      } | null;
-    };
-    const r = json.result;
+    const r = await tryRpc<{
+      status: string;
+      transactionHash: Hash;
+      blockNumber?: string | null;
+      gasUsed: string;
+    } | null>(rpcUrl, "eth_getTransactionReceipt", [hash], { fetch: opts?.fetch });
     if (r) {
       return {
         status: r.status === "0x1" ? "success" : "reverted",
@@ -624,7 +617,7 @@ export const MINT_ADDRESS: Address = "0x00000000000000000000000000000000000fFFFf
 export const NATIVE_USD_ADDRESS: Address = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
 const MINT_ABI = parseAbi([
-  "function mint(address to, (address token, uint256 amount)[] tokens, bool depositToClob)",
+  "function mint(address to, (address token, uint256 amount)[] tokens, uint128 deadline)",
 ]);
 
 export interface MintParams {
@@ -634,8 +627,6 @@ export interface MintParams {
   to: Address;
   /** 1e18-scaled amounts; `token` defaults to the native USD (cash) token. */
   tokens: Array<{ token?: Address; amount: bigint }>;
-  /** Deposit into the CLOB balance (default) instead of crediting the EOA. */
-  depositToClob?: boolean;
   /** Called with the tx hash once the node accepts it (before confirmation). */
   onSubmitted?: (hash: Hash) => void;
   fetch?: typeof fetch;
@@ -655,7 +646,8 @@ export async function mint(p: MintParams): Promise<TxReceipt> {
     args: [
       p.to,
       p.tokens.map((t) => ({ token: t.token ?? NATIVE_USD_ADDRESS, amount: t.amount })),
-      p.depositToClob ?? true,
+      // Only bounds how long the node holds the intent; it executes in the first batch after it finalizes.
+      BigInt(Date.now() + 60_000) * 1000n,
     ],
   });
   const serialized = await signer.signTransaction({
@@ -835,6 +827,6 @@ export function deriveOrderId(signer: Address, nonce: number, sequence = 0): Has
 }
 
 export {
-  createDelegatedWallet, delegationTypedData,
+  createDelegatedWallet, delegationTypedData, PodDeliveryUnknownError,
   type CreateDelegatedWalletParams, type DelegatedWallet, type DelegationTypedData,
 } from "./delegation.js";

@@ -1,13 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
-
-import { decodeFunctionData, getAddress, parseAbi } from "viem";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { decodeFunctionData, getAddress, keccak256, parseAbi, parseTransaction, toFunctionSelector, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 import { createDelegatedWallet } from "./delegation.js";
 import {
-  alignSize, BRIDGE_ADDRESS, buildClosePosition, buildOrderWithTriggers, buildSubmitBatch,
+  alignSize, BRIDGE_ADDRESS, buildClosePosition, CLOB_ADDRESS, buildOrderWithTriggers, buildSubmitBatch,
   buildSubmitOrder, buildSubmitTrigger, buildUpdateOrder, buildUpdateTrigger, buildWithdraw,
-  decodeRevertReason, sendRawTransaction, waitForReceipt,
+  decodeRevertReason, MINT_ADDRESS, mint, NATIVE_USD_ADDRESS, PodDeliveryUnknownError, PodTxRevertError, sendRawTransaction,
+  waitForReceipt, type PodTxRequest,
 } from "./index.js";
 import type { Hash } from "../types/public.js";
 
@@ -15,7 +15,7 @@ const TX = `0x${"ab".repeat(32)}` as Hash;
 
 /** Serves one `eth_getTransactionReceipt` result, then repeats it. */
 function fakeReceipt(result: unknown) {
-  return vi.fn(async () => ({ json: async () => ({ jsonrpc: "2.0", id: 1, result }) })) as unknown as typeof fetch;
+  return vi.fn(async () => ({ ok: true, json: async () => ({ jsonrpc: "2.0", id: 1, result }) })) as unknown as typeof fetch;
 }
 
 const base = { status: "0x1", transactionHash: TX, gasUsed: "0xf4240" };
@@ -35,6 +35,15 @@ describe("waitForReceipt", () => {
     const fetchFn = fakeReceipt({ ...base, blockNumber: "0x1a4" });
     const r = await waitForReceipt("http://rpc", TX, { fetch: fetchFn, timeoutMs: 50 });
     expect(r.blockNumber).toBe(420n);
+  });
+
+  it("keeps polling through a load balancer's HTML error page", async () => {
+    const ok = fakeReceipt({ ...base, blockNumber: "0x1" });
+    const html = { ok: false, status: 502, json: async () => JSON.parse("<html>502 Bad Gateway</html>") };
+    const fetchFn = vi.fn().mockResolvedValueOnce(html).mockImplementation(ok) as unknown as typeof fetch;
+    const r = await waitForReceipt("http://rpc", TX, { fetch: fetchFn, timeoutMs: 1000, pollMs: 1 });
+    expect(r.status).toBe("success");
+    expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
   it("keeps polling while the node has no receipt", async () => {
@@ -259,5 +268,192 @@ describe("sendRawTransaction", () => {
       reason: "rejected by quorum",
       code: -32003,
     });
+  });
+});
+
+describe("DelegatedWallet.submit", () => {
+  type Reply = { result?: unknown; error?: { code: number; message: string; data?: unknown } } | Error | "hang";
+
+  /** A node behind a load balancer: `eth_sendRawTransaction` answers come off `sends`. */
+  async function setup(
+    sends: Reply[], nonces: number[], receipts: unknown[] = [null], overrides: Record<string, Reply> = {},
+  ) {
+    const sent: Hex[] = [];
+    const receiptQueries: string[] = [];
+    const sentAt: number[] = [];
+    let signs = 0;
+    const fetchFn = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const req = JSON.parse(String(init!.body)) as { id: number; method: string; params: unknown[] };
+      let reply: Reply;
+      if (overrides[req.method]) {
+        if (req.method === "eth_gasPrice") signs++;
+        reply = overrides[req.method]!;
+      } else switch (req.method) {
+        case "eth_gasPrice": signs++; reply = { result: "0x1" }; break;
+        case "eth_getTransactionCount": reply = { result: `0x${(nonces.length > 1 ? nonces.shift()! : nonces[0]!).toString(16)}` }; break;
+        case "eth_getTransactionReceipt": receiptQueries.push(req.params[0] as string);
+          reply = { result: receipts.length > 1 ? receipts.shift() : receipts[0] };
+          break;
+        case "eth_sendRawTransaction":
+          sent.push(req.params[0] as Hex);
+          sentAt.push(Date.now());
+          reply = sends.shift()!;
+          if (reply === "hang") {
+            return new Promise((_, reject) => init!.signal?.addEventListener("abort", () => reject(init!.signal!.reason)));
+          }
+          break;
+        case "eth_chainId": reply = { result: "0x50d" }; break;
+        default: reply = { error: { code: -32601, message: "Method not found" } };
+      }
+      if (reply instanceof Error) throw reply;
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: req.id, ...(reply as object) }));
+    }) as unknown as typeof fetch;
+    const master = privateKeyToAccount(generatePrivateKey());
+    const wallet = await createDelegatedWallet({
+      master: master.address, chainId: 1293, rpcUrl: "http://rpc", ttlMs: 3_600_000, fetch: fetchFn,
+      signTypedData: (td) => master.signTypedData(td),
+    });
+    return { wallet, sent, sentAt, receiptQueries, signs: () => signs };
+  }
+
+  const TX_REQ: PodTxRequest = {
+    to: CLOB_ADDRESS, data: "0x", value: 0n, type: "eip1559",
+    maxPriorityFeePerGas: 0n, gas: 1_000_000n,
+  };
+  const nonceOf = (raw: Hex) => parseTransaction(raw).nonce;
+
+  const PAST_NONCE: Reply = {
+    error: { code: 996, message: "Past nonce: tx nonce 3, expected 4", data: "past_nonce" },
+  };
+
+  /** Runs `submit` on fake timers, past the whole 10s budget. */
+  const settle = async <T>(start: () => Promise<T>) => {
+    vi.useFakeTimers();
+    onTestFinished(() => { vi.useRealTimers(); });
+    const pending = start().catch((e: Error) => e);
+    await vi.advanceTimersByTimeAsync(11_000);
+    return pending;
+  };
+
+  it("re-signs with a fresh nonce after a rejection on the first attempt, without a receipt check", async () => {
+    const { wallet, sent, receiptQueries } = await setup([PAST_NONCE, { result: "0xok" }], [3, 4]);
+    expect(await settle(() => wallet.submit(TX_REQ))).toBe("0xok");
+    expect(sent.map(nonceOf)).toEqual([3, 4]);
+    expect(receiptQueries).toEqual([]);
+  });
+
+  it("polls the receipt after a transport error then a past-nonce rejection", async () => {
+    const { wallet, sent, receiptQueries, signs } = await setup(
+      [new TypeError("fetch failed"), PAST_NONCE], [3], [null, null, { ...base, blockNumber: "0x1" }],
+    );
+    const hash = await settle(() => wallet.submit(TX_REQ));
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toBe(sent[0]);
+    expect(hash).toBe(keccak256(sent[0]!));
+    expect(receiptQueries).toEqual([hash, hash, hash]);
+    expect(signs()).toBe(1);
+  });
+
+  it("reports delivery unknown, without re-signing, when no receipt appears", async () => {
+    const { wallet, sent, signs } = await setup([new TypeError("fetch failed"), PAST_NONCE], [3]);
+    const err = await settle(() => wallet.submit(TX_REQ));
+    expect(err).toBeInstanceOf(PodDeliveryUnknownError);
+    expect((err as PodDeliveryUnknownError).txHash).toBe(keccak256(sent[0]!));
+    expect(sent).toHaveLength(2);
+    expect(signs()).toBe(1);
+  });
+
+  it("resends the same bytes after a transport error", async () => {
+    const { wallet, sent } = await setup([new TypeError("fetch failed"), { result: "0xok" }], [3]);
+    expect(await settle(() => wallet.submit(TX_REQ))).toBe("0xok");
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toBe(sent[0]);
+  });
+
+  it("backs off 250ms, 500ms, then 1s between attempts", async () => {
+    const down = new TypeError("fetch failed");
+    const { wallet, sentAt } = await setup([down, down, down, down, { result: "0xok" }], [3]);
+    expect(await settle(() => wallet.submit(TX_REQ))).toBe("0xok");
+    expect(sentAt.slice(1).map((t, i) => t - sentAt[i]!)).toEqual([250, 500, 1000, 1000]);
+  });
+
+  it("aborts each hung send at 5s and reports delivery unknown when nothing lands", async () => {
+    const { wallet, sent, signs } = await setup(["hang", "hang"], [3]);
+    const err = await settle(() => wallet.submit(TX_REQ));
+    expect(err).toBeInstanceOf(PodDeliveryUnknownError);
+    expect((err as PodDeliveryUnknownError).txHash).toBe(keccak256(sent[0]!));
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toBe(sent[0]);
+    expect(signs()).toBe(1);
+  });
+
+  it("returns the hash of a hung send once its receipt appears", async () => {
+    const { wallet, sent, signs } = await setup(["hang", PAST_NONCE], [3], [null, null, null, { ...base, blockNumber: "0x1" }]);
+    const hash = await settle(() => wallet.submit(TX_REQ));
+    expect(hash).toBe(keccak256(sent[0]!));
+    expect(signs()).toBe(1);
+  });
+
+  it("does not retry a -32000 validation failure, even one about a nonce", async () => {
+    const { wallet, sent } = await setup([
+      { error: { code: -32000, message: "transaction validation failed", data: "Past nonce: tx nonce 3, expected 4" } },
+    ], [3]);
+    await expect(wallet.submit(TX_REQ)).rejects.toBeInstanceOf(PodTxRevertError);
+    expect(sent).toHaveLength(1);
+  });
+
+  it("does not retry an execution revert", async () => {
+    const { wallet, sent } = await setup([
+      { error: { code: 3, message: "execution reverted", data: "0x" } },
+    ], [3]);
+    await expect(wallet.submit(TX_REQ)).rejects.toBeInstanceOf(PodTxRevertError);
+    expect(sent).toHaveLength(1);
+  });
+
+  it.each(["eth_gasPrice", "eth_getTransactionCount"])("does not retry a JSON-RPC error from %s", async (method) => {
+    const { wallet, sent, signs } = await setup([], [3], [null], {
+      [method]: { error: { code: -32000, message: `${method} unavailable` } },
+    });
+    const err = await settle(() => wallet.submit(TX_REQ));
+    expect(String(err)).toContain(`${method} unavailable`);
+    expect(signs()).toBe(1);
+    expect(sent).toHaveLength(0);
+  });
+});
+
+describe("sendRawTransaction", () => {
+  it("keeps the JSON-RPC error code on the rejection", async () => {
+    const fetchFn = (async () => new Response(JSON.stringify({
+      jsonrpc: "2.0", id: 1, error: { code: 996, message: "Account has pending transaction", data: "account_pending" },
+    }))) as unknown as typeof fetch;
+    const err = await sendRawTransaction("http://rpc", "0x01", { fetch: fetchFn }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PodTxRevertError);
+    expect(err).toMatchObject({ code: 996, data: "account_pending", reason: "Account has pending transaction" });
+  });
+});
+
+describe("mint", () => {
+  it("encodes mint(address, (address, uint256)[], uint128 deadline) for the faucet", async () => {
+    let raw: Hex | undefined;
+    const fetchFn = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const req = JSON.parse(String(init!.body)) as { method: string; params: unknown[] };
+      if (req.method === "eth_sendRawTransaction") raw = req.params[0] as Hex;
+      const result = req.method === "eth_gasPrice" ? "0x1"
+        : req.method === "eth_sendRawTransaction" ? TX
+        : { ...base, blockNumber: "0x1" };
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }));
+    }) as unknown as typeof fetch;
+    const to = "0x00000000000000000000000000000000000000aa" as const;
+    const before = BigInt(Date.now()) * 1000n;
+    await mint({ rpcUrl: "http://rpc", chainId: 1293, to, tokens: [{ amount: 5n }], fetch: fetchFn });
+
+    const tx = parseTransaction(raw!);
+    expect(tx.to?.toLowerCase()).toBe(MINT_ADDRESS.toLowerCase());
+    const abi = parseAbi(["function mint(address to, (address token, uint256 amount)[] tokens, uint128 deadline)"]);
+    expect(tx.data!.slice(0, 10)).toBe(toFunctionSelector(abi[0]));
+    const { args } = decodeFunctionData({ abi, data: tx.data! });
+    expect(args[0].toLowerCase()).toBe(to);
+    expect(args[1]).toEqual([{ token: NATIVE_USD_ADDRESS, amount: 5n }]);
+    expect(args[2]).toBeGreaterThan(before);
   });
 });
