@@ -123,16 +123,6 @@ describe("PodRestClient.bridgeWithdrawals", () => {
     expect(urls[0]!.searchParams.get("timestamp")).toBe("6000");
   });
 
-  it("falls back to the v1 array on a node without v2", async () => {
-    const { rest, urls } = clientWith((u) =>
-      u.pathname.startsWith("/v2/") ? new Response("not found", { status: 404 }) : new Response("[]"));
-    await expect(rest.bridgeWithdrawals(undefined, { since: 5 }, 6_000))
-      .resolves.toEqual({ withdrawals: [], timestampUs: 0 });
-    expect(urls.map((u) => u.pathname)).toEqual(["/v2/bridge/withdrawals", "/v1/bridge/withdrawals"]);
-    expect(urls[1]!.searchParams.get("timestamp")).toBeNull();
-    expect(urls[1]!.searchParams.get("since")).toBe("5");
-  });
-
   it("reports a v2 node behind the minimum", async () => {
     const { rest, urls } = clientWith(() =>
       new Response(JSON.stringify({ timestamp: 1_500 }), { status: 503, headers: { "retry-after": "1" } }));

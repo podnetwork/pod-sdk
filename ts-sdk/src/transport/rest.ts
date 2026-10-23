@@ -11,7 +11,7 @@ import type {
 import type {
   WireActivityEntry, WireActivityPage, WireBackstopPage, WireBalances, WireBridgeConfig, WireCandlesEnvelope,
   WireMarketStatic, WireMarketStatsPage, WireOrderbook, WireOrdersPage, WirePositionsSnapshot,
-  WireStatus, WireTriggersPage, WireWithdrawal, WireWithdrawalsPage,
+  WireStatus, WireTriggersPage, WireWithdrawalsPage,
 } from "../types/wire.js";
 import {
   decodeBackstopTransfer, decodeBalances, decodeBridgeConfig, decodeCandle,
@@ -304,16 +304,9 @@ export class PodRestClient {
   async bridgeWithdrawals(account?: Address, q?: WithdrawalsQuery, minTimestampUs?: number): Promise<WithdrawalsPage> {
     const path = account ? `/bridge/withdrawals/${account}` : "/bridge/withdrawals";
     const query = { since: q?.since, since_id: q?.sinceId, limit: q?.limit };
-    try {
-      // `restUrl` ends in the API version, so this resolves to its v2 sibling.
-      const w = await this.get<WireWithdrawalsPage>(`/../v2${path}`, { ...query, timestamp: minTimestampUs });
-      return { withdrawals: w.withdrawals.map(decodeWithdrawal), timestampUs: w.timestamp };
-    } catch (e) {
-      if (!(e instanceof PodHttpError && e.status === 404)) throw e;
-    }
-    // A node without v2 serves the bare array and has no watermark.
-    const rows = await this.get<WireWithdrawal[]>(path, query);
-    return { withdrawals: rows.map(decodeWithdrawal), timestampUs: 0 };
+    // `restUrl` ends in the API version, so this resolves to its v2 sibling.
+    const w = await this.get<WireWithdrawalsPage>(`/../v2${path}`, { ...query, timestamp: minTimestampUs });
+    return { withdrawals: w.withdrawals.map(decodeWithdrawal), timestampUs: w.timestamp };
   }
 
   async triggers(account: Address, q?: TriggersQueryRest, minTimestampUs?: number): Promise<TriggersPage> {
