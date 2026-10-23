@@ -245,8 +245,7 @@ subscription is open, without counting it toward the retry cap.
 
 Withdrawals resume by the watermark: `GET /v2/bridge/withdrawals[/{account}]`
 returns `{withdrawals, timestamp}` (`rest.bridgeWithdrawals` returns
-`WithdrawalsPage { withdrawals, timestampUs }`, falling back to the v1 array with
-`timestampUs: 0` on a 404), and the SDK subscribes
+`WithdrawalsPage { withdrawals, timestampUs }`), and the SDK subscribes
 `pod_withdrawals` with `since = timestamp` of the page that ended the backfill.
 
 **(f) Send retry.** The delegated wallet's `submit` owns no nonce: each attempt
