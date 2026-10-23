@@ -310,9 +310,10 @@ paths:
       summary: Get Orders
       operationId: getOrders
       description: |
-        The account's orders, newest first by `(deadline, nonce, order_id)`; their fills
-        are on `/clob/fills/{account}`. Backstop position transfers appear as terminal rows
-        with `kind: backstop_transfer`.
+        The account's orders with their fills, newest first by `(deadline, nonce,
+        order_id)`. `/clob/fills/{account}` and the activity `fill` entries are the per-fill
+        record that also carries the fee and running totals. Backstop position transfers
+        appear as terminal rows with `kind: backstop_transfer`.
 
         Two paging modes:
         - Cursor (default): pass `next_cursor` back as `cursor`; `null` on the last page.
@@ -565,7 +566,7 @@ paths:
         when it alone exceeds `limit`. Pass `next` back as `to` for the older page.
 
         An `order` entry, at the batch that admitted it, is the order as
-        `/clob/orders/{account}` serves it: its current status and totals, so it needs no
+        `/clob/orders/{account}` serves it: its current status, totals and fills, so it needs no
         folding of the later entries. A `fill`, `modify`, `termination`, `modify_reject` or `cancel_reject` names
         its order by `id` and `book`; one of an order placed before the window is not
         hydrated.
@@ -637,6 +638,11 @@ paths:
                       end: 18446744073709551615
                       included_batch: 1704153600000000
                       effective_price: "0x4563918244f40000"
+                      fills:
+                        - base_amount: "0xde0b6b3a7640000"
+                          quote_amount: "0x4563918244f40000"
+                          timestamp: 1704153600000000
+                          price: "0x4563918244f40000"
                       direction: sell
                     - k: fill
                       id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
@@ -657,6 +663,12 @@ paths:
                 next: "1704149999999999"
                 solution_now: 1704153600100000
         '400': { $ref: '#/components/responses/BadRequest' }
+        '422':
+          description: '`from > to`. Plain-text reason.'
+          content:
+            text/plain:
+              schema: { type: string }
+              example: from must not exceed to
         '503': { $ref: '#/components/responses/Unavailable' }
 
   # ==========================================
@@ -1171,12 +1183,21 @@ components:
     # ==========================================
     # ACCOUNT
     # ==========================================
+    PartialFill:
+      type: object
+      properties:
+        base_amount: { $ref: '#/components/schemas/HexUint256' }
+        quote_amount: { $ref: '#/components/schemas/HexUint256' }
+        timestamp: { $ref: '#/components/schemas/Timestamp' }
+        price:
+          $ref: '#/components/schemas/HexUint256'
+          description: The batch's clearing price; the order's own price for ADL fills.
+
     Order:
       type: object
       description: |
-        An order and its totals; its fills are `/clob/fills/{account}` rows. Unsigned
-        amounts and prices are 1e18-scaled `0x` hex, signed ones decimal strings.
-        Perp-only fields are omitted on spot orders.
+        An order with its fills. Unsigned amounts and prices are 1e18-scaled `0x` hex,
+        signed ones decimal strings. Perp-only fields are omitted on spot orders.
       properties:
         orderbook_id: { $ref: '#/components/schemas/Bytes32' }
         market_type: { $ref: '#/components/schemas/MarketType' }
@@ -1210,6 +1231,10 @@ components:
         effective_price:
           $ref: '#/components/schemas/HexUint256'
           description: '`filled_quote / filled_base` so far.'
+        fills:
+          type: array
+          items: { $ref: '#/components/schemas/PartialFill' }
+          description: Always present, oldest first.
         reduce_only: { type: boolean, description: Perp only. }
         ioc: { type: boolean, description: Perp only. }
         post_only: { type: boolean, description: Omitted when false. }
@@ -1375,7 +1400,8 @@ components:
         items: { $ref: '#/components/schemas/ActivityEntry' }
       example:
         "1704153600000000":
-          - { k: transfer, id: "0x8f3c0000000000000000000000000000000000000000000000000000000000aa", token: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", amount: "-25000000000000000000" }
+          - { k: transfer, id: "0x8f3c0000000000000000000000000000000000000000000000000000000000aa", cp: "0x1234567890abcdef1234567890abcdef12345678", tok: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", amt: "-25000000000000000000" }
+          - { k: transfer, id: "0x8f3c0000000000000000000000000000000000000000000000000000000000ab", cp: "0x1234567890abcdef1234567890abcdef12345678", tok: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", amt: "-5000000000000000000", err: insufficient_balance }
 
     ActivityEntry:
       description: |
@@ -1409,7 +1435,7 @@ components:
       description: |
         The order as `/clob/orders/{account}` serves it, at the batch that admitted it, in its
         current state. On the `pod_activity` channel it is the admission state instead:
-        `active`, or `invalid` with `invalid_reason`, and zero totals. ADL closes
+        `active`, or `invalid` with `invalid_reason`, zero totals and `fills: []`. ADL closes
         appear as orders with `kind` `adl` or `adl_counterparty`; backstop sweeps appear only
         as `backstop` entries.
       allOf:

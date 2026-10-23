@@ -1742,12 +1742,26 @@ paths:
                       result:
                         "1704153600000000":
                           - k: "order"
-                            id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
-                            tx: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
-                            book: "0x0000000000000000000000000000000000000000000000000000000000000001"
-                            n: 42
-                            px: "5000000000000000000"
-                            sz: "1000000000000000000"
+                            orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                            market_type: "spot"
+                            kind: "user_signed"
+                            order_id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
+                            tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                            bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                            nonce: 42
+                            order_type: "limit"
+                            status: "active"
+                            side: "buy"
+                            price: "0x4563918244f40000"
+                            initial_size: "1000000000000000000"
+                            filled_base_amount: "0x0"
+                            filled_quote_amount: "0x0"
+                            fee: "0x0"
+                            deadline: "1704153600000000"
+                            end: 1704240000000000
+                            included_batch: 1704153600000000
+                            effective_price: "0x0"
+                            fills: []
                           - { k: "fill", id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081", book: "0x0000000000000000000000000000000000000000000000000000000000000001", b: "1000000000000000000", q: "5000000000000000000", tb: "1000000000000000000", tq: "5000000000000000000", tf: "0", f: "0", st: "filled" }
                           - k: "bridge_transfer"
                             tx: "0x3f1c2b4a5d6e70819a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f3021"
@@ -2715,7 +2729,7 @@ components:
           description: Batch settlement timestamp (microseconds)
         price:
           $ref: '#/components/schemas/HexUint256'
-          description: Clearing price of the batch (1e18)
+          description: Clearing price of the batch (1e18); the order's own price for ADL fills.
 
     Order:
       type: object
@@ -2791,7 +2805,7 @@ components:
         fills:
           type: array
           items: { $ref: '#/components/schemas/PartialFill' }
-          description: Per-batch partial fills against this order
+          description: Per-batch partial fills against this order, oldest first. Always present; empty unless the query sets `with_fills`.
         reduce_only:
           type: boolean
           description: Perp only. If true, the order can only reduce existing exposure. Omitted for spot orders.
@@ -3255,7 +3269,7 @@ components:
           description: Filter orders by status
         with_fills:
           type: boolean
-          description: When true, include each order's per-batch partial `fills` array in the response. Defaults to false.
+          description: When true, fill each order's per-batch partial `fills` array. Defaults to false, and `fills` is then empty.
         with_total:
           type: boolean
           description: When true, compute and return `total_count`. Defaults to false — the count walks every order the account ever placed (expensive for high-churn accounts), and cursor pagination does not need it. Nodes running builds predating this flag ignore it and always return `total_count`.

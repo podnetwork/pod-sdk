@@ -30,10 +30,10 @@ An `activity` page holds whole batches: `limit` counts entries, but the newest b
 | Value                                 | Encoding                                                               |
 | ------------------------------------- | ---------------------------------------------------------------------- |
 | Addresses, hashes, orderbook ids      | `0x` hex. Orderbook ids are always the full 32 bytes.                  |
-| Timestamps                            | Microseconds, as JSON numbers — except order and trigger `deadline`, and the `activity` batch keys, `next` and `end`, which are decimal strings. |
-| Unsigned amounts and prices (1e18)    | `0x` hex on `candles`, `orderbook` (price-level keys are decimal strings), `solutions`, `orders`, `fills`, `positions`, `balances`, `triggers`, and the bridge routes. |
+| Timestamps                            | Microseconds, as JSON numbers — except order and trigger `deadline` and the `activity` batch keys and `next`, which are decimal strings. Order `end` is a number that can exceed a JavaScript safe integer (`18446744073709551615` for orders that never expire). |
+| Unsigned amounts and prices (1e18)    | `0x` hex on `candles`, `orderbook` (price-level keys are decimal strings), `solutions`, `orders`, `fills`, `positions`, `balances`, `triggers`, the `order` entries of `activity`, and the bridge routes. |
 | Signed amounts (sizes, PnL, funding)  | Decimal strings everywhere.                                            |
-| `markets`, `markets/stats`, `backstop-transfers`, `activity` | Every amount and price is a decimal string.   |
+| `markets`, `markets/stats`, `backstop-transfers`, non-order `activity` entries | Every amount and price is a decimal string.   |
 | Bridge `proof`, `aux_tx_suffix`       | JSON arrays of byte values.                                            |
 
 Query parameters follow their route: `candles` `from`/`to` and `orders` `until` are unix seconds; every other time parameter is microseconds.
