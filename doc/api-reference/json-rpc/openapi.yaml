@@ -1333,9 +1333,11 @@ paths:
         - `pod_candles` — a per-tick candle hint (`CandleTick`) per cleared orderbook: clearing
           price and volume at the batch deadline, for folding into the forming bar. Not a closed
           OHLCV bar (see `ob_getCandles`).
-        - `pod_activity` — an `ActivityFrame`: one account's activity in one tick, its order events
-          on every orderbook (the `pod_orders_v2` events) and the money it moved (backstop sweeps,
-          bridge deposits and withdrawals, transfers). Requires `account` (alias `bidder`).
+        - `pod_activity` — an `ActivityFrame`: one account's activity in one tick, as a map with one
+          key, the tick's deadline, to its `ActivityEntry` list: orders, fills, modifications,
+          terminations, refused modifications and cancels on every orderbook, and the money it moved
+          (backstop sweeps, bridge deposits and withdrawals, transfers). The same shape as
+          `GET /v1/clob/activity/{account}`. Requires `account` (alias `bidder`).
         - `pod_markets` — a `MarketDynamicEntry` per orderbook carrying live market statistics
           (last clearing price, 24h volume/high/low, perp mark/oracle/funding/open-interest) and its
           lifecycle (`status`, `live_at_us`, `disable_at_us`, `settlement_price`). Sent each tick
@@ -1397,8 +1399,8 @@ paths:
         for an order is at or before the `deadline` it was signed for — an intent may be included in an
         earlier batch than it targets. And a fill carries **both** kinds of amount: `b`/`q` are what
         that fill filled, while `tb`/`tq`/`tf` are the order's running totals. Apply `b`/`q`; use the
-        totals to check your own figure. Reading a total as a per-batch amount double-counts. There is
-        no per-fill fee, so difference `tf` for that.
+        totals to check your own figure. Reading a total as a per-batch amount double-counts. `f` is
+        that fill's fee, beside the running `tf`.
 
         **Identity.** `id` is the resting order id, derived as
         `keccak256(abi_encode(signer, nonce, sequence))` — the signing key, that transaction's nonce,
@@ -1419,9 +1421,11 @@ paths:
         synthetic order: a `new` for an entity of `kind` `backstop_transfer`, `adl` or
         `adl_counterparty`, followed by a terminal `fill`. An ADL close is delivered to both parties.
 
-        **Reading a `pod_activity` frame.** It uses the `pod_orders_v2` vocabulary for one account
-        across every orderbook, plus three money kinds (`backstop`, `bridge_transfer`, `transfer`).
-        `ActivityFrame` gives its fields and event order.
+        **Reading a `pod_activity` frame.** The result is `{ "<deadline µs>": [ActivityEntry] }`
+        with exactly one key. Each entry is tagged by `k` and carries its own book and order id,
+        so it stands alone; there are no entities or indexes as in `pod_orders_v2`. Entries are the
+        ones `GET /v1/clob/activity/{account}` serves for that batch, in the same order. A tick with no entries for the
+        account sends nothing.
 
         **Forward compatibility.** Clients MUST ignore event kinds (`k`) and fields they do not
         recognise: new event kinds will be added without a new channel version. Existing keys are
@@ -1736,22 +1740,34 @@ paths:
                     params:
                       subscription: "0x4e7a1c2b9d3f40e6a8b5c7d9e1f3a5b7"
                       result:
-                        batch: 1704153600000000
-                        orders:
-                          - id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
-                            tx: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
-                            book: "0x0000000000000000000000000000000000000000000000000000000000000001"
-                            n: 42
-                            px: "5000000000000000000"
-                            sz: "1000000000000000000"
-                        events:
-                          - { k: "new", o: 0 }
-                          - { k: "fill", o: 0, b: "1000000000000000000", q: "5000000000000000000", tb: "1000000000000000000", tq: "5000000000000000000", tf: "0", st: "filled" }
+                        "1704153600000000":
+                          - k: "order"
+                            orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                            market_type: "spot"
+                            kind: "user_signed"
+                            order_id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
+                            tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                            bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                            nonce: 42
+                            order_type: "limit"
+                            status: "active"
+                            side: "buy"
+                            price: "0x4563918244f40000"
+                            initial_size: "1000000000000000000"
+                            filled_base_amount: "0x0"
+                            filled_quote_amount: "0x0"
+                            fee: "0x0"
+                            deadline: "1704153600000000"
+                            end: 1704240000000000
+                            included_batch: 1704153600000000
+                            effective_price: "0x0"
+                            fills: []
+                          - { k: "fill", id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081", book: "0x0000000000000000000000000000000000000000000000000000000000000001", b: "1000000000000000000", q: "5000000000000000000", tb: "1000000000000000000", tq: "5000000000000000000", tf: "0", f: "0", st: "filled" }
                           - k: "bridge_transfer"
                             tx: "0x3f1c2b4a5d6e70819a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f3021"
                             idx: 0
-                            token: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
-                            amount: "10000000000000000000"
+                            tok: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+                            amt: "10000000000000000000"
                 newHeads_notification:
                   summary: A streamed newHeads header
                   value:
@@ -2713,7 +2729,7 @@ components:
           description: Batch settlement timestamp (microseconds)
         price:
           $ref: '#/components/schemas/HexUint256'
-          description: Clearing price of the batch (1e18)
+          description: Clearing price of the batch (1e18); the order's own price for ADL fills.
 
     Order:
       type: object
@@ -2789,7 +2805,7 @@ components:
         fills:
           type: array
           items: { $ref: '#/components/schemas/PartialFill' }
-          description: Per-batch partial fills against this order
+          description: Per-batch partial fills against this order, oldest first. Always present; empty unless the query sets `with_fills`.
         reduce_only:
           type: boolean
           description: Perp only. If true, the order can only reduce existing exposure. Omitted for spot orders.
@@ -3253,7 +3269,7 @@ components:
           description: Filter orders by status
         with_fills:
           type: boolean
-          description: When true, include each order's per-batch partial `fills` array in the response. Defaults to false.
+          description: When true, fill each order's per-batch partial `fills` array. Defaults to false, and `fills` is then empty.
         with_total:
           type: boolean
           description: When true, compute and return `total_count`. Defaults to false — the count walks every order the account ever placed (expensive for high-churn accounts), and cursor pagination does not need it. Nodes running builds predating this flag ignore it and always return `total_count`.
@@ -3445,7 +3461,7 @@ components:
         mark_price:
           $ref: '#/components/schemas/HexUint256'
           description: Mark price at the sweep (1e18); hex-encoded.
-        equity:
+        eq:
           type: string
           description: Account equity at the moment of the sweep (decimal int256, 1e18).
         realized_pnl:
@@ -3769,7 +3785,7 @@ components:
           description: Hash of the creating transaction, or of its parent `submitBatch` envelope. Zero for engine-generated orders.
         book:
           $ref: '#/components/schemas/Bytes32'
-          description: '`pod_activity` only: the orderbook the order belongs to.'
+          description: 'Absent on `pod_orders_v2`, whose frame names the orderbook; `pod_activity` has its own entries.'
         a:
           type: integer
           description: Index into the frame's `accts`. Present if and only if `accts` is — see there.
@@ -3913,11 +3929,10 @@ components:
           type: string
           description: |
             Total fee charged over the order's life, 1e18-scaled decimal. Running total on `fill`,
-            final total on `cancel`/`expire`, as `tb`.
-
-            There is no per-fill fee counterpart — no such figure exists at this boundary to send. For
-            the fee attributable to one fill, subtract the previous `tf` seen for that order, or zero
-            on its first fill.
+            final total on `cancel`/`expire`, as `tb`. The fee of one fill is `f`.
+        f:
+          type: string
+          description: '`fill` only. The fee charged by this fill, 1e18-scaled decimal.'
         st:
           type: string
           enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused]
@@ -4854,91 +4869,125 @@ components:
     ActivityFrame:
       type: object
       description: |
-        One `pod_activity` notification: the subscribed account's order events on every orderbook
-        and the money moved for it, in one tick. A tick with nothing for the account sends no
-        frame. The resume cursor is `batch` alone.
-      required: [batch, orders, events]
-      properties:
-        batch:
-          type: integer
-          format: int64
-          description: Deadline of the tick, in microseconds — the `since` to resume from.
-        orders:
-          type: array
-          items: { $ref: '#/components/schemas/OrderEntityV2' }
-          description: Orders created in this tick, each once and carrying its `book`. Every row is the subscribed account's, so `a` is omitted.
-        events:
-          type: array
-          items: { $ref: '#/components/schemas/ActivityEvent' }
-          description: |
-            Order events and money events, discriminated by `k`. For each orderbook ascending by id:
-            its order events (in the `OrdersFrameV2` order) and then its backstop sweep legs; then
-            the terminal backstop cash sweep; then deposits; then withdrawals; then transfers.
+        One `pod_activity` notification: a map with one key, the tick's deadline in microseconds as
+        a decimal string (also the `since` to resume from), to the subscribed account's entries in
+        that tick. `GET /v1/clob/activity/{account}` serves the same shape with many keys.
+      additionalProperties:
+        type: array
+        items: { $ref: '#/components/schemas/ActivityEntry' }
 
-    ActivityEvent:
-      description: |
-        One `pod_activity` event: either an unchanged `pod_orders_v2` order event (`OrderEventV2`,
-        without `a`/`by`) or a money event. The `k` values are disjoint. Ignore kinds you do not
-        recognise. Every amount is a 1e18-scaled decimal string; money `amount`s are signed from
-        the account's side: negative left the account, positive arrived.
-      oneOf:
-        - $ref: '#/components/schemas/OrderEventV2'
-        - $ref: '#/components/schemas/ActivityMoneyEvent'
-
-    ActivityMoneyEvent:
+    ActivityEntry:
       type: object
       description: |
-        A money movement in a `pod_activity` frame, discriminated by `k`:
-        - `backstop` — a perp position swept to the backstop (`book` set), or the terminal cash
-          sweep (`book` omitted). Carries `size`, `cash`, `mark`, `equity`, `pnl`.
-        - `bridge_transfer` — a bridge deposit (positive `amount`) or withdrawal (negative). Keyed by
-          `(tx, idx)`.
-        - `transfer` — an account-to-account transfer, debit (negative) or credit (positive). Keyed
-          by `id`. A refused transfer is reported to the sender only.
+        One `pod_activity` entry, discriminated by `k`. Within a tick, entries are ordered by kind
+        in the order of the `k` enum, then by book ascending, then in engine order. Amounts and
+        prices are 1e18-scaled decimal strings. Optional fields are omitted rather than `null`;
+        boolean flags are omitted when false. Ignore kinds and fields you do not recognise.
 
-        `error` set means the movement was refused and nothing moved; `amount` still reports what
-        was asked for.
+        - `order` — a placement, as the `Order` object of `GET /v1/clob/orders/{account}` with `k`
+          added (`order_id, orderbook_id, tx_hash, nonce, kind, order_type, status, side, price,
+          initial_size, ...`; its amounts follow that schema, unsigned ones `0x` hex), in its
+          admission state: `status` `active`, or `invalid` with `invalid_reason`, zero totals and
+          `fills: []`. ADL closes appear as orders with `kind` `adl` or `adl_counterparty`,
+          followed by their `fill`s.
+        - `fill` — `id, book, b, q, tb, tq, tf, f?, st?, pa?`.
+        - `modify` — a resting order changed in place: `id, book, px, sz, old_px, old_sz`.
+        - `termination` — an order left the book other than by filling: `id, book, st`.
+        - `backstop` — a perp position swept to the backstop (`book` set), or the terminal cash
+          sweep (`book` omitted): `book?, sz, cash, mark, eq, pnl`.
+        - `bridge_transfer` — a bridge deposit (positive `amt`) or withdrawal (negative):
+          `tx, idx, tok, amt, err?`.
+        - `transfer` — an account-to-account transfer, debit negative, credit positive: `id, cp,
+          tok, amt, err?`. `cp` is the other side: the receiver on a debit, the sender on a credit.
+          A self-transfer is two entries, the debit first. A refused transfer is reported to the
+          sender only.
+        - `modify_reject` — an amendment the engine refused; the order is untouched: `id, book, px,
+          sz, why`.
+        - `cancel_reject` — a cancel the engine refused; the order still rests: `id, book, why`.
+
+        Every other order entry names its order by `id` and `book`; for an order placed before the
+        client's history, fetch its terms from `GET /v1/clob/orders/{account}`.
       required: [k]
       properties:
         k:
           type: string
-          enum: [backstop, bridge_transfer, transfer]
+          enum: [order, fill, modify, termination, backstop, bridge_transfer, transfer, modify_reject, cancel_reject]
+        id:
+          $ref: '#/components/schemas/Bytes32'
+          description: The order id; on `transfer`, the transfer id, as `TransferUpdate.transfer_id`.
+        tx:
+          $ref: '#/components/schemas/Bytes32'
+          description: '`bridge_transfer`: the deposit or `withdraw` transaction.'
         book:
           $ref: '#/components/schemas/Bytes32'
-          description: '`backstop`: the orderbook of the swept position. Omitted on the terminal cash sweep.'
-        size:
+          description: The orderbook. Omitted on the terminal backstop cash sweep.
+        px:
           type: string
-          description: '`backstop`: signed position size moved to the backstop.'
+          description: '`modify`: the price after the change. `modify_reject`: the price asked for.'
+        sz:
+          type: string
+          description: '`modify`: the size after the change, unsigned. `modify_reject`: the size asked for, unsigned. `backstop`: signed position size moved to the backstop.'
+        why:
+          type: string
+          description: "`modify_reject`, `cancel_reject`: the engine's reason, always present."
+        b:
+          type: string
+          description: '`fill`: base filled by this fill.'
+        q:
+          type: string
+          description: '`fill`: quote filled by this fill.'
+        tb:
+          type: string
+          description: "Order's total base filled after this fill (`fill` only)."
+        tq:
+          type: string
+          description: "Order's total quote filled, as `tb`."
+        tf:
+          type: string
+          description: "Order's total fee, as `tb`."
+        f:
+          type: string
+          description: '`fill`: the fee charged by this fill. Omitted on rows stored before it was recorded.'
+        st:
+          type: string
+          enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused]
+          description: '`fill`: present only on the fill that closed the order. `termination`: how the order left the book (never `filled`).'
+        pa:
+          type: string
+          description: "`fill`: the owner's position after this fill on a perp book, signed. Omitted when no position moved."
+        old_px:
+          type: string
+          description: '`modify`: the price before the change.'
+        old_sz:
+          type: string
+          description: '`modify`: the size before the change, unsigned.'
         cash:
           type: string
           description: '`backstop`: signed cash moved with it.'
         mark:
           type: string
           description: '`backstop`: mark price at the sweep.'
-        equity:
+        eq:
           type: string
           description: '`backstop`: account equity at the sweep (signed).'
         pnl:
           type: string
           description: '`backstop`: PnL the forced close realized (signed); `0` on the cash sweep.'
-        tx:
-          $ref: '#/components/schemas/Bytes32'
-          description: '`bridge_transfer`: the transaction that carried the deposit (one may carry several, told apart by `idx`), or the `withdraw` transaction.'
         idx:
           type: integer
           description: '`bridge_transfer`: position among the tick''s deposit outcomes; `0` for a withdrawal.'
-        id:
-          $ref: '#/components/schemas/Bytes32'
-          description: '`transfer`: the transfer id, as `TransferUpdate.transfer_id`.'
-        token:
+        cp:
+          $ref: '#/components/schemas/Address'
+          description: '`transfer`: the other side, the receiver when `amt` is negative and the sender otherwise; the account itself on a self-transfer.'
+        tok:
           $ref: '#/components/schemas/Address'
           description: '`bridge_transfer`, `transfer`: Pod-side token address.'
-        amount:
+        amt:
           type: string
           description: '`bridge_transfer`, `transfer`: signed amount in Pod''s 18 decimals.'
-        error:
+        err:
           type: string
-          description: '`bridge_transfer`, `transfer`: why the movement was refused — for a deposit `already_processed` or `not_included`, for a withdrawal as `WithdrawalUpdate.error`, for a transfer as `TransferUpdate.error`. Absent when it succeeded; treat an unrecognised value as a failure.'
+          description: '`bridge_transfer`, `transfer`: why the movement was refused — for a deposit `already_processed` or `not_included`, for a withdrawal as `WithdrawalUpdate.error`, for a transfer as `TransferUpdate.error`. Nothing moved; `amt` still reports what was asked for. Absent when it succeeded; treat an unrecognised value as a failure.'
 
     BlockHeader:
       type: object
