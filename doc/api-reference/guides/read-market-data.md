@@ -5,7 +5,7 @@ Pod's full node includes a built-in indexer and serves its market data two ways,
 * **REST** under `/v1` for one-shot reads: markets, books, candles, solutions, and an account's orders and fills. See the [REST reference](../rest/README.md) for every route.
 * **WebSocket subscriptions** (`eth_subscribe`) that push what changed after every auction tick.
 
-For every stream, seed over REST, then subscribe with `since` set to the solution time (µs) the REST response was current at. The node replays every tick after that point, then streams live, with no gap or duplicate.
+For every stream, seed over REST, then subscribe with `since` set to the solution time (µs) the REST response was current at. On delta channels the node replays every tick after that point, then streams live, with no gap or duplicate. On state channels (`pod_markets`, `pod_positions`, `pod_triggers`) the node waits until its state reaches `since`, sends one snapshot, then streams live.
 
 ```javascript
 const REST = "https://rpc.podtestnet.dev/v1";
@@ -122,7 +122,7 @@ ws.onopen = () => {
   subscribe("pod_orders_v2", { bidder: walletAddress, since: page.solution_now }, (frame) => {
     // one frame per orderbook per batch: orders created in it, plus events (fills, cancels, ...)
   });
-  // State channel: with `since`, sends every subscribed market's current entry first, then one
+  // State channel: with `since`, waits until the node reaches it, sends every subscribed market's current entry, then one
   // entry per market cleared (or changing status) in each tick.
   subscribe("pod_markets", { orderbook_ids: ids, since: solution_now }, (entry) => {});
 };
@@ -137,6 +137,6 @@ If `since` is older than the node's replay buffer, the subscribe call fails with
 
 ## Reading through several nodes
 
-Account reads and pushes carry `timestamp`: the deadline of the last executed tick on the answering node, in microseconds. This covers `ob_getPositions`, `ob_getTriggers`, `GET /v1/clob/positions|balances|triggers/{account}`, and the `pod_positions` and `pod_triggers` pushes; `pod_markets` pushes carry the indexer watermark under the same name. Ticks execute in lockstep on every node, so the value is comparable across nodes. Behind a load balancer a lagging node can answer after a leading one: keep the highest `timestamp` seen per account or orderbook and drop any response or push below it. On equal values, keep the later one.
+Account reads and pushes carry `timestamp`: the deadline of the last executed tick on the answering node, in microseconds. This covers `ob_getPositions`, `ob_getTriggers`, `GET /v1/clob/positions|balances|triggers/{account}`, and the `pod_positions` and `pod_triggers` pushes; `pod_markets` pushes carry the indexer watermark under the same name. Ticks execute in lockstep on every node, so the value is comparable across nodes. Behind a load balancer a lagging node can answer after a leading one, so pass the highest `timestamp` you hold as the minimum, as below. Two requests for the same account or orderbook in flight at once (a REST poll and a push) can still land in either order: keep the highest `timestamp` seen and drop any response or push below it. On equal values, keep the later one.
 
-To get an answer at least as fresh as one you already hold, pass the highest `timestamp` you hold as the `timestamp` query parameter (REST) or trailing parameter (`ob_getPositions`, `ob_getTriggers`, `ob_getOrderbook`). The node waits until its last executed tick reaches it. If it cannot within its wait, REST answers HTTP 503 with `Retry-After: 1` and `{"timestamp": <node's current value>}`, and JSON-RPC returns error `995`; retry after `Retry-After`.
+To get an answer at least as fresh as one you already hold, pass the highest `timestamp` you hold as the `timestamp` query parameter (REST) or trailing parameter (`ob_getPositions`, `ob_getTriggers`, `ob_getOrderbook`), or as `since` when subscribing to `pod_positions`, `pod_triggers` or `pod_markets`. The node waits until its last executed tick reaches it. If it cannot within its wait, REST answers HTTP 503 with `Retry-After: 1` and `{"timestamp": <node's current value>}`, and JSON-RPC (including `eth_subscribe`) returns error `995`; retry after `Retry-After`.

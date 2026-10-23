@@ -31,7 +31,7 @@ Every error is returned as a JSON-RPC 2.0 error object:
 | `3`      | `execution reverted`          | A contract-level (enshrined application) execution failed. `data` is an ABI-encoded revert. |
 | `-32000` | `transaction validation failed` | A protocol-level validation check failed (balance, chain ID, gas price, …).              |
 | `996`    | the reason, e.g. `Past nonce: tx nonce 3, expected 4` | A past nonce, future nonce or pending account. Retry with a fresh `pending` nonce, after checking the receipt of any attempt that may already have been delivered. |
-| `995`    | `node behind requested timestamp` | The node did not reach the requested `timestamp` within its wait. `data` is its current value. Retry, through any node. |
+| `995`    | `node behind requested timestamp` | The node did not reach the requested `timestamp` (or a state-channel subscription's `since`) within its wait. `data` is its current value. Retry, through any node. |
 | `-32003` | `Transaction rejected: …`     | A quorum of validators rejected the transaction.                                          |
 | `999`    | `Account locked`              | The account is locked pending recovery. `data` carries the recovery target.              |
 | `997`    | `Empty transaction required to make progress` | From `pod_sendRawTransaction`: the account's head nonce will not finalize on its own. `data` carries the nonce to unblock. |
@@ -93,7 +93,7 @@ Returned when this node's pre-validation rejects a transaction for a reason a fr
 
 ### `995` — node behind requested timestamp
 
-Returned by `ob_getPositions`, `ob_getTriggers` and `ob_getOrderbook` when the call passed a `timestamp` (the lowest tick deadline the client accepts, in microseconds) and the node's last executed tick did not reach it within the node's wait (default 2s, `POD_RPC_TIMESTAMP_WAIT`). `data` is the node's current value, an integer in microseconds.
+Returned by `ob_getPositions`, `ob_getTriggers` and `ob_getOrderbook` when the call passed a `timestamp` (the lowest tick deadline the client accepts, in microseconds), and by `eth_subscribe` to `pod_positions`, `pod_triggers` and `pod_markets` when it passed `since` (the same minimum), and the node's last executed tick did not reach it within the node's wait (default 2s, `POD_RPC_TIMESTAMP_WAIT`). `data` is the node's current value, an integer in microseconds.
 
 ```json
 {

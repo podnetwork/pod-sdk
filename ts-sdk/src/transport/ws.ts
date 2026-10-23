@@ -122,9 +122,11 @@ export class PodSubscriptionClosedError extends Error {
   }
 }
 
+const resolve = (p: SubParams | (() => SubParams)): SubParams => (typeof p === "function" ? p() : p);
+
 interface LogicalSub {
   channel: Channel;
-  params: SubParams;
+  params: SubParams | (() => SubParams);
   onMessage: (result: unknown) => void;
   /**
    * `eth_subscribe` was rejected (e.g. `since` too old), or the server closed a
@@ -201,17 +203,17 @@ export class PodWsClient {
 
   subscribe(
     channel: Channel,
-    params: SubParams,
+    params: SubParams | (() => SubParams),
     onMessage: (result: unknown) => void,
     onError?: (err: unknown) => void,
   ): Subscription {
-    const sub: LogicalSub = { channel, params: { ...params }, onMessage, onError };
+    const sub: LogicalSub = { channel, params: typeof params === "function" ? params : { ...params }, onMessage, onError };
     this.subs.add(sub);
     this.connect();
     if (this._state === "open") this.sendSubscribe(sub);
     return {
       unsubscribe: () => this.removeSub(sub),
-      update: (p) => { sub.params = { ...sub.params, ...p }; },
+      update: (p) => { sub.params = { ...resolve(sub.params), ...p }; },
       resubscribe: () => {
         if (this._state !== "open") return;
         if (sub.subId) { this.bySubId.delete(sub.subId); sub.subId = undefined; }
@@ -293,7 +295,7 @@ export class PodWsClient {
   }
 
   private sendSubscribe(sub: LogicalSub): void {
-    this.send("eth_subscribe", [sub.channel, this.wireParams(sub.params)], (result, error) => {
+    this.send("eth_subscribe", [sub.channel, this.wireParams(resolve(sub.params))], (result, error) => {
       if (error || typeof result !== "string") {
         const err = error ?? new Error("eth_subscribe failed");
         if (sub.onError) sub.onError(err); // owner can re-seed + resubscribe (e.g. `since` too old)
@@ -346,7 +348,7 @@ export class PodWsClient {
             // batch landed whole, so the stored book must be cleared rather than
             // carried over: it belongs to an older batch, and leaving it would
             // ask the server to skip books inside the new one.
-            sub.params = { ...sub.params, since: closed.resumeSince, sinceBook: closed.resumeSinceBook };
+            sub.params = { ...resolve(sub.params), since: closed.resumeSince, sinceBook: closed.resumeSinceBook };
           }
           if (sub.onError) sub.onError(closed);
           else this.emit("error", closed);

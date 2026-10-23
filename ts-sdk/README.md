@@ -169,13 +169,17 @@ acted on stays with the caller.
 Account reads and pushes carry `timestamp` (µs), the deadline of the last executed
 tick on the answering node; ticks execute in lockstep, so it is comparable across
 nodes. The resources keep the highest value seen per entity and drop any page or
-push below it, so a lagging node cannot roll a store back. `rest.bridgeWithdrawals`
+push below it, because concurrent answers for one entity (a REST poll and a push, a
+reconnect seed and a resubscribe snapshot) land in either order. `rest.bridgeWithdrawals`
 reads `/v2/bridge/withdrawals` and returns `WithdrawalsPage { withdrawals, timestampUs }`
 (`timestampUs: 0` from the v1 array when the node has no v2), and `client.withdrawals`
-resumes `pod_withdrawals` from `timestampUs`. Every re-read also sends the held
+resumes `pod_withdrawals` from `timestampUs`. Every re-read sends the held
 watermark as `?timestamp=` (the `minTimestampUs` argument on `PodRestClient`), so the
 node waits until it has caught up or answers 503 (`PodBehindError`); the SDK retries
-once after `Retry-After`, then reads without it.
+once after `Retry-After`, then throws the `PodBehindError`. Every (re)subscribe to
+`pod_positions`, `pod_triggers` and `pod_markets` sends the held watermark as `since`;
+the node answers with a snapshot at or past it or rejects with code `995`, which the
+SDK retries every second.
 
 ## Sending
 
