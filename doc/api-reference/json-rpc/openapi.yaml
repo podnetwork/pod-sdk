@@ -861,7 +861,7 @@ paths:
         A numeric block is the lowest block the client accepts: the node answers once its
         flushed block tip reaches it, waiting up to its wait (default 2s, `POD_RPC_TIMESTAMP_WAIT`),
         else it answers error `995` with its current block height as `data`. Tags answer at once.
-        The value returned is the current state; there is no per-block history.
+        The value returned is the current state; pod keeps no per-block state snapshots.
       requestBody:
         content:
           application/json:
@@ -983,7 +983,7 @@ paths:
         A numeric block is the lowest block the client accepts: the node answers once its
         flushed block tip reaches it, waiting up to its wait (default 2s, `POD_RPC_TIMESTAMP_WAIT`),
         else it answers error `995` with its current block height as `data`. Tags answer at once.
-        The value returned is the current state; there is no per-block history.
+        The value returned is the current state; pod keeps no per-block state snapshots.
       requestBody:
         content:
           application/json:
