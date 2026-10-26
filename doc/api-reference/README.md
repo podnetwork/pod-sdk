@@ -33,9 +33,21 @@ View transactions and accounts
 {% endtab %}
 
 {% tab title="Mainnet" %}
-{% hint style="info" %}
-**Mainnet is not live yet.** Network details will be published here once mainnet launches.
-{% endhint %}
+| Property        | Value                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| RPC             | `https://brahma.pod.network`, `https://vishnu.pod.network`, `https://shiva.pod.network`     |
+| REST API        | RPC URL + `/v1` (e.g. `https://brahma.pod.network/v1`)                                      |
+| Chain ID        | `1293` (`0x50d`)                                                                            |
+| Currency Symbol | `USD`                                                                                       |
+
+### Bridge
+
+| Property           | Value                                                        |
+| ------------------ | ------------------------------------------------------------ |
+| Source chain       | Arbitrum One (chain ID `42161`)                              |
+| Bridge contract    | `0xB77E6fB078918f255FC71E8b11A798124b7f0Fa0`                 |
+| Token              | USDC `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` (6 decimals), credited as native `USD` on Pod |
+| Withdrawal limits  | Min 5 USDC, max 10,000 USDC per withdrawal                   |
 {% endtab %}
 {% endtabs %}
 
