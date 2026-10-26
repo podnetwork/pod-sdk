@@ -115,6 +115,7 @@ export interface WireOrder {
   reduce_only?: boolean;
   ioc?: boolean;
   direction?: string;
+  realized_pnl?: WireDecimal; // signed, perp only
   grouping?: WireDecimal;
   trigger_type?: string | null;
   invalid_reason?: string;

@@ -101,6 +101,13 @@ describe("decodeActivityEntry", () => {
       id: id(1), status: "filled", marketType: "perp", filledBase: 2n * WAD, filledQuote: 200n * WAD, fee: 7n, includedMs: MS,
     });
     expect(row.order).not.toHaveProperty("fills");
+    expect(row.order.realizedPnl).toBeUndefined();
+  });
+
+  it("carries the realized PnL a perp order closed", () => {
+    const row = decodeActivityEntry(order(1, { status: "filled", realized_pnl: `-${units(1n)}` }), MS);
+    if (row?.activityType !== "order") throw new Error("expected an order");
+    expect(row.order.realizedPnl).toBe(-WAD);
   });
 
   it("returns undefined for a kind it does not know", () => {
