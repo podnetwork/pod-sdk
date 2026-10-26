@@ -1,5 +1,5 @@
 // Terminal withdrawal outcomes for one account (ADR 0033 §6): seeded and
-// gap-filled over `GET /v1/bridge/withdrawals/{account}`, kept live by the
+// gap-filled over `GET /v2/bridge/withdrawals/{account}`, kept live by the
 // `pod_withdrawals` subscription.
 //
 // The two surfaces serve the identical shape, so a backfilled outcome is
