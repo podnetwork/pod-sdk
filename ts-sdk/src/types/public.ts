@@ -297,6 +297,12 @@ export interface Order {
   ioc?: boolean;
   direction?: OrderDirection;
   triggerType?: TriggerType;
+  /**
+   * Realized PnL across the slices this order's fills closed (signed, 1e18 USD). Absent on
+   * spot, on orders that never closed exposure, and on streamed orders, which `pod_orders_v2`
+   * does not carry it for; a REST row the stream later updates keeps the value it was fetched with.
+   */
+  realizedPnl?: bigint;
 }
 
 export type Position = SpotPosition | PerpPosition;
