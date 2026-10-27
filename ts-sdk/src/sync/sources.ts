@@ -334,9 +334,9 @@ export function triggersSource(
   { ws }: SyncContext,
   account: Address,
 ): ResourceSource<Trigger[]> {
+  const fresh = watermarks();
+  let heldUs = 0;
   return (h) => {
-    const fresh = watermarks();
-    let heldUs = 0;
     const sub = subscribeRetrying(ws, "pod_triggers", () => ({ account, since: heldUs }), (result) => {
       const w = result as WireTriggersPush;
       heldUs = Math.max(heldUs, w.timestamp ?? 0);
