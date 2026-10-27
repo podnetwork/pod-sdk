@@ -160,12 +160,14 @@ const ACCT = "0xabc" as Address;
 const MKT = `0x${"07".padStart(64, "0")}`;
 
 function fakeWs() {
-  const subs: { channel: string; onMessage: (r: unknown) => void; onError?: (e: unknown) => void; resubscribes: number }[] = [];
+  const subs: {
+    channel: string; params: unknown; onMessage: (r: unknown) => void; onError?: (e: unknown) => void; resubscribes: number;
+  }[] = [];
   const ws = {
     state: "open",
     on: () => () => {},
-    subscribe: (channel: string, _p: unknown, onMessage: (r: unknown) => void, onError?: (e: unknown) => void) => {
-      const s = { channel, onMessage, onError, resubscribes: 0 };
+    subscribe: (channel: string, params: unknown, onMessage: (r: unknown) => void, onError?: (e: unknown) => void) => {
+      const s = { channel, params, onMessage, onError, resubscribes: 0 };
       subs.push(s);
       return { unsubscribe: () => {}, update: () => {}, resubscribe: () => { s.resubscribes++; } };
     },
@@ -303,6 +305,19 @@ describe("triggersSource", () => {
     const r = start(triggersSource(ctx({}, ws), ACCT));
     subs[0]!.onMessage({ account: ACCT, triggers: [], total_count: 0, next_cursor: null, timestamp: 2_000 });
     subs[0]!.onMessage({ account: ACCT, triggers: [{}], total_count: 1, next_cursor: null, timestamp: 1_000 });
+    expect(r.get()).toEqual([]);
+  });
+
+  it("keeps its watermark across a restart", () => {
+    const { ws, subs } = fakeWs();
+    const r = new BaseResource(triggersSource(ctx({}, ws), ACCT));
+    onTestFinished(() => r.destroy());
+    const stop = r.subscribe(() => {});
+    subs[0]!.onMessage({ account: ACCT, triggers: [], total_count: 0, next_cursor: null, timestamp: 2_000 });
+    stop();
+    r.subscribe(() => {});
+    expect((subs[1]!.params as () => { since: number })().since).toBe(2_000);
+    subs[1]!.onMessage({ account: ACCT, triggers: [{}], total_count: 1, next_cursor: null, timestamp: 1_000 });
     expect(r.get()).toEqual([]);
   });
 });
