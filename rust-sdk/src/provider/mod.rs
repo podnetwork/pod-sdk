@@ -300,7 +300,10 @@ where
     loop {
         let envelope = match signed.take() {
             Some(envelope) => envelope,
-            None => match sign().await {
+            None => match tokio::time::timeout_at(deadline, sign())
+                .await
+                .unwrap_or_else(|_| Err(TransportErrorKind::custom_str("signing timed out")))
+            {
                 Ok(Some(envelope)) => envelope,
                 Ok(None) => return Ok(Sent::Unsigned),
                 Err(err) if send_retry(&err).is_some() => {
@@ -310,6 +313,7 @@ where
                 Err(err) => return Err(err),
             },
         };
+        let tx_hash = *envelope.tx_hash();
         let attempt = SEND_ATTEMPT_TIMEOUT
             .min(deadline.saturating_duration_since(tokio::time::Instant::now()));
         let err = match tokio::time::timeout(attempt, send(envelope.clone())).await {
@@ -322,7 +326,7 @@ where
             // The rejection may be the delivered attempt's own nonce taking effect, so
             // signing a new tx could execute both.
             Some(SendRetry::Resign) if maybe_delivered => {
-                return Ok(Sent::DeliveryUnknown(*envelope.tx_hash()))
+                return Ok(Sent::DeliveryUnknown(tx_hash))
             }
             Some(SendRetry::Resign) if nonce_unset => {}
             Some(SendRetry::Resign) => return Err(err),
@@ -331,6 +335,10 @@ where
                 signed = Some(envelope);
             }
         }
+        let err = match maybe_delivered {
+            true => RpcError::local_usage(PodSendError::DeliveryUnknown { tx_hash }),
+            false => err,
+        };
         pause(deadline, *backoff.next().unwrap(), err).await?;
     }
 }
@@ -349,7 +357,9 @@ impl PodProvider {
         deadline: tokio::time::Instant,
     ) -> TransportResult<Hash> {
         loop {
-            if let Ok(Some(_)) = self.get_transaction_receipt(tx_hash).await {
+            if let Ok(Ok(Some(_))) =
+                tokio::time::timeout_at(deadline, self.get_transaction_receipt(tx_hash)).await
+            {
                 return Ok(tx_hash);
             }
             pause(
@@ -593,8 +603,8 @@ pub enum PodSendError {
     /// Transport failure, or an unclassified server error. May still have been
     /// delivered.
     Transport(TransportError),
-    /// A possibly delivered send was followed by a nonce rejection and no receipt
-    /// appeared in time; the transaction may still execute.
+    /// A possibly delivered send was followed by a nonce rejection with no receipt
+    /// in time, or the budget ran out; the transaction may still execute.
     DeliveryUnknown { tx_hash: Hash },
 }
 
@@ -805,6 +815,7 @@ mod send_tests {
     struct Script {
         sign_calls: std::cell::Cell<usize>,
         sign_fails_on_call: Option<usize>,
+        sign_hangs: bool,
         hanging_sends: usize,
         start: tokio::time::Instant,
         sent_at: std::cell::RefCell<Vec<Duration>>,
@@ -818,6 +829,7 @@ mod send_tests {
             Self {
                 sign_calls: Default::default(),
                 sign_fails_on_call,
+                sign_hangs: false,
                 hanging_sends: 0,
                 start: tokio::time::Instant::now(),
                 sent_at: Default::default(),
@@ -838,6 +850,9 @@ mod send_tests {
                 nonce_unset,
                 || async {
                     let call = self.sign_calls.replace(self.sign_calls.get() + 1);
+                    if self.sign_hangs {
+                        std::future::pending::<()>().await;
+                    }
                     if Some(call) == self.sign_fails_on_call {
                         return Err(TransportErrorKind::custom_str("nonce fetch failed"));
                     }
@@ -934,6 +949,27 @@ mod send_tests {
         assert!(script.run().await.is_err());
         assert!(start.elapsed() <= SEND_RETRY_BUDGET);
         assert_eq!(*script.sent.borrow(), vec![hash(5), hash(5)]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn hung_sends_past_the_budget_are_delivery_unknown() {
+        let mut script = Script::new(vec![], None);
+        script.hanging_sends = usize::MAX;
+        match PodSendError::from(script.run().await.unwrap_err()) {
+            PodSendError::DeliveryUnknown { tx_hash } => assert_eq!(tx_hash, hash(5)),
+            other => panic!("expected DeliveryUnknown, got {other:?}"),
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn hung_signing_ends_within_the_budget() {
+        let start = tokio::time::Instant::now();
+        let mut script = Script::new(vec![], None);
+        script.sign_hangs = true;
+        let result = tokio::time::timeout(2 * SEND_RETRY_BUDGET, script.run()).await;
+        assert!(result.expect("signing outlived the budget").is_err());
+        assert!(start.elapsed() <= SEND_RETRY_BUDGET);
+        assert!(script.sent.borrow().is_empty());
     }
 
     #[tokio::test(start_paused = true)]
