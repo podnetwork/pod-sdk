@@ -189,7 +189,9 @@ responses, and code `996` rejections (past nonce, future nonce, account pending)
 rejections throw at once. A transport error resends the same signed bytes. Once an
 attempt may have been delivered it is never re-signed: a later nonce rejection
 polls the receipt of that hash and returns it, or throws `PodDeliveryUnknownError`
-with the hash.
+with the hash. The 10s starts when `submit` is called and covers the nonce and gas-price
+requests, every attempt and the receipt poll; running out of it after an attempt that may
+have been delivered throws `PodDeliveryUnknownError` too.
 
 ## How caching / low traffic works
 

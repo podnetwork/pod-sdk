@@ -298,12 +298,12 @@ describe("DelegatedWallet.submit", () => {
           sent.push(req.params[0] as Hex);
           sentAt.push(Date.now());
           reply = sends.shift()!;
-          if (reply === "hang") {
-            return new Promise((_, reject) => init!.signal?.addEventListener("abort", () => reject(init!.signal!.reason)));
-          }
           break;
         case "eth_chainId": reply = { result: "0x50d" }; break;
         default: reply = { error: { code: -32601, message: "Method not found" } };
+      }
+      if (reply === "hang") {
+        return new Promise((_, reject) => init!.signal?.addEventListener("abort", () => reject(init!.signal!.reason)));
       }
       if (reply instanceof Error) throw reply;
       return new Response(JSON.stringify({ jsonrpc: "2.0", id: req.id, ...(reply as object) }));
@@ -392,6 +392,22 @@ describe("DelegatedWallet.submit", () => {
     const hash = await settle(() => wallet.submit(TX_REQ));
     expect(hash).toBe(keccak256(sent[0]!));
     expect(signs()).toBe(1);
+  });
+
+  it.each(["eth_gasPrice", "eth_getTransactionCount"])("gives up within the budget when %s hangs", async (method) => {
+    const { wallet, sent } = await setup([], [3], [null], { [method]: "hang" });
+    const err = await settle(() => wallet.submit(TX_REQ));
+    expect(String(err)).toContain("submit gave up after 10s");
+    expect(sent).toHaveLength(0);
+  });
+
+  it("reports delivery unknown when the receipt poll hangs", async () => {
+    const { wallet, sent } = await setup([new TypeError("fetch failed"), PAST_NONCE], [3], [null], {
+      eth_getTransactionReceipt: "hang",
+    });
+    const err = await settle(() => wallet.submit(TX_REQ));
+    expect(err).toBeInstanceOf(PodDeliveryUnknownError);
+    expect((err as PodDeliveryUnknownError).txHash).toBe(keccak256(sent[0]!));
   });
 
   it("does not retry a -32000 validation failure, even one about a nonce", async () => {
