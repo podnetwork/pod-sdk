@@ -102,6 +102,14 @@ export async function createDelegatedWallet(p: CreateDelegatedWalletParams): Pro
   const doFetch = p.fetch ?? fetch;
 
   const submit = async (tx: PodTxRequest): Promise<Hash> => {
+    const giveUpAt = Date.now() + SUBMIT_GIVE_UP_MS;
+    const inBudget = <T>(work: Promise<T>): Promise<T> => {
+      let stall: ReturnType<typeof setTimeout> | undefined;
+      const outOfTime = new Promise<never>((_, reject) => {
+        stall = setTimeout(() => reject(new Error("out of time")), Math.max(0, giveUpAt - Date.now()));
+      });
+      return Promise.race([work, outOfTime]).finally(() => clearTimeout(stall));
+    };
     if (tx.to.toLowerCase() !== CLOB_ADDRESS) {
       throw new Error(`delegation covers CLOB calls only, not ${tx.to} — sign this with the master wallet`);
     }
@@ -120,7 +128,6 @@ export async function createDelegatedWallet(p: CreateDelegatedWalletParams): Pro
       const prepared = await client.prepareTransactionRequest({ ...tx, data, account, chain, maxFeePerGas });
       return client.signTransaction(prepared as never);
     };
-    const giveUpAt = Date.now() + SUBMIT_GIVE_UP_MS;
     let serialized: Hex | undefined;
     // Set once an attempt may have reached a node; from then on the bytes are never re-signed.
     let maybeDelivered: Hash | undefined;
@@ -128,7 +135,7 @@ export async function createDelegatedWallet(p: CreateDelegatedWalletParams): Pro
     for (let attempt = 0; ; attempt++) {
       let sending = false;
       try {
-        serialized ??= await sign();
+        serialized ??= await inBudget(sign());
         sending = true;
         // Not AbortSignal.timeout: its clock is not the one setTimeout runs on, which fake timers replace.
         const ctl = new AbortController();
@@ -160,9 +167,9 @@ export async function createDelegatedWallet(p: CreateDelegatedWalletParams): Pro
     }
     const hash = maybeDelivered;
     try {
-      await waitForReceipt(p.rpcUrl, hash, {
+      await inBudget(waitForReceipt(p.rpcUrl, hash, {
         fetch: doFetch, pollMs: SUBMIT_RETRY_MS, timeoutMs: Math.max(0, giveUpAt - Date.now()),
-      });
+      }));
       return hash;
     } catch {
       throw new PodDeliveryUnknownError(hash, { cause: err });

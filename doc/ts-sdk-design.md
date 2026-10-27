@@ -250,14 +250,16 @@ returns `{withdrawals, timestamp}` (`rest.bridgeWithdrawals` returns
 
 **(f) Send retry.** The delegated wallet's `submit` owns no nonce: each attempt
 fetches it with the `pending` tag. Attempts back off 250ms, 500ms, then 1s apart, each send is cut
-off after 5s, and the whole submit gives up after 10s. Transport errors, cut-off
+off after 5s, and the whole submit, from the nonce and gas-price requests to the receipt
+poll, gives up after 10s. Transport errors, cut-off
 sends, non-JSON or non-2xx responses, and code `996` node rejections (past nonce,
 future nonce, pending account) are retried; any other rejection (execution
 reverted, deterministic rejection, account locked, empty tx required) is
 returned at once. After a transport error the same signed bytes are resent. A
 nonce rejection re-signs with a fresh nonce only when no earlier attempt could
 have been delivered; otherwise the SDK polls the receipt of the last sent hash
-for the rest of the budget and returns that hash or throws `PodDeliveryUnknownError` with the hash.
+for the rest of the budget and returns that hash or throws `PodDeliveryUnknownError` with the hash,
+which running out of the budget after a possibly delivered attempt throws too.
 `waitForReceipt` treats a non-2xx or non-JSON response as "no
 receipt yet" within its 30s.
 
