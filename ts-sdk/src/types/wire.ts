@@ -363,6 +363,8 @@ export interface WireOrderEvent {
    * or flipped the position.
    */
   pa?: WireDecimal;
+  /** `fill`: PnL realized by this fill alone, signed and 1e18-scaled; absent when it closed nothing. */
+  pnl?: WireDecimal;
   /** `modify`: the price after the change. */
   px?: WireDecimal;
   /** `modify`: the size after the change, as an **unsigned magnitude**. */
@@ -486,6 +488,7 @@ export type WireActivityEntry =
       f?: WireDecimal;
       st?: WireTerminalStatus;
       pa?: WireDecimal;
+      pnl?: WireDecimal;
     }
   | { k: "modify"; id: Hex; book: Hex; px: WireDecimal; sz: WireDecimal; old_px: WireDecimal; old_sz: WireDecimal }
   | {

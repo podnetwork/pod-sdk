@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { Address, MarketId, OrderEvent } from "../types/public.js";
+import type { Address, MarketId, Order, OrderEvent } from "../types/public.js";
 import { OrderHistory, compareCursor } from "./orders.js";
 import type { SyncContext } from "./sources.js";
 
@@ -76,24 +76,33 @@ describe("compareCursor — already-delivered decisions", () => {
  * websocket whose `subscribe` hands us the frame callback, so a test can deliver a
  * frame the way the transport would.
  */
-function harness() {
+function harness(seed: { orders: Order[]; solutionNow: number } = { orders: [], solutionNow: 0 }) {
   let deliver: ((result: unknown) => void) | undefined;
+  let reconnect: (() => void) | undefined;
+  let page = { ...seed, nextCursor: null, totalCount: seed.orders.length };
   const ws = {
     state: "open",
-    on: () => () => {},
+    on: (_e: string, cb: () => void) => { reconnect = cb; return () => {}; },
     subscribe: (_channel: string, _params: unknown, onMessage: (r: unknown) => void) => {
       deliver = onMessage;
       return { unsubscribe: () => {}, update: () => {}, resubscribe: () => {} };
     },
   };
-  const rest = {
-    orders: async () => ({ orders: [], nextCursor: null, totalCount: 0, solutionNow: 0 }),
-  };
+  const rest = { orders: async () => page };
   const history = new OrderHistory(
     { rest, ws, positionResyncMs: 0, marketResyncMs: 0 } as unknown as SyncContext,
     "0xabc" as Address,
   );
-  return { history, frame: (f: unknown) => deliver?.(f), delivered: () => deliver !== undefined };
+  return {
+    history,
+    frame: (f: unknown) => deliver?.(f),
+    delivered: () => deliver !== undefined,
+    reseed: async (next: { orders: Order[]; solutionNow: number }) => {
+      page = { ...next, nextCursor: null, totalCount: next.orders.length };
+      reconnect?.();
+      await flush();
+    },
+  };
 }
 
 const FRAME = {
@@ -197,6 +206,39 @@ describe("OrderHistory re-seed", () => {
     await flush();
 
     expect(history.get()!.find((o) => o.id === "0xnew")).toEqual(held);
+    off();
+  });
+});
+
+describe("OrderHistory realized PnL", () => {
+  const seeded = (realizedPnl: bigint, solutionNow: number): Order => ({
+    id: "0xa", txHash: "0xtx", orderbookId: book(7), side: "sell", orderType: "limit", status: "active",
+    kind: "user_signed", nonce: 1, bidder: "0xabc" as Address, price: 1n, initialSize: -2n,
+    filledBase: 0n, filledQuote: 0n, fee: 0n, deadlineMs: solutionNow, realizedPnl,
+  });
+  const fillFrame = (batch: number, pnl: string) => ({
+    book: book(7), batch, accts: ["0xabc"], orders: [],
+    events: [{ k: "fill", id: "0xa", a: 0, b: "1", q: "1", tb: "1", tq: "1", tf: "0", pnl }],
+  });
+
+  const pnlOf = (h: OrderHistory) => h.get()?.find((o) => o.id === "0xa")?.realizedPnl;
+
+  it("sums streamed fills onto the seed, once per frame, and takes a re-seed's value whole", async () => {
+    const { history, frame, reseed } = harness({ orders: [seeded(10n, 1)], solutionNow: 1 });
+    const off = history.subscribe(() => {});
+    await flush();
+    expect(pnlOf(history)).toBe(10n);
+
+    frame(fillFrame(2_000_000, "5"));
+    frame(fillFrame(2_000_000, "5"));
+    expect(pnlOf(history), "a re-delivered frame is not counted again").toBe(15n);
+
+    await reseed({ orders: [seeded(40n, 3_000)], solutionNow: 3_000 });
+    expect(pnlOf(history), "the REST row replaces the sum").toBe(40n);
+    frame(fillFrame(2_000_000, "5"));
+    expect(pnlOf(history), "a frame the re-seed already covers is dropped").toBe(40n);
+    frame(fillFrame(4_000_000, "-1"));
+    expect(pnlOf(history)).toBe(39n);
     off();
   });
 });
