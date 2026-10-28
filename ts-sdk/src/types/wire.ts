@@ -149,17 +149,8 @@ export interface WireOrderbook {
   funding_last_updated?: number | null;
 }
 
-export interface WireSpotPosition {
+export interface WireSpotPosition extends WireSpotHolding {
   kind: "spot";
-  orderbook_id?: Hex;
-  token: Hex;
-  balance: WireDecimal;
-  free_balance: WireDecimal;
-  locked_balance: WireDecimal;
-  cost_basis: WireDecimal;
-  mark_price: WireDecimal;
-  unrealized_pnl: WireDecimal;
-  realized_pnl: WireDecimal;
 }
 
 export interface WirePerpPosition {

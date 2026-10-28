@@ -301,17 +301,9 @@ export interface Order {
 
 export type Position = SpotPosition | PerpPosition;
 
-export interface SpotPosition {
+/** A spot holding as an entry of {@link PositionsSnapshot.positions}. */
+export interface SpotPosition extends SpotHolding {
   kind: "spot";
-  orderbookId?: MarketId;
-  token: Address;
-  balance: bigint;
-  freeBalance: bigint;
-  lockedBalance: bigint;
-  costBasis: bigint;
-  markPrice: bigint;
-  unrealizedPnl: bigint;
-  realizedPnl: bigint;
 }
 
 export interface PerpPosition {
@@ -432,8 +424,7 @@ export interface TxExplorer {
   [k: string]: unknown;
 }
 
-/** A spot token holding (`/clob/balances`). Like SpotPosition but identified by
- * market + symbols rather than token address. */
+/** A spot token holding for one market (`/clob/balances`). */
 export interface SpotHolding {
   orderbookId: MarketId;
   baseSymbol: string;
