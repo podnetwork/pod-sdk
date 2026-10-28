@@ -148,7 +148,10 @@ export function foldActivityBatch(
     if (rest) {
       const event = asOrderEvent(e);
       // `pnl` is a delta that the held order's own REST row may already include; that row, not the fill, sets it.
-      if (event) applyEvent({ ...event, pnl: undefined }, order, { batchMs });
+      if (event) {
+        event.pnl = undefined;
+        applyEvent(event, order, { batchMs });
+      }
       continue;
     }
     if (row.activityType === "modify_reject") {

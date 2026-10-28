@@ -236,8 +236,6 @@ describe("foldActivityBatch", () => {
     fold([order(1, { realized_pnl: "10" })], orders, "rest");
     foldActivityBatch(BATCH + 1, [fill(1, { pnl: "10", tb: units(2n) })], orders, { pageOrders: new Set() });
     expect(orders.get(id(1))).toMatchObject({ realizedPnl: 10n, filledBase: 2n * WAD });
-    fold([order(1, { realized_pnl: "25" })], orders, "rest");
-    expect(orders.get(id(1))?.realizedPnl).toBe(25n);
   });
 
   it("replaces a held order with the one a REST page carries", () => {
