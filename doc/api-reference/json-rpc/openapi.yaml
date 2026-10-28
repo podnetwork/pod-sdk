@@ -4755,7 +4755,7 @@ components:
         price_change_24h:
           type: integer
           format: int128
-          description: 24h price change (signed, 1e18), as a JSON number. Omitted if unavailable.
+          description: 24h price change in basis points (signed JSON number; `300` = +3%). Omitted until the market has a completed candle.
         oracle_price:
           type: string
           description: 'Perp only: latest oracle price (decimal, 1e18).'
