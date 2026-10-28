@@ -19,7 +19,7 @@ Use it for **placing/canceling/updating orders**, **moving funds between account
 order_id = keccak256(abi.encode(address signer, uint64 nonce, uint32 sequence))
 ```
 
-where `signer` is the order owner, `nonce` is the `submitOrder` transaction's nonce, and `sequence` is the intent's position inside a `submitBatch` envelope (`0` for a standalone `submitOrder`). Wherever a call references an existing order — `cancel(canceledOrder, …)` and `update(updatedOrder, …)` — pass this `order_id`. You can compute it yourself with the formula above, or read it back from `ob_getOrders`, which returns it as `order_id` (the originating `submitOrder` tx hash is exposed separately as `tx_hash`).
+where `signer` is the order owner, `nonce` is the `submitOrder` transaction's nonce, and `sequence` is the intent's position inside a `submitBatch` envelope (`0` for a standalone `submitOrder`). Wherever a call references an existing order — `cancel(canceledOrder, …)` and `update(updatedOrder, …)` — pass this `order_id`. You can compute it yourself with the formula above, or read it back from `GET /v1/clob/orders/{account}`, which returns it as `order_id` (the originating `submitOrder` tx hash is exposed separately as `tx_hash`).
 {% endhint %}
 
 {% hint style="warning" %}
@@ -149,7 +149,7 @@ Markets are created, halted, settled and re-pointed at their price feeds with fo
 | `settleMarket(orderbookId, deadline)` | Closes a `disabled` market: every resting order is refunded and every position closed at the captured settlement price. The market stays listed as `settled` for history. Disable to settle is one-way; a "revived" market is a new `createMarket`. |
 | `updateMarketOracle(orderbookId, deadline, oracleSpec, midSources)` | Rebinds the feeds of an `active` or `pending` market without touching orders or positions. `oracleSpec` is the comma-separated `<source>/<asset>` list with the first entry primary; empty is legal only for spot. A perp created against a feed that never served a price stays `pending` until this call points it at one. |
 
-`ob_getMarkets` reports every market with its lifecycle `status` (`pending`, `active`, `disabled`, `settled`) plus `live_at`, `disable_at` and `settlement_price` when they apply, so a client can hide a halted book or warn users during a notice window.
+`GET /v1/clob/markets` reports every market with its lifecycle `status` (`pending`, `active`, `disabled`, `settled`) plus `live_at_us`, `disable_at_us` and `settlement_price` when they apply, so a client can hide a halted book or warn users during a notice window.
 
 {% hint style="warning" %}
 **Intents due after a scheduled halt are refused up front.** Once `disable_at` is set, any order, cancel or update on that book whose `deadline` lies past the halt is rejected at submission with `market disables at …: an intent with deadline … could never execute`. Bots that stamp long deadlines should shorten them, or drop the book, as soon as `disable_at` appears, and a `submitBatch` that spans several books fails as a whole when one sub-intent trips this rule.
@@ -239,7 +239,7 @@ contract Orderbook {
      * @param orderbookId The unique identifier of the market the order belongs to.
      * @param canceledOrder The `order_id` of the order to cancel — the computed
      *        `keccak256(abi.encode(signer, nonce, sequence))`, also returned as `order_id` by
-     *        `ob_getOrders`. This is NOT the `submitOrder` tx hash.
+     *        `GET /v1/clob/orders/{account}`. This is NOT the `submitOrder` tx hash.
      * @param deadline The Unix timestamp after which this cancellation request is invalid in microseconds. Must be a multiple of the market's `auction_interval`.
      */
     function cancel(
@@ -253,7 +253,7 @@ contract Orderbook {
      * @param orderbookId The unique identifier of the market the order belongs to.
      * @param updatedOrder The `order_id` of the order to update — the computed
      *        `keccak256(abi.encode(signer, nonce, sequence))`, also returned as `order_id` by
-     *        `ob_getOrders`. This is NOT the `submitOrder` tx hash.
+     *        `GET /v1/clob/orders/{account}`. This is NOT the `submitOrder` tx hash.
      * @param newSize The new size for the order.
      * @param newPrice The new price for the order.
      * @param token The token used to cover any additional collateral required by the update.
@@ -362,7 +362,7 @@ contract Orderbook {
      * @param orderbookId The unique identifier of the market the trigger belongs to.
      * @param triggerOrder The `order_id` of the trigger to cancel — the computed
      *        `keccak256(abi.encode(signer, nonce, sequence))`, also returned as `order_id`
-     *        by `ob_getTriggers`. This is NOT the `submitTrigger` tx hash.
+     *        by `GET /v1/clob/triggers/{account}`. This is NOT the `submitTrigger` tx hash.
      * @param deadline The latest batch this intent may be included in, in microseconds. Must be a multiple of the market's `auction_interval`.
      */
     function cancelTrigger(
@@ -376,7 +376,7 @@ contract Orderbook {
      * @param orderbookId The unique identifier of the market the trigger belongs to.
      * @param triggerOrder The `order_id` of the trigger to update — the computed
      *        `keccak256(abi.encode(signer, nonce, sequence))`, also returned as `order_id`
-     *        by `ob_getTriggers`. This is NOT the `submitTrigger` tx hash.
+     *        by `GET /v1/clob/triggers/{account}`. This is NOT the `submitTrigger` tx hash.
      * @param newSize The new signed base amount of the order produced when the trigger fires.
      * @param newLimitPrice The new limit price of the synthetic order.
      * @param newTriggerPrice The new mark-price threshold that fires the trigger.

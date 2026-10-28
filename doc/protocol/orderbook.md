@@ -46,7 +46,7 @@ A post-only order is therefore a *guaranteed maker* under a fee schedule that cl
 
 ## Market Data
 
-The full node includes a built-in indexer for both live and historical market data. This provides order book snapshots, OHLCV candles, account-level order history, and position data without requiring users to run their own indexer. See the [`ob_` endpoints](https://docs.v2.pod.network/guides-references/json-rpc) in the JSON-RPC reference.
+The full node includes a built-in indexer for both live and historical market data. This provides order book snapshots, OHLCV candles, account-level order history, and position data without requiring users to run their own indexer. See the [REST API reference](https://docs.v2.pod.network/guides-references/references/rest).
 
 ## Matching
 

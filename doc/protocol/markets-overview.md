@@ -36,4 +36,4 @@ Maker, taker, and liquidation fees are currently set to zero. This is subject to
 ## Navigating the Docs
 
 * [Order Book](orderbook.md) - the enshrined CLOB, order types, matching, and market data
-* [JSON-RPC reference](https://docs.v2.pod.network/api-reference/json-rpc) - the `ob_*` methods (`ob_getMarkets`, `ob_getOrders`, `ob_getPositions`, …) used to read market state and order/position history
+* [REST API reference](https://docs.v2.pod.network/guides-references/references/rest) - the `/v1/clob/*` routes (`markets`, `orders`, `positions`, …) used to read market state and order/position history
