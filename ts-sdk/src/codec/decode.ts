@@ -155,18 +155,7 @@ export function decodeOrderbook(w: WireOrderbook): Orderbook {
 }
 
 function decodeSpotPosition(w: WireSpotPosition): SpotPosition {
-  return {
-    kind: "spot",
-    orderbookId: w.orderbook_id,
-    token: w.token,
-    balance: dec(w.balance),
-    freeBalance: dec(w.free_balance),
-    lockedBalance: dec(w.locked_balance),
-    costBasis: dec(w.cost_basis),
-    markPrice: dec(w.mark_price),
-    unrealizedPnl: dec(w.unrealized_pnl),
-    realizedPnl: dec(w.realized_pnl),
-  };
+  return { kind: "spot", ...decodeSpotHolding(w) };
 }
 
 function decodePerpPosition(w: WirePerpPosition): PerpPosition {

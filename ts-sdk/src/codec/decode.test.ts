@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { WireMarketStatic } from "../types/wire.js";
-import { decodeMarketStatic } from "./decode.js";
+import type { WireMarketStatic, WirePositionsSnapshot } from "../types/wire.js";
+import { decodeMarketStatic, decodePositions } from "./decode.js";
 
 /** Verbatim from `GET https://staging-rpc.podtestnet.dev/v1/clob/markets`. */
 const NVDA_PERP: WireMarketStatic = {
@@ -55,5 +55,37 @@ describe("fee rates", () => {
     // decodeMarketStatic maps the entire markets list; one bad field must not empty it.
     expect(fees("", "").makerFee).toBe(0n);
     expect(() => fees(undefined as unknown as string, "0")).not.toThrow();
+  });
+});
+
+describe("decodePositions", () => {
+  it("decodes a spot entry by market and symbols", () => {
+    const w: WirePositionsSnapshot = {
+      positions: [{
+        kind: "spot",
+        orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001",
+        base_symbol: "NVDAx",
+        quote_symbol: "USD",
+        balance: "0x2",
+        free_balance: "0x1",
+        locked_balance: "0x1",
+        cost_basis: "0x3",
+        mark_price: "0x4",
+        unrealized_pnl: "5",
+        realized_pnl: "-6",
+      }],
+      total_unrealized_pnl: "0", total_realized_pnl: "0", perps_equity: "0",
+      account_value: "0", cash: "0", withdrawable_cash: "0x0", net_deposits: "0",
+    };
+    const [p] = decodePositions(w).positions;
+    expect(p).toEqual({
+      kind: "spot",
+      orderbookId: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      baseSymbol: "NVDAx",
+      quoteSymbol: "USD",
+      balance: 2n, freeBalance: 1n, lockedBalance: 1n, costBasis: 3n, markPrice: 4n,
+      unrealizedPnl: 5n, realizedPnl: -6n,
+    });
+    expect(p).not.toHaveProperty("token");
   });
 });

@@ -16,7 +16,7 @@ import type {
   Address, Balances, BridgeConfig, Market, MarketId, Orderbook, PositionsSnapshot, Status, Trigger,
 } from "../types/public.js";
 import type {
-  WireMarketDynamics, WireOrderbook, WirePositionsPush, WireSpotHolding, WireTriggersPush,
+  WireMarketDynamics, WireOrderbook, WirePositionsPush, WireSpotPosition, WireTriggersPush,
 } from "../types/wire.js";
 import {
   decodeBalances, decodeMarketDynamics, decodeOrderbook, decodePositions, decodeTrigger,
@@ -314,7 +314,7 @@ export function balancesSource(
     const sub = subscribeRetrying(ws, "pod_positions", () => ({ account, since: h.lastKnown()?.value.timestampUs ?? 0 }), (result) => {
       const w = (result as WirePositionsPush).data;
       accept(decodeBalances({
-        balances: w.positions.filter((p) => p.kind === "spot") as unknown as WireSpotHolding[],
+        balances: w.positions.filter((p): p is WireSpotPosition => p.kind === "spot"),
         cash: w.cash,
         withdrawable_cash: w.withdrawable_cash,
         net_deposits: w.net_deposits,
