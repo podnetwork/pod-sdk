@@ -221,8 +221,8 @@ export function marketsSource(
       try { marketsCache?.set(serializeMarkets(markets)); } catch { /* storage denied/full */ }
     }).catch((e) => { if (!byId.size) h.fail(e); });
 
-    // 24h vol/high/low slide with time and only the REST stats reflect that
-    // (the WS only pushes on a clear) — so poll them periodically.
+    // A push carries the 24h stats too, but only for markets cleared that tick;
+    // the periodic REST poll keeps the 24h window sliding for the rest.
     const seedStats = () => readAtLeast((min) => rest.marketStats(undefined, min), heldUs).then((page) => {
       if (!alive) return;
       heldUs = Math.max(heldUs, page.solutionNow * 1000);
