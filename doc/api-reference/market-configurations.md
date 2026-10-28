@@ -29,7 +29,7 @@ Each market on Pod is created with a set of protocol-level parameters that gover
 
 ## Live Markets
 
-All markets are quoted in USD (the native token, address `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`). The `x` suffix on base symbols denotes synthetic representations of the underlying assets. Perpetual markets use [Pyth](https://pyth.network/) price feeds as the oracle. To discover markets at runtime, call [`ob_getMarkets`](https://docs.v2.pod.network/api-reference/json-rpc).
+All markets are quoted in USD (the native token, address `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`). The `x` suffix on base symbols denotes synthetic representations of the underlying assets. Perpetual markets use [Pyth](https://pyth.network/) price feeds as the oracle. To discover markets at runtime, call [`GET /v1/clob/markets`](https://docs.v2.pod.network/guides-references/references/rest).
 
 {% tabs %}
 {% tab title="Testnet" %}
@@ -65,7 +65,7 @@ All markets are quoted in USD (the native token, address `0xEeeeeEeeeEeEeeEeEeEe
 | GLD-USD   | `0x000000000000000000000000000000000000000000000000000000000000000c` | `0x000000000000000000000000000000000000000c` | 20x | Pyth `Gld`   |
 
 {% hint style="info" %}
-Market lists may change as we expand testnet coverage. To stay current, fetch the live list at runtime from [`ob_getMarkets`](https://docs.v2.pod.network/api-reference/json-rpc) rather than hard-coding ids.
+Market lists may change as we expand testnet coverage. To stay current, fetch the live list at runtime from [`GET /v1/clob/markets`](https://docs.v2.pod.network/guides-references/references/rest) rather than hard-coding ids.
 {% endhint %}
 {% endtab %}
 
