@@ -277,6 +277,7 @@ paths:
 
         `Cache-Control: no-store`.
       parameters:
+        - $ref: '#/components/parameters/MinTimestamp'
         - $ref: '#/components/parameters/OrderbookQuery'
         - name: since_us
           in: query
@@ -297,11 +298,13 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [solutions]
+                required: [solutions, solution_now]
                 properties:
                   solutions:
                     type: array
                     items: { $ref: '#/components/schemas/Solution' }
+                  solution_now:
+                    $ref: '#/components/schemas/Timestamp'
         '400': { $ref: '#/components/responses/BadRequest' }
         '503': { $ref: '#/components/responses/Unavailable' }
 
@@ -393,6 +396,7 @@ paths:
         `Cache-Control: no-store`.
       parameters:
         - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/MinTimestamp'
         - $ref: '#/components/parameters/OrderbookQuery'
         - name: from_us
           in: query
@@ -413,11 +417,13 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [fills]
+                required: [fills, solution_now]
                 properties:
                   fills:
                     type: array
                     items: { $ref: '#/components/schemas/Fill' }
+                  solution_now:
+                    $ref: '#/components/schemas/Timestamp'
         '400': { $ref: '#/components/responses/BadRequest' }
         '503': { $ref: '#/components/responses/Unavailable' }
 
@@ -530,6 +536,7 @@ paths:
         `Cache-Control: no-store`.
       parameters:
         - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/MinTimestamp'
         - $ref: '#/components/parameters/OrderbookQuery'
         - name: limit
           in: query

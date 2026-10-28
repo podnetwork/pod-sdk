@@ -96,7 +96,15 @@ paths:
                 jsonrpc: { type: string, default: "2.0" }
                 method: { type: string, default: "ob_getMarkets" }
                 id: { type: integer, default: 1 }
-                params: { type: array, default: [] }
+                params:
+                  type: array
+                  default: []
+                  description: |
+                    Parameters:
+                    1. `timestamp` (integer, optional): The lowest indexer round accepted, in microseconds — typically the highest `timestamp` already held. The node answers once its indexer reaches it; otherwise error `995` after its wait (default 2s), with the indexer's current round as `data`.
+                  items:
+                    type: integer
+                    format: int64
             example:
               jsonrpc: "2.0"
               method: "ob_getMarkets"
@@ -354,10 +362,13 @@ paths:
                     Positional parameters:
                     1. `address` (Address): The address to get orders for
                     2. `query` (OrdersQuery): Query parameters with optional orderbook_id, limit, cursor, and status filter
+                    3. `timestamp` (integer, optional): The lowest indexer round accepted, in microseconds — typically the highest `timestamp` already held. The node answers once its indexer reaches it; otherwise error `995` after its wait (default 2s), with the indexer's current round as `data`. Pass `null` for `query` to omit it.
                   items:
                     oneOf:
                       - $ref: '#/components/schemas/Address'
                       - $ref: '#/components/schemas/OrdersQuery'
+                      - type: integer
+                        format: int64
                   example:
                     - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
                     - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
@@ -386,6 +397,10 @@ paths:
                         type: string
                         nullable: true
                         description: 'Cursor for fetching the next page (wire format `"{deadline}:{nonce}:{order_id_hex}"`). Null if no more results.'
+                      timestamp:
+                        type: integer
+                        format: int64
+                        description: The indexer round the rows were read at, in microseconds.
                   id: { type: integer }
               example:
                 jsonrpc: "2.0"
@@ -539,10 +554,13 @@ paths:
                     Positional parameters:
                     1. `address` (Address): The address to get fills for
                     2. `query` (FillsQuery): Query parameters with required from_ts and optional to_ts, orderbook_id, and limit
+                    3. `timestamp` (integer, optional): The lowest indexer round accepted, in microseconds — typically the highest `timestamp` already held. The node answers once its indexer reaches it; otherwise error `995` after its wait (default 2s), with the indexer's current round as `data`.
                   items:
                     oneOf:
                       - $ref: '#/components/schemas/Address'
                       - $ref: '#/components/schemas/FillsQuery'
+                      - type: integer
+                        format: int64
                   example:
                     - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
                     - from_ts: 1704067200000000
@@ -613,10 +631,13 @@ paths:
                     Positional parameters:
                     1. `address` (Address): The address to get backstop transfers for
                     2. `query` (BackstopTransfersQuery): Optional filters — `orderbook_id`, `limit` (clamped to `[1, 200]`), and `cursor`
+                    3. `timestamp` (integer, optional): The lowest indexer round accepted, in microseconds — typically the highest `timestamp` already held. The node answers once its indexer reaches it; otherwise error `995` after its wait (default 2s), with the indexer's current round as `data`. Pass `null` for `query` to omit it.
                   items:
                     oneOf:
                       - $ref: '#/components/schemas/Address'
                       - $ref: '#/components/schemas/BackstopTransfersQuery'
+                      - type: integer
+                        format: int64
                   example:
                     - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
                     - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
@@ -845,7 +866,12 @@ paths:
                   description: |
                     Positional parameters:
                     1. `query` (SolutionsQuery): optional `orderbook_id`, `since`, `until`, and `limit`
-                  items: { $ref: '#/components/schemas/SolutionsQuery' }
+                    2. `timestamp` (integer, optional): The lowest indexer round accepted, in microseconds — typically the highest `timestamp` already held. The node answers once its indexer reaches it; otherwise error `995` after its wait (default 2s), with the indexer's current round as `data`. Pass `null` for `query` to omit it.
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/SolutionsQuery'
+                      - type: integer
+                        format: int64
                   example:
                     - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000007"
                       until: 1704153600000000
@@ -865,6 +891,10 @@ paths:
                       solutions:
                         type: array
                         items: { $ref: '#/components/schemas/SolutionResponse' }
+                      timestamp:
+                        type: integer
+                        format: int64
+                        description: The indexer round the rows were read at, in microseconds.
                   id: { type: integer }
               example:
                 jsonrpc: "2.0"
@@ -3070,6 +3100,10 @@ components:
             hex-encoded unsigned 256-bit integer —
             `mark_price * Σ |position.size|` across every open cross-margin
             position on this market. `null` for spot markets.
+        timestamp:
+          type: integer
+          format: int64
+          description: The indexer round this market's stats and prices were read at, in microseconds.
 
     TickSnapshot:
       type: object
@@ -3440,6 +3474,10 @@ components:
           type: array
           items: { $ref: '#/components/schemas/FillResponse' }
           description: List of fills ordered by timestamp descending
+        timestamp:
+          type: integer
+          format: int64
+          description: The indexer round the rows were read at, in microseconds.
 
     TriggerOrderResponse:
       type: object
@@ -3546,6 +3584,10 @@ components:
           type: string
           nullable: true
           description: 'Pass back as `query.cursor` to fetch the next page. Wire format `"{ts}:{id}"`. Null if no more results.'
+        timestamp:
+          type: integer
+          format: int64
+          description: The indexer round the rows were read at, in microseconds.
 
     SolutionResponse:
       type: object
