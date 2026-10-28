@@ -10,6 +10,11 @@ servers:
 tags:
   - name: Orderbook Data (ob_)
     description: |
+      **Deprecated.** The `ob_` methods are still served, but new clients should read
+      the same data from the
+      [REST API](https://docs.v2.pod.network/guides-references/references/rest) and the
+      `pod_*` websocket subscriptions. Each method names its replacement.
+
       Orderbook Data (`ob_`) is a read-focused API surface that provides access to
       markets and orderbook activity without requiring clients to run their own
       indexer or interact with the orderbook contracts directly. It is powered
@@ -74,7 +79,10 @@ paths:
       tags: [Orderbook Data (ob_)]
       summary: Get All Markets
       operationId: ob_getMarkets
+      deprecated: true
       description: |
+        **Deprecated.** Use `GET /v1/clob/markets` and `GET /v1/clob/markets/stats`, or the `pod_markets` subscription instead.
+
         Retrieves a list of all available markets/orderbooks with their metadata
         and statistics. Each market includes token information, current pricing,
         24-hour statistics, and fee structure.
@@ -171,7 +179,10 @@ paths:
       tags: [Orderbook Data (ob_)]
       summary: Get Orderbook Snapshot
       operationId: ob_getOrderbook
+      deprecated: true
       description: |
+        **Deprecated.** Use `GET /v1/clob/orderbook/{orderbook}`, or the `pod_orderbook` subscription instead.
+
         Retrieves the current orderbook snapshot for a specified market, showing buy and sell orders aggregated by price level.
         
         Orders are grouped by price and include the total volume resting at each level.
@@ -245,7 +256,10 @@ paths:
       tags: [Orderbook Data (ob_)]
       summary: Get Historical Candles
       operationId: ob_getCandles
+      deprecated: true
       description: |
+        **Deprecated.** Use `GET /v1/clob/candles/{orderbook}`, or the `pod_candles` subscription instead.
+
         Retrieves historical candle (OHLCV) data for a specified orderbook.
         
         Candles represent aggregated price and volume data over specified time intervals.
@@ -316,7 +330,10 @@ paths:
       tags: [Orderbook Data (ob_)]
       summary: Get Account Orders
       operationId: ob_getOrders
+      deprecated: true
       description: |
+        **Deprecated.** Use `GET /v1/clob/orders/{account}`, or the `pod_orders` subscription instead.
+
         Retrieves orders for a specific address in a given orderbook, with support for cursor-based pagination.
         
         Orders are returned newest first, sorted by `(deadline, nonce, order_id)` descending.
@@ -404,7 +421,10 @@ paths:
       tags: [Orderbook Data (ob_)]
       summary: Get Account Positions
       operationId: ob_getPositions
+      deprecated: true
       description: |
+        **Deprecated.** Use `GET /v1/clob/positions/{account}` and `GET /v1/clob/balances/{account}`, or the `pod_positions` subscription instead.
+
         Retrieves trading positions for a specific address across all orderbooks.
         
         Positions track the cost basis of acquired tokens (from buys and deposits) and compute
@@ -491,7 +511,10 @@ paths:
       tags: [Orderbook Data (ob_)]
       summary: Get Account Fills
       operationId: ob_getFills
+      deprecated: true
       description: |
+        **Deprecated.** Use `GET /v1/clob/fills/{account}` instead.
+
         Retrieves trade fills for a specific address within a time range.
 
         Fills represent individual trade executions from batch auction settlements.
@@ -559,7 +582,10 @@ paths:
       tags: [Orderbook Data (ob_)]
       summary: Get Account Backstop Transfers
       operationId: ob_getBackstopTransfers
+      deprecated: true
       description: |
+        **Deprecated.** Use `GET /v1/clob/backstop-transfers/{account}` instead.
+
         Retrieves the backstop transfers for a specific address, with cursor-based pagination.
 
         A backstop transfer is recorded when a perp position is swept to the backstop during
@@ -627,7 +653,10 @@ paths:
       tags: [Orderbook Data (ob_)]
       summary: Get Account Triggers
       operationId: ob_getTriggers
+      deprecated: true
       description: |
+        **Deprecated.** Use `GET /v1/clob/triggers/{account}`, or the `pod_triggers` subscription instead.
+
         Retrieves the armed TP/SL trigger orders owned by an address, with cursor-based pagination.
 
         Triggers are conditional perp orders: when the pair's mark price crosses `trigger_price`
@@ -702,7 +731,10 @@ paths:
       tags: [Orderbook Data (ob_)]
       summary: Get Oracle & Mark Prices
       operationId: ob_getOraclePrices
+      deprecated: true
       description: |
+        **Deprecated.** Use `GET /v1/clob/markets/stats`, or the `pod_markets` subscription instead.
+
         Returns the latest oracle and mark prices recorded for perp orderbooks by the indexer.
 
         Pass an `orderbook_id` to fetch a single orderbook, or omit it for every perp orderbook.
@@ -744,7 +776,10 @@ paths:
       tags: [Orderbook Data (ob_)]
       summary: Get Funding Rates
       operationId: ob_getFundingRates
+      deprecated: true
       description: |
+        **Deprecated.** Use `GET /v1/clob/markets/stats`, or the `pod_markets` subscription instead.
+
         Returns the latest funding state for perp orderbooks, with the mark and oracle prices
         included for context.
 
@@ -785,7 +820,10 @@ paths:
       tags: [Orderbook Data (ob_)]
       summary: Get Per-Tick Solutions
       operationId: ob_getSolutions
+      deprecated: true
       description: |
+        **Deprecated.** Use `GET /v1/clob/solutions` instead.
+
         Returns the indexer's per-tick solution records: one row per orderbook per executed batch,
         with the clearing price, volume, and (perp only) oracle, mark, funding and open-interest
         state.
