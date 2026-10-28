@@ -3103,7 +3103,7 @@ components:
         timestamp:
           type: integer
           format: int64
-          description: The indexer round this market's stats and prices were read at, in microseconds.
+          description: The indexer round this market's stats and prices were read at, in microseconds. It orders the stats and prices; `status`, `live_at`, `disable_at` and `settlement_price` follow the node's executed state.
 
     TickSnapshot:
       type: object
