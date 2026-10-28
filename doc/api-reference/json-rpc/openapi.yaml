@@ -3990,6 +3990,12 @@ components:
             what says whether the fill opened, added to, reduced, closed or flipped the position. A
             raw position rather than a label so a client tracking positions off this stream can also
             assert its running figure against it, the way `tb`/`tq` anchor the amounts.
+        pnl:
+          type: string
+          description: |
+            `fill`: PnL realized by this fill alone, 1e18-scaled **signed** decimal. Absent when the fill
+            closed no exposure (an open or increase, spot, ADL and backstop fills). An order's
+            `realized_pnl` on REST is the sum of its fills' `pnl`.
         px:
           type: string
           description: '`modify` only: the order''s price after the change, 1e18-scaled decimal.'
@@ -4924,7 +4930,7 @@ components:
           admission state: `status` `active`, or `invalid` with `invalid_reason`, zero totals and
           `fills: []`. ADL closes appear as orders with `kind` `adl` or `adl_counterparty`,
           followed by their `fill`s.
-        - `fill` — `id, book, b, q, tb, tq, tf, f?, st?, pa?`.
+        - `fill` — `id, book, b, q, tb, tq, tf, f?, st?, pa?, pnl?`.
         - `modify` — a resting order changed in place: `id, book, px, sz, old_px, old_sz`.
         - `termination` — an order left the book other than by filling: `id, book, st`.
         - `backstop` — a perp position swept to the backstop (`book` set), or the terminal cash
@@ -4989,6 +4995,9 @@ components:
         pa:
           type: string
           description: "`fill`: the owner's position after this fill on a perp book, signed. Omitted when no position moved."
+        pnl:
+          type: string
+          description: "`fill`: PnL realized by this fill alone, signed. Omitted when it closed no exposure."
         old_px:
           type: string
           description: '`modify`: the price before the change.'

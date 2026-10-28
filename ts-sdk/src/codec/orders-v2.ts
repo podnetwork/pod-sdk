@@ -193,10 +193,15 @@ export function applyEvent(
         // after a REST refetch.
         order.direction = order.kind === "liquidation" ? "liquidation" : classifyPerpDirection(before, after);
       }
+      const realizedPnl = decOpt(event.pnl);
+      if (realizedPnl !== undefined) order.realizedPnl = (order.realizedPnl ?? 0n) + realizedPnl;
       // Present only on the fill that closed the order.
       if (event.st) order.status = event.st as OrderStatus;
       return {
-        fill: { ...fill, totalBase: order.filledBase, closedAs: event.st as TerminalStatus | undefined, fee: decOpt(event.f) },
+        fill: {
+          ...fill, totalBase: order.filledBase, closedAs: event.st as TerminalStatus | undefined,
+          fee: decOpt(event.f), realizedPnl,
+        },
       };
     }
     case "modify_reject":

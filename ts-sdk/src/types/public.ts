@@ -113,6 +113,8 @@ export interface OrderEventFill extends PartialFill {
   closedAs?: TerminalStatus;
   /** This fill's fee; absent on activity rows stored before it was recorded. */
   fee?: bigint;
+  /** PnL realized by this fill alone (signed); absent when it closed nothing. */
+  realizedPnl?: bigint;
 }
 
 /**
@@ -299,8 +301,7 @@ export interface Order {
   triggerType?: TriggerType;
   /**
    * Realized PnL across the slices this order's fills closed (signed, 1e18 USD). Absent on
-   * spot, on orders that never closed exposure, and on streamed orders, which `pod_orders_v2`
-   * does not carry it for; a REST row the stream later updates keeps the value it was fetched with.
+   * spot and on orders that never closed exposure. Set by REST rows and summed from streamed fills.
    */
   realizedPnl?: bigint;
 }
@@ -489,6 +490,8 @@ export type ActivityEntry =
       totalFee?: bigint;
       /** This fill's fee; absent on rows stored before it was recorded. */
       fee?: bigint;
+      /** PnL realized by this fill alone (signed); absent when it closed nothing. */
+      realizedPnl?: bigint;
       closedAs?: TerminalStatus;
       /** Perp only; signed. */
       positionAfter?: bigint;

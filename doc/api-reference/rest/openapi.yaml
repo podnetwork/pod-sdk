@@ -1592,6 +1592,7 @@ components:
           enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused]
           description: Terminal status, present only on the fill that closed the order.
         pa: { $ref: '#/components/schemas/DecimalInt256', description: The position after this fill on a perp book. Omitted when no position moved. }
+        pnl: { $ref: '#/components/schemas/DecimalInt256', description: "PnL realized by this fill alone. Omitted when it closed no exposure; an order's realized_pnl is the sum of its fills' pnl." }
 
     ActivityModify:
       type: object

@@ -21,6 +21,7 @@ export function decodeActivityEntry(e: WireActivityEntry, timeMs: number): Activ
         totalQuote: decOpt(e.tq),
         totalFee: decOpt(e.tf),
         fee: decOpt(e.f),
+        realizedPnl: decOpt(e.pnl),
         closedAs: e.st,
         positionAfter: decOpt(e.pa),
       };
@@ -102,7 +103,7 @@ export function decodeActivityEntry(e: WireActivityEntry, timeMs: number): Activ
 function asOrderEvent(e: WireActivityEntry): WireOrderEvent | undefined {
   switch (e.k) {
     case "fill":
-      return { k: "fill", id: e.id, b: e.b, q: e.q, tb: e.tb, tq: e.tq, tf: e.tf, f: e.f, st: e.st, pa: e.pa };
+      return { k: "fill", id: e.id, b: e.b, q: e.q, tb: e.tb, tq: e.tq, tf: e.tf, f: e.f, st: e.st, pa: e.pa, pnl: e.pnl };
     case "modify":
       return { k: "modify", id: e.id, px: e.px, sz: e.sz };
     case "termination":
@@ -146,7 +147,8 @@ export function foldActivityBatch(
     if (!order || (rest && source.pageOrders.has(row.orderId))) continue;
     if (rest) {
       const event = asOrderEvent(e);
-      if (event) applyEvent(event, order, { batchMs });
+      // `pnl` is a delta that the held order's own REST row may already include; that row, not the fill, sets it.
+      if (event) applyEvent({ ...event, pnl: undefined }, order, { batchMs });
       continue;
     }
     if (row.activityType === "modify_reject") {

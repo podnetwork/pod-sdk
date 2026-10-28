@@ -223,6 +223,23 @@ describe("foldActivityBatch", () => {
     expect(orders.get(id(1))).toMatchObject({ status: "filled", filledBase: 2n * WAD });
   });
 
+  it("adds a streamed fill's realized PnL to the order, and reports it on the fill", () => {
+    const orders = new Map<string, Order>();
+    fold([order(1, { realized_pnl: "10" })], orders, "rest");
+    const { rows } = fold([fill(1, { pnl: "-4" })], orders);
+    expect(orders.get(id(1))?.realizedPnl).toBe(6n);
+    expect(rows[0]).toMatchObject({ activityType: "fill", realizedPnl: -4n });
+  });
+
+  it("takes realized PnL from a REST order row, never from a REST fill row", () => {
+    const orders = new Map<string, Order>();
+    fold([order(1, { realized_pnl: "10" })], orders, "rest");
+    foldActivityBatch(BATCH + 1, [fill(1, { pnl: "10", tb: units(2n) })], orders, { pageOrders: new Set() });
+    expect(orders.get(id(1))).toMatchObject({ realizedPnl: 10n, filledBase: 2n * WAD });
+    fold([order(1, { realized_pnl: "25" })], orders, "rest");
+    expect(orders.get(id(1))?.realizedPnl).toBe(25n);
+  });
+
   it("replaces a held order with the one a REST page carries", () => {
     const orders = new Map<string, Order>();
     fold([order(1)], orders, "stream");

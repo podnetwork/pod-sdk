@@ -13,7 +13,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Address, MarketId, Order } from "../types/public.js";
-import type { WireOrdersFrame } from "../types/wire.js";
+import type { WireOrderEvent, WireOrdersFrame } from "../types/wire.js";
 import { applyOrdersFrame } from "./orders-v2.js";
 import { WAD } from "./units.js";
 
@@ -324,6 +324,14 @@ describe("applyOrdersFrame — events", () => {
       events: [{ k: "fill", id: "0xa9a5", b: "1", q: "1", tb: "1", tq: "1", tf: "0", st: "margin_canceled" }],
     };
     expect(apply(frame, [resting()]).get("0xa9a5")!.status).toBe("margin_canceled");
+  });
+
+  it("adds each fill's realized PnL to the order's, starting from what the seed had", () => {
+    const pnlFill = (pnl?: string): WireOrderEvent => ({ k: "fill", id: "0xa9a5", b: "1", q: "1", tb: "1", tq: "1", tf: "0", pnl });
+    const frame: WireOrdersFrame = { ...MODIFY_FRAME, events: [pnlFill("5"), pnlFill(), pnlFill("-2")] };
+    expect(apply(frame, [resting({ realizedPnl: 10n })]).get("0xa9a5")!.realizedPnl).toBe(13n);
+    expect(apply(frame, [resting()]).get("0xa9a5")!.realizedPnl).toBe(3n);
+    expect(apply({ ...frame, events: [pnlFill()] }, [resting()]).get("0xa9a5")!.realizedPnl).toBeUndefined();
   });
 
   it("fills an order created in the same frame, by index", () => {
