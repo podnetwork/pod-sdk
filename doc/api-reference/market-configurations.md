@@ -70,8 +70,30 @@ Market lists may change as we expand testnet coverage. To stay current, fetch th
 {% endtab %}
 
 {% tab title="Mainnet" %}
+### Global
+
+| Parameter | Value |
+| --------- | ----- |
+| Batch Interval | 500ms |
+| Initial Margin | `1 / Max Leverage` |
+| Maintenance Margin | `0.5 × Initial Margin` |
+| Funding Interval | 8 hours |
+| Open Interest Caps | None |
+
+### Perpetual Markets
+
+Currently listed markets:
+
+| Market | Market ID (`bytes32`) | Base Token Address | Max Leverage | Oracle |
+| ------ | --------------------- | ------------------ | ------------ | ------ |
+| NVDA-USD | `0x0000000000000000000000000000000000000000000000000000000000000001` | `0x0000000000000000000000000000000000000001` | 20x | Pyth |
+
+| Market | Tick Size | Lot Size | Min Notional | Initial Margin | Maintenance Margin | Maker / Taker Fee |
+| ------ | --------- | -------- | ------------ | -------------- | ------------------ | ----------------- |
+| NVDA-USD | $0.01 (`1e16`) | 0.000001 (`1e12`) | 0 | 5% | 2.5% | 0% / 0% |
+
 {% hint style="info" %}
-**Mainnet is not live yet.** Market configurations will be published here once mainnet launches.
+Fetch the live list at runtime from [`ob_getMarkets`](https://docs.v2.pod.network/api-reference/json-rpc) or `GET /v1/clob/markets` rather than hard-coding ids.
 {% endhint %}
 {% endtab %}
 {% endtabs %}
