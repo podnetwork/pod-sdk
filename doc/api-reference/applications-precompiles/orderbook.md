@@ -157,6 +157,13 @@ Markets are created, halted, settled and re-pointed at their price feeds with fo
 
 The lifecycle calls cannot be wrapped in `delegated` or carried inside `submitBatch`, and they pay flat gas with no exemption.
 
+### Gas
+
+Orderbook calls are charged a flat **21,000 gas** (see [Gas](../README.md#gas)), with two exceptions:
+
+* `submitBatch` costs 21,000 gas × the number of orders in the batch (minimum 1) — charged as if each inner order were submitted standalone.
+* `delegated` calls are gas-exempt.
+
 ### Solidity interface (ABI)
 
 ```solidity
