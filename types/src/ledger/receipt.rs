@@ -230,5 +230,15 @@ mod test {
             &leaves,
             proof
         ));
+
+        // Found by fuzzing: this used to panic for any receipt with logs —
+        // `join_prefix` produced "log_hashes.[0]" while the tree was built
+        // with "log_hashes[0]", so the leaf lookup always failed.
+        let (leaves, proof) = receipt.generate_multi_proof_for_log_hashes();
+        assert!(StandardMerkleTree::verify_multi_proof(
+            receipt_root,
+            &leaves,
+            proof
+        ));
     }
 }
