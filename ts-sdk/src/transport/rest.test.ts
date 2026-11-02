@@ -147,3 +147,35 @@ describe("PodRestClient minimum timestamp", () => {
     expect(err).toMatchObject({ name: "PodBehindError", currentUs: 1_500, retryAfterMs: 2_000 });
   });
 });
+
+describe("PodRestClient.candles", () => {
+  const bar = (timestamp: number, oracle?: string) => ({
+    timestamp, open: "0x64", close: "0x6e", high: "0x6e", low: "0x64",
+    volume: "0x1", quote_volume: "0x1", ...(oracle ? { oracle_price: oracle } : {}),
+  });
+  const served = (body: unknown) => {
+    let url = "";
+    const rest = new PodRestClient({
+      restUrl: "http://node.test/v1",
+      fetch: ((u: string) => {
+        url = u;
+        return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+      }) as unknown as typeof fetch,
+    });
+    return { rest, query: () => new URL(url).searchParams };
+  };
+
+  it("asks for version 2 and decodes the oracle price per bar", async () => {
+    const { rest, query } = served({
+      candles: [bar(60_000_000, "0x6f"), bar(0)],
+      resolution: "1m",
+      range: { from_us: 0, to_us: 60_000_000 },
+      solution_now_us: 120_000_000,
+    });
+    const page = await rest.candles("0x01" as never, { resolution: "1m" as never });
+    // Browsers keep closed windows for a year; version 2 skips copies cached
+    // before nodes sent oracle_price.
+    expect(query().get("version")).toBe("2");
+    expect(page.bars.map((b) => b.oraclePrice)).toEqual([undefined, 0x6fn]);
+  });
+});
