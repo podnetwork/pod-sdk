@@ -188,6 +188,7 @@ export class PodRestClient {
       to: q.to !== undefined ? msToSecs(q.to) : undefined,
       limit: q.limit,
       timestamp: minTimestampUs,
+      version: 2,
     });
     return {
       // Wire is newest-first; return oldest-first for chart consumption.

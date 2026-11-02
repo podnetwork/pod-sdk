@@ -75,6 +75,7 @@ export function decodeCandle(w: WireCandle): Bar {
     close: dec(w.close),
     volume: dec(w.volume),
     quoteVolume: dec(w.quote_volume),
+    oraclePrice: decOpt(w.oracle_price),
   };
 }
 
