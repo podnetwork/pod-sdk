@@ -22,6 +22,10 @@ metaLinks:
 
 # Welcome to Pod
 
+{% hint style="warning" %}
+This version of the docs follows the latest code and may describe behaviour that is not live on mainnet yet. For what mainnet runs today, pick **Mainnet** in the version selector.
+{% endhint %}
+
 Pod Network is a purpose-built network for high-performance, MEV-free markets. It has no blocks or chains - transactions are streamed to a geo-distributed validator set, which independently validates them and streams attestations back. Once a quorum of attestations is collected, the transaction is final. Confirmation takes a single network round trip (~150ms) and the network can sustain 300k+ transactions per second.
 
 Trades are matched via frequent batch auctions at a uniform clearing price, which structurally prevents MEV. The protocol exposes a set of asset-agnostic, composable primitives - including the order book, matching engine, liquidation engine, and oracle system. Pod provides an Ethereum-compatible interface - developers use standard JSON-RPC, wallets, and EVM tooling out of the box.
