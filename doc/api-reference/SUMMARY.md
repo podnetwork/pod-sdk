@@ -26,7 +26,7 @@
       spec:
         ref:
           kind: openapi
-          spec: pod-docs
+          spec: pod-docs-mainnet
     ```
 * [REST API](rest/README.md)
   * ```yaml
@@ -38,7 +38,7 @@
       spec:
         ref:
           kind: openapi
-          spec: pod-rest
+          spec: pod-rest-mainnet
     ```
 * [JSON-RPC Errors](json-rpc-errors.md)
 * [Precompiles](applications-precompiles/README.md)
