@@ -43,12 +43,13 @@ function page(
       .sort((a, b) => b[0] - a[0]),
     nextUs,
     solutionNow: solutionNowUs / 1000,
+    solutionNowUs,
   };
 }
 
 const SEED = page({ [SEED_TICK]: [order(1), transfer(3)] });
 
-function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuery; defer?: boolean }) {
+function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuery; defer?: boolean; resyncMs?: number }) {
   const pages = [...(opts?.pages ?? [SEED])];
   const pending: ((p: ActivityPage) => void)[] = [];
   let onOpen: (() => void) | undefined;
@@ -86,7 +87,7 @@ function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuer
     }),
   };
   const feed = new ActivityHistory(
-    { rest, ws, positionResyncMs: 0, marketResyncMs: 0 } as unknown as SyncContext,
+    { rest, ws, positionResyncMs: 0, marketResyncMs: 0, historyResyncMs: opts?.resyncMs ?? 0 } as unknown as SyncContext,
     ACCOUNT,
   );
   return {
@@ -483,5 +484,32 @@ describe("ActivityHistory views", () => {
     expect(kinds(transfers)).toEqual(["transfer", "transfer", "transfer"]);
     expect(feed.hasMore()).toBe(false);
     expect(transfers.hasMore()).toBe(false);
+  });
+});
+
+describe("ActivityHistory reconcile", () => {
+  it("adds a batch the stream lost behind its cursor, and applies it to the order rows", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    try {
+      const later = LIVE_TICK + 1_000_000;
+      const { history, frame, queries } = harness({
+        resyncMs: 1_000,
+        pages: [SEED, page({ [LIVE_TICK]: [fill(1)], [later]: [transfer(5)] }, null, later)],
+      });
+      await history.ready();
+      await flush();
+      frame({ [later]: [transfer(5)] });
+
+      vi.advanceTimersByTime(1_000);
+      await flush();
+
+      expect(queries[1]).toEqual({ types: undefined, fromUs: SEED_TICK + 1, toUs: undefined });
+      expect(kinds(history)).toEqual(["transfer", "fill", "order", "transfer"]);
+      const placed = history.get()![2];
+      if (placed?.activityType !== "order") throw new Error("expected an order");
+      expect(placed.order.filledBase).toBe(WAD);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

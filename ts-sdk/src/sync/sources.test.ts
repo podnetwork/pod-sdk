@@ -264,6 +264,22 @@ describe("positionsSource", () => {
   });
 });
 
+describe("positionsSource after a reload", () => {
+  it("takes the restored snapshot's timestamp as the minimum and the watermark", async () => {
+    const { ws, subs } = fakeWs();
+    const mins: (number | undefined)[] = [];
+    const rest = { positions: (_a: unknown, min?: number) => { mins.push(min); return Promise.resolve(positions(1_000, 1n)); } };
+    const store = { get: () => stringifyBig({ v: 1, at: 0, value: positions(2_000, 7n) }), set: () => {} };
+    const r = new BaseResource(positionsSource(ctx(rest, ws), ACCT), { store, key: "positions" });
+    onTestFinished(() => r.destroy());
+    r.subscribe(() => {});
+    await flush();
+    expect(mins[0]).toBe(2_000);
+    expect((subs[0]!.params as () => { since: number })().since).toBe(2_000);
+    expect(r.get()).toBeUndefined();
+  });
+});
+
 describe("balancesSource", () => {
   it("builds balances from the pod_positions push", () => {
     const { ws, subs } = fakeWs();
@@ -319,6 +335,34 @@ describe("triggersSource", () => {
     expect((subs[1]!.params as () => { since: number })().since).toBe(2_000);
     subs[1]!.onMessage({ account: ACCT, triggers: [{}], total_count: 1, next_cursor: null, timestamp: 1_000 });
     expect(r.get()).toEqual([]);
+  });
+});
+
+describe("triggersSource reconcile", () => {
+  it("re-reads over REST periodically and keeps the newer of that and the stream", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    try {
+      const { ws, subs } = fakeWs();
+      const answers = [
+        { triggers: [{ orderId: "0xrest" }], totalCount: 1, nextCursor: null, timestampUs: 3_000 },
+        { triggers: [{ orderId: "0xold" }], totalCount: 1, nextCursor: null, timestampUs: 1_000 },
+      ];
+      const asked: unknown[] = [];
+      const rest = { triggers: async (...args: unknown[]) => { asked.push(args); return answers.shift(); } };
+      const r = start(triggersSource({ ...ctx(rest, ws), historyResyncMs: 1_000 }, ACCT));
+      subs[0]!.onMessage({ account: ACCT, triggers: [], total_count: 0, next_cursor: null, timestamp: 2_000 });
+
+      vi.advanceTimersByTime(1_000);
+      await new Promise((res) => setTimeout(res, 0));
+      expect(asked[0]).toEqual([ACCT, { limit: 200 }, 2_000]);
+      expect(r.get()).toEqual([{ orderId: "0xrest" }]);
+
+      vi.advanceTimersByTime(1_000);
+      await new Promise((res) => setTimeout(res, 0));
+      expect(r.get()).toEqual([{ orderId: "0xrest" }]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

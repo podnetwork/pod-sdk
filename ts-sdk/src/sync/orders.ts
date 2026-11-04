@@ -2,21 +2,25 @@
 // live by the pod_orders_v2 stream (bidder-filtered, resumed from a (batch, book)
 // cursor by `ResumableStream`), and paged backwards by cursor for deep history.
 
-import type { Address, Order, OrderEvent, OrdersQuery } from "../types/public.js";
+import type { ActivityType, Address, Order, OrderEvent, OrdersQuery } from "../types/public.js";
 import type { WireOrdersFrame } from "../types/wire.js";
 import { applyOrdersFrame } from "../codec/orders-v2.js";
 import { BaseResource, type ResourceHandle, type Snapshot, type SnapshotSlot } from "../stores/resource.js";
 import type { SubParams } from "../transport/ws.js";
 import type { SeriesResource } from "./candles.js";
+import { OrderLedger, readActivityAfter } from "./order-ledger.js";
 import { readAtLeast, type SyncContext } from "./sources.js";
-import { compareCursor, ResumableStream } from "./stream.js";
+import { ResumableStream } from "./stream.js";
 
 export { compareCursor } from "./stream.js";
+
+const ORDER_ACTIVITY: ActivityType[] = ["order", "fill", "modify", "termination"];
 
 export class OrderHistory implements SeriesResource<Order> {
   private readonly base: BaseResource<Order[]>;
   private handle: ResourceHandle<Order[]> | undefined;
-  private readonly byId = new Map<string, Order>();
+  private readonly ledger: OrderLedger<WireOrdersFrame, OrderEvent[]>;
+  private reconciling = false;
   private nextCursor: string | null = null;
   private painted = false;
   private seedGen = 0;
@@ -31,6 +35,7 @@ export class OrderHistory implements SeriesResource<Order> {
     private readonly query: OrdersQuery = {},
     slot?: SnapshotSlot,
   ) {
+    this.ledger = new OrderLedger((frame, orders) => applyOrdersFrame(frame, orders, { account }));
     this.stream = new ResumableStream({
       ws: ctx.ws,
       channel: "pod_orders_v2",
@@ -41,7 +46,9 @@ export class OrderHistory implements SeriesResource<Order> {
     this.base = new BaseResource<Order[]>((h) => {
       this.handle = h;
       this.stream.start();
+      const timer = ctx.historyResyncMs > 0 ? setInterval(() => void this.reconcile(), ctx.historyResyncMs) : undefined;
       return () => {
+        clearInterval(timer);
         this.stream.stop();
         this.handle = undefined;
       };
@@ -89,8 +96,8 @@ export class OrderHistory implements SeriesResource<Order> {
       const page = await readAtLeast((min) => this.ctx.rest.orders(this.account, {
         cursor,
         limit: this.query.limit ?? 100,
-      }, min), this.stream.cursor.since);
-      for (const o of page.orders) if (!this.byId.has(o.id)) this.byId.set(o.id, o);
+      }, min), this.minimum());
+      this.ledger.rows(page.orders, page.solutionNowUs);
       this.nextCursor = page.nextCursor;
       this._hasMore = page.nextCursor !== null;
     } finally {
@@ -106,18 +113,16 @@ export class OrderHistory implements SeriesResource<Order> {
     try {
       const page = await readAtLeast(
         (min) => this.ctx.rest.orders(this.account, { limit: this.query.limit ?? 100 }, min),
-        this.stream.cursor.since,
+        this.minimum(),
       );
       // A seed overtaken by a fresher one is dropped whole: it would absorb rows the
       // newer page has already corrected, and raise the cursor to an older watermark.
       if (!this.stream.running || gen !== this.seedGen) return false;
       const settled: SubParams = { since: page.solutionNow * 1000, sinceBook: undefined };
-      // A page settled behind the stream would revert rows the stream advanced.
-      const stale = compareCursor(this.stream.cursor, settled) > 0;
-      for (const o of page.orders) {
-        if (stale && this.byId.has(o.id)) continue;
-        this.byId.set(o.id, o);
-      }
+      this.ledger.rows(page.orders, page.solutionNowUs);
+      // A reconnect: the stream may have missed frames for orders this page does not hold.
+      if (this.painted) void this.reconcile();
+      else this.ledger.stampUs ||= page.solutionNowUs;
       // Paging is the consumer's position in history, not the seed's: a reconnect
       // re-paints the first page, and taking its cursor again would hand back pages
       // `loadOlder` has already walked past.
@@ -152,7 +157,7 @@ export class OrderHistory implements SeriesResource<Order> {
     const at: SubParams = { since: frame.batch, sinceBook: frame.book };
     if (this.stream.delivered(at)) return;
 
-    const events = applyOrdersFrame(frame, this.byId, { account: this.account });
+    const events = this.ledger.live(frame.batch, frame);
     this.stream.advance(at);
     this.rebuild();
     // Strictly after `rebuild()`: a listener that reads the resource in response to an
@@ -164,9 +169,29 @@ export class OrderHistory implements SeriesResource<Order> {
     }
   }
 
+  /** The lowest round a read may answer at: past the stream, and past the reconcile so no order misses a transition. */
+  private minimum(): number | undefined {
+    return Math.max(this.stream.cursor.since ?? 0, this.ledger.stampUs) || undefined;
+  }
+
+  private async reconcile(): Promise<void> {
+    if (this.reconciling || !this.painted || !this.stream.running) return;
+    this.reconciling = true;
+    try {
+      const pages = await readActivityAfter(
+        this.ctx.rest, this.account, this.ledger.stampUs, this.ledger.minimum(), ORDER_ACTIVITY,
+      );
+      if (this.stream.running && this.ledger.reconcile(pages)) this.rebuild();
+    } catch {
+      // The next interval or reconnect asks again.
+    } finally {
+      this.reconciling = false;
+    }
+  }
+
   private rebuild(): void {
     if (!this.handle) return;
-    let arr = [...this.byId.values()];
+    let arr = [...this.ledger.view.values()];
     if (this.query.status) arr = arr.filter((o) => o.status === this.query.status);
     if (this.query.orderbookId) arr = arr.filter((o) => o.orderbookId === this.query.orderbookId);
     // Newest first by when the order became real. Inclusion time is the key both

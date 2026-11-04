@@ -32,6 +32,11 @@ export interface PodTradeClientOptions {
   /** Periodic REST re-poll of market 24h stats (ms). Default 30_000; 0 disables. */
   marketResyncMs?: number;
   /**
+   * Periodic REST reconcile (ms) of orders, activity, withdrawals, candles and
+   * triggers, which repairs what the stream missed. Default 60_000; 0 disables.
+   */
+  historyResyncMs?: number;
+  /**
    * Optional persistence for the static markets list (localStorage-backed in a
    * browser), so market-keyed UI mounts instantly on repeat visits. Key it per
    * backend environment — the list differs between them.
@@ -73,6 +78,7 @@ export class PodTradeClient {
       ws: this.ws,
       positionResyncMs: opts.positionResyncMs ?? 60_000,
       marketResyncMs: opts.marketResyncMs ?? 30_000,
+      historyResyncMs: opts.historyResyncMs ?? 60_000,
       marketsCache: opts.marketsCache,
     };
   }
@@ -128,8 +134,8 @@ export class PodTradeClient {
     this.ws.close();
   }
 
-  private slot(key: string): SnapshotSlot | undefined {
-    return this.snapshots && { store: this.snapshots, key: key.toLowerCase() };
+  private slot<T>(key: string, stampOf?: (value: T) => number | undefined): SnapshotSlot<T> | undefined {
+    return this.snapshots && { store: this.snapshots, key: key.toLowerCase(), stampOf };
   }
 
   private memo<T extends Destroyable & object>(key: string, make: () => T): T {
@@ -163,7 +169,7 @@ export class PodTradeClient {
 
   positions(account: Address): Resource<PositionsSnapshot> {
     return this.memo(`positions:${account}`, () =>
-      new BaseResource(positionsSource(this.ctx, account)),
+      new BaseResource(positionsSource(this.ctx, account), this.slot<PositionsSnapshot>(`positions:${account}`, (s) => s.timestampUs)),
     );
   }
 
@@ -180,7 +186,7 @@ export class PodTradeClient {
         const snap = positions.get();
         if (!snap) return undefined;
         return enrichPositions(snap, markets.get() ?? []);
-      }, this.slot(`livePositions:${account}`)) as BaseResource<PositionsSnapshot>;
+      }, this.slot<PositionsSnapshot>(`livePositions:${account}`, (s) => s.timestampUs)) as BaseResource<PositionsSnapshot>;
     });
   }
 
@@ -193,7 +199,7 @@ export class PodTradeClient {
   /** Live spot holdings + native cash. */
   balances(account: Address): Resource<Balances> {
     return this.memo(`balances:${account}`, () =>
-      new BaseResource(balancesSource(this.ctx, account), this.slot(`balances:${account}`)),
+      new BaseResource(balancesSource(this.ctx, account), this.slot<Balances>(`balances:${account}`, (b) => b.timestampUs)),
     );
   }
 
