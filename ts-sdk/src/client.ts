@@ -169,7 +169,7 @@ export class PodTradeClient {
 
   positions(account: Address): Resource<PositionsSnapshot> {
     return this.memo(`positions:${account}`, () =>
-      new BaseResource(positionsSource(this.ctx, account)),
+      new BaseResource(positionsSource(this.ctx, account), this.slot<PositionsSnapshot>(`positions:${account}`, (s) => s.timestampUs)),
     );
   }
 
