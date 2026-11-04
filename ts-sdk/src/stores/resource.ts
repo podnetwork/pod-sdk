@@ -48,9 +48,14 @@ export interface SnapshotStore {
 }
 
 /** Where one resource persists its snapshot. */
-export interface SnapshotSlot {
+export interface SnapshotSlot<T = unknown> {
   store: SnapshotStore;
   key: string;
+  /**
+   * The value's tick stamp. A value stamped past the one written is written at once, so a
+   * reload never asks the node for less than the user already saw.
+   */
+  stampOf?: (value: T) => number | undefined;
 }
 
 // Bump when a persisted type changes shape: a mismatch reads as no snapshot.
@@ -82,6 +87,7 @@ export class BaseResource<T> implements Resource<T> {
   // can neither hide it from lastKnown() nor stop it being written.
   private confirmed: Snapshot<T> | undefined;
   private dirty = false;
+  private writtenStamp = -Infinity;
   private persisted: Snapshot<T> | null | undefined;
   private writeTimer: ReturnType<typeof setTimeout> | undefined;
   private _error: Error | undefined;
@@ -94,7 +100,7 @@ export class BaseResource<T> implements Resource<T> {
 
   constructor(
     private readonly source: ResourceSource<T>,
-    private readonly slot?: SnapshotSlot,
+    private readonly slot?: SnapshotSlot<T>,
   ) {}
 
   get(): T | undefined {
@@ -203,7 +209,9 @@ export class BaseResource<T> implements Resource<T> {
     if (!provisional) {
       this.confirmed = { value: v, at: Date.now() };
       this.dirty = true;
-      if (this.slot) this.writeTimer ??= setTimeout(() => this.writeSlot(), SNAPSHOT_WRITE_MS);
+      const stamp = this.slot?.stampOf?.(v);
+      if (stamp !== undefined && stamp > this.writtenStamp) this.writeSlot();
+      else if (this.slot) this.writeTimer ??= setTimeout(() => this.writeSlot(), SNAPSHOT_WRITE_MS);
     }
     this._error = undefined;
     if (this.readyResolve) {
@@ -232,6 +240,7 @@ export class BaseResource<T> implements Resource<T> {
     this.dirty = false;
     try {
       this.slot.store.set(this.slot.key, stringifyBig({ v: SNAPSHOT_VERSION, ...this.confirmed }));
+      this.writtenStamp = this.slot.stampOf?.(this.confirmed.value) ?? this.writtenStamp;
     } catch { /* storage denied or full */ }
   }
 
@@ -252,7 +261,7 @@ const unconfirmed = (p: Resource<unknown>): boolean => p.get() === undefined || 
 export function combineResources<T>(
   parents: Resource<unknown>[],
   compute: () => T | undefined,
-  slot?: SnapshotSlot,
+  slot?: SnapshotSlot<T>,
 ): Resource<T> {
   return new BaseResource<T>((handle) => {
     let alive = true;
