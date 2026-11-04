@@ -291,6 +291,9 @@ describe("applyOrdersFrame — events", () => {
     // is a plain sell, so the derived guess reads "Open Short".
     const o = apply(frame, [resting({ initialSize: -6n * WAD })]).get("0xa9a5")!;
     expect(o.direction).toBe("reduce_long");
+    // And the event carries both ends, so a consumer can show "10 → 4" without redoing it.
+    const fill = events(frame, [resting({ initialSize: -6n * WAD })])[0]!.fill!;
+    expect([fill.positionBefore, fill.positionAfter]).toEqual([10n * WAD, 4n * WAD]);
   });
 
   it("labels a forced close by its provenance, not by the transition", () => {
@@ -316,6 +319,7 @@ describe("applyOrdersFrame — events", () => {
       events: [{ k: "fill", id: "0xa9a5", b: "1", q: "1", tb: "1", tq: "1", tf: "0" }],
     };
     expect(apply(frame, [resting()]).get("0xa9a5")!.direction).toBeUndefined();
+    expect(events(frame, [resting()])[0]!.fill!.positionAfter).toBeUndefined();
   });
 
   it("closes the order on the fill that carries `st`", () => {
