@@ -115,6 +115,9 @@ export interface OrderEventFill extends PartialFill {
   fee?: bigint;
   /** PnL realized by this fill alone (signed); absent when it closed nothing. */
   realizedPnl?: bigint;
+  /** The owner's position in this market before and after this fill (signed). Perp only. */
+  positionBefore?: bigint;
+  positionAfter?: bigint;
 }
 
 /**

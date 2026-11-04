@@ -184,9 +184,10 @@ export function applyEvent(
       // closed or flipped. Without it a client can only guess from the order's own
       // side and `reduceOnly`, which calls a plain sell that closed a long an
       // "Open Short".
+      let positionBefore: bigint | undefined, positionAfter: bigint | undefined;
       if (event.pa !== undefined) {
-        const after = dec(event.pa);
-        const before = after - (order.initialSize < 0n ? -base : base);
+        const after = (positionAfter = dec(event.pa));
+        const before = (positionBefore = after - (order.initialSize < 0n ? -base : base));
         // A forced close is labelled by how it came about, not by the transition it
         // made — `order_direction_for_response` overrides the classifier the same way,
         // and without this a liquidation reads `close_long` here and `liquidation`
@@ -200,7 +201,7 @@ export function applyEvent(
       return {
         fill: {
           ...fill, totalBase: order.filledBase, closedAs: event.st as TerminalStatus | undefined,
-          fee: decOpt(event.f), realizedPnl,
+          fee: decOpt(event.f), realizedPnl, positionBefore, positionAfter,
         },
       };
     }
