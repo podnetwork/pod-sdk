@@ -3,11 +3,10 @@ name: Publish OpenAPI to GitBook
 # GitBook renders the specs registered in the organization as `pod-docs`
 # (JSON-RPC) and `pod-rest` (REST), referenced by the `builtin:openapi` blocks
 # in doc/api-reference/SUMMARY.md. This workflow uploads both spec files to
-# them on merge. The `mainnet-docs` branch holds the docs for what mainnet runs
-# and publishes to `pod-docs-mainnet` and `pod-rest-mainnet` instead.
+# them on merge.
 on:
   push:
-    branches: ["main", "mainnet-docs"]
+    branches: ["main"]
     # Deliberately narrower than GitBook's sample workflow, which watches
     # **/*.yaml, **/*.yml and **/*.json — in this repo that fires on every
     # workflow edit, lockfile bump and protocol config, republishing an
@@ -27,7 +26,7 @@ permissions:
 # which commit is newer. Queued rather than cancelled so the final state always
 # matches the last merge.
 concurrency:
-  group: gitbook-openapi-publish-${{ github.ref_name }}
+  group: gitbook-openapi-publish
   cancel-in-progress: false
 
 jobs:
@@ -45,8 +44,6 @@ jobs:
       # blocks in SUMMARY.md. An unset variable would silently
       # publish somewhere else.
       SPECS: pod-docs=doc/api-reference/json-rpc/openapi.yaml pod-rest=doc/api-reference/rest/openapi.yaml
-      # Appended to each spec name, so mainnet-docs never overwrites main's specs.
-      SPEC_SUFFIX: ${{ github.ref_name == 'mainnet-docs' && '-mainnet' || '' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -86,5 +83,5 @@ jobs:
         run: |
           for spec in $SPECS; do
             npx -y @gitbook/cli@0.30.0 openapi publish \
-              --spec "${spec%%=*}$SPEC_SUFFIX" --organization "$GITBOOK_ORGANIZATION_ID" "${spec#*=}"
+              --spec "${spec%%=*}" --organization "$GITBOOK_ORGANIZATION_ID" "${spec#*=}"
           done
