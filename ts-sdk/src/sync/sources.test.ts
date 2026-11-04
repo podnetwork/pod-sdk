@@ -289,7 +289,7 @@ describe("balancesSource", () => {
     const { ws } = fakeWs();
     const mins: (number | undefined)[] = [];
     const rest = { balances: (_a: unknown, min?: number) => { mins.push(min); return Promise.resolve(balances(1_000, 1n)); } };
-    const store = { get: () => stringifyBig({ v: 1, at: 0, value: balances(2_000, 7n) }), set: () => {} };
+    const store = { get: () => stringifyBig({ v: 2, at: 0, value: balances(2_000, 7n) }), set: () => {} };
     const r = new BaseResource(balancesSource(ctx(rest, ws), ACCT), { store, key: "balances" });
     onTestFinished(() => r.destroy());
     r.subscribe(() => {});
