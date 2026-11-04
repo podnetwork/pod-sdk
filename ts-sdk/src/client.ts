@@ -128,8 +128,8 @@ export class PodTradeClient {
     this.ws.close();
   }
 
-  private slot(key: string): SnapshotSlot | undefined {
-    return this.snapshots && { store: this.snapshots, key: key.toLowerCase() };
+  private slot<T>(key: string, stampOf?: (value: T) => number | undefined): SnapshotSlot<T> | undefined {
+    return this.snapshots && { store: this.snapshots, key: key.toLowerCase(), stampOf };
   }
 
   private memo<T extends Destroyable & object>(key: string, make: () => T): T {
@@ -180,7 +180,7 @@ export class PodTradeClient {
         const snap = positions.get();
         if (!snap) return undefined;
         return enrichPositions(snap, markets.get() ?? []);
-      }, this.slot(`livePositions:${account}`)) as BaseResource<PositionsSnapshot>;
+      }, this.slot<PositionsSnapshot>(`livePositions:${account}`, (s) => s.timestampUs)) as BaseResource<PositionsSnapshot>;
     });
   }
 
@@ -193,7 +193,7 @@ export class PodTradeClient {
   /** Live spot holdings + native cash. */
   balances(account: Address): Resource<Balances> {
     return this.memo(`balances:${account}`, () =>
-      new BaseResource(balancesSource(this.ctx, account), this.slot(`balances:${account}`)),
+      new BaseResource(balancesSource(this.ctx, account), this.slot<Balances>(`balances:${account}`, (b) => b.timestampUs)),
     );
   }
 
