@@ -63,11 +63,11 @@ describe("OrderLedger", () => {
     expect(at(l, 1)?.filledBase).toBe(5n);
   });
 
-  it("does not apply a live frame twice when REST already covers it", () => {
+  it("reports a live frame REST already covers, without applying it twice", () => {
     const l = new OrderLedger(fold);
     l.rows([held(1, { filledBase: 4n, realizedPnl: 7n })], 40);
-    // A frame from a WebSocket node behind the REST node.
-    expect(l.live(30, { id: id(1), base: 1n, pnl: 1n })).toEqual([]);
+    // A frame from a WebSocket node behind the REST node: the app still has to hear about the fill.
+    expect(l.live(30, { id: id(1), base: 1n, pnl: 1n })).toEqual([id(1)]);
     expect(at(l, 1)).toMatchObject({ filledBase: 4n, realizedPnl: 7n });
     l.live(50, { id: id(1), base: 1n, pnl: 1n });
     expect(at(l, 1)).toMatchObject({ filledBase: 5n, realizedPnl: 8n });

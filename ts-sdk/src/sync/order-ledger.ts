@@ -31,7 +31,10 @@ export class OrderLedger<F, E> {
     return Math.max(this.stampUs, this.floorUs);
   }
 
-  /** Apply a stream frame to `view`, and hold it for replay. Orders a REST read already has at `us` are left alone. */
+  /**
+   * Apply a stream frame to `view`, and hold it for replay. An order a REST read already
+   * has at `us` keeps that state, but the frame still reports its events on a copy.
+   */
   live(us: number, frame: F): E {
     const result = this.foldPast(us, frame, this.view);
     if (us > this.stampUs) {
@@ -101,13 +104,13 @@ export class OrderLedger<F, E> {
     for (const [us, frame] of this.frames) this.foldPast(us, frame, into);
   }
 
-  /** Fold `frame` into `orders`, hiding the orders whose REST state is at or past `us`. */
+  /** Fold `frame` into `orders`; the orders whose REST state is at or past `us` take it on a copy that is thrown away. */
   private foldPast(us: number, frame: F, orders: Map<string, Order>): E {
     if (us > this.newestRowUs) return this.fold(frame, orders);
     const hidden: Order[] = [];
     for (const [id, order] of orders) {
       const held = this.base.get(id);
-      if (held && held.atUs >= us) { hidden.push(order); orders.delete(id); }
+      if (held && held.atUs >= us) { hidden.push(order); orders.set(id, { ...order }); }
     }
     const result = this.fold(frame, orders);
     for (const order of hidden) orders.set(order.id, order);
