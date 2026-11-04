@@ -54,7 +54,7 @@ export interface SnapshotSlot {
 }
 
 // Bump when a persisted type changes shape: a mismatch reads as no snapshot.
-const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 2;
 // Account state recomputes on every market tick; storage sees at most one write per window.
 const SNAPSHOT_WRITE_MS = 5_000;
 
