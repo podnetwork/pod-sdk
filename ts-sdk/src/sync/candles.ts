@@ -358,9 +358,14 @@ export class CandleSeries implements SeriesResource<Bar> {
       // On reconnect, refresh closed bars (the WS auto-resubscribes pod_candles
       // itself with the advanced `since`).
       const offOpen = this.ctx.ws.on("open", () => { if (this.alive) void this.loadWindow(this.window); });
+      // The trailing page is re-read each time, so a bar folded from a tick stream that lost a tick is replaced once it closes.
+      const timer = this.ctx.historyResyncMs > 0
+        ? setInterval(() => { if (this.alive) void this.loadWindow(this.window); }, this.ctx.historyResyncMs)
+        : undefined;
       return () => {
         this.alive = false;
         offOpen();
+        clearInterval(timer);
         if (this.retryTimer) clearTimeout(this.retryTimer);
         this.tickSub?.unsubscribe();
         this.tickSub = undefined;

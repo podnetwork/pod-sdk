@@ -34,6 +34,8 @@ export interface SyncContext {
   positionResyncMs: number;
   /** Periodic REST re-poll (ms) of market 24h stats; 0 disables. */
   marketResyncMs: number;
+  /** Periodic REST reconcile (ms) of orders, activity, withdrawals, candles and triggers; 0 disables. */
+  historyResyncMs: number;
   /** Optional persistence for the static markets list (see marketsSource). */
   marketsCache?: MarketsCache;
 }
@@ -331,17 +333,25 @@ export function balancesSource(
 }
 
 export function triggersSource(
-  { ws }: SyncContext,
+  { rest, ws, historyResyncMs }: SyncContext,
   account: Address,
 ): ResourceSource<Trigger[]> {
   const fresh = watermarks();
   let heldUs = 0;
   return (h) => {
+    let alive = true;
+    const accept = (triggers: Trigger[], timestampUs: number | undefined) => {
+      heldUs = Math.max(heldUs, timestampUs ?? 0);
+      if (alive && fresh(timestampUs)) h.set(triggers);
+    };
+    // 200 is the page `pod_triggers` pushes.
+    const reconcile = () => readAtLeast((min) => rest.triggers(account, { limit: 200 }, min), heldUs)
+      .then((page) => accept(page.triggers, page.timestampUs)).catch(() => {});
+    const timer = historyResyncMs > 0 ? setInterval(reconcile, historyResyncMs) : undefined;
     const sub = subscribeRetrying(ws, "pod_triggers", () => ({ account, since: heldUs }), (result) => {
       const w = result as WireTriggersPush;
-      heldUs = Math.max(heldUs, w.timestamp ?? 0);
-      if (fresh(w.timestamp)) h.set(w.triggers.map(decodeTrigger));
+      accept(w.triggers.map(decodeTrigger), w.timestamp);
     });
-    return () => sub.unsubscribe();
+    return () => { alive = false; clearInterval(timer); sub.unsubscribe(); };
   };
 }

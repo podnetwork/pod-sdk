@@ -32,6 +32,11 @@ export interface PodTradeClientOptions {
   /** Periodic REST re-poll of market 24h stats (ms). Default 30_000; 0 disables. */
   marketResyncMs?: number;
   /**
+   * Periodic REST reconcile (ms) of orders, activity, withdrawals, candles and
+   * triggers, which repairs what the stream missed. Default 60_000; 0 disables.
+   */
+  historyResyncMs?: number;
+  /**
    * Optional persistence for the static markets list (localStorage-backed in a
    * browser), so market-keyed UI mounts instantly on repeat visits. Key it per
    * backend environment — the list differs between them.
@@ -73,6 +78,7 @@ export class PodTradeClient {
       ws: this.ws,
       positionResyncMs: opts.positionResyncMs ?? 60_000,
       marketResyncMs: opts.marketResyncMs ?? 30_000,
+      historyResyncMs: opts.historyResyncMs ?? 60_000,
       marketsCache: opts.marketsCache,
     };
   }

@@ -31,6 +31,8 @@ export interface OrdersPage {
   nextCursor: string | null;
   totalCount: number;
   solutionNow: number;
+  /** The read's indexer round, exact; `solutionNow` is truncated to ms. */
+  solutionNowUs: number;
 }
 export interface ActivityPage {
   /** Newest first, each batch's entries in the node's order. */
@@ -38,6 +40,8 @@ export interface ActivityPage {
   /** Pass back as `toUs` for the next, older page; null when the window is exhausted. */
   nextUs: number | null;
   solutionNow: number; // ms
+  /** The read's indexer round, exact; `solutionNow` is truncated to ms. */
+  solutionNowUs: number;
 }
 export interface BackstopPage {
   transfers: BackstopTransfer[];
@@ -48,6 +52,7 @@ export interface TriggersPage {
   triggers: Trigger[];
   totalCount: number;
   nextCursor: string | null;
+  timestampUs?: number;
 }
 export interface WithdrawalsPage {
   withdrawals: Withdrawal[];
@@ -210,6 +215,7 @@ export class PodRestClient {
       nextCursor: w.next_cursor,
       totalCount: w.total_count,
       solutionNow: Math.trunc(w.solution_now / 1000),
+      solutionNowUs: w.solution_now,
     };
   }
 
@@ -229,6 +235,7 @@ export class PodRestClient {
       batches,
       nextUs: w.next === null ? null : Number(w.next),
       solutionNow: usToMs(w.solution_now),
+      solutionNowUs: w.solution_now,
     };
   }
 
@@ -319,6 +326,7 @@ export class PodRestClient {
       triggers: w.triggers.map(decodeTrigger),
       totalCount: w.total_count,
       nextCursor: w.next_cursor,
+      timestampUs: w.timestamp,
     };
   }
 }

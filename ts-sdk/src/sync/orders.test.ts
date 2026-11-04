@@ -79,7 +79,7 @@ describe("compareCursor — already-delivered decisions", () => {
 function harness(seed: { orders: Order[]; solutionNow: number } = { orders: [], solutionNow: 0 }) {
   let deliver: ((result: unknown) => void) | undefined;
   let reconnect: (() => void) | undefined;
-  let page = { ...seed, nextCursor: null, totalCount: seed.orders.length };
+  let page = { ...seed, solutionNowUs: seed.solutionNow * 1000, nextCursor: null, totalCount: seed.orders.length };
   const ws = {
     state: "open",
     on: (_e: string, cb: () => void) => { reconnect = cb; return () => {}; },
@@ -98,7 +98,7 @@ function harness(seed: { orders: Order[]; solutionNow: number } = { orders: [], 
     frame: (f: unknown) => deliver?.(f),
     delivered: () => deliver !== undefined,
     reseed: async (next: { orders: Order[]; solutionNow: number }) => {
-      page = { ...next, nextCursor: null, totalCount: next.orders.length };
+      page = { ...next, solutionNowUs: next.solutionNow * 1000, nextCursor: null, totalCount: next.orders.length };
       reconnect?.();
       await flush();
     },
@@ -188,8 +188,8 @@ describe("OrderHistory re-seed", () => {
       },
     };
     const pages = [
-      { orders: [], nextCursor: null, totalCount: 0, solutionNow: 0 },
-      { orders: [] as unknown[], nextCursor: null, totalCount: 1, solutionNow: 500 },
+      { orders: [], nextCursor: null, totalCount: 0, solutionNow: 0, solutionNowUs: 0 },
+      { orders: [] as unknown[], nextCursor: null, totalCount: 1, solutionNow: 500, solutionNowUs: 500_000 },
     ];
     const rest = { orders: async () => pages.shift()! };
     const history = new OrderHistory(
@@ -239,6 +239,51 @@ describe("OrderHistory realized PnL", () => {
     expect(pnlOf(history), "a frame the re-seed already covers is dropped").toBe(40n);
     frame(fillFrame(4_000_000, "-1"));
     expect(pnlOf(history)).toBe(39n);
+    off();
+  });
+});
+
+describe("OrderHistory reconcile", () => {
+  it("applies a fill the stream lost to an order the first page no longer holds", async () => {
+    let reopen: (() => void) | undefined;
+    const ws = {
+      state: "open",
+      on: (_e: string, fn: () => void) => { reopen = fn; return () => {}; },
+      subscribe: () => ({ unsubscribe: () => {}, update: () => {}, resubscribe: () => {} }),
+    };
+    const older: Order = {
+      id: "0xb", txHash: "0xtx", orderbookId: book(7), side: "buy", orderType: "limit", status: "active",
+      kind: "user_signed", nonce: 1, bidder: "0xabc" as Address, price: 1n, initialSize: 2n,
+      filledBase: 0n, filledQuote: 0n, fee: 0n,
+    };
+    const pages = [
+      { orders: [older], nextCursor: null, totalCount: 1, solutionNow: 1_000, solutionNowUs: 1_000_000 },
+      { orders: [], nextCursor: null, totalCount: 1, solutionNow: 3_000, solutionNowUs: 3_000_000 },
+    ];
+    const activityFrom: unknown[] = [];
+    const rest = {
+      orders: async () => pages.shift()!,
+      activity: async (_a: Address, q: unknown) => {
+        activityFrom.push(q);
+        return {
+          batches: [[2_000_000, [{ k: "fill", id: "0xb", book: book(7), b: "1", q: "1", tb: "1", tq: "1", tf: "0" }]]],
+          nextUs: null, solutionNow: 3_000, solutionNowUs: 3_000_000,
+        };
+      },
+    };
+    const history = new OrderHistory(
+      { rest, ws, positionResyncMs: 0, marketResyncMs: 0, historyResyncMs: 0 } as unknown as SyncContext,
+      "0xabc" as Address,
+    );
+    const off = history.subscribe(() => {});
+    await flush();
+
+    reopen!();
+    await flush();
+    await flush();
+
+    expect(activityFrom).toEqual([{ types: ["order", "fill", "modify", "termination"], fromUs: 1_000_001, toUs: undefined }]);
+    expect(history.get()!.find((o) => o.id === "0xb")!.filledBase).toBe(1n);
     off();
   });
 });

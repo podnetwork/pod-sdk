@@ -322,6 +322,34 @@ describe("triggersSource", () => {
   });
 });
 
+describe("triggersSource reconcile", () => {
+  it("re-reads over REST periodically and keeps the newer of that and the stream", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    try {
+      const { ws, subs } = fakeWs();
+      const answers = [
+        { triggers: [{ orderId: "0xrest" }], totalCount: 1, nextCursor: null, timestampUs: 3_000 },
+        { triggers: [{ orderId: "0xold" }], totalCount: 1, nextCursor: null, timestampUs: 1_000 },
+      ];
+      const asked: unknown[] = [];
+      const rest = { triggers: async (...args: unknown[]) => { asked.push(args); return answers.shift(); } };
+      const r = start(triggersSource({ ...ctx(rest, ws), historyResyncMs: 1_000 }, ACCT));
+      subs[0]!.onMessage({ account: ACCT, triggers: [], total_count: 0, next_cursor: null, timestamp: 2_000 });
+
+      vi.advanceTimersByTime(1_000);
+      await new Promise((res) => setTimeout(res, 0));
+      expect(asked[0]).toEqual([ACCT, { limit: 200 }, 2_000]);
+      expect(r.get()).toEqual([{ orderId: "0xrest" }]);
+
+      vi.advanceTimersByTime(1_000);
+      await new Promise((res) => setTimeout(res, 0));
+      expect(r.get()).toEqual([{ orderId: "0xrest" }]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("marketsSource", () => {
   it("keeps live dynamics over a stats page that lands later", async () => {
     const { ws, subs } = fakeWs();
