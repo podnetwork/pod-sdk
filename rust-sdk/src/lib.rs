@@ -61,7 +61,7 @@
 //!
 //! ```no_run
 //! // export POD_PRIVATE_KEY=9a3f1b8475d296f2e7c1a3d5986b34c7f4de1bc2093a60f8be4f7dcaa12389ef
-//! // export POD_RPC_URL=https://rpc.dev.pod.network
+//! // export POD_RPC_URL=https://canary.tokyo.pod.network
 //! use std::str::FromStr;
 //! use pod_sdk::{Address, provider::PodProviderBuilder, U256};
 //!
