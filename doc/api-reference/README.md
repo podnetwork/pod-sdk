@@ -5,39 +5,19 @@ Pod provides an Ethereum-like interface, so developers can use existing toolchai
 ```javascript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
+const provider = new ethers.JsonRpcProvider("https://canary.tokyo.pod.network");
 const balance = await provider.getBalance("0xYourAddress");
 ```
 
-{% cards %}
-{% card title="Fund your wallet" href="https://faucet.dev.pod.network" %}
-Get testnet tokens from the faucet
-{% endcard %}
-{% card title="Explorer" href="https://explorer.pod.network" %}
-View transactions and accounts
-{% endcard %}
-{% endcards %}
-
 ## Network Configuration
 
-{% tabs %}
-{% tab title="Testnet" %}
 | Property        | Value                                                        |
 | --------------- | ------------------------------------------------------------ |
 | Name            | `pod`                                                        |
-| RPC             | `https://rpc.podtestnet.dev`                                 |
-| Chain ID        | `129301`                                                       |
-| Explorer        | `https://explorer.pod.network`                            |
+| RPC             | `https://canary.tokyo.pod.network`                           |
+| Chain ID        | `129300`                                                     |
 | Currency Symbol | `USD`                                                        |
 | EVM Version     | `Prague` (Ethereum block 22,431,084, Released May 7th, 2025) |
-{% endtab %}
-
-{% tab title="Mainnet" %}
-{% hint style="info" %}
-**Mainnet is not live yet.** Network details will be published here once mainnet launches.
-{% endhint %}
-{% endtab %}
-{% endtabs %}
 
 ## Next Steps
 

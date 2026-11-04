@@ -8,7 +8,7 @@ Pod's full node includes a built-in indexer and serves its market data two ways,
 For every stream, seed over REST, then subscribe with `since` set to the solution time (µs) the REST response was current at. On delta channels the node replays every tick after that point, then streams live, with no gap or duplicate. On state channels (`pod_markets`, `pod_positions`, `pod_triggers`) the node waits until its state reaches `since`, sends one snapshot, then streams live.
 
 ```javascript
-const REST = "https://rpc.podtestnet.dev/v1";
+const REST = "https://canary.tokyo.pod.network/v1";
 const orderbookId = "0x0000000000000000000000000000000000000000000000000000000000000001"; // NVDAx-USD spot
 const get = async (path) => {
   const res = await fetch(`${REST}${path}`);
@@ -87,7 +87,7 @@ Orders come newest first; `next_cursor` is `null` on the last page. Fills take `
 Open one WebSocket to the RPC host and subscribe once per stream. Each subscription confirms with an id; updates then arrive as `eth_subscription` notifications carrying that id.
 
 ```javascript
-const ws = new WebSocket("wss://rpc.podtestnet.dev");
+const ws = new WebSocket("wss://canary.tokyo.pod.network");
 const handlers = new Map(); // request id -> handler, then subscription id -> handler
 let nextId = 1;
 

@@ -109,7 +109,7 @@ impl<L, F> PodProviderBuilder<L, F> {
     ///
     /// The following env variables need to be configured:
     /// - POD_PRIVATE_KEY: hex-encoded ECDSA private key of the wallet owner
-    /// - POD_RPC_URL: URL for a pod RPC API (example: <https://rpc.dev.pod.network>)
+    /// - POD_RPC_URL: URL for a pod RPC API (example: <https://canary.tokyo.pod.network>)
     ///   (default: ws://127.0.0.1:8545)
     pub async fn from_env(self) -> anyhow::Result<PodProvider>
     where

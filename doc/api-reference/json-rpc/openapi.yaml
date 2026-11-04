@@ -4,8 +4,8 @@ info:
   version: 1.0.0
 
 servers:
-  - url: https://rpc.podtestnet.dev/
-    description: Pod testnet
+  - url: https://canary.tokyo.pod.network/
+    description: Pod Canary
 
 tags:
   - name: Orderbook Data (ob_)
@@ -964,7 +964,7 @@ paths:
                 type: object
                 properties:
                   jsonrpc: { type: string }
-                  result: { type: string, example: "0x50d" }
+                  result: { type: string, example: "0x1f914" }
                   id: { type: integer }
 
   /eth_getTransactionByHash:
