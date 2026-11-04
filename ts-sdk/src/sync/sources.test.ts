@@ -264,6 +264,22 @@ describe("positionsSource", () => {
   });
 });
 
+describe("positionsSource after a reload", () => {
+  it("takes the restored snapshot's timestamp as the minimum and the watermark", async () => {
+    const { ws, subs } = fakeWs();
+    const mins: (number | undefined)[] = [];
+    const rest = { positions: (_a: unknown, min?: number) => { mins.push(min); return Promise.resolve(positions(1_000, 1n)); } };
+    const store = { get: () => stringifyBig({ v: 1, at: 0, value: positions(2_000, 7n) }), set: () => {} };
+    const r = new BaseResource(positionsSource(ctx(rest, ws), ACCT), { store, key: "positions" });
+    onTestFinished(() => r.destroy());
+    r.subscribe(() => {});
+    await flush();
+    expect(mins[0]).toBe(2_000);
+    expect((subs[0]!.params as () => { since: number })().since).toBe(2_000);
+    expect(r.get()).toBeUndefined();
+  });
+});
+
 describe("balancesSource", () => {
   it("builds balances from the pod_positions push", () => {
     const { ws, subs } = fakeWs();

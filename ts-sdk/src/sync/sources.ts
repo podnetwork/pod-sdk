@@ -284,12 +284,13 @@ export function positionsSource(
     //  - a periodic REST poll that re-aligns to the backend's exact accounting
     //    (corrects mark-extrapolation drift even when the account isn't touched).
     const fresh = watermarks();
+    fresh(h.lastKnown()?.value.timestampUs);
     const accept = (s: PositionsSnapshot) => { if (alive && fresh(s.timestampUs)) h.set(s); };
     const reseed = () =>
-      readAtLeast((min) => rest.positions(account, min), h.current()?.timestampUs).then(accept).catch(() => {});
+      readAtLeast((min) => rest.positions(account, min), h.lastKnown()?.value.timestampUs).then(accept).catch(() => {});
     reseed();
     const timer = positionResyncMs > 0 ? setInterval(reseed, positionResyncMs) : undefined;
-    const sub = subscribeRetrying(ws, "pod_positions", () => ({ account, since: h.current()?.timestampUs ?? 0 }), (result) => {
+    const sub = subscribeRetrying(ws, "pod_positions", () => ({ account, since: h.lastKnown()?.value.timestampUs ?? 0 }), (result) => {
       accept(decodePositions((result as WirePositionsPush).data));
     });
     return () => { alive = false; if (timer) clearInterval(timer); sub.unsubscribe(); };
