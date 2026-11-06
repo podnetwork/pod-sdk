@@ -95,6 +95,8 @@ Returned when this node's pre-validation rejects a transaction for a reason a fr
 
 Returned by `ob_getPositions`, `ob_getTriggers` and `ob_getOrderbook` when the call passed a `timestamp` (the lowest tick deadline the client accepts, in microseconds), and by `eth_subscribe` to `pod_positions`, `pod_triggers` and `pod_markets` when it passed `since` (the same minimum), and the node's last executed tick did not reach it within the node's wait (default 2s, `POD_RPC_TIMESTAMP_WAIT`). A value later than the node's clock plus the wait is rejected without waiting. `data` is the node's current value, an integer in microseconds.
 
+Also returned by `ob_getOrders`, `ob_getFills`, `ob_getSolutions`, `ob_getBackstopTransfers` and `ob_getMarkets` when the call passed a `timestamp` (the lowest indexer round the client accepts, in microseconds) and the node's indexer did not reach it within the same wait. `data` is the indexer's current round, an integer in microseconds.
+
 Also returned by `eth_getBalance` and `eth_getTransactionCount` when the call passed a block number (the lowest block the client accepts) and the node's flushed block tip did not reach it within the same wait, with message `node behind requested block`. A block whose earliest possible deadline is later than the node's clock plus the wait is rejected without waiting. `data` is the node's current block height.
 
 ```json
