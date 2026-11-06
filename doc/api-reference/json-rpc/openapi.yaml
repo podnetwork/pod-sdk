@@ -5,7 +5,7 @@ info:
 
 servers:
   - url: https://staging-rpc.podtestnet.dev/
-    description: Pod staging
+    description: Pod testnet
 
 tags:
   - name: Orderbook Data (ob_)

@@ -12,7 +12,7 @@ info:
 
 servers:
   - url: https://staging-rpc.podtestnet.dev/v1
-    description: Pod staging
+    description: Pod testnet
 
 security: []
 

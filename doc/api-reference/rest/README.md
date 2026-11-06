@@ -1,6 +1,6 @@
 # REST API
 
-Pod full nodes serve a read-only REST API under `/v1` on the JSON-RPC port. The base URL is the RPC URL plus `/v1`; for staging, `https://staging-rpc.podtestnet.dev/v1`. All routes are `GET` and allow any origin (CORS).
+Pod full nodes serve a read-only REST API under `/v1` on the JSON-RPC port. The base URL is the RPC URL plus `/v1`; for the testnet, `https://staging-rpc.podtestnet.dev/v1`. All routes are `GET` and allow any origin (CORS).
 
 * Markets, Account and Explorer routes (`/v1/clob/*`, `/v1/tx/{hash}`, `/v1/transactions`) require a node running the CLOB indexer.
 * Bridge routes (`/v1/bridge/*`) are served by every node.

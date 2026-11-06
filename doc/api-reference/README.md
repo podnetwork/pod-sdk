@@ -11,7 +11,7 @@ const balance = await provider.getBalance("0xYourAddress");
 
 {% cards %}
 {% card title="Fund your wallet" href="https://staging-app.podtestnet.dev" %}
-Get staging tokens with the Mint button in the app
+Get testnet tokens with the Mint button in the app
 {% endcard %}
 {% card title="Explorer" href="https://staging-app.podtestnet.dev" %}
 View transactions in the app
@@ -21,7 +21,7 @@ View transactions in the app
 ## Network Configuration
 
 {% tabs %}
-{% tab title="Staging" %}
+{% tab title="Testnet" %}
 | Property        | Value                                                        |
 | --------------- | ------------------------------------------------------------ |
 | Name            | `pod`                                                        |
