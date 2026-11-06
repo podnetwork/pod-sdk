@@ -14,7 +14,7 @@ The protocol will finalize the target transaction chain, recover your account st
 ```typescript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
+const provider = new ethers.JsonRpcProvider("https://staging-rpc.podtestnet.dev");
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 const RECOVERY = "0x50d0000000000000000000000000000000000003";
@@ -55,7 +55,7 @@ sol! {
 let signer: PrivateKeySigner = PRIVATE_KEY.parse()?;
 let provider = ProviderBuilder::new()
     .wallet(signer)
-    .on_http("https://rpc.podtestnet.dev".parse()?);
+    .on_http("https://staging-rpc.podtestnet.dev".parse()?);
 
 let recovery = Recovery::new(
     "0x50d0000000000000000000000000000000000003".parse()?,

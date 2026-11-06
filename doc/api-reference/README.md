@@ -5,29 +5,29 @@ Pod provides an Ethereum-like interface, so developers can use existing toolchai
 ```javascript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
+const provider = new ethers.JsonRpcProvider("https://staging-rpc.podtestnet.dev");
 const balance = await provider.getBalance("0xYourAddress");
 ```
 
 {% cards %}
-{% card title="Fund your wallet" href="https://faucet.dev.pod.network" %}
-Get testnet tokens from the faucet
+{% card title="Fund your wallet" href="https://staging-app.podtestnet.dev" %}
+Get staging tokens with the Mint button in the app
 {% endcard %}
-{% card title="Explorer" href="https://explorer.pod.network" %}
-View transactions and accounts
+{% card title="Explorer" href="https://staging-app.podtestnet.dev" %}
+View transactions in the app
 {% endcard %}
 {% endcards %}
 
 ## Network Configuration
 
 {% tabs %}
-{% tab title="Testnet" %}
+{% tab title="Staging" %}
 | Property        | Value                                                        |
 | --------------- | ------------------------------------------------------------ |
 | Name            | `pod`                                                        |
-| RPC             | `https://rpc.podtestnet.dev`                                 |
-| Chain ID        | `129301`                                                       |
-| Explorer        | `https://explorer.pod.network`                            |
+| RPC             | `https://staging-rpc.podtestnet.dev`                         |
+| Chain ID        | `129302`                                                     |
+| Explorer        | `https://staging-app.podtestnet.dev`                         |
 | Currency Symbol | `USD`                                                        |
 | EVM Version     | `Prague` (Ethereum block 22,431,084, Released May 7th, 2025) |
 {% endtab %}

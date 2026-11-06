@@ -11,8 +11,8 @@ info:
     length, unknown enum value, non-numeric integer) is a `400`.
 
 servers:
-  - url: https://rpc.podtestnet.dev/v1
-    description: Pod testnet
+  - url: https://staging-rpc.podtestnet.dev/v1
+    description: Pod staging
 
 security: []
 
@@ -847,7 +847,7 @@ paths:
 
   /v2/bridge/withdrawals:
     servers:
-      - url: https://rpc.podtestnet.dev
+      - url: https://staging-rpc.podtestnet.dev
     get:
       tags: [Bridge]
       summary: List Withdrawals (v2)
@@ -890,7 +890,7 @@ paths:
 
   /v2/bridge/withdrawals/{account}:
     servers:
-      - url: https://rpc.podtestnet.dev
+      - url: https://staging-rpc.podtestnet.dev
     get:
       tags: [Bridge]
       summary: List Account Withdrawals (v2)

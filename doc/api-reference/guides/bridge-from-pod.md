@@ -42,13 +42,13 @@ The bridge relayer performs step 3 for you. The call is permissionless, so submi
 ```typescript
 import { ethers } from "ethers";
 
-const podProvider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
+const podProvider = new ethers.JsonRpcProvider("https://staging-rpc.podtestnet.dev");
 const claimProvider = new ethers.JsonRpcProvider(CLAIM_CHAIN_RPC); // the chain /v1/bridge/config names
 const podWallet = new ethers.Wallet(PRIVATE_KEY, podProvider);
 const claimWallet = new ethers.Wallet(PRIVATE_KEY, claimProvider);
 
 const POD_BRIDGE = "0x50d0000000000000000000000000000000000001";
-const POD_RPC_REST = "https://rpc.podtestnet.dev/v1";
+const POD_RPC_REST = "https://staging-rpc.podtestnet.dev/v1";
 const POD_TOKEN = "POD_TOKEN_ADDRESS"; // 0xEeee…EEeE for the native token
 
 // From GET /v1/bridge/config — the bridged chain, its bridge contract, and the
@@ -142,7 +142,7 @@ let signer: PrivateKeySigner = PRIVATE_KEY.parse()?;
 
 let pod_provider = ProviderBuilder::new()
     .wallet(signer.clone())
-    .on_http("https://rpc.podtestnet.dev".parse()?);
+    .on_http("https://staging-rpc.podtestnet.dev".parse()?);
 
 let claim_provider = ProviderBuilder::new()
     .wallet(signer.clone())

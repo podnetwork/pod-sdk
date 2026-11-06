@@ -16,7 +16,7 @@ The example authorizes a fresh delegate key for one week, then has the delegate 
 ```typescript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
+const provider = new ethers.JsonRpcProvider("https://staging-rpc.podtestnet.dev");
 const master = new ethers.Wallet(MASTER_PRIVATE_KEY);
 const delegate = new ethers.Wallet(DELEGATE_PRIVATE_KEY, provider); // fresh app-generated key
 const { chainId } = await provider.getNetwork();
@@ -94,7 +94,7 @@ let delegate: PrivateKeySigner = DELEGATE_PRIVATE_KEY.parse()?; // fresh app-gen
 
 let provider = ProviderBuilder::new()
     .wallet(delegate.clone())
-    .on_http("https://rpc.podtestnet.dev".parse()?);
+    .on_http("https://staging-rpc.podtestnet.dev".parse()?);
 let chain_id = provider.get_chain_id().await?;
 
 let now_us = std::time::SystemTime::now()
