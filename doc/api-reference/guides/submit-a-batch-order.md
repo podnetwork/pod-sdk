@@ -18,7 +18,7 @@ The example opens a 5 NVDA long at $140 and arms two asset-grouped (position-bou
 ```typescript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
+const provider = new ethers.JsonRpcProvider("https://staging-rpc.podtestnet.dev");
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
@@ -103,7 +103,7 @@ sol! {
 let signer: PrivateKeySigner = PRIVATE_KEY.parse()?;
 let provider = ProviderBuilder::new()
     .wallet(signer.clone())
-    .on_http("https://rpc.podtestnet.dev".parse()?);
+    .on_http("https://staging-rpc.podtestnet.dev".parse()?);
 
 let orderbook = Orderbook::new(
     "0x50d0000000000000000000000000000000000002".parse()?,

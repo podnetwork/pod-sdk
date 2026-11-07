@@ -13,7 +13,7 @@ Submit a limit order for the perp market (e.g. NVDA-USD). The account needs a US
 ```typescript
 import { ethers } from "ethers";
 
-const provider = new ethers.JsonRpcProvider("https://rpc.podtestnet.dev");
+const provider = new ethers.JsonRpcProvider("https://staging-rpc.podtestnet.dev");
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
@@ -80,7 +80,7 @@ const POST_ONLY: u8 = 0x04;
 let signer: PrivateKeySigner = PRIVATE_KEY.parse()?;
 let provider = ProviderBuilder::new()
     .wallet(signer.clone())
-    .on_http("https://rpc.podtestnet.dev".parse()?);
+    .on_http("https://staging-rpc.podtestnet.dev".parse()?);
 
 let orderbook = Orderbook::new(
     "0x50d0000000000000000000000000000000000002".parse()?,
