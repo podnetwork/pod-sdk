@@ -55,7 +55,8 @@ export interface MarketsCache {
 // start.
 // 2: `status`/`minNotional` became required and the fees stopped decoding to 0.
 // 3: bigints are tagged objects, not "<digits>n" strings (see codec/json).
-const MARKETS_CACHE_VERSION = 3;
+// 4: v3 could still hold "<digits>n" strings, written while a page had patched BigInt.prototype.toJSON.
+const MARKETS_CACHE_VERSION = 4;
 const serializeMarkets = (markets: Market[]): string =>
   stringifyBig({ v: MARKETS_CACHE_VERSION, markets });
 const parseCachedMarkets = (raw: string | null): Market[] | undefined => {
