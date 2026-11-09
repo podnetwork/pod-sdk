@@ -44,11 +44,11 @@ See [Batch Deadline](../../protocol/orderbook.md#batch-deadline) in the protocol
 | --- | ------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0   | `0x01` | `REDUCE_ONLY` | The order may only reduce the submitter's existing position. Perp markets only.                                                              |
 | 1   | `0x02` | `IOC`         | Immediate-or-cancel: whatever does not match in the order's batch is cancelled at the end of it instead of resting on the book.              |
-| 2   | `0x04` | `POST_ONLY`   | Add-liquidity-only: the order rests, but may not trade in the batch that admitted it. See [Post-only orders](#post-only-orders).             |
+| 2   | `0x04` | `POST_ONLY`   | Refused if it crosses the book left by the previous batch; otherwise an ordinary order. See [Post-only orders](#post-only-orders).           |
 
 Combinations are checked when the intent is validated:
 
-* `IOC | POST_ONLY` is **rejected** (`post-only order cannot be immediate-or-cancel`) — IOC demands a fill in the admitting batch, post-only forbids one.
+* `IOC | POST_ONLY` is **rejected** (`post-only order cannot be immediate-or-cancel`) — an IOC order never rests, so it has nothing to post.
 * `POST_ONLY` on a `Market` order is **rejected** (`post-only is not valid for a market order`) — a market order has no resting price, so it has nothing to post at.
 * `REDUCE_ONLY | POST_ONLY` is fine, as is any other combination.
 * Market orders must set `IOC` (`market orders must be immediate-or-cancel`).
@@ -72,21 +72,20 @@ The `flags` overload can only be decoded by nodes that ship it, so a client that
 
 ### Post-only orders
 
-A post-only order is guaranteed to **add** liquidity: it rests on the book and never takes from it on the way in. Set `POST_ONLY` (`0x04`) in `flags`.
+A post-only order is meant to **add** liquidity, not take liquidity that was already resting. Set `POST_ONLY` (`0x04`) in `flags`.
 
-Because pod matches in discrete batch auctions rather than on arrival, "would this order cross the book right now?" is the wrong question — every intent in a batch is matched together, so two orders that arrive in the same batch and match each other are *both* takers. The guarantee is therefore expressed against the batch:
+Because pod matches in discrete batch auctions rather than on arrival, the check is made against the book as it stood **before** the batch, not against other orders that arrive in the same batch:
 
-> **A post-only order may not trade in the batch that admitted it.** From the next batch onwards it is an ordinary resting maker and matches normally.
+> **A post-only order is refused if it crosses the book left by the previous batch.** Otherwise it is an ordinary order: it can trade in the batch that admitted it, including as a taker against other orders that arrived in that batch.
 
 What that means in practice:
 
-* The order enters the book immediately and is reported `active`, like any other resting order.
-* If it would have traded **in that first batch**, it is removed from the book instead. The removal is terminal and never partial — a refusal never leaves a post-only order half-filled — and it is reported with the terminal status `post_only_refused`, which is distinct from `canceled` so you can tell a refusal from a cancel you sent yourself.
-* If it would **not** have traded in that batch, nothing happens to it: it rests, and can be matched from the next batch on.
-* If another order at the same price with better queue priority absorbs the crossing liquidity first, your post-only order simply rests — it never had the opportunity to take, so there is nothing to refuse.
-* Two post-only orders admitted in the same batch that cross only each other are **both** refused. Neither took resting liquidity, but each would have taken from the other.
+* "Crosses" compares against the previous batch's best opposite price: a buy at or above the best ask, or a sell at or below the best bid (equal prices match). Your own resting orders count, and so do orders that are cancelled or expire in the same batch.
+* If it crosses, the order never rests on the book. It is reported with the terminal status `post_only_refused`, which is distinct from `canceled` so you can tell a refusal from a cancel you sent yourself. A refusal is never partial; on spot markets the escrow is refunded.
+* If it does not cross, it is admitted like any other limit order. If it matches orders that arrived in the same batch, it fills, and that fill pays the taker fee, since maker and taker are decided by the batch an order was included in. Whatever is left rests and is a maker from the next batch on.
+* Two post-only orders admitted in the same batch that cross only each other are **not** refused: neither crossed the previous book, so they trade with each other.
 
-**Amendments re-arm the guarantee.** An `update` that re-queues the order — a price change, or a size increase — makes it a newcomer again, so it may not trade for the rest of *that* batch and can be refused in it (for example, when you reprice it onto a crossing level). An update that only *decreases* the size keeps its queue priority and its original admission batch, so it goes on matching normally.
+**Amendments are checked the same way.** An `update` that re-queues a post-only order — a price change, or a size increase — is checked against the book as it stood before the batch. If the new price crosses it, the update is rejected with code `post_only_would_cross` and the order is cancelled. An update that only *decreases* the size keeps its queue priority and is never checked.
 
 ### Transfers between accounts
 
