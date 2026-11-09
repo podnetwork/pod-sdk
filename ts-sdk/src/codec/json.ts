@@ -5,8 +5,13 @@
 
 const TAG = "$bigint";
 
+// The replacer reads the raw value off its holder: `v` has already been through any
+// BigInt.prototype.toJSON a page script defines (wallet extensions do), turning 5n into "5n".
 export const stringifyBig = (value: unknown): string =>
-  JSON.stringify(value, (_k, v: unknown) => (typeof v === "bigint" ? { [TAG]: v.toString() } : v));
+  JSON.stringify(value, function (this: Record<string, unknown>, k: string, v: unknown) {
+    const raw = this[k];
+    return typeof raw === "bigint" ? { [TAG]: raw.toString() } : v;
+  });
 
 const isTagged = (v: unknown): v is { [TAG]: string } => {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return false;

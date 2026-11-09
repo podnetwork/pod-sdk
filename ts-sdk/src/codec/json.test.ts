@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it, onTestFinished } from "vitest";
 
 import { parseBig, stringifyBig } from "./json.js";
 
@@ -13,4 +13,13 @@ it("never reads a string back as a bigint", () => {
   const back = parseBig<typeof value>(stringifyBig(value));
   expect(back).toEqual(value);
   expect(typeof back.name).toBe("string");
+});
+
+it("tags bigints even when a page script has patched BigInt.prototype.toJSON", () => {
+  const proto = BigInt.prototype as { toJSON?: () => string };
+  proto.toJSON = function (this: bigint) { return `${this.toString()}n`; };
+  onTestFinished(() => { delete proto.toJSON; });
+  const value = { cash: 5n, book: [-7n], name: "A/Q" };
+  expect(parseBig(stringifyBig(value))).toEqual(value);
+  expect(parseBig(stringifyBig(3n))).toBe(3n);
 });
