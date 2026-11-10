@@ -159,7 +159,11 @@ export function previewOrder(
   // Spot has no leverage: the order locks the full notional in cash (im = 1.0).
   // Perps use the market's initial-margin rate (1 / max_leverage).
   const im = market.type === "spot" ? WAD : imRate(market.maxLeverage);
-  const availableMargin = snap.withdrawableCash;
+  // Opening is funded by equity over initial margin; withdrawable also nets the
+  // node's notional floor and is stricter. A raw REST snapshot lacks the sum.
+  const availableMargin = snap.initialMargin === undefined
+    ? snap.withdrawableCash
+    : maxB(0n, snap.perpsEquity - snap.initialMargin);
   // An inverse, so it stays on the requested basis: callers clamp the request with it.
   const maxNotional = im > 0n ? div(availableMargin, im) : 0n;
 

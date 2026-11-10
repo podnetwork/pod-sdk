@@ -34,6 +34,7 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
   let priceUpnlSnap = 0n; // Σ perp price PnL recorded in the snapshot
   let fundingLiveTotal = 0n; // Σ funding accrued at the live funding_index
   let fundingSnapTotal = 0n; // Σ funding accrued in the snapshot
+  let im = 0n; // Σ initial-margin requirement at live notional
   let mm = 0n; // Σ maintenance-margin requirement at live notional
   let dSpot = 0n; // change in spot mark value vs snapshot (slope = balance)
   // Withdrawable is the node's figure moved by the equity change since it was
@@ -57,6 +58,7 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
       const upnl = pnlAt(mark);
       const sizeQuote = mul(absB(p.size), mark); // = notional
       const imr = market?.initialMargin ?? imRate(market?.maxLeverage ?? 0);
+      im += mul(sizeQuote, imr);
       mm += mul(sizeQuote, imr / 2n);
       priceUpnl += upnl;
       priceUpnlSnap += p.unrealizedPnl;
@@ -107,6 +109,7 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
     totalRealizedPnl: snap.totalRealizedPnl,
     perpsEquity,
     withdrawableCash,
+    initialMargin: im,
     maintenanceMargin: mm,
     totalUnrealizedPnl: snap.totalUnrealizedPnl + dPriceUpnl + dSpot,
     accountValue: snap.accountValue + (perpsEquity - snap.perpsEquity) + dSpot,

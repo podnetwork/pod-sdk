@@ -81,6 +81,12 @@ describe("enrichPositions maintenanceMargin", () => {
     expect(enrichPositions(snap([]), [one]).maintenanceMargin).toBe(0n);
   });
 
+  it("is half the initial margin the live snapshot also reports", () => {
+    const size = 100n * LOT;
+    const got = enrichPositions(snap([perp(size)]), [market({ markPrice: 2n * PRICE })]);
+    expect(got.initialMargin).toBe(mul(mul(size, 2n * PRICE), imRate(20)));
+  });
+
   it("is the floor withdrawable cash is forced to zero beneath", () => {
     // The relationship the field exists to expose: equity under the requirement is an
     // account with nothing free, whatever its initial-margin arithmetic would say.
