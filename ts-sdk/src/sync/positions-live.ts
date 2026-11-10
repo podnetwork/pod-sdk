@@ -8,7 +8,7 @@
 // basis, resting-order escrow).
 //
 // EXACT replication of pod — see the cross-reference notes in pod at:
-//   trading/src/perps/mod.rs `cross_budgets`     (withdrawable / equity)
+//   trading/src/perps/mod.rs `cross_budgets`     (equity)
 //   trading/src/perps/mod.rs `pending_funding`   (funding)
 // Integer semantics match trading/src/decimal.rs:
 //   mul(a,b)            = (a*b)/1e18 truncated toward zero          (Decimal `*`)
@@ -34,9 +34,12 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
   let priceUpnlSnap = 0n; // Σ perp price PnL recorded in the snapshot
   let fundingLiveTotal = 0n; // Σ funding accrued at the live funding_index
   let fundingSnapTotal = 0n; // Σ funding accrued in the snapshot
-  let im = 0n; // Σ initial-margin requirement at live notional
   let mm = 0n; // Σ maintenance-margin requirement at live notional
   let dSpot = 0n; // change in spot mark value vs snapshot (slope = balance)
+  // Withdrawable is the node's figure moved by the equity change since it was
+  // read: its floor counts notional the SDK does not model. Market data older
+  // than the snapshot (another node behind a load balancer) moves nothing.
+  let dWithdrawable = 0n;
 
   const positions: Position[] = snap.positions.map((p) => {
     const market = p.orderbookId ? byId.get(p.orderbookId) : undefined;
@@ -48,12 +51,12 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
       const liveMark = market?.markPrice && market.markPrice > 0n ? market.markPrice : p.markPrice;
       const mark = liveMark > 0n ? liveMark : p.entryPrice;
       // The entry-price fallback rounds against the holder.
-      const upnl = p.costBasis !== undefined
-        ? mul(mark, p.size) - p.costBasis
-        : mulFloor(mark - p.entryPrice, p.size); // pure price drift (signed)
+      const pnlAt = (m: bigint) => p.costBasis !== undefined
+        ? mul(m, p.size) - p.costBasis
+        : mulFloor(m - p.entryPrice, p.size); // pure price drift (signed)
+      const upnl = pnlAt(mark);
       const sizeQuote = mul(absB(p.size), mark); // = notional
       const imr = market?.initialMargin ?? imRate(market?.maxLeverage ?? 0);
-      im += mul(sizeQuote, imr);
       mm += mul(sizeQuote, imr / 2n);
       priceUpnl += upnl;
       priceUpnlSnap += p.unrealizedPnl;
@@ -66,6 +69,12 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
       }
       fundingLiveTotal += funding;
       fundingSnapTotal += p.fundingAccrued;
+      const marketFresh = snap.timestampUs === undefined
+        || (market?.dynamicsUs !== undefined && market.dynamicsUs >= snap.timestampUs);
+      if (marketFresh) {
+        dWithdrawable += upnl - pnlAt(p.markPrice > 0n ? p.markPrice : p.entryPrice)
+          - (funding - p.fundingAccrued);
+      }
 
       return { ...p, markPrice: mark, unrealizedPnl: upnl, notional: sizeQuote, fundingAccrued: funding };
     }
@@ -80,10 +89,13 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
   const nativeCash = snap.cash + fundingSnapTotal;
   const cashWithFunding = nativeCash - fundingLiveTotal;
 
-  // EXACT (perp-only, integer-faithful): equity = cash_with_funding + Σ price PnL;
-  // withdrawable = max(0, equity - Σ IM), forced to 0 below maintenance margin.
+  // EXACT (perp-only, integer-faithful): equity = cash_with_funding + Σ price PnL.
   const perpsEquity = cashWithFunding + priceUpnl;
-  const withdrawableCash = perpsEquity < mm ? 0n : maxB(0n, perpsEquity - im);
+  // The node clamps at zero, so a zero base hides how far under the floor the
+  // account is: a rise must not surface headroom that does not exist.
+  const withdrawableCash = perpsEquity < mm || snap.withdrawableCash === 0n
+    ? 0n
+    : maxB(0n, snap.withdrawableCash + dWithdrawable);
 
   // account_value moves with perp equity (incl. funding) AND spot mark; total
   // uPnL is pure price drift only (funding is reported separately). Re-baseline

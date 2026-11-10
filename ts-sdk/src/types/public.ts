@@ -212,6 +212,8 @@ export interface Market {
   fundingSettlingIndex?: bigint;
   fundingLastUpdatedMs?: number;
   openInterest?: bigint;
+  /** Solution time (µs) of the node state the dynamics above were read from. */
+  dynamicsUs?: number;
 }
 
 export interface Bar {

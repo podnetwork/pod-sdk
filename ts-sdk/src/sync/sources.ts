@@ -228,7 +228,7 @@ export function marketsSource(
     const seedStats = () => readAtLeast((min) => rest.marketStats(undefined, min), heldUs).then((page) => {
       if (!alive) return;
       heldUs = Math.max(heldUs, page.solutionNow * 1000);
-      page.markets.forEach((m) => { if (fresh(page.solutionNow, m.id)) mergePatch(m); });
+      page.markets.forEach((m) => { if (fresh(page.solutionNow, m.id)) mergePatch({ ...m, dynamicsUs: page.solutionNow * 1000 }); });
       publish();
     }).catch(() => { /* live dynamics also arrive on the stream */ });
 
@@ -243,7 +243,10 @@ export function marketsSource(
         const id = (w.orderbook_id ?? w.orderbook) as string;
         if (typeof w.timestamp === "number") heldUs = Math.max(heldUs, w.timestamp);
         if (!fresh(typeof w.timestamp === "number" ? usToMs(w.timestamp) : undefined, id)) continue;
-        mergePatch(decodeMarketDynamics({ ...w, orderbook_id: id } as WireMarketDynamics));
+        mergePatch({
+          ...decodeMarketDynamics({ ...w, orderbook_id: id } as WireMarketDynamics),
+          dynamicsUs: typeof w.timestamp === "number" ? w.timestamp : undefined,
+        });
       }
       publish();
     });
