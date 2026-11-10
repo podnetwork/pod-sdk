@@ -63,7 +63,9 @@ const ob = useSyncExternalStore(
   as `/clob/orders` serves it, without nested fills. `.view({ types, from, to })`
   (or `client.activity(account, query)`) filters those rows and events without a
   feed of its own. `loadOlder()` pages back by whole batches (a page can exceed
-  the node's `limit` by its newest batch), `onEvent` reports live transitions.
+  the node's `limit` by its newest batch); a view reads on until its first page,
+  and each `loadOlder`, holds as many of its rows as the feed's first page held.
+  `onEvent` reports live transitions.
 - **Charting:** `createPodDatafeed(client)` returns an `IDatafeedChartApi`-shaped
   object for the TradingView Charting Library (framework-agnostic, no React).
 

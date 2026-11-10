@@ -452,7 +452,8 @@ describe("ActivityHistory views", () => {
     await flush();
     await flush();
     expect(subscribed).toHaveLength(1);
-    expect(restCalls()).toBe(1);
+    // The seed, then one read both views top up from.
+    expect(restCalls()).toBe(2);
     expect(kinds(orders)).toEqual(["order"]);
     expect(kinds(recent)).toEqual(["order", "transfer"]);
     expect(feed.view({ types: ["order"] })).toBe(orders);
@@ -483,5 +484,62 @@ describe("ActivityHistory views", () => {
     expect(kinds(transfers)).toEqual(["transfer", "transfer", "transfer"]);
     expect(feed.hasMore()).toBe(false);
     expect(transfers.hasMore()).toBe(false);
+  });
+});
+
+describe("ActivityHistory view pages", () => {
+  const NO_FILLS: ActivityQuery = { types: ["order", "transfer"] };
+  const xs = (from: number) => Array.from({ length: 5 }, (_, i) => transfer(from + i));
+  const fills = () => Array.from({ length: 5 }, () => fill(1));
+
+  it("fills its first page to the size of the feed's, reading past the fills it hides", async () => {
+    const { feed, restCalls } = harness({
+      pages: [
+        page({ [SEED_TICK]: xs(10), [SEED_TICK - 1]: fills() }, 2_000_000),
+        page({ [2_000_000]: xs(20) }, 1_000_000),
+        page({ [1_000_000]: xs(30) }),
+      ],
+    });
+    const view = feed.view(NO_FILLS);
+    expect(await view.ready()).toHaveLength(10);
+    expect(restCalls()).toBe(2);
+    expect(view.hasMore()).toBe(true);
+  });
+
+  it("adds a page's worth of its rows on each `loadOlder`", async () => {
+    const { feed, restCalls } = harness({
+      pages: [
+        page({ [SEED_TICK]: xs(10), [SEED_TICK - 1]: xs(20) }, 2_000_000),
+        page({ [2_000_000]: fills() }, 1_900_000),
+        page({ [1_900_000]: [...xs(30), ...fills()] }, 1_800_000),
+        page({ [1_800_000]: xs(40) }, 1_700_000),
+        page({ [1_700_000]: xs(50) }),
+      ],
+    });
+    const view = feed.view(NO_FILLS);
+    expect(await view.ready()).toHaveLength(10);
+    await view.loadOlder();
+    expect(view.get()).toHaveLength(20);
+    expect(restCalls()).toBe(4);
+  });
+
+  it("stops at the end of the feed with what it has", async () => {
+    const { feed } = harness({
+      pages: [page({ [SEED_TICK]: xs(10), [SEED_TICK - 1]: fills() }, 2_000_000), page({ [2_000_000]: fills() })],
+    });
+    const view = feed.view(NO_FILLS);
+    expect(await view.ready()).toHaveLength(5);
+    expect(view.hasMore()).toBe(false);
+  });
+
+  it("tops up for a subscriber the same way", async () => {
+    const { feed } = harness({
+      pages: [page({ [SEED_TICK]: xs(10), [SEED_TICK - 1]: fills() }, 2_000_000), page({ [2_000_000]: xs(20) })],
+    });
+    const view = feed.view(NO_FILLS);
+    const off = view.subscribe(() => {});
+    for (let i = 0; i < 5; i++) await flush();
+    expect(view.get()).toHaveLength(10);
+    off();
   });
 });

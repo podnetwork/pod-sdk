@@ -29,9 +29,12 @@ export class ActivityHistory implements ActivityView {
   private seedGen = 0;
   private _hasMore = true;
   private _loading = false;
+  private older: Promise<void> | undefined;
   private readonly eventListeners = new Set<(events: ActivityEvent[]) => void>();
   private readonly stream: ResumableStream;
   private readonly views = new Map<string, FilteredActivity>();
+  /** Entries in the first page the node served; what a view tops its pages up to. */
+  pageSize = 0;
 
   constructor(
     private readonly ctx: SyncContext,
@@ -85,12 +88,16 @@ export class ActivityHistory implements ActivityView {
 
   setWindow(): void { /* activity pages by batch, not by time window */ }
 
-  async loadOlder(): Promise<void> {
-    if (!this.handle || this.nextUs === null || this._loading) return;
+  loadOlder(): Promise<void> {
+    if (this._loading) return this.older!;
+    if (!this.handle || this.nextUs === null) return Promise.resolve();
+    return this.older = this.readOlder(this.nextUs);
+  }
+
+  private async readOlder(toUs: number): Promise<void> {
     this._loading = true;
     this.rebuild();
     try {
-      const toUs = this.nextUs;
       const page = await readAtLeast(
         (min) => this.ctx.rest.activity(this.account, { toUs }, min),
         this.stream.cursor.since,
@@ -113,6 +120,7 @@ export class ActivityHistory implements ActivityView {
       if (since === undefined) {
         const page = await this.ctx.rest.activity(this.account);
         if (stale()) return false;
+        this.pageSize = page.batches.reduce((n, [, entries]) => n + entries.length, 0);
         this.store([page]);
         this.nextUs = page.nextUs;
         this._hasMore = page.nextUs !== null;
@@ -196,6 +204,8 @@ class FilteredActivity implements ActivityView {
   private readonly want: Set<ActivityType> | undefined;
   private held: ActivityEntry[] | undefined;
   private shown: ActivityEntry[] | undefined;
+  private topped = false;
+  private filling: Promise<void> | undefined;
 
   constructor(private readonly parent: ActivityHistory, private readonly query: ActivityQuery) {
     this.want = query.types && new Set(query.types);
@@ -210,8 +220,15 @@ class FilteredActivity implements ActivityView {
     return this.shown;
   }
 
-  subscribe(listener: () => void): () => void { return this.parent.subscribe(listener); }
-  async ready(): Promise<ActivityEntry[]> { return (await this.parent.ready()).filter((r) => this.keeps(r)); }
+  subscribe(listener: () => void): () => void {
+    return this.parent.subscribe(() => { void this.topUp(); listener(); });
+  }
+
+  async ready(): Promise<ActivityEntry[]> {
+    await this.parent.ready();
+    await this.topUp();
+    return this.get() ?? [];
+  }
   get error(): Error | undefined { return this.parent.error; }
   loading(): boolean { return this.parent.loading(); }
   setWindow(): void { /* a view's window is its query */ }
@@ -223,7 +240,29 @@ class FilteredActivity implements ActivityView {
   }
 
   async loadOlder(): Promise<void> {
-    if (this.hasMore()) await this.parent.loadOlder();
+    await (this.filling ?? this.fill((this.get()?.length ?? 0) + Math.max(this.parent.pageSize, 1)));
+  }
+
+  /** The feed's first page may be mostly rows this view hides, so it reads on until its own first page is full. */
+  /** A failed read leaves the page short; the next `loadOlder` reads on. */
+  private async topUp(): Promise<void> {
+    if (this.topped || this.parent.get() === undefined) return;
+    this.topped = true;
+    await this.fill(this.parent.pageSize).catch(() => {});
+  }
+
+  private fill(rows: number): Promise<void> {
+    this.filling ??= this.read(rows).finally(() => { this.filling = undefined; });
+    return this.filling;
+  }
+
+  private async read(rows: number): Promise<void> {
+    while ((this.get()?.length ?? 0) < rows && this.hasMore()) {
+      const held = this.parent.get()?.length;
+      await this.parent.loadOlder();
+      // A page of batches already held adds nothing.
+      if (this.parent.get()?.length === held) break;
+    }
   }
 
   onEvent(listener: (events: ActivityEvent[]) => void): () => void {
