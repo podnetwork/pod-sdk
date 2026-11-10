@@ -1,6 +1,6 @@
 # Reset your wallet after a testnet reset
 
-Pod's testnet is periodically reset — for example, at the start of the [Trading Competition](../trading-competition/README.md). When a reset happens, all on-chain state is wiped: balances, positions, and account nonces are cleared and start fresh.
+Pod's testnet is periodically reset. When a reset happens, all on-chain state is wiped: balances, positions, and account nonces are cleared and start fresh.
 
 Your wallet itself (your private key / seed phrase) is not affected, but your wallet's local view of the network can become out of sync with the freshly reset testnet. The most common symptom is a **nonce mismatch** — your wallet still remembers the transaction count from before the reset, so new transactions are rejected or stuck pending.
 
