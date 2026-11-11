@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { toEventSelector } from "viem";
 
-import { CLAIM_TOPIC, fetchClaimStatus, waitForClaim, watchClaims, type ClaimOutcome } from "./claim.js";
-import type { Hash } from "../types/public.js";
+import { CLAIM_TOPIC, fetchClaimStatus, fetchClaimUsage, waitForClaim, watchClaims, type ClaimOutcome } from "./claim.js";
+import type { Address, Hash } from "../types/public.js";
 
 const ID = `0x${"11".repeat(32)}` as Hash;
 const CLAIM_HASH = `0x${"22".repeat(32)}` as Hash;
@@ -435,5 +435,30 @@ describe("watchClaims", () => {
     expect(froms[0]).toBe(0x2710n); // first scan anchored at the tip
     // Some later scan reaches back below it, rather than only marching forward.
     expect(froms.some((f) => f <= 0x2710n - 500n)).toBe(true);
+  });
+});
+
+describe("fetchClaimUsage", () => {
+  const BRIDGE = "0xEe0B4585631d423310ab95e7d4716Eb79b9302E2" as Address;
+  const USDC = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" as Address;
+  const w = (n: bigint) => n.toString(16).padStart(64, "0");
+  // Canary's bridge answer for USDC on 11 Nov 2026, word for word.
+  const raw = "0x" + [1_000_000n, 2_000_000_000n, 1_000_000_000n, 798_978_949n, 1_791_898_863n, 784_992_818n, 1_794_224_488n,
+    0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeen].map(w).join("");
+
+  it("reads the claim limit and usage, not the deposit ones", async () => {
+    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      expect(body.method).toBe("eth_call");
+      expect(body.params[0]).toEqual({ to: BRIDGE, data: "0x27e45c2c" + "0".repeat(24) + USDC.slice(2).toLowerCase() });
+      return { json: async () => ({ result: raw }) };
+    });
+    expect(await fetchClaimUsage("http://rpc", BRIDGE, USDC, { fetch: fetchFn as unknown as typeof fetch }))
+      .toEqual({ limit: 1_000_000_000n, consumed: 784_992_818n, lastUpdated: 1_794_224_488 });
+  });
+
+  it("throws rather than reading a short answer as nothing left", async () => {
+    const fetchFn = async () => ({ json: async () => ({ result: "0x" }) });
+    await expect(fetchClaimUsage("http://rpc", BRIDGE, USDC, { fetch: fetchFn as unknown as typeof fetch })).rejects.toThrow();
   });
 });
