@@ -120,6 +120,21 @@ multiple of 1e12 wei. `maxWithdrawable` handles both; the builder deliberately
 does no rounding of its own, because silently changing a signed amount is worse
 than a clear rejection.
 
+**The bridge also caps what crosses it per day, exchange-wide.** Ask before
+offering an amount, so a claim never reverts with `DailyLimitExhausted`:
+
+```ts
+const client = new PodTradeClient({ restUrl, wsUrl, claimRpcUrl }); // the claim chain's JSON-RPC
+const { claim, deposit } = await client.bridgeLimits();             // first bridged token by default
+// claim.available: what withdrawals can pay out now, in claim-chain decimals
+// claim.resetsAt:  unix seconds when the day's window ends (absent once it has)
+```
+
+It reads the bridge's `tokenData` at one block and judges the window by that
+block's time; anything under the token's minimum counts as nothing. `deposit` is
+the same for money coming in. `fetchBridgeUsage` and `bridgeCapacity` are the
+pieces underneath, for a caller that already holds the config.
+
 Track the outcome on `client.withdrawals(account)` (live, REST-backfilled),
 matching on the id derived above. `error` is the **only** place a failure reason
 exists: both `insufficient_balance` and `not_included` produce no L1 event at

@@ -3,6 +3,7 @@ import { toEventSelector } from "viem";
 
 import { CLAIM_TOPIC, fetchClaimStatus, fetchBridgeUsage, waitForClaim, watchClaims, type ClaimOutcome } from "./claim.js";
 import type { Address, Hash } from "../types/public.js";
+import { PodRpcError } from "./jsonrpc.js";
 
 const ID = `0x${"11".repeat(32)}` as Hash;
 const CLAIM_HASH = `0x${"22".repeat(32)}` as Hash;
@@ -445,23 +446,42 @@ describe("fetchBridgeUsage", () => {
   // Canary's bridge answer for USDC on 11 Nov 2026, word for word.
   const raw = "0x" + [1_000_000n, 2_000_000_000n, 1_000_000_000n, 798_978_949n, 1_791_898_863n, 784_992_818n, 1_794_224_488n,
     0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeen].map(w).join("");
+  const node = (answers: Record<string, unknown>) => vi.fn(async (_url: string, init: RequestInit) => {
+    const { method, params } = JSON.parse(String(init.body));
+    if (method === "eth_call") {
+      expect(params).toEqual([{ to: BRIDGE, data: "0x27e45c2c" + "0".repeat(24) + USDC.slice(2).toLowerCase() }, "0x1f4"]);
+    }
+    return { json: async () => ({ result: answers[method] }) };
+  });
+  const ok = { eth_chainId: "0xa4b1", eth_getBlockByNumber: { number: "0x1f4", timestamp: "0x6af9b380" }, eth_call: raw };
 
-  it("reads both sides, deposit and claim, each from its own words", async () => {
-    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(String(init.body));
-      expect(body.method).toBe("eth_call");
-      expect(body.params[0]).toEqual({ to: BRIDGE, data: "0x27e45c2c" + "0".repeat(24) + USDC.slice(2).toLowerCase() });
-      return { json: async () => ({ result: raw }) };
+  it("reads both sides and the minimum at one block, with that block's time", async () => {
+    const fetchFn = node(ok);
+    expect(await fetchBridgeUsage("http://rpc", BRIDGE, USDC, { fetch: fetchFn as unknown as typeof fetch, chainId: 42161 })).toEqual({
+      minAmount: 1_000_000n,
+      deposit: { limit: 2_000_000_000n, consumed: 798_978_949n, lastUpdated: 1_791_898_863 },
+      claim: { limit: 1_000_000_000n, consumed: 784_992_818n, lastUpdated: 1_794_224_488 },
+      blockTime: 0x6af9b380,
     });
-    expect(await fetchBridgeUsage("http://rpc", BRIDGE, USDC, { fetch: fetchFn as unknown as typeof fetch }))
-      .toEqual({
-        deposit: { limit: 2_000_000_000n, consumed: 798_978_949n, lastUpdated: 1_791_898_863 },
-        claim: { limit: 1_000_000_000n, consumed: 784_992_818n, lastUpdated: 1_794_224_488 },
-      });
   });
 
-  it("throws rather than reading a short answer as nothing left", async () => {
-    const fetchFn = async () => ({ json: async () => ({ result: "0x" }) });
-    await expect(fetchBridgeUsage("http://rpc", BRIDGE, USDC, { fetch: fetchFn as unknown as typeof fetch })).rejects.toThrow();
+  it("refuses an endpoint on another chain", async () => {
+    const fetchFn = node({ ...ok, eth_chainId: "0x1" });
+    await expect(fetchBridgeUsage("http://rpc", BRIDGE, USDC, { fetch: fetchFn as unknown as typeof fetch, chainId: 42161 }))
+      .rejects.toThrow(/chain 1, not 42161/);
+  });
+
+  it("throws its own error, not a TypeError, for a short, null or non-hex answer", async () => {
+    for (const bad of ["0x", null, "nope"]) {
+      const fetchFn = node({ ...ok, eth_call: bad });
+      await expect(fetchBridgeUsage("http://rpc", BRIDGE, USDC, { fetch: fetchFn as unknown as typeof fetch }))
+        .rejects.toThrow(PodRpcError);
+    }
+  });
+
+  it("refuses an l1Token that isn't an address before asking anything", async () => {
+    const fetchFn = node(ok);
+    await expect(fetchBridgeUsage("http://rpc", BRIDGE, "0x12" as Address, { fetch: fetchFn as unknown as typeof fetch })).rejects.toThrow(PodRpcError);
+    expect(fetchFn).not.toHaveBeenCalled();
   });
 });

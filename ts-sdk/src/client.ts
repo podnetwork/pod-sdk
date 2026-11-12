@@ -220,17 +220,22 @@ export class PodTradeClient {
   /**
    * What the bridge can take right now, exchange-wide, for a bridged token (the first one by
    * default): `deposit` for money coming in, `claim` for withdrawals paying out, each in the
-   * claim chain's decimals with `resetsAt` while the day's window still runs. A fresh read
-   * every call — another account's transfer changes it. Needs `claimRpcUrl`.
+   * claim chain's decimals with `resetsAt` while the day's window still runs. The config comes
+   * from {@link bridgeConfig}; the usage is read fresh every call, since another account's
+   * transfer changes it, and judged by the claim chain's clock. Needs `claimRpcUrl`.
    */
-  async bridgeLimits(podToken?: Address): Promise<{ deposit: BridgeCapacity; claim: BridgeCapacity }> {
+  async bridgeLimits(podToken?: Address, opts?: { signal?: AbortSignal }): Promise<{ deposit: BridgeCapacity; claim: BridgeCapacity }> {
     if (!this.claimRpcUrl) throw new Error("bridgeLimits needs the client's claimRpcUrl");
-    const config = await this.rest.bridgeConfig();
+    const config = await this.bridgeConfig.ready();
+    if (!config.claimChainId) throw new Error("this node has no bridge configured");
     const token = podToken ? bridgeTokenFor(config, podToken) : config.tokens[0];
-    if (!config.claimChainId || !token) throw new Error("no bridged token to read limits for");
-    const usage = await fetchBridgeUsage(this.claimRpcUrl, config.sourceContract, token.l1Token, { fetch: this.fetchFn });
-    const now = Date.now() / 1000;
-    return { deposit: bridgeCapacity(usage.deposit, now), claim: bridgeCapacity(usage.claim, now) };
+    if (!token) throw new Error(podToken ? `${podToken} is not bridged` : "the bridge has no tokens");
+    const usage = await fetchBridgeUsage(this.claimRpcUrl, config.sourceContract, token.l1Token,
+      { fetch: this.fetchFn, signal: opts?.signal, chainId: config.claimChainId });
+    return {
+      deposit: bridgeCapacity(usage.deposit, usage.blockTime, usage.minAmount),
+      claim: bridgeCapacity(usage.claim, usage.blockTime, usage.minAmount),
+    };
   }
 
   /**

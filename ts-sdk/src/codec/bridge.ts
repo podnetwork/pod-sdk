@@ -159,13 +159,17 @@ const DAY = 86_400;
  * Mirrors `Bridge.sol` `_checkInLimits`, the same rule for deposits and claims: inside the day
  * that `lastUpdated` began, `limit − consumed` is left; once that day is over, a transfer may
  * also start the next window (its excess over the old window's remainder is capped at `limit`
- * again), so up to `2 × limit − consumed`. A limit of zero means that side is switched off.
+ * again), so up to `2 × limit − consumed`. Nothing is available where the contract refuses
+ * every transfer: a token it has no config for (`minAmount` 0), a side switched off (`limit`
+ * 0), or a remainder under `minAmount`, which no transfer can use. `nowSec` is best the chain's
+ * own time (the block that answered the read): the window ends by the contract's clock.
  */
-export function bridgeCapacity(usage: BridgeUsage, nowSec: number): BridgeCapacity {
+export function bridgeCapacity(usage: BridgeUsage, nowSec: number, minAmount: bigint): BridgeCapacity {
   const { limit, consumed, lastUpdated } = usage;
-  if (limit <= 0n) return { available: 0n };
+  if (minAmount <= 0n || limit <= 0n) return { available: 0n };
+  const usable = (n: bigint) => (n >= minAmount ? n : 0n);
   const left = limit > consumed ? limit - consumed : 0n;
-  if (nowSec < lastUpdated + DAY) return { available: left, resetsAt: lastUpdated + DAY };
+  if (nowSec < lastUpdated + DAY) return { available: usable(left), resetsAt: lastUpdated + DAY };
   const both = 2n * limit - consumed;
-  return { available: both > 0n ? both : 0n };
+  return { available: usable(both > 0n ? both : 0n) };
 }
