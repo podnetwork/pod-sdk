@@ -97,7 +97,7 @@ export class OrderHistory implements SeriesResource<Order> {
         cursor,
         limit: this.query.limit ?? 100,
       }, min), this.minimum());
-      this.ledger.rows(page.orders, page.solutionNowUs);
+      if (!this.ledger.rows(page.orders, page.solutionNowUs)) return;
       this.nextCursor = page.nextCursor;
       this._hasMore = page.nextCursor !== null;
     } finally {
@@ -119,7 +119,7 @@ export class OrderHistory implements SeriesResource<Order> {
       // newer page has already corrected, and raise the cursor to an older watermark.
       if (!this.stream.running || gen !== this.seedGen) return false;
       const settled: SubParams = { since: page.solutionNow * 1000, sinceBook: undefined };
-      this.ledger.rows(page.orders, page.solutionNowUs);
+      if (!this.ledger.rows(page.orders, page.solutionNowUs)) throw new Error("orders read below the held frames");
       // A reconnect: the stream may have missed frames for orders this page does not hold.
       if (this.painted) void this.reconcile();
       else this.ledger.stampUs ||= page.solutionNowUs;
@@ -171,7 +171,7 @@ export class OrderHistory implements SeriesResource<Order> {
 
   /** The lowest round a read may answer at: past the stream, and past the reconcile so no order misses a transition. */
   private minimum(): number | undefined {
-    return Math.max(this.stream.cursor.since ?? 0, this.ledger.stampUs) || undefined;
+    return Math.max(this.stream.cursor.since ?? 0, this.ledger.minimum()) || undefined;
   }
 
   private async reconcile(): Promise<void> {

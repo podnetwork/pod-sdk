@@ -71,7 +71,7 @@ export function withdrawalsSource(
     const backfill = () => walk(sinceUs, sinceId);
     // From the end of the log REST last served rather than the shared cursor, which
     // pushes move: an outcome the stream lost below a later push is read again.
-    const reconcile = () => { if (servedUs > 0) void walk(servedUs, undefined); };
+    const reconcile = () => { void walk(servedUs, undefined); };
 
     const run = async (fromUs: number, fromId: Withdrawal["txHash"] | undefined) => {
       try {
@@ -79,6 +79,8 @@ export function withdrawalsSource(
         // by live pushes, and a push landing mid-backfill would jump the next
         // page past the rest of an older tick — rows the forward-only cursor
         // could then never come back for.
+        // A walk from above `servedUs` skipped whatever lies between, so it cannot vouch for the log.
+        const vouches = fromUs <= servedUs;
         let pageSince = fromUs;
         let pageSinceId = fromId;
         for (let page = 0; page < MAX_PAGES; page++) {
@@ -91,7 +93,7 @@ export function withdrawalsSource(
           const rows = res.withdrawals;
           absorb(rows);
           // Pages may come from different nodes: only the one that served the end of the log vouches for it.
-          if (rows.length < PAGE_LIMIT) { servedUs = Math.max(servedUs, res.timestampUs); break; }
+          if (rows.length < PAGE_LIMIT) { if (vouches) servedUs = Math.max(servedUs, res.timestampUs); break; }
           // Rows come back ascending, so the last one is this page's high-water
           // mark — regardless of what the stream did to the shared cursor.
           const last = rows[rows.length - 1]!;

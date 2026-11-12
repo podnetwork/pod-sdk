@@ -512,4 +512,31 @@ describe("ActivityHistory reconcile", () => {
       vi.useRealTimers();
     }
   });
+
+  it("reports a frame for a batch the reconcile already added, without applying it again", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    try {
+      const { history, frame } = harness({
+        resyncMs: 1_000,
+        pages: [SEED, page({ [LIVE_TICK]: [fill(1)] }, null, LIVE_TICK)],
+      });
+      const seen: ActivityEvent[][] = [];
+      const off = history.onEvent((events) => seen.push(events));
+      await history.ready();
+      await flush();
+      vi.advanceTimersByTime(1_000);
+      await flush();
+
+      frame({ [LIVE_TICK]: [fill(1)] });
+
+      expect(seen.map((events) => events.map(kindOf))).toEqual([["fill"]]);
+      expect(kinds(history)).toEqual(["fill", "order", "transfer"]);
+      const placed = history.get()![1];
+      if (placed?.activityType !== "order") throw new Error("expected an order");
+      expect(placed.order.filledBase).toBe(WAD);
+      off();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

@@ -46,8 +46,19 @@ export class OrderLedger<F, E> {
     return result;
   }
 
-  /** Orders a REST read reported at `atUs`; a held order read later is kept. */
-  rows(orders: Order[], atUs: number): void {
+  /**
+   * Fold a frame whose batch a REST read already applied: its events, on a copy of the view.
+   */
+  report(frame: F): E {
+    return this.fold(frame, new Map([...this.view].map(([id, order]) => [id, { ...order }])));
+  }
+
+  /**
+   * Orders a REST read reported at `atUs`; a held order read later is kept. `false`, with
+   * nothing taken, when `atUs` is below the evicted frames the rows would need.
+   */
+  rows(orders: Order[], atUs: number): boolean {
+    if (atUs < this.floorUs) return false;
     const taken: string[] = [];
     for (const order of orders) {
       const held = this.base.get(order.id);
@@ -59,19 +70,19 @@ export class OrderLedger<F, E> {
     const scratch = new Map<string, Order>();
     this.replay(taken, scratch);
     for (const id of taken) this.put(id, scratch.get(id)!);
+    return true;
   }
 
   /**
    * Apply activity read from `stampUs` up to R, the newest page's stamp, then move the
-   * stamp to R and replay the frames above it. `false` when R is below the stamp.
+   * stamp to R and replay the frames above it. `false` when R is below `minimum()`.
    */
   reconcile(pages: ActivityPage[]): boolean {
     const r = pages[0]?.solutionNowUs;
-    if (r === undefined || r < this.stampUs) return false;
+    if (r === undefined || r < this.minimum()) return false;
     const batches = pages
       .flatMap((p) => p.batches.map(([batchUs, entries]) => ({ batchUs, entries, atUs: p.solutionNowUs })))
       .sort((a, b) => a.batchUs - b.batchUs);
-    const rowed = new Set(batches.flatMap((b) => b.entries.flatMap((e) => (e.k === "order" ? [e.order_id] : []))));
     for (const { batchUs, entries, atUs } of batches) {
       for (const e of entries) {
         if (e.k === "order") {
@@ -81,7 +92,7 @@ export class OrderLedger<F, E> {
           continue;
         }
         const event = asOrderEvent(e);
-        if (!event?.id || rowed.has(event.id)) continue;
+        if (!event?.id) continue;
         const held = this.base.get(event.id);
         if (held && batchUs > held.atUs) applyEvent(event, held.order, { batchMs: usToMs(batchUs) });
       }

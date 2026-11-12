@@ -378,4 +378,41 @@ describe("withdrawalsSource reconcile", () => {
       vi.useRealTimers();
     }
   });
+
+  it("keeps reading from the last tick REST served after a backfill from a pushed cursor", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    try {
+      const pages = [[outcome(1, 1_000)], [], [], [outcome(2, 2_000)]];
+      const { resource, calls, push } = await started(pages, undefined, [1_000, 1_000, 5_000, 5_000], 1_000);
+      await push([wire(3, 4_000)]);
+      // A reconnect backfills from the pushed cursor, above the outcome at 2_000.
+      FakeSocket.last!.onopen?.();
+      await flush();
+      expect(calls[2]).toMatchObject({ since: 4_000 });
+
+      vi.advanceTimersByTime(1_000);
+      await flush();
+
+      expect(calls[3]).toEqual({ since: 1_000, sinceId: undefined, limit: 500 });
+      expect(resource.get()?.map((w) => w.txHash)).toEqual([id(3), id(2), id(1)]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reads the whole log when every backfill so far failed", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    try {
+      const down = new Error("down");
+      const { resource, calls } = await started([[], [], [outcome(1, 1_000)]], undefined, [down, down, 1_000], 1_000);
+
+      vi.advanceTimersByTime(1_000);
+      await flush();
+
+      expect(calls.at(-1)).toEqual({ since: 0, sinceId: undefined, limit: 500 });
+      expect(resource.get()?.map((w) => w.txHash)).toEqual([id(1)]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

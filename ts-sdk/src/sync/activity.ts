@@ -102,7 +102,7 @@ export class ActivityHistory implements ActivityView {
         (min) => this.ctx.rest.activity(this.account, { toUs }, min),
         this.minimum(),
       );
-      this.store([page]);
+      if (!this.store([page])) return;
       this.nextUs = page.nextUs;
       this._hasMore = page.nextUs !== null;
       this.restack();
@@ -120,7 +120,7 @@ export class ActivityHistory implements ActivityView {
       if (since === undefined) {
         const page = await this.ctx.rest.activity(this.account);
         if (stale()) return false;
-        this.store([page]);
+        if (!this.store([page])) throw new Error("activity read below the held frames");
         this.ledger.stampUs ||= page.solutionNowUs;
         this.nextUs = page.nextUs;
         this._hasMore = page.nextUs !== null;
@@ -135,13 +135,13 @@ export class ActivityHistory implements ActivityView {
       do {
         const page = await readAtLeast(
           (min) => this.ctx.rest.activity(this.account, { fromUs, toUs }, min),
-          Math.max(since, this.ledger.stampUs),
+          Math.max(since, this.ledger.minimum()),
         );
         if (stale()) return false;
         pages.push(page);
         toUs = page.nextUs ?? undefined;
       } while (toUs !== undefined);
-      this.store(pages);
+      if (!this.store(pages)) throw new Error("activity read below the held frames");
       this.restack();
       for (const page of pages) this.stream.raise({ since: msToUs(page.solutionNow) });
       return true;
@@ -157,15 +157,16 @@ export class ActivityHistory implements ActivityView {
    * A page's `order` rows are each order's state at the page's read; its batches are
    * folded like frames, so the ledger skips the orders those rows already cover.
    */
-  private store(pages: ActivityPage[]): void {
-    for (const p of pages) {
-      const orders = p.batches.flatMap(([, entries]) => entries.flatMap((e) => (e.k === "order" ? [decodeOrder(e)] : [])));
-      this.ledger.rows(orders, p.solutionNowUs);
-    }
-    const fresh = pages.flatMap((p) => p.batches).filter(([batchUs]) => !this.batches.has(batchUs));
+  private store(pages: ActivityPage[]): boolean {
+    const kept = pages.filter((p) => this.ledger.rows(
+      p.batches.flatMap(([, entries]) => entries.flatMap((e) => (e.k === "order" ? [decodeOrder(e)] : []))),
+      p.solutionNowUs,
+    ));
+    const fresh = kept.flatMap((p) => p.batches).filter(([batchUs]) => !this.batches.has(batchUs));
     for (const [batchUs, entries] of fresh.sort((a, b) => a[0] - b[0])) {
       this.batches.set(batchUs, this.shown(this.ledger.live(batchUs, [batchUs, entries]).rows));
     }
+    return kept.length === pages.length;
   }
 
   /** Point `order` rows at the ledger's order, which later transitions and reconciles update in place. */
@@ -177,7 +178,7 @@ export class ActivityHistory implements ActivityView {
   }
 
   private minimum(): number | undefined {
-    return Math.max(this.stream.cursor.since ?? 0, this.ledger.stampUs) || undefined;
+    return Math.max(this.stream.cursor.since ?? 0, this.ledger.minimum()) || undefined;
   }
 
   /** Activity since the last reconcile: adds the batches the stream lost and corrects the orders. */
@@ -212,12 +213,20 @@ export class ActivityHistory implements ActivityView {
     const at: SubParams = { since: batchUs };
     if (this.stream.delivered(at)) return;
     this.stream.advance(at);
-    if (!entries.length || this.batches.has(batchUs)) return;
-    const { rows, events } = this.ledger.live(batchUs, [batchUs, entries as WireActivityEntry[]]);
-    this.batches.set(batchUs, this.shown(rows));
-    this.rows = [...rows, ...this.rows];
-    // Listeners run after rebuild() so one that reads the resource sees what the event produced.
-    this.rebuild();
+    if (!entries.length) return;
+    const frame: [number, WireActivityEntry[]] = [batchUs, entries as WireActivityEntry[]];
+    let events: ActivityEvent[];
+    if (this.batches.has(batchUs)) {
+      // A REST read already applied this batch; the app still hears about it.
+      events = this.ledger.report(frame).events;
+    } else {
+      const folded = this.ledger.live(batchUs, frame);
+      events = folded.events;
+      this.batches.set(batchUs, this.shown(folded.rows));
+      this.rows = [...folded.rows, ...this.rows];
+      // Listeners run after rebuild() so one that reads the resource sees what the event produced.
+      this.rebuild();
+    }
     if (events.length) {
       for (const listener of this.eventListeners) {
         try { listener(events); } catch { /* a listener's failure is not the stream's */ }

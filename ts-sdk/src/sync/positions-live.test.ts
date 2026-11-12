@@ -165,54 +165,61 @@ describe("enrichPositions funding", () => {
 describe("enrichPositions withdrawableCash", () => {
   const SIZE = 1_000_000n * LOT; // 1 whole unit, so $1 of mark is $1 of PnL
   const SNAP_US = 1_000_000;
-  // The node's withdrawable sits under equity − IM: its floor also counts a
-  // fraction of notional, which the SDK cannot see.
-  const NODE_WITHDRAWABLE = 2n * WAD;
-  const base = (over: Partial<PerpPosition> = {}) => ({
-    ...snap([perp(SIZE, { costBasis: mul(PRICE, SIZE), ...over })], 1_000n * WAD),
+  // $100 of equity in a $100 position; the node reserves 10% of notional.
+  const NODE_WITHDRAWABLE = 90n * WAD;
+  const base = (size = SIZE, over: Partial<PerpPosition> = {}) => ({
+    ...snap([perp(size, { costBasis: mul(PRICE, size), ...over })], 100n * WAD),
     withdrawableCash: NODE_WITHDRAWABLE,
     timestampUs: SNAP_US,
   });
+  const at = (markPrice: bigint, over: Partial<Market> = {}) => [market({ markPrice, dynamicsUs: SNAP_US + 1, ...over })];
 
   it("is the node's figure while marks have not moved", () => {
     const got = enrichPositions(base(), [market({ dynamicsUs: SNAP_US })]);
     expect(got.withdrawableCash).toBe(NODE_WITHDRAWABLE);
   });
 
-  it("moves by the equity change since the snapshot", () => {
-    const got = enrichPositions(base(), [market({ markPrice: PRICE + 3n * WAD, dynamicsUs: SNAP_US + 1 })]);
-    expect(got.withdrawableCash).toBe(NODE_WITHDRAWABLE + 3n * WAD);
+  it("moves by the equity change less the reserve change", () => {
+    // Equity 120, reserve 10% of 120.
+    expect(enrichPositions(base(), at(120n * WAD)).withdrawableCash).toBe(108n * WAD);
+    // Equity 80, reserve 10% of 80.
+    expect(enrichPositions(base(), at(80n * WAD)).withdrawableCash).toBe(72n * WAD);
+  });
+
+  it("charges a short both its loss and its larger reserve", () => {
+    expect(enrichPositions(base(-SIZE), at(120n * WAD)).withdrawableCash).toBe(68n * WAD);
   });
 
   it("is charged funding accrued since the snapshot", () => {
     const got = enrichPositions(
-      base({ fundingBasis: 0n, fundingAccrued: 0n }),
-      [market({ fundingSettlingIndex: WAD / 2n, dynamicsUs: SNAP_US + 1 })],
+      base(SIZE, { fundingBasis: 0n, fundingAccrued: 0n }),
+      at(PRICE, { fundingSettlingIndex: WAD / 2n }),
     );
     expect(got.withdrawableCash).toBe(NODE_WITHDRAWABLE - WAD / 2n);
   });
 
   it("floors at zero", () => {
-    const got = enrichPositions(base(), [market({ markPrice: PRICE - 5n * WAD, dynamicsUs: SNAP_US + 1 })]);
+    const got = enrichPositions({ ...base(-SIZE), withdrawableCash: 2n * WAD }, at(105n * WAD));
     expect(got.withdrawableCash).toBe(0n);
   });
 
-  it("stays zero on a zero snapshot, whatever the mark does", () => {
-    const got = enrichPositions(
-      { ...base(), withdrawableCash: 0n },
-      [market({ markPrice: PRICE + 3n * WAD, dynamicsUs: SNAP_US + 1 })],
-    );
-    expect(got.withdrawableCash).toBe(0n);
+  it("lifts a zero snapshot by the equity change alone", () => {
+    const got = enrichPositions({ ...base(), withdrawableCash: 0n }, at(103n * WAD));
+    expect(got.withdrawableCash).toBe(3n * WAD);
   });
 
   it("ignores market data older than the snapshot", () => {
     // Another node behind a load balancer: its mark predates the snapshot's.
-    const got = enrichPositions(base(), [market({ markPrice: PRICE + 3n * WAD, dynamicsUs: SNAP_US - 1 })]);
+    const got = enrichPositions(base(), [market({ markPrice: 120n * WAD, dynamicsUs: SNAP_US - 1 })]);
     expect(got.withdrawableCash).toBe(NODE_WITHDRAWABLE);
   });
 
   it("ignores market data with no timestamp", () => {
-    const got = enrichPositions(base(), [market({ markPrice: PRICE + 3n * WAD })]);
+    const got = enrichPositions(base(), [market({ markPrice: 120n * WAD })]);
     expect(got.withdrawableCash).toBe(NODE_WITHDRAWABLE);
+  });
+
+  it("keeps the snapshot's timestamp", () => {
+    expect(enrichPositions(base(), at(PRICE)).timestampUs).toBe(SNAP_US);
   });
 });

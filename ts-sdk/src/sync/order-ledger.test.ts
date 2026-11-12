@@ -128,6 +128,32 @@ describe("OrderLedger", () => {
     expect(at(l, 3)?.filledBase).toBe(1n);
   });
 
+  it("applies a fill above an order row that a lagging page returned", () => {
+    const l = new OrderLedger(fold);
+    l.stampUs = 10;
+    // The newest page, from a node at 50, has the fill; an older page, from a node at 30, has the order's row.
+    const pages = [page(50, { 40: [wireFill(2, "1")] }), page(30, { 20: [wireOrder(2)] })];
+    expect(l.reconcile(pages)).toBe(true);
+    expect(at(l, 2)?.filledBase).toBe(1n);
+  });
+
+  it("drops a reconcile below the evicted frames, and rows read below them", () => {
+    const l = new OrderLedger(fold);
+    l.stampUs = 1;
+    for (let us = 2; us <= 1_026; us++) l.live(us, { id: id(1), base: 0n });
+    expect(l.reconcile([page(1, {})])).toBe(false);
+    expect(l.rows([held(1)], 1)).toBe(false);
+    expect(at(l, 1)).toBeUndefined();
+    expect(l.rows([held(1)], 2)).toBe(true);
+  });
+
+  it("reports a frame's events without applying it", () => {
+    const l = new OrderLedger(fold);
+    l.rows([held(1)], 10);
+    expect(l.report({ id: id(1), base: 1n })).toEqual([id(1)]);
+    expect(at(l, 1)?.filledBase).toBe(0n);
+  });
+
   it("raises the minimum past evicted frames, so a reconcile cannot answer below them", () => {
     const l = new OrderLedger(fold);
     l.stampUs = 1;
