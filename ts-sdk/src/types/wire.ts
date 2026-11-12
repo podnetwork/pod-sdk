@@ -74,6 +74,7 @@ export interface WireCandle {
   low: WireDecimal;
   volume: WireDecimal;
   quote_volume: WireDecimal;
+  oracle_price?: WireDecimal | null; // perp only
 }
 
 /** GET /clob/candles envelope: candles + continuation metadata. */

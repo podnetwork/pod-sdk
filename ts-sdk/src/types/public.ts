@@ -222,6 +222,7 @@ export interface Bar {
   close: bigint;
   volume: bigint; // base volume
   quoteVolume: bigint; // quote (USD) notional
+  oraclePrice?: bigint; // REST only; absent for spot and perp buckets with no oracle price
 }
 
 export interface OrderbookLevel {
