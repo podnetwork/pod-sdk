@@ -28,21 +28,18 @@ A flag bit that a node does not recognise is rejected rather than ignored, so an
 
 ### Post-only
 
-A post-only order is guaranteed to add liquidity rather than take it. Under frequent batch auctions that guarantee has to be stated against the batch, not against the book at arrival: every intent in a batch is matched simultaneously, so two orders that arrive in the same batch and match each other are both takers, however the book looked when either was submitted. Asking "does it cross right now?" would therefore not be enough to guarantee anything.
+A post-only order is meant to add liquidity rather than take liquidity that was already resting. Under frequent batch auctions every intent in a batch is matched simultaneously, so there is no arrival order inside a batch to check against. The check is therefore made against the book as it stood before the batch:
 
-So the rule is:
-
-> A post-only order may not trade in the batch that admitted it. From the next batch onwards it is an ordinary resting maker.
+> A post-only order is refused if it crosses the book left by the previous batch. Otherwise it is an ordinary order for the rest of the batch.
 
 What follows from it:
 
-* A post-only order that would have traded in its admitting batch is removed from the book instead. The removal is terminal and never partial, and it is reported under its own status, `post_only_refused`, so it is distinguishable from a cancel the trader sent.
-* One that would not have traded in that batch simply rests, and matches from the next batch on.
-* Two post-only orders admitted in the same batch that cross only each other are both refused: neither took resting liquidity, but each would have taken from the other.
-* If a same-price order with better queue priority absorbs the crossing liquidity first, the post-only order behind it rests untouched — it never had the chance to take.
-* Amending an order in a way that re-queues it (a new price, or a larger size) makes it a newcomer again for that batch; an amendment that only shrinks the order keeps its queue priority and goes on matching.
+* A post-only order that crosses the previous book (a buy at or above its best ask, a sell at or below its best bid) never enters the book. It is reported under its own terminal status, `post_only_refused`, so it is distinguishable from a cancel the trader sent.
+* One that does not cross is admitted normally. It can fill in that same batch against other orders that arrived with it, and such a fill is a taker fill. Whatever rests is a maker from the next batch on.
+* Two post-only orders admitted in the same batch that cross only each other both trade: neither crossed the previous book.
+* Amending a post-only order in a way that re-queues it (a new price, or a larger size) is checked the same way: if the new price crosses the previous book, the amendment is rejected and the order is cancelled. An amendment that only shrinks the order keeps its queue priority and is never checked.
 
-A post-only order is therefore a *guaranteed maker* under a fee schedule that classifies maker and taker by the batch an order was included in: the classification cannot be gamed by an order that both arrived and traded in the same batch.
+Post-only therefore guarantees that an order never takes liquidity that was resting before its batch. It does not guarantee the maker fee: a post-only order that fills in the batch that admitted it pays the taker fee.
 
 ## Market Data
 

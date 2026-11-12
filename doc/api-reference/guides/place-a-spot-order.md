@@ -49,7 +49,7 @@ const ttl = 60n * 1_000_000n;               // order lives for 60 seconds
 
 const tx = await orderbook.submitOrder(
   orderbookId, size, price, orderType, deadline, ttl,
-  0,        // flags — 0 rests on the book; POST_ONLY to guarantee you add liquidity
+  0,        // flags — 0 rests on the book; POST_ONLY to refuse it if it crosses the book
 );
 console.log("Order tx:", tx.hash);
 ```
@@ -113,7 +113,7 @@ let ttl = 60 * 1_000_000; // order lives for 60 seconds
 let tx = orderbook
     .submitOrder(
         orderbook_id, size, price, Orderbook::OrderType::Limit, deadline, ttl,
-        0,            // flags — 0 rests on the book; POST_ONLY to guarantee you add liquidity
+        0,            // flags — 0 rests on the book; POST_ONLY to refuse it if it crosses the book
     )
     .send().await?;
 println!("Order tx: {:?}", tx.tx_hash());
@@ -125,9 +125,9 @@ println!("Order tx: {:?}", tx.tx_hash());
 **Microseconds, not milliseconds.** Deadlines and TTLs are Unix timestamps in microseconds.
 {% endhint %}
 
-## Guarantee that you add liquidity
+## Add liquidity with post-only
 
-Pass `POST_ONLY` (`0x04`) in `flags` to make the order a guaranteed maker. It rests on the book as usual, but it may not trade in the batch that admitted it: if it would have taken liquidity in that batch, it is removed instead and reported with the terminal status `post_only_refused`. From the next batch onwards it matches like any other resting order.
+Pass `POST_ONLY` (`0x04`) in `flags` so the order never takes liquidity that was already resting. If its price crosses the book left by the previous batch, it is refused and reported with the terminal status `post_only_refused`. Otherwise it is an ordinary limit order: it can still fill in its first batch against orders that arrived in the same batch, paying the taker fee, and whatever rests is a maker from the next batch on.
 
 ```typescript
 const tx = await orderbook.submitOrder(
@@ -136,4 +136,4 @@ const tx = await orderbook.submitOrder(
 );
 ```
 
-`POST_ONLY` cannot be combined with `IOC`, and cannot be set on a market order — both are rejected. See [Post-only orders](../applications-precompiles/orderbook.md#post-only-orders) for the exact rules, including what happens when two post-only orders cross each other and how amendments re-arm the guarantee.
+`POST_ONLY` cannot be combined with `IOC`, and cannot be set on a market order — both are rejected. See [Post-only orders](../applications-precompiles/orderbook.md#post-only-orders) for the exact rules, including what happens when two post-only orders cross each other and how amendments are checked.
