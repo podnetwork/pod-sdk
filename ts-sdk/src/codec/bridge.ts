@@ -137,17 +137,18 @@ export function bridgeTokenFor(
   return config?.tokens.find((t) => t.podToken.toLowerCase() === want);
 }
 
-/** The bridge contract's daily claim allowance for one token, as `tokenData` keeps it
- * (protocol `Bridge.sol`: `claimLimit`, `claimUsage`). Claim-chain decimals and unix seconds. */
-export interface ClaimUsage {
+/** One side of the bridge contract's daily allowance for a token, as `tokenData` keeps it
+ * (protocol `Bridge.sol`: `depositLimit`/`depositUsage` or `claimLimit`/`claimUsage`).
+ * Claim-chain decimals and unix seconds. */
+export interface BridgeUsage {
   limit: bigint;
   consumed: bigint;
   lastUpdated: number;
 }
 
-/** What the bridge can pay out now, exchange-wide, in claim-chain decimals, and when that
- * grows: `resetsAt` (unix seconds) while the current day's window is still running. */
-export interface ClaimCapacity {
+/** What the bridge can take now on that side, exchange-wide, in claim-chain decimals, and
+ * when that grows: `resetsAt` (unix seconds) while the current day's window is still running. */
+export interface BridgeCapacity {
   available: bigint;
   resetsAt?: number;
 }
@@ -155,12 +156,12 @@ export interface ClaimCapacity {
 const DAY = 86_400;
 
 /**
- * Mirrors `Bridge.sol` `_checkInLimits` for a claim: inside the day that `lastUpdated` began,
- * `limit − consumed` is left; once that day is over, a claim may also start the next window
- * (its excess over the old window's remainder is capped at `limit` again), so up to
- * `2 × limit − consumed`. A limit of zero means the token is switched off.
+ * Mirrors `Bridge.sol` `_checkInLimits`, the same rule for deposits and claims: inside the day
+ * that `lastUpdated` began, `limit − consumed` is left; once that day is over, a transfer may
+ * also start the next window (its excess over the old window's remainder is capped at `limit`
+ * again), so up to `2 × limit − consumed`. A limit of zero means that side is switched off.
  */
-export function claimCapacity(usage: ClaimUsage, nowSec: number): ClaimCapacity {
+export function bridgeCapacity(usage: BridgeUsage, nowSec: number): BridgeCapacity {
   const { limit, consumed, lastUpdated } = usage;
   if (limit <= 0n) return { available: 0n };
   const left = limit > consumed ? limit - consumed : 0n;

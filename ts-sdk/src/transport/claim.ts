@@ -17,7 +17,7 @@
 
 import type { Address, Hash } from "../types/public.js";
 import { PodRpcError, rpc, tryRpc, type RpcOptions } from "./jsonrpc.js";
-import type { ClaimUsage } from "../codec/bridge.js";
+import type { BridgeUsage } from "../codec/bridge.js";
 import type { WireWithdrawalDetail } from "../types/wire.js";
 
 /**
@@ -438,17 +438,21 @@ export function watchClaims(opts: WatchClaimsOptions): ClaimWatcher {
 // claimLimit, depositUsage {consumed, lastUpdated}, claimUsage {consumed, lastUpdated}, mirrorToken.
 const TOKEN_DATA_SELECTOR = "0x27e45c2c";
 
-/** Reads the bridge's daily claim allowance for `l1Token` from the claim chain. Throws when
- * the call fails or answers short: a missing limit must not read as "nothing left". */
-export async function fetchClaimUsage(
+/** Reads the bridge's daily allowances for `l1Token` from the claim chain: `deposit` for money
+ * coming in, `claim` for withdrawals paying out. Throws when the call fails or answers short:
+ * a missing limit must not read as "nothing left". */
+export async function fetchBridgeUsage(
   claimRpcUrl: string,
   bridge: Address,
   l1Token: Address,
   opts?: RpcOptions,
-): Promise<ClaimUsage> {
+): Promise<{ deposit: BridgeUsage; claim: BridgeUsage }> {
   const data = TOKEN_DATA_SELECTOR + l1Token.slice(2).toLowerCase().padStart(64, "0");
   const raw = await rpc<string>(claimRpcUrl, "eth_call", [{ to: bridge, data }, "latest"], opts);
   if (raw.length < 2 + 64 * 8) throw new PodRpcError(undefined, "tokenData returned too little");
   const word = (i: number) => BigInt(`0x${raw.slice(2 + 64 * i, 2 + 64 * (i + 1))}`);
-  return { limit: word(2), consumed: word(5), lastUpdated: Number(word(6)) };
+  return {
+    deposit: { limit: word(1), consumed: word(3), lastUpdated: Number(word(4)) },
+    claim: { limit: word(2), consumed: word(5), lastUpdated: Number(word(6)) },
+  };
 }
