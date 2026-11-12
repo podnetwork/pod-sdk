@@ -73,8 +73,9 @@ it("reports nothing for a provisional seed alone", () => {
 });
 
 it("ignores a snapshot from another format version, and storage that throws", () => {
-  const old = memStore({ k: JSON.stringify({ v: 0, at: 1, value: 7 }) });
-  expect(new BaseResource<number>(() => () => {}, { store: old, key: "k" }).lastKnown()).toBeUndefined();
+  // v1 wrote bigints as "<digits>n" strings, which today's codec revives as strings.
+  const old = memStore({ k: JSON.stringify({ v: 1, at: 1, value: { n: "7n" } }) });
+  expect(new BaseResource<{ n: bigint }>(() => () => {}, { store: old, key: "k" }).lastKnown()).toBeUndefined();
 
   const broken: SnapshotStore = { get: () => { throw new Error("denied"); }, set: () => { throw new Error("full"); } };
   const { r, h, off } = controlled<number>(broken);
