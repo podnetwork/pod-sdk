@@ -36,9 +36,8 @@ const BACKSTOP: WireActivityEntry = {
 const BRIDGE: WireActivityEntry = { k: "bridge_transfer", tx: id(21), idx: 1, tok: TOKEN, amt: "-900", err: "insufficient_balance" };
 const TRANSFER: WireActivityEntry = { k: "transfer", id: id(22), cp: BOB, tok: TOKEN, amt: "1700" };
 
-const pageOrders = (entries: WireActivityEntry[]) => new Set(entries.flatMap((e) => (e.k === "order" ? [e.order_id] : [])));
-const fold = (entries: WireActivityEntry[], orders = new Map<string, Order>(), source: "rest" | "stream" = "stream") =>
-  ({ ...foldActivityBatch(BATCH, entries, orders, source === "rest" ? { pageOrders: pageOrders(entries) } : "stream"), orders });
+const fold = (entries: WireActivityEntry[], orders = new Map<string, Order>()) =>
+  ({ ...foldActivityBatch(BATCH, entries, orders), orders });
 const kindOf = (e: { activityType: string } | { kind: string }) => ("activityType" in e ? e.activityType : e.kind);
 
 describe("decodeActivityEntry", () => {
@@ -204,44 +203,16 @@ describe("foldActivityBatch", () => {
   it("leaves the totals alone on a legacy fill without them", () => {
     const orders = new Map<string, Order>();
     fold([order(1), fill(1, { tb: units(2n), tq: units(200n), tf: "5" })], orders);
-    foldActivityBatch(BATCH + 1, [fill(1, { tb: undefined, tq: undefined, tf: undefined })], orders, "stream");
+    foldActivityBatch(BATCH + 1, [fill(1, { tb: undefined, tq: undefined, tf: undefined })], orders);
     expect(orders.get(id(1))).toMatchObject({ filledBase: 2n * WAD, filledQuote: 200n * WAD, fee: 5n });
-  });
-
-  it("applies nothing and emits nothing for a REST page", () => {
-    const { rows, events, orders } = fold(BATCH_ENTRIES, new Map(), "rest");
-    expect(rows.map(kindOf)).toEqual([
-      "order", "order", "fill", "fill", "modify", "termination", "backstop", "bridge_transfer", "transfer", "cancel_reject",
-    ]);
-    expect(events).toEqual([]);
-    expect(orders.get(id(1))).toMatchObject({ status: "active", price: 100n * WAD, filledBase: 0n });
-  });
-
-  it("shows a pre-upgrade REST order filled from its own state", () => {
-    const { rows, orders } = fold([FILLED], new Map(), "rest");
-    expect(rows).toHaveLength(1);
-    expect(orders.get(id(1))).toMatchObject({ status: "filled", filledBase: 2n * WAD });
   });
 
   it("adds a streamed fill's realized PnL to the order, and reports it on the fill", () => {
     const orders = new Map<string, Order>();
-    fold([order(1, { realized_pnl: "10" })], orders, "rest");
+    fold([order(1, { realized_pnl: "10" })], orders);
     const { rows } = fold([fill(1, { pnl: "-4" })], orders);
     expect(orders.get(id(1))?.realizedPnl).toBe(6n);
     expect(rows[0]).toMatchObject({ activityType: "fill", realizedPnl: -4n });
   });
 
-  it("takes realized PnL from a REST order row, never from a REST fill row", () => {
-    const orders = new Map<string, Order>();
-    fold([order(1, { realized_pnl: "10" })], orders, "rest");
-    foldActivityBatch(BATCH + 1, [fill(1, { pnl: "10", tb: units(2n) })], orders, { pageOrders: new Set() });
-    expect(orders.get(id(1))).toMatchObject({ realizedPnl: 10n, filledBase: 2n * WAD });
-  });
-
-  it("replaces a held order with the one a REST page carries", () => {
-    const orders = new Map<string, Order>();
-    fold([order(1)], orders, "stream");
-    fold([FILLED], orders, "rest");
-    expect(orders.get(id(1))?.status).toBe("filled");
-  });
 });

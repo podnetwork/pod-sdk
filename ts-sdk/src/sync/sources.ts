@@ -34,6 +34,8 @@ export interface SyncContext {
   positionResyncMs: number;
   /** Periodic REST re-poll (ms) of market 24h stats; 0 disables. */
   marketResyncMs: number;
+  /** Periodic REST reconcile (ms) of orders, activity, withdrawals, candles and triggers; 0 disables. */
+  historyResyncMs: number;
   /** Optional persistence for the static markets list (see marketsSource). */
   marketsCache?: MarketsCache;
 }
@@ -226,7 +228,7 @@ export function marketsSource(
     const seedStats = () => readAtLeast((min) => rest.marketStats(undefined, min), heldUs).then((page) => {
       if (!alive) return;
       heldUs = Math.max(heldUs, page.solutionNow * 1000);
-      page.markets.forEach((m) => { if (fresh(page.solutionNow, m.id)) mergePatch(m); });
+      page.markets.forEach((m) => { if (fresh(page.solutionNow, m.id)) mergePatch({ ...m, dynamicsUs: page.solutionNow * 1000 }); });
       publish();
     }).catch(() => { /* live dynamics also arrive on the stream */ });
 
@@ -241,7 +243,10 @@ export function marketsSource(
         const id = (w.orderbook_id ?? w.orderbook) as string;
         if (typeof w.timestamp === "number") heldUs = Math.max(heldUs, w.timestamp);
         if (!fresh(typeof w.timestamp === "number" ? usToMs(w.timestamp) : undefined, id)) continue;
-        mergePatch(decodeMarketDynamics({ ...w, orderbook_id: id } as WireMarketDynamics));
+        mergePatch({
+          ...decodeMarketDynamics({ ...w, orderbook_id: id } as WireMarketDynamics),
+          dynamicsUs: typeof w.timestamp === "number" ? w.timestamp : undefined,
+        });
       }
       publish();
     });
@@ -284,12 +289,13 @@ export function positionsSource(
     //  - a periodic REST poll that re-aligns to the backend's exact accounting
     //    (corrects mark-extrapolation drift even when the account isn't touched).
     const fresh = watermarks();
+    fresh(h.lastKnown()?.value.timestampUs);
     const accept = (s: PositionsSnapshot) => { if (alive && fresh(s.timestampUs)) h.set(s); };
     const reseed = () =>
-      readAtLeast((min) => rest.positions(account, min), h.current()?.timestampUs).then(accept).catch(() => {});
+      readAtLeast((min) => rest.positions(account, min), h.lastKnown()?.value.timestampUs).then(accept).catch(() => {});
     reseed();
     const timer = positionResyncMs > 0 ? setInterval(reseed, positionResyncMs) : undefined;
-    const sub = subscribeRetrying(ws, "pod_positions", () => ({ account, since: h.current()?.timestampUs ?? 0 }), (result) => {
+    const sub = subscribeRetrying(ws, "pod_positions", () => ({ account, since: h.lastKnown()?.value.timestampUs ?? 0 }), (result) => {
       accept(decodePositions((result as WirePositionsPush).data));
     });
     return () => { alive = false; if (timer) clearInterval(timer); sub.unsubscribe(); };
@@ -331,17 +337,25 @@ export function balancesSource(
 }
 
 export function triggersSource(
-  { ws }: SyncContext,
+  { rest, ws, historyResyncMs }: SyncContext,
   account: Address,
 ): ResourceSource<Trigger[]> {
   const fresh = watermarks();
   let heldUs = 0;
   return (h) => {
+    let alive = true;
+    const accept = (triggers: Trigger[], timestampUs: number | undefined) => {
+      heldUs = Math.max(heldUs, timestampUs ?? 0);
+      if (alive && fresh(timestampUs)) h.set(triggers);
+    };
+    // 200 is the page `pod_triggers` pushes.
+    const reconcile = () => readAtLeast((min) => rest.triggers(account, { limit: 200 }, min), heldUs)
+      .then((page) => accept(page.triggers, page.timestampUs)).catch(() => {});
+    const timer = historyResyncMs > 0 ? setInterval(reconcile, historyResyncMs) : undefined;
     const sub = subscribeRetrying(ws, "pod_triggers", () => ({ account, since: heldUs }), (result) => {
       const w = result as WireTriggersPush;
-      heldUs = Math.max(heldUs, w.timestamp ?? 0);
-      if (fresh(w.timestamp)) h.set(w.triggers.map(decodeTrigger));
+      accept(w.triggers.map(decodeTrigger), w.timestamp);
     });
-    return () => sub.unsubscribe();
+    return () => { alive = false; clearInterval(timer); sub.unsubscribe(); };
   };
 }

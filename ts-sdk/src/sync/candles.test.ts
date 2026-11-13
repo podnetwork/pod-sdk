@@ -398,3 +398,31 @@ describe("candle pages and the minimum timestamp", () => {
     expect(asked.find((a) => a.to === T0 + 30 * MIN)).toEqual({ to: T0 + 30 * MIN, min: undefined });
   });
 });
+
+describe("CandleSeries reconcile", () => {
+  it("re-reads its window periodically, so a bar the tick stream got wrong is replaced once it closes", async () => {
+    // Ten minutes into the trailing page, so it holds closed buckets to re-read.
+    vi.useFakeTimers({ toFake: ["setInterval", "Date"], now: T0 + 10 * MIN });
+    try {
+      const { rest, asked } = restStub(series1m(10, T0 + 9 * MIN));
+      const ctx = {
+        rest,
+        ws: { subscribe: () => ({ unsubscribe() {}, update() {}, resubscribe() {} }), on: () => () => {} },
+        historyResyncMs: 1_000,
+      } as unknown as SyncContext;
+      const s = new CandleSeries(ctx, ID, "1m", { from: T0 - 5 * MIN });
+      const off = s.subscribe(() => {});
+      for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+      const before = asked.length;
+
+      vi.advanceTimersByTime(1_000);
+      for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+
+      expect(asked.length).toBeGreaterThan(before);
+      expect(asked.at(-1)).toEqual({ from: T0, to: T0 + 10 * MIN });
+      off();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

@@ -52,6 +52,26 @@ it("writes at most once per window however often the value changes", () => {
   expect(JSON.parse(store.data.k!).value).toBe(99);
 });
 
+it("writes at once when the value's stamp moves past the one written, so a reload cannot open below it", () => {
+  const store = memStore();
+  const set = vi.spyOn(store, "set");
+  let h: ResourceHandle<{ ts: number; n: number }> | undefined;
+  const r = new BaseResource<{ ts: number; n: number }>(
+    (handle) => { h = handle; return () => {}; },
+    { store, key: "k", stampOf: (v) => v.ts },
+  );
+  r.subscribe(() => {});
+  h!.set({ ts: 1, n: 0 });
+  expect(set).toHaveBeenCalledTimes(1);
+  h!.set({ ts: 1, n: 1 });
+  expect(set).toHaveBeenCalledTimes(1);
+  h!.set({ ts: 2, n: 10 });
+  expect(set).toHaveBeenCalledTimes(2);
+  expect(JSON.parse(store.data.k!).value).toEqual({ ts: 2, n: 10 });
+  vi.advanceTimersByTime(5_000);
+  expect(set).toHaveBeenCalledTimes(2);
+});
+
 it("never persists a provisional seed, nor lets it shadow a real snapshot", () => {
   const store = memStore();
   const a = controlled<string>(store);

@@ -100,7 +100,7 @@ export function decodeActivityEntry(e: WireActivityEntry, timeMs: number): Activ
   }
 }
 
-function asOrderEvent(e: WireActivityEntry): WireOrderEvent | undefined {
+export function asOrderEvent(e: WireActivityEntry): WireOrderEvent | undefined {
   switch (e.k) {
     case "fill":
       return { k: "fill", id: e.id, b: e.b, q: e.q, tb: e.tb, tq: e.tq, tf: e.tf, f: e.f, st: e.st, pa: e.pa, pnl: e.pnl };
@@ -113,18 +113,12 @@ function asOrderEvent(e: WireActivityEntry): WireOrderEvent | undefined {
   }
 }
 
-/**
- * Decode one batch, setting its `order` rows in `orders` and applying transitions to the
- * orders it holds. Only a `stream` batch emits events. A REST page's `order` rows already
- * carry their current state, so a REST batch applies nothing to an order in `pageOrders`.
- */
+/** Decode one batch, setting its `order` rows in `orders` and applying transitions to the orders it holds. */
 export function foldActivityBatch(
   batchUs: number,
   entries: WireActivityEntry[],
   orders: Map<string, Order>,
-  source: "stream" | { pageOrders: ReadonlySet<string> },
 ): { rows: ActivityEntry[]; events: ActivityEvent[] } {
-  const rest = source !== "stream";
   const batchMs = usToMs(batchUs);
   const rows: ActivityEntry[] = [];
   const events: ActivityEvent[] = [];
@@ -134,26 +128,15 @@ export function foldActivityBatch(
     rows.push(row);
     if (row.activityType === "order") {
       orders.set(row.order.id, row.order);
-      if (!rest) {
-        events.push({ kind: row.order.status === "invalid" ? "reject" : "new", order: row.order, batchMs });
-      }
+      events.push({ kind: row.order.status === "invalid" ? "reject" : "new", order: row.order, batchMs });
       continue;
     }
     if (row.activityType === "backstop" || row.activityType === "bridge_transfer" || row.activityType === "transfer") {
-      if (!rest) events.push(row);
+      events.push(row);
       continue;
     }
     const order = orders.get(row.orderId);
-    if (!order || (rest && source.pageOrders.has(row.orderId))) continue;
-    if (rest) {
-      const event = asOrderEvent(e);
-      // `pnl` is a delta that the held order's own REST row may already include; that row, not the fill, sets it.
-      if (event) {
-        event.pnl = undefined;
-        applyEvent(event, order, { batchMs });
-      }
-      continue;
-    }
+    if (!order) continue;
     if (row.activityType === "modify_reject") {
       const { requestedPrice, requestedSize, message } = row;
       events.push({

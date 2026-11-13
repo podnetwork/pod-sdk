@@ -74,6 +74,18 @@ describe("previewOrder", () => {
     expect(p.size).toBe(3n * LOT + 1n);
   });
 
+  it("sizes against equity over initial margin, not the stricter withdrawable", () => {
+    const s = { ...snap(), withdrawableCash: 2n * WAD, initialMargin: 1_000n * WAD };
+    const p = previewOrder(s, market(), { side: "long", price: PRICE, notional: 0n });
+    expect(p.maxNotional).toBe(9_000n * WAD * 20n);
+  });
+
+  it("falls back to withdrawable when initial margin is unknown", () => {
+    const s = { ...snap(), withdrawableCash: 2n * WAD };
+    const p = previewOrder(s, market(), { side: "long", price: PRICE, notional: 0n });
+    expect(p.maxNotional).toBe(2n * WAD * 20n);
+  });
+
   it("keeps maxNotional on the requested basis", () => {
     // An inverse: callers clamp the requested notional with it.
     const p = previewOrder(snap(), market(), { side: "long", price: PRICE, notional: 0n });

@@ -1,15 +1,17 @@
 // `pod_activity` sends one batch per tick, so the batch alone is the resume cursor (ADR 0057).
 
 import type {
-  ActivityEntry, ActivityEvent, ActivityQuery, ActivityType, Address, Order, OrderEventKind,
+  ActivityEntry, ActivityEvent, ActivityQuery, ActivityType, Address, OrderEventKind,
 } from "../types/public.js";
 import type { WireActivityEntry } from "../types/wire.js";
-import { foldActivityBatch } from "../codec/activity.js";
-import { msToUs } from "../codec/units.js";
+import { decodeActivityEntry, foldActivityBatch } from "../codec/activity.js";
+import { decodeOrder } from "../codec/decode.js";
+import { msToUs, usToMs } from "../codec/units.js";
 import { BaseResource, type ResourceHandle } from "../stores/resource.js";
 import type { ActivityPage } from "../transport/rest.js";
 import type { SubParams } from "../transport/ws.js";
 import type { SeriesResource } from "./candles.js";
+import { OrderLedger, readActivityAfter } from "./order-ledger.js";
 import { readAtLeast, type SyncContext } from "./sources.js";
 import { ResumableStream } from "./stream.js";
 
@@ -23,7 +25,10 @@ export class ActivityHistory implements ActivityView {
   private handle: ResourceHandle<ActivityEntry[]> | undefined;
   /** Every batch's rows, from either source; what dedupes one against the other. */
   private readonly batches = new Map<number, ActivityEntry[]>();
-  private readonly orders = new Map<string, Order>();
+  private readonly ledger = new OrderLedger<[number, WireActivityEntry[]], { rows: ActivityEntry[]; events: ActivityEvent[] }>(
+    ([batchUs, entries], orders) => foldActivityBatch(batchUs, entries, orders),
+  );
+  private reconciling = false;
   private rows: ActivityEntry[] = [];
   private nextUs: number | null = null;
   private seedGen = 0;
@@ -47,7 +52,9 @@ export class ActivityHistory implements ActivityView {
     this.base = new BaseResource<ActivityEntry[]>((h) => {
       this.handle = h;
       this.stream.start();
+      const timer = ctx.historyResyncMs > 0 ? setInterval(() => void this.reconcile(), ctx.historyResyncMs) : undefined;
       return () => {
+        clearInterval(timer);
         this.stream.stop();
         this.handle = undefined;
       };
@@ -93,9 +100,9 @@ export class ActivityHistory implements ActivityView {
       const toUs = this.nextUs;
       const page = await readAtLeast(
         (min) => this.ctx.rest.activity(this.account, { toUs }, min),
-        this.stream.cursor.since,
+        this.minimum(),
       );
-      this.store([page]);
+      if (!this.store([page])) return;
       this.nextUs = page.nextUs;
       this._hasMore = page.nextUs !== null;
       this.restack();
@@ -113,7 +120,8 @@ export class ActivityHistory implements ActivityView {
       if (since === undefined) {
         const page = await this.ctx.rest.activity(this.account);
         if (stale()) return false;
-        this.store([page]);
+        if (!this.store([page])) throw new Error("activity read below the held frames");
+        this.ledger.stampUs ||= page.solutionNowUs;
         this.nextUs = page.nextUs;
         this._hasMore = page.nextUs !== null;
         this.restack();
@@ -125,12 +133,15 @@ export class ActivityHistory implements ActivityView {
       let toUs: number | undefined;
       const pages: ActivityPage[] = [];
       do {
-        const page = await readAtLeast((min) => this.ctx.rest.activity(this.account, { fromUs, toUs }, min), since);
+        const page = await readAtLeast(
+          (min) => this.ctx.rest.activity(this.account, { fromUs, toUs }, min),
+          Math.max(since, this.ledger.minimum()),
+        );
         if (stale()) return false;
         pages.push(page);
         toUs = page.nextUs ?? undefined;
       } while (toUs !== undefined);
-      this.store(pages);
+      if (!this.store(pages)) throw new Error("activity read below the held frames");
       this.restack();
       for (const page of pages) this.stream.raise({ since: msToUs(page.solutionNow) });
       return true;
@@ -142,12 +153,51 @@ export class ActivityHistory implements ActivityView {
     }
   }
 
-  /** Oldest batch first, so transitions to held orders land in order; a batch already held is skipped. */
-  private store(pages: ActivityPage[]): void {
-    const fresh = pages.flatMap((p) => p.batches).filter(([batchUs]) => !this.batches.has(batchUs));
-    const pageOrders = new Set(fresh.flatMap(([, entries]) => entries.flatMap((e) => (e.k === "order" ? [e.order_id] : []))));
+  /**
+   * A page's `order` rows are each order's state at the page's read; its batches are
+   * folded like frames, so the ledger skips the orders those rows already cover.
+   */
+  private store(pages: ActivityPage[]): boolean {
+    const kept = pages.filter((p) => this.ledger.rows(
+      p.batches.flatMap(([, entries]) => entries.flatMap((e) => (e.k === "order" ? [decodeOrder(e)] : []))),
+      p.solutionNowUs,
+    ));
+    const fresh = kept.flatMap((p) => p.batches).filter(([batchUs]) => !this.batches.has(batchUs));
     for (const [batchUs, entries] of fresh.sort((a, b) => a[0] - b[0])) {
-      this.batches.set(batchUs, foldActivityBatch(batchUs, entries, this.orders, { pageOrders }).rows);
+      this.batches.set(batchUs, this.shown(this.ledger.live(batchUs, [batchUs, entries]).rows));
+    }
+    return kept.length === pages.length;
+  }
+
+  /** Point `order` rows at the ledger's order, which later transitions and reconciles update in place. */
+  private shown(rows: ActivityEntry[]): ActivityEntry[] {
+    for (const row of rows) {
+      if (row.activityType === "order") row.order = this.ledger.view.get(row.order.id) ?? row.order;
+    }
+    return rows;
+  }
+
+  private minimum(): number | undefined {
+    return Math.max(this.stream.cursor.since ?? 0, this.ledger.minimum()) || undefined;
+  }
+
+  /** Activity since the last reconcile: adds the batches the stream lost and corrects the orders. */
+  private async reconcile(): Promise<void> {
+    if (this.reconciling || !this.ledger.stampUs || !this.stream.running) return;
+    this.reconciling = true;
+    try {
+      const pages = await readActivityAfter(this.ctx.rest, this.account, this.ledger.stampUs, this.ledger.minimum());
+      if (!this.stream.running || !this.ledger.reconcile(pages)) return;
+      const fresh = pages.flatMap((p) => p.batches).filter(([batchUs]) => !this.batches.has(batchUs));
+      for (const [batchUs, entries] of fresh) {
+        const rows = entries.flatMap((e) => decodeActivityEntry(e, usToMs(batchUs)) ?? []);
+        this.batches.set(batchUs, this.shown(rows));
+      }
+      this.restack();
+    } catch {
+      // The next interval asks again.
+    } finally {
+      this.reconciling = false;
     }
   }
 
@@ -163,12 +213,20 @@ export class ActivityHistory implements ActivityView {
     const at: SubParams = { since: batchUs };
     if (this.stream.delivered(at)) return;
     this.stream.advance(at);
-    if (!entries.length || this.batches.has(batchUs)) return;
-    const { rows, events } = foldActivityBatch(batchUs, entries as WireActivityEntry[], this.orders, "stream");
-    this.batches.set(batchUs, rows);
-    this.rows = [...rows, ...this.rows];
-    // Listeners run after rebuild() so one that reads the resource sees what the event produced.
-    this.rebuild();
+    if (!entries.length) return;
+    const frame: [number, WireActivityEntry[]] = [batchUs, entries as WireActivityEntry[]];
+    let events: ActivityEvent[];
+    if (this.batches.has(batchUs)) {
+      // A REST read already applied this batch; the app still hears about it.
+      events = this.ledger.report(frame).events;
+    } else {
+      const folded = this.ledger.live(batchUs, frame);
+      events = folded.events;
+      this.batches.set(batchUs, this.shown(folded.rows));
+      this.rows = [...folded.rows, ...this.rows];
+      // Listeners run after rebuild() so one that reads the resource sees what the event produced.
+      this.rebuild();
+    }
     if (events.length) {
       for (const listener of this.eventListeners) {
         try { listener(events); } catch { /* a listener's failure is not the stream's */ }

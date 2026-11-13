@@ -62,7 +62,7 @@ const wire = (n: number, timeUs: number): WireWithdrawal => ({
  * at a time, so a test can describe a multi-page backfill; `calls` records the
  * cursor each call was made with.
  */
-async function started(pages: Withdrawal[][], holdCall?: number, timestamps: (number | Error)[] = []) {
+async function started(pages: Withdrawal[][], holdCall?: number, timestamps: (number | Error)[] = [], resyncMs = 0) {
   const calls: WithdrawalsQuery[] = [];
   const remaining = [...pages];
   // `holdCall` parks that call's RESPONSE, leaving the walk mid-backfill so a
@@ -90,7 +90,7 @@ async function started(pages: Withdrawal[][], holdCall?: number, timestamps: (nu
   });
   onTestFinished(() => ws.close());
 
-  const ctx = { rest, ws, positionResyncMs: 0, marketResyncMs: 0 } as SyncContext;
+  const ctx = { rest, ws, positionResyncMs: 0, marketResyncMs: 0, historyResyncMs: resyncMs } as SyncContext;
   const resource = new BaseResource(withdrawalsSource(ctx, ACCOUNT));
   onTestFinished(() => resource.destroy());
   resource.subscribe(() => {});
@@ -312,7 +312,7 @@ describe("withdrawalsSource", () => {
       idleTimeoutMs: 60 * 60_000,
     });
     onTestFinished(() => ws.close());
-    const ctx = { rest, ws, positionResyncMs: 0, marketResyncMs: 0 } as SyncContext;
+    const ctx = { rest, ws, positionResyncMs: 0, marketResyncMs: 0, historyResyncMs: 0 } as SyncContext;
     const resource = new BaseResource(withdrawalsSource(ctx, ACCOUNT));
     onTestFinished(() => resource.destroy());
     resource.subscribe(() => {});
@@ -357,5 +357,62 @@ describe("withdrawalsSource", () => {
     const { resource, push } = await started([[]]);
     await push([{ ...wire(2, 6_000), error: "" }]);
     expect(resource.get()![0]!.error).toBeUndefined();
+  });
+});
+
+describe("withdrawalsSource reconcile", () => {
+  it("reads again from the last tick REST served, so an outcome a later push skipped over is added", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    try {
+      // The second read is the socket's `open`, which finds nothing new.
+      const pages = [[outcome(1, 1_000)], [], [outcome(2, 2_000)]];
+      const { resource, calls, push } = await started(pages, undefined, [1_000, 1_000, 4_000], 1_000);
+      await push([wire(3, 4_000)]);
+
+      vi.advanceTimersByTime(1_000);
+      await flush();
+
+      expect(calls[2]).toEqual({ since: 1_000, sinceId: undefined, limit: 500 });
+      expect(resource.get()?.map((w) => w.txHash)).toEqual([id(3), id(2), id(1)]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps reading from the last tick REST served after a backfill from a pushed cursor", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    try {
+      const pages = [[outcome(1, 1_000)], [], [], [outcome(2, 2_000)]];
+      const { resource, calls, push } = await started(pages, undefined, [1_000, 1_000, 5_000, 5_000], 1_000);
+      await push([wire(3, 4_000)]);
+      // A reconnect backfills from the pushed cursor, above the outcome at 2_000.
+      FakeSocket.last!.onopen?.();
+      await flush();
+      expect(calls[2]).toMatchObject({ since: 4_000 });
+
+      vi.advanceTimersByTime(1_000);
+      await flush();
+
+      expect(calls[3]).toEqual({ since: 1_000, sinceId: undefined, limit: 500 });
+      expect(resource.get()?.map((w) => w.txHash)).toEqual([id(3), id(2), id(1)]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reads the whole log when every backfill so far failed", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    try {
+      const down = new Error("down");
+      const { resource, calls } = await started([[], [], [outcome(1, 1_000)]], undefined, [down, down, 1_000], 1_000);
+
+      vi.advanceTimersByTime(1_000);
+      await flush();
+
+      expect(calls.at(-1)).toEqual({ since: 0, sinceId: undefined, limit: 500 });
+      expect(resource.get()?.map((w) => w.txHash)).toEqual([id(1)]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

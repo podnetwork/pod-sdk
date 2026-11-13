@@ -212,6 +212,8 @@ export interface Market {
   fundingSettlingIndex?: bigint;
   fundingLastUpdatedMs?: number;
   openInterest?: bigint;
+  /** Solution time (µs) of the node state the dynamics above were read from. */
+  dynamicsUs?: number;
 }
 
 export interface Bar {
@@ -347,6 +349,8 @@ export interface PositionsSnapshot {
   accountValue: bigint;
   cash: bigint;
   withdrawableCash: bigint;
+  /** Live snapshots only: Σ initial margin at live notional. */
+  initialMargin?: bigint;
   maintenanceMargin?: bigint;
   /** Deadline (µs) of the last tick the answering node executed. */
   timestampUs?: number;

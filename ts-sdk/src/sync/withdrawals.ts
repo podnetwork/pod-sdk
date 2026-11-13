@@ -24,7 +24,7 @@ const PAGE_LIMIT = 500;
 const MAX_PAGES = 50;
 
 export function withdrawalsSource(
-  { rest, ws }: SyncContext,
+  { rest, ws, historyResyncMs }: SyncContext,
   account: Address,
 ): ResourceSource<Withdrawal[]> {
   return (h) => {
@@ -66,16 +66,23 @@ export function withdrawalsSource(
      * the cursor, so concurrent loops would re-request each other's pages.
      */
     let inflight: Promise<boolean> | undefined;
-    const backfill = (): Promise<boolean> => (inflight ??= run().finally(() => { inflight = undefined; }));
+    const walk = (fromUs: number, fromId: Withdrawal["txHash"] | undefined): Promise<boolean> =>
+      (inflight ??= run(fromUs, fromId).finally(() => { inflight = undefined; }));
+    const backfill = () => walk(sinceUs, sinceId);
+    // From the end of the log REST last served rather than the shared cursor, which
+    // pushes move: an outcome the stream lost below a later push is read again.
+    const reconcile = () => { void walk(servedUs, undefined); };
 
-    const run = async () => {
+    const run = async (fromUs: number, fromId: Withdrawal["txHash"] | undefined) => {
       try {
         // Page against a cursor local to this run. The shared one is also moved
         // by live pushes, and a push landing mid-backfill would jump the next
         // page past the rest of an older tick — rows the forward-only cursor
         // could then never come back for.
-        let pageSince = sinceUs;
-        let pageSinceId = sinceId;
+        // A walk from above `servedUs` skipped whatever lies between, so it cannot vouch for the log.
+        const vouches = fromUs <= servedUs;
+        let pageSince = fromUs;
+        let pageSinceId = fromId;
         for (let page = 0; page < MAX_PAGES; page++) {
           const query = { since: pageSince, sinceId: pageSinceId, limit: PAGE_LIMIT };
           const res = await readAtLeast(
@@ -86,7 +93,7 @@ export function withdrawalsSource(
           const rows = res.withdrawals;
           absorb(rows);
           // Pages may come from different nodes: only the one that served the end of the log vouches for it.
-          if (rows.length < PAGE_LIMIT) { servedUs = Math.max(servedUs, res.timestampUs); break; }
+          if (rows.length < PAGE_LIMIT) { if (vouches) servedUs = Math.max(servedUs, res.timestampUs); break; }
           // Rows come back ascending, so the last one is this page's high-water
           // mark — regardless of what the stream did to the shared cursor.
           const last = rows[rows.length - 1]!;
@@ -169,6 +176,7 @@ export function withdrawalsSource(
     // Seed immediately — REST needs no socket, so history paints without waiting
     // on the handshake — and fill the gap again on every reconnect.
     const offOpen = ws.on("open", () => { if (alive) void backfill(); });
+    const timer = historyResyncMs > 0 ? setInterval(reconcile, historyResyncMs) : undefined;
     // Subscribing after the first backfill lets `since` cover the gap between a
     // lagging REST node and the head of the node the socket landed on.
     void backfill().then((ok) => {
@@ -180,6 +188,7 @@ export function withdrawalsSource(
     return () => {
       alive = false;
       offOpen();
+      clearInterval(timer);
       if (retryTimer) clearTimeout(retryTimer);
       sub?.unsubscribe();
     };
