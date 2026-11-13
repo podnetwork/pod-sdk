@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Solidity contracts for the Pod Network bridge protocol, deployable on any Ethereum-compatible chain. Uses Foundry as the development framework with Solidity 0.8.28, EVM target Prague, and IR-based compilation.
+Solidity contracts for the Pod Network bridge protocol, deployable on any Ethereum-compatible chain. Uses Foundry as the development framework with EVM target Prague and IR-based compilation.
 
 ### How the Bridge Works
 
