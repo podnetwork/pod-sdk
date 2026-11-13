@@ -14,6 +14,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     WrappedToken internal _token;
 
     address public admin = makeAddr("admin");
+    address public fastAdmin = makeAddr("fastAdmin");
     address public user = makeAddr("user");
     address public newBridge = makeAddr("newBridge");
 
@@ -47,6 +48,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         (_bridge,) =
             BridgeDeployer.deploy(otherBridgeContract, SRC_CHAIN_ID, admin, initialValidators, f, 1, bytes32(0));
+        _bridge.grantRole(_bridge.FAST_ADMIN_ROLE(), fastAdmin);
 
         _token = new WrappedToken("InitialToken", "ITKN", 18);
         _token.mint(user, INITIAL_BALANCE);
@@ -418,6 +420,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(user);
         vm.expectRevert();
         _bridge.configureToken(address(_token), 2e18, 2000e18, 2000e18);
+        vm.prank(fastAdmin);
+        vm.expectRevert();
+        _bridge.configureToken(address(_token), 2e18, 2000e18, 2000e18);
     }
 
     function test_ConfigureToken_RevertIfUpdatingUnconfiguredToken() public {
@@ -513,6 +518,81 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     function test_RoleGrants_FromConstructor() public view {
         assertTrue(_bridge.hasRole(_bridge.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(_bridge.hasRole(_bridge.PAUSER_ROLE(), admin));
+        assertFalse(_bridge.hasRole(_bridge.FAST_ADMIN_ROLE(), admin));
+    }
+
+    // ========== Fast Admin Tests ==========
+
+    function test_FastAdmin_CanUnpause() public {
+        vm.prank(admin);
+        _bridge.setState(Bridge.ContractState.Paused);
+        vm.prank(fastAdmin);
+        _bridge.setState(Bridge.ContractState.Public);
+        assertEq(uint256(_bridge.contractState()), uint256(Bridge.ContractState.Public));
+    }
+
+    function test_FastAdmin_CannotSetMigratedState() public {
+        vm.prank(fastAdmin);
+        vm.expectRevert(abi.encodeWithSelector(Bridge.ContractMigrated.selector));
+        _bridge.setState(Bridge.ContractState.Migrated);
+    }
+
+    function test_FastAdmin_CannotMigrate() public {
+        vm.startPrank(fastAdmin);
+        _bridge.setState(Bridge.ContractState.Paused);
+        vm.expectRevert();
+        _bridge.migrate(newBridge);
+        vm.stopPrank();
+    }
+
+    function test_FastAdmin_CannotWhitelist() public {
+        vm.startPrank(fastAdmin);
+        vm.expectRevert();
+        _bridge.whiteListToken(address(0x7777), address(0x1234), minAmount, depositLimit, claimLimit);
+        vm.expectRevert();
+        _bridge.setCallContractWhitelist(address(0xCA11), true);
+        vm.stopPrank();
+    }
+
+    function test_FastAdmin_CannotGrantRoles() public {
+        bytes32 defaultAdminRole = _bridge.DEFAULT_ADMIN_ROLE();
+        bytes32 relayerRole = _bridge.RELAYER_ROLE();
+        vm.startPrank(fastAdmin);
+        vm.expectRevert();
+        _bridge.grantRole(defaultAdminRole, fastAdmin);
+        vm.expectRevert();
+        _bridge.grantRole(relayerRole, fastAdmin);
+        vm.stopPrank();
+    }
+
+    /// @dev A compromised fast admin can forge claims with its own validators, but only up to the
+    ///      claim limit: it cannot raise the limit or reset the usage counters.
+    function test_FastAdmin_ForgedClaimsStopAtClaimLimit() public {
+        vm.prank(admin);
+        _token.mint(address(_bridge), claimLimit * 5);
+
+        address[] memory add = new address[](1);
+        add[0] = vm.addr(0xA77AC);
+        address[] memory remove = new address[](NUMBER_OF_VALIDATORS);
+        for (uint256 i = 0; i < NUMBER_OF_VALIDATORS; i++) {
+            remove[i] = vm.addr(validatorPrivateKeys[i]);
+        }
+        vm.prank(fastAdmin);
+        _bridge.updateValidatorConfig(0, 2, bytes32(0), add, remove);
+
+        validatorPrivateKeys = new uint256[](1);
+        validatorPrivateKeys[0] = 0xA77AC;
+        bytes32 domainSeparator = _bridge.domainSeparator();
+
+        (, bytes memory proof, bytes memory aux) =
+            createTokenClaimProof(MIRROR_TOKEN, claimLimit, user, 1, domainSeparator);
+        _bridge.claim(address(_token), claimLimit, user, proof, aux);
+
+        (, proof, aux) = createTokenClaimProof(MIRROR_TOKEN, minAmount, user, 1, domainSeparator);
+        vm.expectRevert(abi.encodeWithSelector(Bridge.DailyLimitExhausted.selector));
+        _bridge.claim(address(_token), minAmount, user, proof, aux);
+
+        assertEq(_token.balanceOf(address(_bridge)), claimLimit * 4);
     }
 
     // ========== Migration Tests ==========
@@ -545,10 +625,12 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         assertEq(_token.balanceOf(newBridge), 0);
         assertEq(_token.balanceOf(address(_bridge)), beforeAmt);
 
+        vm.stopPrank();
+
         address[] memory tokens = new address[](1);
         tokens[0] = address(_token);
+        vm.prank(fastAdmin);
         _bridge.transferTokensToMigrated(tokens);
-        vm.stopPrank();
 
         assertEq(_token.balanceOf(newBridge), beforeAmt);
         assertEq(_token.balanceOf(address(_bridge)), 0);
@@ -583,8 +665,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory tokens = new address[](2);
         tokens[0] = address(_token);
         tokens[1] = address(t2);
-        _bridge.transferTokensToMigrated(tokens);
         vm.stopPrank();
+        vm.prank(fastAdmin);
+        _bridge.transferTokensToMigrated(tokens);
 
         assertEq(_token.balanceOf(newBridge), DEPOSIT_AMOUNT);
         assertEq(t2.balanceOf(newBridge), 0);
@@ -604,7 +687,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.startPrank(admin);
         _bridge.setState(Bridge.ContractState.Paused);
         _bridge.migrate(newBridge);
+        vm.stopPrank();
 
+        vm.startPrank(fastAdmin);
         address[] memory tokens1 = new address[](1);
         tokens1[0] = address(_token);
         _bridge.transferTokensToMigrated(tokens1);
@@ -625,12 +710,12 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory tokens = new address[](1);
         tokens[0] = address(_token);
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.ContractNotMigrated.selector));
         _bridge.transferTokensToMigrated(tokens);
     }
 
-    function test_TransferTokensToMigrated_RevertIfNotAdmin() public {
+    function test_TransferTokensToMigrated_RevertIfNotFastAdmin() public {
         vm.startPrank(admin);
         _bridge.setState(Bridge.ContractState.Paused);
         _bridge.migrate(newBridge);
@@ -640,6 +725,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         tokens[0] = address(_token);
 
         vm.prank(user);
+        vm.expectRevert();
+        _bridge.transferTokensToMigrated(tokens);
+        vm.prank(admin);
         vm.expectRevert();
         _bridge.transferTokensToMigrated(tokens);
     }
@@ -971,7 +1059,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         addValidators[0] = newValidator;
         address[] memory removeValidators = new address[](0);
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectEmit(true, false, false, true);
         emit Bridge.ValidatorAdded(newValidator);
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
@@ -986,7 +1074,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory removeValidators = new address[](1);
         removeValidators[0] = validatorToRemove;
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectEmit(true, false, false, true);
         emit Bridge.ValidatorRemoved(validatorToRemove);
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
@@ -1004,7 +1092,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory removeValidators = new address[](1);
         removeValidators[0] = validatorToRemove;
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
 
         assertFalse(_bridge.activeValidators(validatorToRemove));
@@ -1012,13 +1100,16 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         assertEq(_bridge.validatorCount(), NUMBER_OF_VALIDATORS);
     }
 
-    function test_UpdateValidatorConfig_RevertIfNotAdmin() public {
+    function test_UpdateValidatorConfig_RevertIfNotFastAdmin() public {
         address newValidator = makeAddr("newValidator");
         address[] memory addValidators = new address[](1);
         addValidators[0] = newValidator;
         address[] memory removeValidators = new address[](0);
 
         vm.prank(user);
+        vm.expectRevert();
+        _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
+        vm.prank(admin);
         vm.expectRevert();
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
@@ -1028,7 +1119,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         addValidators[0] = address(0);
         address[] memory removeValidators = new address[](0);
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.ValidatorIsZeroAddress.selector));
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
@@ -1039,7 +1130,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         addValidators[0] = existingValidator;
         address[] memory removeValidators = new address[](0);
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.DuplicateValidator.selector));
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
@@ -1050,7 +1141,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory removeValidators = new address[](1);
         removeValidators[0] = nonExistentValidator;
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.ValidatorDoesNotExist.selector));
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
@@ -1059,7 +1150,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory addValidators = new address[](0);
         address[] memory removeValidators = new address[](0);
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidAdverserialResilience.selector));
         // forge-lint: disable-next-line(unsafe-typecast)
         _bridge.updateValidatorConfig(uint64(NUMBER_OF_VALIDATORS + 1), 1, bytes32(0), addValidators, removeValidators);
@@ -1256,7 +1347,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update bridge with merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         assertEq(_bridge.merkleRoot(), merkleRoot);
@@ -1289,7 +1380,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update bridge with merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Build proof bytes with wrong proof (version 1)
@@ -1321,7 +1412,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update version to 2 and set merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, newMerkleRoot, empty, empty);
 
         // Certificate proof should now fail (version changed, domain separator changed)
@@ -1368,7 +1459,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update bridge with merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Proof format: type (1 byte) + version (4 bytes) + merkle proof
@@ -1413,7 +1504,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update to version 2 and set merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
 
         // Claim with version 1 proof
@@ -1455,7 +1546,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update to version 2
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
 
         // Create proofs
@@ -1493,7 +1584,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Create certificate proof for user2
@@ -1532,7 +1623,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Create proof
@@ -1566,7 +1657,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update merkle root (still version 1)
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Create proof with version 1
@@ -1579,7 +1670,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         assertEq(_token.balanceOf(user), balanceBefore + DEPOSIT_AMOUNT);
 
         // Update to version 2, keep same merkle root
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
 
         // Try to claim again with same version 1 proof - should fail
@@ -1608,7 +1699,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update to version 2
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, bytes32(0), empty, empty);
 
         // Certificate created with version 1 should fail after version update
@@ -1628,7 +1719,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         assertEq(_bridge.merkleRoot(), bytes32(0));
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, newRoot, empty, empty);
 
         assertEq(_bridge.merkleRoot(), newRoot);
@@ -1721,7 +1812,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update bridge with merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Create versioned merkle proof
@@ -1732,7 +1823,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         uint256 balanceAfterFirstClaim = _token.balanceOf(recipient);
 
         // Upgrade version to 2 (keep same merkle root so proof is still valid structurally)
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
 
         // Second claim with same proof still reverts (txHash already processed)

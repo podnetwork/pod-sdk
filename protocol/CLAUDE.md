@@ -32,6 +32,9 @@ forge test --mc BridgeTest
 # Run fork tests (requires ETH_RPC_URL)
 forge test --mc BridgeForkTest --fork-url $ETH_RPC_URL
 
+# Run the admin migration fork tests against the live Arbitrum bridge (skipped without ARBITRUM_RPC_URL)
+ARBITRUM_RPC_URL=<arbitrum one rpc> forge test --mp test/BridgeAdminMigration.fork.sol
+
 # Run benchmarks
 forge test --mc BridgeBenchmark --gas-report
 
@@ -60,7 +63,7 @@ make generate
 - **Contract states**: `Public`, `Private`, `Paused`, `Migrated`.
 - **Daily limits**: Per-token deposit and claim limits with boundary-aware reset logic (handles transactions spanning period boundaries without losing capacity).
 - **Migration**: Three-phase process (Pause → Migrate → TransferTokens) for moving to a new contract.
-- **Roles**: `DEFAULT_ADMIN_ROLE`, `PAUSER_ROLE`, `RELAYER_ROLE`.
+- **Roles**: `DEFAULT_ADMIN_ROLE` (token and call-contract whitelisting, token limits, migration, role changes; meant to sit behind a timelock), `FAST_ADMIN_ROLE` (validator config, state changes including unpause, token transfer after migration), `PAUSER_ROLE` (pause only), `RELAYER_ROLE`. `initialize` does not grant `FAST_ADMIN_ROLE`; the admin grants it.
 
 **DepositWaitingList.sol** — Non-upgradeable buffer contract (AccessControl) that sits in front of the Bridge. Always accepts deposits regardless of Bridge rate limits, letting a relayer drain them into the Bridge via `batchDepositAndCall()` when capacity allows. Key concepts:
 - **Deposits**: Permissionless `deposit(token, amount, to, permit)` with optional EIP-2612 permit support. Sequential `depositId` assigned to each deposit.
@@ -88,11 +91,21 @@ Claims reconstruct the deposit tx hash: `keccak256(domainSeparator || bridgeCont
 - **Bridge.benchmark.sol**: Gas benchmarks scaling across validator set sizes (4–100)
 - **DepositWaitingList.t.sol**: Unit and fuzz tests for the DepositWaitingList contract
 - **test/abstract/BridgeClaimProofHelper.sol**: Shared test base providing signature aggregation, claim proof generation, and domain separator computation
+- **BridgeAdminMigration.t.sol**: Runs the admin migration scripts (`deploy/04`–`06`) on a local bridge with an EOA admin
+- **BridgeAdminMigration.fork.sol**: Runs the same scripts against the live Arbitrum One bridge and tests the resulting roles, the timelock, and what each compromised key can reach
 - **test/mocks/MockERC20Permit.sol**: Mock ERC20 with permit support
 
 ### Deployment
 
 Scripts in `script/` use Foundry's Script framework. `DeployBridge.s.sol` loads validator addresses from `POD_COMMITTEE_KEYS` env var.
+
+`deploy/` holds the numbered, run-once scripts for the Arbitrum One deployment. `01`–`03` deployed and set up the bridge and waiting list. `04`–`06` move the admin to a timelock:
+
+- `04_TimelockDeploy.s.sol` deploys a 72-hour `TimelockController` (admin multisig as the only proposer, separate executor wallets, no outside admin; the executor list is checked by hand) and the new Bridge implementation. Anyone can run it.
+- `05_FastAdminUpgrade.s.sol` grants `FAST_ADMIN_ROLE` to the admin multisig, `PAUSER_ROLE` to the pausers and `DEFAULT_ADMIN_ROLE` to the timelock, then upgrades the proxy. Reversible.
+- `06_AdminHandover.s.sol` transfers the ProxyAdmin to the timelock and renounces the old admin's roles. Not reversible.
+
+`05` and `06` are sent by the current admin (the ProxyAdmin owner). To get the calls for a multisig, run them without `--broadcast` and take the transactions from the dry-run output. After `06`, `UpgradeBridge.s.sol` no longer works directly, because upgrades have to be scheduled on the timelock.
 
 ### Rust Bindings
 

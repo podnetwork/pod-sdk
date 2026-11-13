@@ -95,6 +95,8 @@ jobs:
         working-directory: protocol
         env:
           ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+          # Arbitrum fork tests are skipped when this secret is not set.
+          ARBITRUM_RPC_URL: ${{ secrets.ARBITRUM_RPC_URL }}
 
       - name: Check bindings
         run: |
