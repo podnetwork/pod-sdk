@@ -136,3 +136,40 @@ export function bridgeTokenFor(
   const want = podToken.toLowerCase();
   return config?.tokens.find((t) => t.podToken.toLowerCase() === want);
 }
+
+/** One side of the bridge contract's daily allowance for a token, as `tokenData` keeps it
+ * (protocol `Bridge.sol`: `depositLimit`/`depositUsage` or `claimLimit`/`claimUsage`).
+ * Claim-chain decimals and unix seconds. */
+export interface BridgeUsage {
+  limit: bigint;
+  consumed: bigint;
+  lastUpdated: number;
+}
+
+/** What the bridge can take now on that side, exchange-wide, in claim-chain decimals, and
+ * when that grows: `resetsAt` (unix seconds) while the current day's window is still running. */
+export interface BridgeCapacity {
+  available: bigint;
+  resetsAt?: number;
+}
+
+const DAY = 86_400;
+
+/**
+ * Mirrors `Bridge.sol` `_checkInLimits`, the same rule for deposits and claims: inside the day
+ * that `lastUpdated` began, `limit − consumed` is left; once that day is over, a transfer may
+ * also start the next window (its excess over the old window's remainder is capped at `limit`
+ * again), so up to `2 × limit − consumed`. Nothing is available where the contract refuses
+ * every transfer: a token it has no config for (`minAmount` 0), a side switched off (`limit`
+ * 0), or a remainder under `minAmount`, which no transfer can use. `nowSec` is best the chain's
+ * own time (the block that answered the read): the window ends by the contract's clock.
+ */
+export function bridgeCapacity(usage: BridgeUsage, nowSec: number, minAmount: bigint): BridgeCapacity {
+  const { limit, consumed, lastUpdated } = usage;
+  if (minAmount <= 0n || limit <= 0n) return { available: 0n };
+  const usable = (n: bigint) => (n >= minAmount ? n : 0n);
+  const left = limit > consumed ? limit - consumed : 0n;
+  if (nowSec < lastUpdated + DAY) return { available: usable(left), resetsAt: lastUpdated + DAY };
+  const both = 2n * limit - consumed;
+  return { available: usable(both > 0n ? both : 0n) };
+}

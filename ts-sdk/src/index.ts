@@ -62,10 +62,11 @@ export {
 export {
   withdrawStep, quantizeWithdrawAmount, toClaimAmount, toPodAmount,
   maxWithdrawable, checkWithdrawAmount, type WithdrawRejection, bridgeTokenFor,
+  bridgeCapacity, type BridgeUsage, type BridgeCapacity,
 } from "./codec/bridge.js";
 // Following a withdrawal onto the claim chain.
 export {
-  fetchClaimStatus, waitForClaim, watchClaims, CLAIM_TOPIC,
+  fetchClaimStatus, fetchBridgeUsage, waitForClaim, watchClaims, CLAIM_TOPIC,
   type ClaimStatus, type ClaimOutcome, type WaitForClaimOptions,
   type ClaimWatcher, type WatchClaimsOptions,
 } from "./transport/claim.js";

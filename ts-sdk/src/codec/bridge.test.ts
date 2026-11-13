@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  bridgeTokenFor, checkWithdrawAmount, maxWithdrawable,
+  bridgeTokenFor, checkWithdrawAmount, bridgeCapacity, maxWithdrawable,
   quantizeWithdrawAmount, toClaimAmount, toPodAmount, withdrawStep,
 } from "./bridge.js";
 import type { Address, BridgeToken } from "../types/public.js";
@@ -150,5 +150,32 @@ describe("bridgeTokenFor", () => {
 
   it("returns undefined before the config has loaded", () => {
     expect(bridgeTokenFor(undefined, POD_USDC)).toBeUndefined();
+  });
+});
+
+describe("bridgeCapacity", () => {
+  const day = 86_400, at = 1_000_000, min = 1_000_000n;
+  const usage = (consumed: bigint) => ({ limit: 1_000_000_000n, consumed, lastUpdated: at });
+
+  it("leaves the rest of the day's limit while the window runs, and says when it resets", () => {
+    expect(bridgeCapacity(usage(784_992_818n), at + 3_600, min)).toEqual({ available: 215_007_182n, resetsAt: at + day });
+  });
+
+  it("allows the old window's rest plus a new window's limit once the day is over", () => {
+    // Canary on 11 Nov 2026: $784.99 claimed in a window that ended two days earlier.
+    expect(bridgeCapacity(usage(784_992_818n), at + 2 * day, min)).toEqual({ available: 1_215_007_182n });
+  });
+
+  it("is nothing left, not negative, when the day's limit is used up", () => {
+    expect(bridgeCapacity(usage(1_000_000_000n), at + 60, min)).toEqual({ available: 0n, resetsAt: at + day });
+  });
+
+  it("is nothing when what is left is under the minimum, which no transfer can use", () => {
+    expect(bridgeCapacity(usage(999_500_000n), at + 60, min)).toEqual({ available: 0n, resetsAt: at + day });
+  });
+
+  it("is nothing for a side switched off, or a token the bridge has no config for", () => {
+    expect(bridgeCapacity({ limit: 0n, consumed: 0n, lastUpdated: at }, at + 2 * day, min)).toEqual({ available: 0n });
+    expect(bridgeCapacity(usage(0n), at + 2 * day, 0n)).toEqual({ available: 0n });
   });
 });

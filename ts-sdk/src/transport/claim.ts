@@ -16,7 +16,8 @@
 // this module is a consequence of that: it is why stage 1 exists at all.
 
 import type { Address, Hash } from "../types/public.js";
-import { tryRpc, type RpcOptions } from "./jsonrpc.js";
+import { PodRpcError, rpc, tryRpc, type RpcOptions } from "./jsonrpc.js";
+import type { BridgeUsage } from "../codec/bridge.js";
 import type { WireWithdrawalDetail } from "../types/wire.js";
 
 /**
@@ -430,5 +431,47 @@ export function watchClaims(opts: WatchClaimsOptions): ClaimWatcher {
       stopped = true;
       wake?.();
     },
+  };
+}
+
+// `tokenData(address)` on the claim-chain bridge: eight words — minAmount, depositLimit,
+// claimLimit, depositUsage {consumed, lastUpdated}, claimUsage {consumed, lastUpdated}, mirrorToken.
+const TOKEN_DATA_SELECTOR = "0x27e45c2c";
+
+/** Reads the bridge's daily allowances for `l1Token` from the claim chain: `deposit` for money
+ * coming in, `claim` for withdrawals paying out, the token's `minAmount`, and `blockTime`, the
+ * time of the block that answered (the contract's own clock, for {@link bridgeCapacity}).
+ * With `chainId`, refuses an endpoint on another chain rather than reading a look-alike there.
+ * Throws a {@link PodRpcError} for anything it cannot read: a missing limit must not read as
+ * "nothing left". */
+export async function fetchBridgeUsage(
+  claimRpcUrl: string,
+  bridge: Address,
+  l1Token: Address,
+  opts?: RpcOptions & { chainId?: number },
+): Promise<{ minAmount: bigint; deposit: BridgeUsage; claim: BridgeUsage; blockTime: number }> {
+  const hex = (v: unknown, what: string): string => {
+    if (typeof v !== "string" || !/^0x[0-9a-fA-F]*$/.test(v)) throw new PodRpcError(undefined, `${what} is not hex`);
+    return v;
+  };
+  if (!/^0x[0-9a-fA-F]{40}$/.test(bridge) || !/^0x[0-9a-fA-F]{40}$/.test(l1Token)) {
+    throw new PodRpcError(undefined, "bridge and l1Token must be addresses");
+  }
+  if (opts?.chainId !== undefined) {
+    const id = Number(hex(await rpc<string>(claimRpcUrl, "eth_chainId", [], opts), "eth_chainId"));
+    if (id !== opts.chainId) throw new PodRpcError(undefined, `claim RPC is on chain ${id}, not ${opts.chainId}`);
+  }
+  // The call is made at the block whose time is read, so the two can't disagree.
+  const block = await rpc<{ number?: unknown; timestamp?: unknown }>(claimRpcUrl, "eth_getBlockByNumber", ["latest", false], opts);
+  const number = hex(block?.number, "block number"), timestamp = hex(block?.timestamp, "block timestamp");
+  const data = TOKEN_DATA_SELECTOR + l1Token.slice(2).toLowerCase().padStart(64, "0");
+  const raw = hex(await rpc<unknown>(claimRpcUrl, "eth_call", [{ to: bridge, data }, number], opts), "tokenData");
+  if (raw.length < 2 + 64 * 8) throw new PodRpcError(undefined, "tokenData returned too little");
+  const word = (i: number) => BigInt(`0x${raw.slice(2 + 64 * i, 2 + 64 * (i + 1))}`);
+  return {
+    minAmount: word(0),
+    deposit: { limit: word(1), consumed: word(3), lastUpdated: Number(word(4)) },
+    claim: { limit: word(2), consumed: word(5), lastUpdated: Number(word(6)) },
+    blockTime: Number(timestamp),
   };
 }

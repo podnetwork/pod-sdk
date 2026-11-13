@@ -13,6 +13,8 @@ import {
   statusSource, triggersSource, type MarketsCache, type SyncContext,
 } from "./sync/sources.js";
 import { withdrawalsSource } from "./sync/withdrawals.js";
+import { bridgeCapacity, bridgeTokenFor, type BridgeCapacity } from "./codec/bridge.js";
+import { fetchBridgeUsage } from "./transport/claim.js";
 import { CandleSeries, candleTailFrom, fetchCandleHistory } from "./sync/candles.js";
 import { OrderHistory } from "./sync/orders.js";
 import { ActivityHistory, type ActivityView } from "./sync/activity.js";
@@ -24,6 +26,9 @@ export interface PodTradeClientOptions {
   wsUrl: string;
   /** Node JSON-RPC HTTP endpoint — needed only for tx features (e.g. mint). */
   rpcUrl?: string;
+  /** JSON-RPC endpoint on the bridge's claim chain (where withdrawals pay out) — needed
+   * only for {@link PodTradeClient.bridgeLimits}. */
+  claimRpcUrl?: string;
   fetch?: typeof fetch;
   WebSocket?: WebSocketCtor;
   reconnect?: { maxDelayMs?: number; idleTimeoutMs?: number };
@@ -54,11 +59,13 @@ export class PodTradeClient {
   private readonly ctx: SyncContext;
   private readonly cache = new Map<string, Destroyable & object>();
   private readonly rpcUrl?: string;
+  private readonly claimRpcUrl?: string;
   private readonly fetchFn?: typeof fetch;
   private readonly snapshots?: SnapshotStore;
 
   constructor(opts: PodTradeClientOptions) {
     this.rpcUrl = opts.rpcUrl;
+    this.claimRpcUrl = opts.claimRpcUrl;
     this.snapshots = opts.snapshots;
     this.fetchFn = opts.fetch;
     this.rest = new PodRestClient({ restUrl: opts.restUrl, fetch: opts.fetch });
@@ -208,6 +215,27 @@ export class PodTradeClient {
    */
   get bridgeConfig(): Resource<BridgeConfig> {
     return this.memo("bridgeConfig", () => new BaseResource(bridgeConfigSource(this.ctx)));
+  }
+
+  /**
+   * What the bridge can take right now, exchange-wide, for a bridged token (the first one by
+   * default): `deposit` for money coming in, `claim` for withdrawals paying out, each in the
+   * claim chain's decimals with `resetsAt` while the day's window still runs. The config comes
+   * from {@link bridgeConfig}; the usage is read fresh every call, since another account's
+   * transfer changes it, and judged by the claim chain's clock. Needs `claimRpcUrl`.
+   */
+  async bridgeLimits(podToken?: Address, opts?: { signal?: AbortSignal }): Promise<{ deposit: BridgeCapacity; claim: BridgeCapacity }> {
+    if (!this.claimRpcUrl) throw new Error("bridgeLimits needs the client's claimRpcUrl");
+    const config = await this.bridgeConfig.ready();
+    if (!config.claimChainId) throw new Error("this node has no bridge configured");
+    const token = podToken ? bridgeTokenFor(config, podToken) : config.tokens[0];
+    if (!token) throw new Error(podToken ? `${podToken} is not bridged` : "the bridge has no tokens");
+    const usage = await fetchBridgeUsage(this.claimRpcUrl, config.sourceContract, token.l1Token,
+      { fetch: this.fetchFn, signal: opts?.signal, chainId: config.claimChainId });
+    return {
+      deposit: bridgeCapacity(usage.deposit, usage.blockTime, usage.minAmount),
+      claim: bridgeCapacity(usage.claim, usage.blockTime, usage.minAmount),
+    };
   }
 
   /**
