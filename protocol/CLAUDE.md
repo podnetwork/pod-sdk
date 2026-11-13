@@ -60,7 +60,7 @@ make generate
 - **Contract states**: `Public`, `Private`, `Paused`, `Migrated`.
 - **Daily limits**: Per-token deposit and claim limits with boundary-aware reset logic (handles transactions spanning period boundaries without losing capacity).
 - **Migration**: Three-phase process (Pause → Migrate → TransferTokens) for moving to a new contract.
-- **Roles**: `DEFAULT_ADMIN_ROLE`, `PAUSER_ROLE`, `RELAYER_ROLE`.
+- **Roles**: `DEFAULT_ADMIN_ROLE` (token and call-contract whitelisting, token limits, migration, role changes; meant to sit behind a timelock), `FAST_ADMIN_ROLE` (validator config, state changes including unpause, token transfer after migration), `PAUSER_ROLE` (pause only), `RELAYER_ROLE`. `initialize` does not grant `FAST_ADMIN_ROLE`; the admin grants it.
 
 **DepositWaitingList.sol** — Non-upgradeable buffer contract (AccessControl) that sits in front of the Bridge. Always accepts deposits regardless of Bridge rate limits, letting a relayer drain them into the Bridge via `batchDepositAndCall()` when capacity allows. Key concepts:
 - **Deposits**: Permissionless `deposit(token, amount, to, permit)` with optional EIP-2612 permit support. Sequential `depositId` assigned to each deposit.

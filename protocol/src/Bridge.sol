@@ -97,6 +97,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 public constant FAST_ADMIN_ROLE = keccak256("FAST_ADMIN_ROLE");
     bytes4 internal constant WITHDRAW_SELECTOR = bytes4(keccak256("withdraw(address,uint256,address,uint256)"));
     uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
 
@@ -250,7 +251,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         bytes32 newMerkleRoot,
         address[] memory addValidators,
         address[] memory removeValidators
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(FAST_ADMIN_ROLE) {
         uint256 oldVersion = version;
         _updateValidatorSet(addValidators, removeValidators, newResilience);
         _updateVersion(newVersion);
@@ -456,8 +457,8 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         // Cannot set to Migrated via setState (use migrate function)
         if (newState == ContractState.Migrated) revert ContractMigrated();
 
-        // Only admin can change to any state, pauser can only change to Paused
-        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+        // Admin and fast admin can change to any state, pauser can only change to Paused
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender) && !hasRole(FAST_ADMIN_ROLE, msg.sender)) {
             if (!hasRole(PAUSER_ROLE, msg.sender) || newState != ContractState.Paused) {
                 revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
             }
@@ -481,7 +482,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
      * @dev Can only be called after migration. Can be called multiple times.
      * @param tokens Array of token addresses to transfer.
      */
-    function transferTokensToMigrated(address[] calldata tokens) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function transferTokensToMigrated(address[] calldata tokens) external onlyRole(FAST_ADMIN_ROLE) {
         if (contractState != ContractState.Migrated) revert ContractNotMigrated();
 
         address destination = migratedContract;
