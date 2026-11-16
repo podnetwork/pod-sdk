@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {Bridge} from "../src/Bridge.sol";
 import {ProofLib} from "../src/lib/ProofLib.sol";
@@ -73,8 +74,8 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Deposit_RevertIfPaused() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
-        vm.expectRevert(Bridge.ContractPaused.selector);
+        _bridge.pause();
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
     }
@@ -226,11 +227,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Deposit_RevertAfterMigrated() public {
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
         vm.stopPrank();
         vm.prank(user);
-        vm.expectRevert(Bridge.ContractPaused.selector);
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
         _bridge.deposit(address(_token), 1, user, address(0), 0, "");
     }
 
@@ -318,7 +319,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfPaused() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
 
         (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeparator());
@@ -392,7 +393,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_BatchClaim_RevertIfPaused() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
 
         Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](1);
         claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user, proof: "", auxTxSuffix: ""});
@@ -465,7 +466,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_WhiteListToken_RevertAfterMigrated() public {
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
         vm.expectRevert(abi.encodeWithSelector(Bridge.ContractMigrated.selector));
         _bridge.whiteListToken(address(0x1234), address(0x5678), 1, 100, 100);
@@ -489,30 +490,178 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     // ========== Pause/State Tests ==========
 
+    function _assertState(Bridge.ContractState expected) internal view {
+        assertEq(uint256(_bridge.contractState()), uint256(expected));
+    }
+
+    function _unauthorized(address account, bytes32 role) internal pure returns (bytes memory) {
+        return abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, account, role);
+    }
+
     function test_Pause_Unpause() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
-        assertEq(uint256(_bridge.contractState()), uint256(Bridge.ContractState.Paused));
+        vm.expectEmit(true, true, true, true);
+        emit Bridge.ContractStateChanged(Bridge.ContractState.Public, Bridge.ContractState.Paused);
+        _bridge.pause();
+        _assertState(Bridge.ContractState.Paused);
+
+        vm.prank(fastAdmin);
+        vm.expectEmit(true, true, true, true);
+        emit Bridge.ContractStateChanged(Bridge.ContractState.Paused, Bridge.ContractState.Private);
+        _bridge.unpause(Bridge.ContractState.Private);
+        _assertState(Bridge.ContractState.Private);
+    }
+
+    function test_Unpause_ToPublic() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Public);
-        assertEq(uint256(_bridge.contractState()), uint256(Bridge.ContractState.Public));
+        _bridge.pause();
+        vm.prank(fastAdmin);
+        _bridge.unpause(Bridge.ContractState.Public);
+        _assertState(Bridge.ContractState.Public);
+    }
+
+    function test_Unpause_RevertIfTargetNotOperational() public {
+        vm.prank(admin);
+        _bridge.pause();
+        vm.startPrank(fastAdmin);
+        vm.expectRevert(Bridge.InvalidContractState.selector);
+        _bridge.unpause(Bridge.ContractState.Paused);
+        vm.expectRevert(Bridge.InvalidContractState.selector);
+        _bridge.unpause(Bridge.ContractState.Migrated);
+        vm.stopPrank();
+        _assertState(Bridge.ContractState.Paused);
+    }
+
+    function test_Pause_FromPrivate() public {
+        vm.prank(fastAdmin);
+        _bridge.makePrivate();
+        vm.prank(admin);
+        _bridge.pause();
+        _assertState(Bridge.ContractState.Paused);
     }
 
     function test_Pause_RevertIfNotPauseRole() public {
+        bytes32 pauserRole = _bridge.PAUSER_ROLE();
         vm.prank(user);
-        vm.expectRevert();
-        _bridge.setState(Bridge.ContractState.Paused);
+        vm.expectRevert(_unauthorized(user, pauserRole));
+        _bridge.pause();
+
+        // The fast admin does not pause unless it also holds PAUSER_ROLE.
+        vm.prank(fastAdmin);
+        vm.expectRevert(_unauthorized(fastAdmin, pauserRole));
+        _bridge.pause();
     }
 
-    function test_Pause_RoleRequired_Unpause_AdminRequired() public {
-        vm.prank(user);
-        vm.expectRevert();
-        _bridge.setState(Bridge.ContractState.Paused);
+    function test_Pause_RevertIfAlreadyPaused() public {
+        vm.startPrank(admin);
+        _bridge.pause();
+        vm.expectRevert(Bridge.ContractPaused.selector);
+        _bridge.pause();
+        vm.stopPrank();
+    }
+
+    function test_Pause_RevertIfMigrated() public {
+        vm.startPrank(admin);
+        _bridge.pause();
+        _bridge.migrate(newBridge);
+        vm.expectRevert(Bridge.ContractPaused.selector);
+        _bridge.pause();
+        vm.stopPrank();
+    }
+
+    function test_Unpause_RevertIfNotFastAdmin() public {
+        bytes32 fastAdminRole = _bridge.FAST_ADMIN_ROLE();
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
+
+        // admin holds DEFAULT_ADMIN_ROLE and PAUSER_ROLE, neither of which unpauses.
+        vm.prank(admin);
+        vm.expectRevert(_unauthorized(admin, fastAdminRole));
+        _bridge.unpause(Bridge.ContractState.Public);
         vm.prank(user);
-        vm.expectRevert();
-        _bridge.setState(Bridge.ContractState.Public);
+        vm.expectRevert(_unauthorized(user, fastAdminRole));
+        _bridge.unpause(Bridge.ContractState.Public);
+    }
+
+    function test_Unpause_RevertIfNotPaused() public {
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPaused.selector);
+        _bridge.unpause(Bridge.ContractState.Public);
+    }
+
+    function test_Unpause_RevertIfMigrated() public {
+        vm.startPrank(admin);
+        _bridge.pause();
+        _bridge.migrate(newBridge);
+        vm.stopPrank();
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPaused.selector);
+        _bridge.unpause(Bridge.ContractState.Public);
+    }
+
+    function test_MakePrivate_MakePublic() public {
+        vm.startPrank(fastAdmin);
+        _bridge.makePrivate();
+        _assertState(Bridge.ContractState.Private);
+        _bridge.makePublic();
+        _assertState(Bridge.ContractState.Public);
+        vm.stopPrank();
+    }
+
+    function test_MakePrivate_BlocksPublicDepositsOnly() public {
+        vm.prank(fastAdmin);
+        _bridge.makePrivate();
+        vm.prank(user);
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
+    }
+
+    function test_MakePrivate_MakePublic_RevertIfNotFastAdmin() public {
+        bytes32 fastAdminRole = _bridge.FAST_ADMIN_ROLE();
+        vm.startPrank(admin);
+        vm.expectRevert(_unauthorized(admin, fastAdminRole));
+        _bridge.makePrivate();
+        vm.expectRevert(_unauthorized(admin, fastAdminRole));
+        _bridge.makePublic();
+        vm.stopPrank();
+    }
+
+    function test_MakePrivate_RevertIfNotPublic() public {
+        vm.startPrank(fastAdmin);
+        _bridge.makePrivate();
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
+        _bridge.makePrivate();
+        vm.stopPrank();
+
+        vm.prank(admin);
+        _bridge.pause();
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
+        _bridge.makePrivate();
+
+        vm.prank(admin);
+        _bridge.migrate(newBridge);
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
+        _bridge.makePrivate();
+    }
+
+    function test_MakePublic_RevertIfNotPrivate() public {
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPrivate.selector);
+        _bridge.makePublic();
+
+        vm.prank(admin);
+        _bridge.pause();
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPrivate.selector);
+        _bridge.makePublic();
+
+        vm.prank(admin);
+        _bridge.migrate(newBridge);
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPrivate.selector);
+        _bridge.makePublic();
     }
 
     function test_RoleGrants_FromConstructor() public view {
@@ -523,26 +672,13 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     // ========== Fast Admin Tests ==========
 
-    function test_FastAdmin_CanUnpause() public {
-        vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
-        vm.prank(fastAdmin);
-        _bridge.setState(Bridge.ContractState.Public);
-        assertEq(uint256(_bridge.contractState()), uint256(Bridge.ContractState.Public));
-    }
-
-    function test_FastAdmin_CannotSetMigratedState() public {
-        vm.prank(fastAdmin);
-        vm.expectRevert(abi.encodeWithSelector(Bridge.ContractMigrated.selector));
-        _bridge.setState(Bridge.ContractState.Migrated);
-    }
-
     function test_FastAdmin_CannotMigrate() public {
-        vm.startPrank(fastAdmin);
-        _bridge.setState(Bridge.ContractState.Paused);
-        vm.expectRevert();
+        bytes32 defaultAdminRole = _bridge.DEFAULT_ADMIN_ROLE();
+        vm.prank(admin);
+        _bridge.pause();
+        vm.prank(fastAdmin);
+        vm.expectRevert(_unauthorized(fastAdmin, defaultAdminRole));
         _bridge.migrate(newBridge);
-        vm.stopPrank();
     }
 
     function test_FastAdmin_CannotWhitelist() public {
@@ -599,7 +735,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Migrate_SetsMigratedContract() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         vm.prank(admin);
         _bridge.migrate(newBridge);
         assertEq(_bridge.migratedContract(), newBridge);
@@ -607,9 +743,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Migrate_RevertIfAlreadyMigrated() public {
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
-        vm.expectRevert(abi.encodeWithSelector(Bridge.ContractMigrated.selector));
+        vm.expectRevert(Bridge.ContractNotPaused.selector);
         _bridge.migrate(address(0x1234));
         vm.stopPrank();
     }
@@ -618,7 +754,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         uint256 beforeAmt = _token.balanceOf(address(_bridge));
         _bridge.migrate(newBridge);
 
@@ -643,7 +779,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         }
         (Bridge fresh,) = BridgeDeployer.deploy(otherBridgeContract, SRC_CHAIN_ID, admin, validators, 1, 1, bytes32(0));
         vm.prank(admin);
-        fresh.setState(Bridge.ContractState.Paused);
+        fresh.pause();
         vm.prank(admin);
         fresh.migrate(newBridge);
         assertEq(fresh.migratedContract(), newBridge);
@@ -659,7 +795,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
 
         address[] memory tokens = new address[](2);
@@ -685,7 +821,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         t2.mint(address(_bridge), DEPOSIT_AMOUNT);
 
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
         vm.stopPrank();
 
@@ -717,7 +853,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_TransferTokensToMigrated_RevertIfNotFastAdmin() public {
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
         vm.stopPrank();
 

@@ -78,9 +78,9 @@ contract BridgeAdminMigrationTest is Test {
 
         vm.startPrank(oldAdmin);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, oldAdmin, defaultAdminRole)
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, oldAdmin, pauserRole)
         );
-        bridge.setState(Bridge.ContractState.Paused);
+        bridge.pause();
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, oldAdmin, fastAdminRole)
         );
@@ -97,8 +97,8 @@ contract BridgeAdminMigrationTest is Test {
         assertFalse(bridge.hasRole(pauserRole, oldAdmin));
 
         vm.prank(oldAdmin);
-        bridge.setState(Bridge.ContractState.Public);
-        assertEq(uint8(bridge.contractState()), uint8(Bridge.ContractState.Public));
+        bridge.makePrivate();
+        assertEq(uint8(bridge.contractState()), uint8(Bridge.ContractState.Private));
     }
 
     function test_Migration_TimelockedOperationWorksAfterwards() public {

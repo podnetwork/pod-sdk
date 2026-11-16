@@ -377,15 +377,14 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
 
     function test_Fork_FastAdmin_CanSwitchStatesAndUnpause() public {
         vm.prank(pauser1);
-        BRIDGE.setState(Bridge.ContractState.Paused);
+        BRIDGE.pause();
 
         vm.startPrank(ADMIN_SAFE);
-        BRIDGE.setState(Bridge.ContractState.Private);
-        BRIDGE.setState(Bridge.ContractState.Public);
-        BRIDGE.setState(Bridge.ContractState.Paused);
-        BRIDGE.setState(Bridge.ContractState.Private);
-        vm.expectRevert(Bridge.ContractMigrated.selector);
-        BRIDGE.setState(Bridge.ContractState.Migrated);
+        BRIDGE.unpause(Bridge.ContractState.Private);
+        assertEq(uint8(BRIDGE.contractState()), uint8(Bridge.ContractState.Private));
+        BRIDGE.makePublic();
+        assertEq(uint8(BRIDGE.contractState()), uint8(Bridge.ContractState.Public));
+        BRIDGE.makePrivate();
         vm.stopPrank();
 
         assertEq(uint8(BRIDGE.contractState()), uint8(Bridge.ContractState.Private));
@@ -397,7 +396,8 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
         BRIDGE.configureToken(USDC, 1, type(uint256).max, type(uint256).max);
 
-        BRIDGE.setState(Bridge.ContractState.Paused);
+        vm.expectRevert(_unauthorized(ADMIN_SAFE, pauserRole));
+        BRIDGE.pause();
         vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
         BRIDGE.migrate(attacker);
 
@@ -421,13 +421,15 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
 
     function test_Fork_Pauser_CanOnlyPause() public {
         vm.startPrank(pauser2);
-        BRIDGE.setState(Bridge.ContractState.Paused);
+        BRIDGE.pause();
         assertEq(uint8(BRIDGE.contractState()), uint8(Bridge.ContractState.Paused));
 
-        vm.expectRevert(_unauthorized(pauser2, defaultAdminRole));
-        BRIDGE.setState(Bridge.ContractState.Private);
-        vm.expectRevert(_unauthorized(pauser2, defaultAdminRole));
-        BRIDGE.setState(Bridge.ContractState.Public);
+        vm.expectRevert(_unauthorized(pauser2, fastAdminRole));
+        BRIDGE.unpause(Bridge.ContractState.Private);
+        vm.expectRevert(_unauthorized(pauser2, fastAdminRole));
+        BRIDGE.makePrivate();
+        vm.expectRevert(_unauthorized(pauser2, fastAdminRole));
+        BRIDGE.makePublic();
         vm.expectRevert(_unauthorized(pauser2, defaultAdminRole));
         BRIDGE.migrate(attacker);
         vm.expectRevert(_unauthorized(pauser2, fastAdminRole));
@@ -449,7 +451,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         (uint256 minAmount,,,,,) = BRIDGE.tokenData(USDC);
 
         vm.prank(pauser1);
-        BRIDGE.setState(Bridge.ContractState.Paused);
+        BRIDGE.pause();
 
         (, bytes memory proof, bytes memory aux) =
             createTokenClaimProof(USDC_ON_POD, minAmount, user, NUM_TEST_VALIDATORS, BRIDGE.domainSeparator());
@@ -457,7 +459,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         BRIDGE.claim(USDC, minAmount, user, proof, aux);
 
         vm.prank(ADMIN_SAFE);
-        BRIDGE.setState(Bridge.ContractState.Private);
+        BRIDGE.unpause(Bridge.ContractState.Private);
         BRIDGE.claim(USDC, minAmount, user, proof, aux);
         assertEq(IERC20(USDC).balanceOf(user), minAmount);
     }
@@ -540,8 +542,8 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         BRIDGE.configureToken(USDC, 1, 1, 1);
         vm.expectRevert(_unauthorized(executor1, defaultAdminRole));
         BRIDGE.grantRole(defaultAdminRole, executor1);
-        vm.expectRevert(_unauthorized(executor1, defaultAdminRole));
-        BRIDGE.setState(Bridge.ContractState.Paused);
+        vm.expectRevert(_unauthorized(executor1, pauserRole));
+        BRIDGE.pause();
         vm.expectRevert(_unauthorized(executor1, fastAdminRole));
         BRIDGE.updateValidatorConfig(0, 2, bytes32(0), new address[](0), new address[](0));
         vm.expectRevert(_unauthorized(executor1, defaultAdminRole));
@@ -601,15 +603,17 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
 
         // A stolen hot key is removed, and a compromised fast admin can be replaced.
         vm.prank(pauser1);
-        vm.expectRevert(_unauthorized(pauser1, defaultAdminRole));
-        BRIDGE.setState(Bridge.ContractState.Paused);
+        vm.expectRevert(_unauthorized(pauser1, pauserRole));
+        BRIDGE.pause();
+        vm.prank(newPauser);
+        BRIDGE.pause();
 
         vm.prank(ADMIN_SAFE);
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
-        BRIDGE.setState(Bridge.ContractState.Paused);
+        vm.expectRevert(_unauthorized(ADMIN_SAFE, fastAdminRole));
+        BRIDGE.unpause(Bridge.ContractState.Private);
         vm.prank(newFastAdmin);
-        BRIDGE.setState(Bridge.ContractState.Paused);
-        assertEq(uint8(BRIDGE.contractState()), uint8(Bridge.ContractState.Paused));
+        BRIDGE.unpause(Bridge.ContractState.Private);
+        assertEq(uint8(BRIDGE.contractState()), uint8(Bridge.ContractState.Private));
     }
 
     function test_Fork_Timelocked_WhitelistTokenAndCallContract() public {
@@ -650,7 +654,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         assertGt(balance, 0);
 
         vm.prank(pauser1);
-        BRIDGE.setState(Bridge.ContractState.Paused);
+        BRIDGE.pause();
 
         vm.prank(ADMIN_SAFE);
         vm.expectRevert(Bridge.ContractNotMigrated.selector);
@@ -733,7 +737,8 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         uint256 balance = IERC20(USDC).balanceOf(address(BRIDGE));
 
         vm.startPrank(ADMIN_SAFE);
-        BRIDGE.setState(Bridge.ContractState.Paused);
+        vm.expectRevert(_unauthorized(ADMIN_SAFE, pauserRole));
+        BRIDGE.pause();
         vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
         BRIDGE.migrate(attacker);
         vm.expectRevert(Bridge.ContractNotMigrated.selector);
@@ -833,10 +838,11 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
     /// @dev Known and accepted: the Safe plus one executor is full control after 72 hours.
     function test_Fork_AdminSafeAndOneExecutorCompromised_DrainAfterDelay() public {
         uint256 balance = IERC20(USDC).balanceOf(address(BRIDGE));
-        vm.prank(ADMIN_SAFE);
-        BRIDGE.setState(Bridge.ContractState.Paused);
 
+        // The Safe cannot pause, and migrate needs a paused bridge, so it also takes PAUSER_ROLE.
+        bytes memory grant = abi.encodeCall(BRIDGE.grantRole, (pauserRole, ADMIN_SAFE));
         bytes memory data = abi.encodeCall(BRIDGE.migrate, (attacker));
+        _schedule(address(BRIDGE), grant);
         _schedule(address(BRIDGE), data);
 
         // Nothing moves during the delay.
@@ -847,6 +853,9 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         assertEq(IERC20(USDC).balanceOf(address(BRIDGE)), balance);
 
         skip(1);
+        _execute(executor2, address(BRIDGE), grant);
+        vm.prank(ADMIN_SAFE);
+        BRIDGE.pause();
         _execute(executor2, address(BRIDGE), data);
         vm.prank(ADMIN_SAFE);
         BRIDGE.transferTokensToMigrated(_usdcOnly());
@@ -888,7 +897,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         deal(USDC, user, minAmount);
 
         vm.prank(ADMIN_SAFE);
-        BRIDGE.setState(Bridge.ContractState.Public);
+        BRIDGE.makePublic();
 
         uint256 depositIndex = BRIDGE.depositIndex();
         vm.startPrank(user);
