@@ -2732,7 +2732,7 @@ components:
         - `canceled`: Order was canceled by user
         - `margin_canceled`: The engine removed the order because the owner's margin capacity was exhausted
         - `self_trade_canceled`: The engine removed a resting order that was about to fill against another order of the same owner
-        - `post_only_refused`: The engine removed a `post_only` order that would have taken liquidity in the batch that admitted (or re-priced) it. Distinct from `canceled` so an engine refusal can be told apart from a cancel the trader sent — see [Post-only orders](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook)
+        - `post_only_refused`: The engine refused a `post_only` order because its price crossed the book left by the previous batch. Distinct from `canceled` so an engine refusal can be told apart from a cancel the trader sent — see [Post-only orders](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook)
         - `invalid`: Rejected at execution and never entered the book; the reject reason travels with the status
 
     MarketType:
@@ -2903,8 +2903,8 @@ components:
         post_only:
           type: boolean
           description: |
-            Add-liquidity-only — the order could not trade in the batch that admitted it. Reported on
-            both market types, and **omitted when false**.
+            Post-only — the order was refused if it crossed the book left by the previous batch.
+            Reported on both market types, and **omitted when false**.
         direction:
           $ref: '#/components/schemas/OrderDirection'
           description: Composite direction label (set for spot, and for perps once fills land or for liquidation orders).
@@ -3929,8 +3929,8 @@ components:
         post_only:
           type: boolean
           description: |
-            Add-liquidity-only — the order may not trade in the batch that admitted it, so it can rest
-            through a batch it appeared to cross. Omitted means false.
+            Post-only — the order is refused if it crosses the book left by the previous batch;
+            otherwise it trades like any other order. Omitted means false.
         trigger:
           type: string
           enum: [take_profit, stop_loss]
@@ -4000,7 +4000,7 @@ components:
                  order_not_found, not_order_owner, stale_nonce, wrong_pair, engine_managed_order,
                  price_above_maximum, price_off_tick, size_above_maximum, size_off_lot,
                  notional_overflow, notional_above_cap, delegation_expired, post_only_ioc,
-                 post_only_market_order, unspecified]
+                 post_only_market_order, post_only_would_cross, unspecified]
           description: |
             `modify_reject` and `cancel_reject`: the stable reason identifier — branch on this, not on `why`.
             Treat a value you do not recognise as `unspecified`: the set grows as the engine names
@@ -4045,8 +4045,8 @@ components:
             order is still working.
 
             On `cancel`: present only when the **engine** removed the order rather than the owner
-            cancelling it — `post_only_refused` (a `post_only` order that would have taken liquidity in
-            the batch that admitted or re-priced it), `self_trade_canceled` (a resting order that was
+            cancelling it — `post_only_refused` (a `post_only` order whose price crossed the book left by the
+            previous batch), `self_trade_canceled` (a resting order that was
             about to fill against the same owner), or `margin_canceled`. An ordinary cancel
             omits `st`, so a client that ignores the field reads every `cancel` exactly as it did
             before.

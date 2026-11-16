@@ -131,7 +131,7 @@ let entry = Orderbook::submitOrderCall {
     size,
     price: U256::from(140) * one_e18,
     orderType: Orderbook::OrderType::Limit,
-    // flags — 0 rests on the book; POST_ONLY (0x04) to guarantee you add liquidity
+    // flags — 0 rests on the book; POST_ONLY (0x04) to refuse it if it crosses the book
     deadline, ttl, flags: 0,
 }.abi_encode();
 

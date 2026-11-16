@@ -1133,7 +1133,7 @@ components:
         - `canceled`: canceled by the owner
         - `margin_canceled`: removed by the engine because the owner's margin was exhausted
         - `self_trade_canceled`: removed by the engine because it was about to fill against an order of the same owner
-        - `post_only_refused`: a `post_only` order removed because it would have taken liquidity in the batch that admitted it
+        - `post_only_refused`: a `post_only` order refused because its price crossed the book left by the previous batch
         - `invalid`: rejected at execution and never entered the book; see `invalid_reason`
 
         Everything except `pending` and `active` is terminal.

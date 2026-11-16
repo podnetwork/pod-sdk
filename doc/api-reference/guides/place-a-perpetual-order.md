@@ -47,7 +47,7 @@ const ttl = 60n * 1_000_000n;
 
 const tx = await orderbook.submitOrder(
   nvdaPerpId, size, price, orderType, deadline, ttl,
-  0,        // flags — REDUCE_ONLY to only close, POST_ONLY to guarantee you add liquidity
+  0,        // flags — REDUCE_ONLY to only close, POST_ONLY to refuse it if it crosses the book
 );
 console.log("Perp order tx:", tx.hash);
 ```
@@ -110,7 +110,7 @@ let ttl = 60 * 1_000_000;
 let tx = orderbook
     .submitOrder(
         nvda_perp_id, size, price, Orderbook::OrderType::Limit, deadline, ttl,
-        0,            // flags — REDUCE_ONLY to only close, POST_ONLY to guarantee you add liquidity
+        0,            // flags — REDUCE_ONLY to only close, POST_ONLY to refuse it if it crosses the book
     )
     .send().await?;
 println!("Perp order tx: {:?}", tx.tx_hash());
@@ -122,19 +122,19 @@ println!("Perp order tx: {:?}", tx.tx_hash());
 
 Submit an opposite-sided order with `REDUCE_ONLY` (`0x01`) set in `flags`. Reduce-only orders can only decrease your existing exposure — they will be rejected if matching them would flip your position direction or open a new one.
 
-## Market-making: guarantee that you add liquidity
+## Market-making: post-only quotes
 
-Set `POST_ONLY` (`0x04`) in `flags` to quote as a guaranteed maker. The order rests on the book as usual, but it may not trade in the batch that admitted it: if it would have taken liquidity in that batch, it is removed instead and reported with the terminal status `post_only_refused`. From the next batch onwards it matches like any other resting order.
+Set `POST_ONLY` (`0x04`) in `flags` to quote without taking liquidity that was already resting. If the price crosses the book left by the previous batch, the order is refused and reported with the terminal status `post_only_refused`. Otherwise it is an ordinary limit order: it can still fill in its first batch against orders that arrived in the same batch, paying the taker fee, and whatever rests is a maker from the next batch on.
 
 ```typescript
-// A post-only, reduce-only quote: it can only add liquidity, and only close exposure
+// A post-only, reduce-only quote: refused if it crosses the book, and it can only close exposure
 const tx = await orderbook.submitOrder(
   nvdaPerpId, size, price, orderType, deadline, ttl,
   POST_ONLY | REDUCE_ONLY,
 );
 ```
 
-`POST_ONLY` cannot be combined with `IOC`, and cannot be set on a market order — both are rejected. It also cannot be requested on a TP/SL trigger, since `submitTrigger` has no `flags` argument. See [Post-only orders](../applications-precompiles/orderbook.md#post-only-orders) for the exact rules, including what happens when two post-only orders cross each other and how amendments re-arm the guarantee.
+`POST_ONLY` cannot be combined with `IOC`, and cannot be set on a market order — both are rejected. It also cannot be requested on a TP/SL trigger, since `submitTrigger` has no `flags` argument. See [Post-only orders](../applications-precompiles/orderbook.md#post-only-orders) for the exact rules, including what happens when two post-only orders cross each other and how amendments are checked.
 
 {% hint style="info" %}
 **Market leverage.** Each perp market has a fixed `maxLeverage` set at creation (20x on every testnet perp). It determines the margin required per position — there's no per-order leverage to set.
