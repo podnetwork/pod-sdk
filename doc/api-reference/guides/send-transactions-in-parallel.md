@@ -49,7 +49,7 @@ const provider = new ethers.JsonRpcProvider(RPC);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 type Call = { to: string; data: string; value?: bigint };
-type Sent = { call: Call; sentAt: number; tip: bigint };
+type Sent = { call: Call; sentAt: number };
 
 async function readWindow(since?: bigint) {
   const url = `${REST}/accounts/${wallet.address}/nonce-slots${since ? `?since=${since}` : ""}`;
@@ -86,14 +86,14 @@ export async function sendAll(calls: Call[]) {
     params: ["pod_receipts", { account: wallet.address }],
   }));
 
-  async function send(nonce: bigint, call: Call, tip: bigint) {
+  async function send(nonce: bigint, call: Call) {
     const raw = await wallet.signTransaction({
       type: 2, chainId, nonce: Number(nonce), ...call,
       gasLimit: 1_000_000n,
-      maxFeePerGas: fees.maxFeePerGas! + tip,
-      maxPriorityFeePerGas: fees.maxPriorityFeePerGas! + tip,
+      maxFeePerGas: fees.maxFeePerGas!,
+      maxPriorityFeePerGas: fees.maxPriorityFeePerGas!,
     });
-    sent.set(nonce, { call, sentAt: Date.now(), tip });
+    sent.set(nonce, { call, sentAt: Date.now() });
     byHash.set(ethers.keccak256(raw), nonce);
     const res = await provider.send("pod_sendRawTransaction", [raw, 2]);
     if (res.successes < n_minus_3f && res.errors.length > 0) {
@@ -109,7 +109,7 @@ export async function sendAll(calls: Call[]) {
   while (queue.length > 0 || done.size < sent.size) {
     while (queue.length > 0 && next < window.watermark + WINDOW) {
       if (!isExecuted(window, next) && !sent.has(next)) {
-        inFlight.push(send(next, queue.shift()!, 0n));
+        inFlight.push(send(next, queue.shift()!));
       }
       next++;
     }
@@ -120,7 +120,7 @@ export async function sendAll(calls: Call[]) {
     for (const [nonce, s] of sent) {
       if (isExecuted(window, nonce)) done.add(nonce);
       else if (!done.has(nonce) && Date.now() - s.sentAt > GAP_AFTER_MS) {
-        inFlight.push(send(nonce, s.call, s.tip + 1n));
+        inFlight.push(send(nonce, s.call));
       }
     }
   }
