@@ -564,15 +564,7 @@ where
         .collect())
 }
 
-#[derive(Deserialize)]
-struct EmptyTxRequiredData {
-    nonce: u64,
-    #[serde(default)]
-    errors: Vec<String>,
-}
-
 /// Mirrors the server's `ErrorCodes`; `-32003` is kept for compatibility.
-const EMPTY_TX_REQUIRED_CODE: i64 = 997;
 const REJECTED_CODE: i64 = -32003;
 const NONCE_REJECTED_CODE: i64 = 996;
 
@@ -583,9 +575,6 @@ pub enum PodSendError {
     /// Rejected deterministically by f+1 validators, so it can never execute and
     /// a replacement at the same nonce is safe.
     Rejected { errors: Vec<String> },
-    /// The head nonce has votes but no certificate; a deadline-free empty
-    /// self-transfer at `nonce` forces one.
-    EmptyTxRequired { nonce: u64, errors: Vec<String> },
     /// Transport failure, or an unclassified server error. May still have been
     /// delivered.
     Transport(TransportError),
@@ -609,11 +598,6 @@ impl std::fmt::Display for PodSendError {
             Self::Rejected { errors } => {
                 write!(f, "rejected by f+1 validators: {}", errors.join(", "))
             }
-            Self::EmptyTxRequired { nonce, errors } => write!(
-                f,
-                "empty self-transfer required at nonce {nonce}: {}",
-                errors.join(", ")
-            ),
             Self::Transport(e) => write!(f, "{e}"),
             Self::DeliveryUnknown { tx_hash } => {
                 write!(f, "delivery of transaction {tx_hash} unknown")
@@ -644,13 +628,6 @@ impl From<RpcError<TransportErrorKind>> for PodSendError {
             return Self::Transport(err);
         };
         match payload.code {
-            EMPTY_TX_REQUIRED_CODE => match payload.try_data_as::<EmptyTxRequiredData>() {
-                Some(Ok(data)) => Self::EmptyTxRequired {
-                    nonce: data.nonce,
-                    errors: data.errors,
-                },
-                _ => Self::Transport(err),
-            },
             // The message alone is meaningful, so unparsable `data` still classifies.
             REJECTED_CODE => Self::Rejected {
                 errors: match payload.try_data_as::<Vec<Rejection>>() {
@@ -696,21 +673,6 @@ mod send_tests {
                 assert_eq!(errors, vec!["Transaction rejected: nope"]);
             }
             other => panic!("expected Rejected, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn classifies_empty_tx_required() {
-        match PodSendError::from(rpc_error(
-            EMPTY_TX_REQUIRED_CODE,
-            "Empty transaction required to make progress",
-            Some(r#"{"nonce":23,"errors":["split"]}"#),
-        )) {
-            PodSendError::EmptyTxRequired { nonce, errors } => {
-                assert_eq!(nonce, 23);
-                assert_eq!(errors, vec!["split"]);
-            }
-            other => panic!("expected EmptyTxRequired, got {other:?}"),
         }
     }
 

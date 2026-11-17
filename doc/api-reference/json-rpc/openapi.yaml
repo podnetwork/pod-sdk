@@ -1148,7 +1148,6 @@ paths:
 
         **Errors** (beyond invalid params):
         - `-32003` — rejected permanently by at least `f + 1` validators; `data` lists the rejections.
-        - `997` — an empty transaction is required at `data.nonce` to make progress.
         - `-32000` — the node is in read-only mode (see `pod_status`), or local validation failed
           on a non-contract rule (reason in `data`).
         - `3` — `execution reverted`: local validation failed on a contract rule; `data` is the

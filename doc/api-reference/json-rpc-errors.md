@@ -33,7 +33,6 @@ Every error is returned as a JSON-RPC 2.0 error object:
 | `996`    | the reason, e.g. `Past nonce: tx nonce 3, expected 4` | A past nonce, future nonce or pending account. Retry with a fresh `pending` nonce, after checking the receipt of any attempt that may already have been delivered. |
 | `995`    | `node behind requested timestamp` | The node did not reach the requested `timestamp` (or a state-channel subscription's `since`, or the block number passed to `eth_getBalance` or `eth_getTransactionCount`) within its wait. A value later than the node's clock plus the wait is rejected without waiting. `data` is its current value. Retry, through any node. |
 | `-32003` | `Transaction rejected: …`     | A quorum of validators rejected the transaction.                                          |
-| `997`    | `Empty transaction required to make progress` | From `pod_sendRawTransaction`: the account's head nonce will not finalize on its own. `data` carries the nonce to unblock. |
 | `-32002` | `Chain has no block yet`      | `eth_blockNumber` before the first block exists.                                          |
 | `-32025` | `not available in your region` | `eth_sendRawTransaction` / `pod_sendRawTransaction` from a geo-restricted source. |
 | `-32020` … `-32023` | (see below)        | A websocket subscription was closed by the server. Delivered as a notification, not a response — see [Subscription close notifications](#subscription-close-notifications). |
@@ -128,30 +127,6 @@ Returned when at least `f + 1` validators reject a transaction (the rejection qu
   }
 }
 ```
-
-### `997` — empty transaction required
-
-Returned by `pod_sendRawTransaction` when the account's head nonce has no certificate and will not finalize on its own. Submit a deadline-free empty self-transfer (`to` = your own address, value 0, no calldata) at `data.nonce`; once that finalizes (or the head becomes recoverable), resubmit.
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "error": {
-    "code": 997,
-    "message": "Empty transaction required to make progress",
-    "data": {
-      "nonce": 12,
-      "errors": ["Account has pending transaction"]
-    }
-  }
-}
-```
-
-| `data` field | Type     | Description                                                       |
-| ------------ | -------- | ----------------------------------------------------------------- |
-| `nonce`      | number   | The head nonce to submit the empty self-transfer at.              |
-| `errors`     | string[] | Any validator rejections observed while waiting for attestations. |
 
 ## Subscription close notifications
 
