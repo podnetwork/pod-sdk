@@ -180,7 +180,9 @@ impl NetworkTransactionBuilder<PodNetwork> for PodTransactionRequest {
     fn complete_type(&self, ty: TxType) -> Result<(), Vec<&'static str>> {
         match ty {
             TxType::Eip1559 => self.complete_1559(),
-            _ => unimplemented!(), // Preventing usage of any other except EIP-1559 Tx
+            // Pod only accepts EIP-1559 transactions; report the unsupported type
+            // through the Result instead of panicking the caller.
+            _ => Err(vec!["only EIP-1559 transactions are supported by pod network"]),
         }
     }
 
