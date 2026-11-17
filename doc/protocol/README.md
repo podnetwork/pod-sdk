@@ -22,7 +22,7 @@ Not every application can be built fully coordination-free. This is a new paradi
 
 **Network**  - the core consensus and infrastructure layer:
 - [Network Architecture](network-architecture/README.md)  - entities in the network and how they interact
-  - [Transaction Flow](network-architecture/transaction-flow.md)  - submission, attestation, finality, and recovery
+  - [Transaction Flow](network-architecture/transaction-flow.md)  - submission, attestation, and finality
   - [Local Ordering](network-architecture/local-ordering.md)  - per-account ordering, nonces, and the partial order model
   - [Censorship Resistance](network-architecture/censorship-resistance.md)  - how the leaderless design guarantees liveness
 - [Native Bridge](native-bridge.md)  - deposit and withdrawal flows between Ethereum and Pod, how value crosses the boundary

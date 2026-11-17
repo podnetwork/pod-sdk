@@ -1,6 +1,6 @@
 # JSON-RPC Errors
 
-Errors returned by the Pod RPC server follow the standard [JSON-RPC 2.0](https://www.jsonrpc.org/specification#error_object) error format. In addition to the standard codes (`-32600`, `-32602`, `-32603`, etc.), Pod defines a small set of domain-specific codes for transaction validation, execution reverts, and account recovery.
+Errors returned by the Pod RPC server follow the standard [JSON-RPC 2.0](https://www.jsonrpc.org/specification#error_object) error format. In addition to the standard codes (`-32600`, `-32602`, `-32603`, etc.), Pod defines a small set of domain-specific codes for transaction validation and execution reverts.
 
 ## Error response format
 
@@ -33,7 +33,6 @@ Every error is returned as a JSON-RPC 2.0 error object:
 | `996`    | the reason, e.g. `Past nonce: tx nonce 3, expected 4` | A past nonce, future nonce or pending account. Retry with a fresh `pending` nonce, after checking the receipt of any attempt that may already have been delivered. |
 | `995`    | `node behind requested timestamp` | The node did not reach the requested `timestamp` (or a state-channel subscription's `since`, or the block number passed to `eth_getBalance` or `eth_getTransactionCount`) within its wait. A value later than the node's clock plus the wait is rejected without waiting. `data` is its current value. Retry, through any node. |
 | `-32003` | `Transaction rejected: …`     | A quorum of validators rejected the transaction.                                          |
-| `999`    | `Account locked`              | The account is locked pending recovery. `data` carries the recovery target.              |
 | `997`    | `Empty transaction required to make progress` | From `pod_sendRawTransaction`: the account's head nonce will not finalize on its own. `data` carries the nonce to unblock. |
 | `-32002` | `Chain has no block yet`      | `eth_blockNumber` before the first block exists.                                          |
 | `-32025` | `not available in your region` | `eth_sendRawTransaction` / `pod_sendRawTransaction` from a geo-restricted source. |
@@ -130,30 +129,6 @@ Returned when at least `f + 1` validators reject a transaction (the rejection qu
 }
 ```
 
-### `999` — account locked
-
-Returned when you submit a transaction for an account that is locked due to a pending recovery. `data` identifies the recovery target — see [Recover a locked account](guides/recover-locked-account.md).
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "error": {
-    "code": 999,
-    "message": "Account locked",
-    "data": {
-      "recovery_target": "0x…",
-      "recovery_target_nonce": 12
-    }
-  }
-}
-```
-
-| `data` field            | Type   | Description                                          |
-| ----------------------- | ------ | ---------------------------------------------------- |
-| `recovery_target`       | hash   | Transaction hash of the recovery target.             |
-| `recovery_target_nonce` | number | Nonce of the recovery target.                        |
-
 ### `997` — empty transaction required
 
 Returned by `pod_sendRawTransaction` when the account's head nonce has no certificate and will not finalize on its own. Submit a deadline-free empty self-transfer (`to` = your own address, value 0, no calldata) at `data.nonce`; once that finalizes (or the head becomes recoverable), resubmit.
@@ -244,7 +219,6 @@ The reason carried in `data` (for code `-32000`) or encoded inside the revert (f
 | `Past nonce: tx nonce {tx_nonce}, expected {expected}`          | The nonce is lower than expected (already used). Code `996`.          |
 | `Insufficient balance`                                          | The account cannot cover the transaction.                             |
 | `Underpriced tx: max_fee_per_gas {max_fee_per_gas} < base fee {base_fee}` | `maxFeePerGas` is below the current base fee.               |
-| `Recovery validation failed: {reason}`                          | A recovery transaction failed validation.                             |
 
 ### Contract-level (returned with code `3`, inside the revert)
 
