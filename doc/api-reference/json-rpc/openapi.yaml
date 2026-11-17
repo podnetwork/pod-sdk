@@ -2324,9 +2324,7 @@ paths:
       tags: [Network & Consensus (pod_)]
       summary: Get Precompiles
       operationId: pod_getPrecompiles
-      description: |
-        Returns the list of enshrined precompile contracts with their addresses and names:
-        `Bridge` (`0x50d0…0001`), `Orderbook` (`0x50d0…0002`) and `Multisig` (`0x50d0…0004`).
+      description: Returns the list of enshrined precompile contracts with their addresses and names.
       requestBody:
         content:
           application/json:
@@ -4463,7 +4461,7 @@ components:
 
     Precompile:
       type: object
-      description: An enshrined precompile contract (bridge, orderbook, multisig).
+      description: An enshrined precompile contract.
       required: [address, name]
       properties:
         address:
@@ -5055,7 +5053,7 @@ components:
           description: The order id; on `transfer`, the transfer id, as `TransferUpdate.transfer_id`.
         tx:
           $ref: '#/components/schemas/Bytes32'
-          description: '`bridge_transfer`: the deposit or `withdraw` transaction (the `execute` transaction for a multisig''s withdrawal). `multisig_created`, `multisig_call`: the `create` or `execute` transaction. `market_action_reject`: the transaction carrying the action.'
+          description: Hash of the transaction that created the intent.
         book:
           $ref: '#/components/schemas/Bytes32'
           description: The orderbook. Omitted on the terminal backstop cash sweep and on a refused market create.

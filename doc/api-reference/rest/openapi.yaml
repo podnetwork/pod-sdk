@@ -967,7 +967,7 @@ paths:
         - name: tx_hash
           in: path
           required: true
-          description: Hash of the withdraw transaction, or of the multisig `execute` transaction that carried the withdrawal.
+          description: Hash of the transaction that carried the withdrawal.
           schema: { $ref: '#/components/schemas/Bytes32' }
       responses:
         '200':
