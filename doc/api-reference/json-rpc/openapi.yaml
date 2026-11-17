@@ -1421,7 +1421,8 @@ paths:
         - `pod_activity` — an `ActivityFrame`: one account's activity in one tick, as a map with one
           key, the tick's deadline, to its `ActivityEntry` list: orders, fills, modifications,
           terminations, refused modifications and cancels on every orderbook, and the money it moved
-          (backstop sweeps, bridge deposits and withdrawals, transfers). The same shape as
+          (backstop sweeps, bridge deposits and withdrawals, transfers), its multisig creates and
+          calls, and its refused market actions. The same shape as
           `GET /v1/clob/activity/{account}`. Requires `account` (alias `bidder`).
         - `pod_markets` — a `MarketDynamicEntry` per orderbook carrying live market statistics
           (last clearing price, 24h volume/high/low, perp mark/oracle/funding/open-interest) and its
@@ -2323,7 +2324,9 @@ paths:
       tags: [Network & Consensus (pod_)]
       summary: Get Precompiles
       operationId: pod_getPrecompiles
-      description: Returns the list of enshrined precompile contracts (bridge, CLOB, recovery, ...) with their addresses and names.
+      description: |
+        Returns the list of enshrined precompile contracts with their addresses and names:
+        `Bridge` (`0x50d0…0001`), `Orderbook` (`0x50d0…0002`) and `Multisig` (`0x50d0…0004`).
       requestBody:
         content:
           application/json:
@@ -2348,6 +2351,13 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Precompile' }
                   id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                id: 1
+                result:
+                  - { address: "0x50d0000000000000000000000000000000000001", name: Bridge }
+                  - { address: "0x50d0000000000000000000000000000000000002", name: Orderbook }
+                  - { address: "0x50d0000000000000000000000000000000000004", name: Multisig }
 
   /pod_getPrecompileInfo:
     post:
@@ -4453,7 +4463,7 @@ components:
 
     Precompile:
       type: object
-      description: An enshrined precompile contract (bridge, CLOB, recovery, ...).
+      description: An enshrined precompile contract (bridge, orderbook, multisig).
       required: [address, name]
       properties:
         address:
@@ -5024,6 +5034,14 @@ components:
         - `modify_reject` — an amendment the engine refused; the order is untouched: `id, book, px,
           sz, why`.
         - `cancel_reject` — a cancel the engine refused; the order still rests: `id, book, why`.
+        - `multisig_created` — a multisig `create`: `tx, addr, creator, members, threshold, err?`.
+          Sent to the creator, refused or not, and to the multisig's address when it succeeded.
+        - `multisig_call` — a multisig `execute`: `tx, addr, sender, nonce, members?, threshold?,
+          err?`. Sent to the sender, refused or not, and to the multisig's address when the call
+          ran. `members` and `threshold` are the new config when the call ran a `setConfig`. The
+          call's inner orders, transfers and withdrawals appear as their own entries.
+        - `market_action_reject` — a market action (`createMarket`, `disableMarket`, …) the batch
+          refused, sent to its signer: `tx, kind, book?, why`.
 
         Every other order entry names its order by `id` and `book`; for an order placed before the
         client's history, fetch its terms from `GET /v1/clob/orders/{account}`.
@@ -5031,16 +5049,16 @@ components:
       properties:
         k:
           type: string
-          enum: [order, fill, modify, termination, backstop, bridge_transfer, transfer, modify_reject, cancel_reject]
+          enum: [order, fill, modify, termination, backstop, bridge_transfer, transfer, modify_reject, cancel_reject, multisig_created, multisig_call, market_action_reject]
         id:
           $ref: '#/components/schemas/Bytes32'
           description: The order id; on `transfer`, the transfer id, as `TransferUpdate.transfer_id`.
         tx:
           $ref: '#/components/schemas/Bytes32'
-          description: '`bridge_transfer`: the deposit or `withdraw` transaction.'
+          description: '`bridge_transfer`: the deposit or `withdraw` transaction (the `execute` transaction for a multisig''s withdrawal). `multisig_created`, `multisig_call`: the `create` or `execute` transaction. `market_action_reject`: the transaction carrying the action.'
         book:
           $ref: '#/components/schemas/Bytes32'
-          description: The orderbook. Omitted on the terminal backstop cash sweep.
+          description: The orderbook. Omitted on the terminal backstop cash sweep and on a refused market create.
         px:
           type: string
           description: '`modify`: the price after the change. `modify_reject`: the price asked for.'
@@ -5049,7 +5067,7 @@ components:
           description: '`modify`: the size after the change, unsigned. `modify_reject`: the size asked for, unsigned. `backstop`: signed position size moved to the backstop.'
         why:
           type: string
-          description: "`modify_reject`, `cancel_reject`: the engine's reason, always present."
+          description: "`modify_reject`, `cancel_reject`, `market_action_reject`: the engine's reason, always present."
         b:
           type: string
           description: '`fill`: base filled by this fill.'
@@ -5110,7 +5128,31 @@ components:
           description: '`bridge_transfer`, `transfer`: signed amount in Pod''s 18 decimals.'
         err:
           type: string
-          description: '`bridge_transfer`, `transfer`: why the movement was refused — for a deposit `already_processed` or `not_included`, for a withdrawal as `WithdrawalUpdate.error`, for a transfer as `TransferUpdate.error`. Nothing moved; `amt` still reports what was asked for. Absent when it succeeded; treat an unrecognised value as a failure.'
+          description: '`bridge_transfer`, `transfer`: why the movement was refused — for a deposit `already_processed` or `not_included`, for a withdrawal as `WithdrawalUpdate.error`, for a transfer as `TransferUpdate.error`. Nothing moved; `amt` still reports what was asked for. `multisig_created`: `address_taken`. `multisig_call`: why the call was refused and none of its inner calls ran — `no_multisig`, `stale_nonce`, `premature`, `expired`, `too_far_ahead`, `below_threshold`, `invalid_signature`, `non_member`, `duplicate_signer` or `unsupported_inner_call`. Absent when it succeeded; treat an unrecognised value as a failure.'
+        addr:
+          $ref: '#/components/schemas/Address'
+          description: '`multisig_created`, `multisig_call`: the multisig''s address.'
+        creator:
+          $ref: '#/components/schemas/Address'
+          description: '`multisig_created`: the account that sent `create`.'
+        sender:
+          $ref: '#/components/schemas/Address'
+          description: '`multisig_call`: the account that sent `execute`.'
+        members:
+          type: array
+          items: { $ref: '#/components/schemas/Address' }
+          description: '`multisig_created`: the initial members. `multisig_call`: the members set by its `setConfig`; omitted when it ran none.'
+        threshold:
+          type: integer
+          description: '`multisig_created`: the initial threshold. `multisig_call`: the threshold set by its `setConfig`; omitted when it ran none.'
+        nonce:
+          type: integer
+          format: int64
+          description: '`multisig_call`: the call''s nonce, `Call.nonce`.'
+        kind:
+          type: string
+          enum: [create, disable, settle, update_oracle, transfer_ownership]
+          description: '`market_action_reject`: the refused action.'
 
     BlockHeader:
       type: object

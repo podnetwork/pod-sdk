@@ -154,7 +154,7 @@ Markets are created, halted, settled and re-pointed at their price feeds with fo
 **Intents due after a scheduled halt are refused up front.** Once `disable_at` is set, any order, cancel or update on that book whose `deadline` lies past the halt is rejected at submission with `market disables at …: an intent with deadline … could never execute`. Bots that stamp long deadlines should shorten them, or drop the book, as soon as `disable_at` appears, and a `submitBatch` that spans several books fails as a whole when one sub-intent trips this rule.
 {% endhint %}
 
-The lifecycle calls cannot be wrapped in `delegated` or carried inside `submitBatch`, and they pay flat gas with no exemption.
+The lifecycle calls cannot be wrapped in `delegated` or carried inside `submitBatch`, and they pay flat gas with no exemption. A [multisig](multisig.md#market-admin) on the allowlist sends them as inner calls of a call its members sign.
 
 ### Solidity interface (ABI)
 

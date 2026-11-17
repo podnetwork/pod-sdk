@@ -55,7 +55,7 @@ Withdrawals are also **gas-exempt**, so an account whose entire balance arrived 
 
 The balance is **not** part of that check. It is compared against the withdrawable balance when the batch executes, because pending fills can raise it in the meantime. A withdrawal the balance does not cover at that point is reported as a failed outcome rather than rejected as a transaction, and debits nothing.
 
-**A withdrawal is always its own transaction.** It cannot be packed into an orderbook `submitBatch` and cannot be wrapped in `delegated`. Its identity is therefore the **withdraw transaction's hash**, which is what every outcome and lookup below is keyed by.
+**A withdrawal is its own transaction, or the single withdrawal of a multisig call.** It cannot be packed into an orderbook `submitBatch` and cannot be wrapped in `delegated`. Its identity is therefore a transaction hash, which is what every outcome and lookup below is keyed by: the withdraw transaction's hash, or for a [multisig](multisig.md#withdrawals) the hash of the `execute` transaction that carried it.
 
 ## Following a withdrawal
 
