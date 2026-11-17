@@ -522,9 +522,8 @@ impl PodProvider {
 ///
 /// Signing separately from sending lets a caller resubmit the *same bytes*: two
 /// different transactions at one nonce split validator votes so neither reaches
-/// quorum, which locks the account until a recovery transaction clears it. `tx`
-/// must already carry every field feeding the hash, since nothing here fills any
-/// in.
+/// quorum. `tx` must already carry every field feeding the hash, since nothing
+/// here fills any in.
 pub async fn sign_transaction_bytes(
     tx: PodTransactionRequest,
     key: crate::SigningKey,
@@ -566,12 +565,6 @@ where
 }
 
 #[derive(Deserialize)]
-struct AccountLockedData {
-    recovery_target: Hash,
-    recovery_target_nonce: u64,
-}
-
-#[derive(Deserialize)]
 struct EmptyTxRequiredData {
     nonce: u64,
     #[serde(default)]
@@ -579,7 +572,6 @@ struct EmptyTxRequiredData {
 }
 
 /// Mirrors the server's `ErrorCodes`; `-32003` is kept for compatibility.
-const ACCOUNT_LOCKED_CODE: i64 = 999;
 const EMPTY_TX_REQUIRED_CODE: i64 = 997;
 const REJECTED_CODE: i64 = -32003;
 const NONCE_REJECTED_CODE: i64 = 996;
@@ -588,12 +580,6 @@ const NONCE_REJECTED_CODE: i64 = 996;
 /// distinctions.
 #[derive(Debug)]
 pub enum PodSendError {
-    /// No transaction at this nonce can reach quorum; only a recovery transaction
-    /// at a fresh nonce, pointing at `recovery_target`, advances the account.
-    AccountLocked {
-        recovery_target: Hash,
-        recovery_target_nonce: u64,
-    },
     /// Rejected deterministically by f+1 validators, so it can never execute and
     /// a replacement at the same nonce is safe.
     Rejected { errors: Vec<String> },
@@ -620,13 +606,6 @@ impl PodSendError {
 impl std::fmt::Display for PodSendError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::AccountLocked {
-                recovery_target,
-                recovery_target_nonce,
-            } => write!(
-                f,
-                "account locked at nonce {recovery_target_nonce}; needs a recovery tx targeting {recovery_target}"
-            ),
             Self::Rejected { errors } => {
                 write!(f, "rejected by f+1 validators: {}", errors.join(", "))
             }
@@ -665,13 +644,6 @@ impl From<RpcError<TransportErrorKind>> for PodSendError {
             return Self::Transport(err);
         };
         match payload.code {
-            ACCOUNT_LOCKED_CODE => match payload.try_data_as::<AccountLockedData>() {
-                Some(Ok(data)) => Self::AccountLocked {
-                    recovery_target: data.recovery_target,
-                    recovery_target_nonce: data.recovery_target_nonce,
-                },
-                _ => Self::Transport(err),
-            },
             EMPTY_TX_REQUIRED_CODE => match payload.try_data_as::<EmptyTxRequiredData>() {
                 Some(Ok(data)) => Self::EmptyTxRequired {
                     nonce: data.nonce,
@@ -702,29 +674,6 @@ mod send_tests {
             message: message.to_string().into(),
             data: data.map(|d| serde_json::value::RawValue::from_string(d.to_string()).unwrap()),
         })
-    }
-
-    #[test]
-    fn classifies_account_locked() {
-        let err = PodSendError::from(rpc_error(
-            ACCOUNT_LOCKED_CODE,
-            "Account locked",
-            Some(
-                r#"{"recovery_target":"0x596a7bd66762e52a914565f707d0fc2a479e818b3e7587ea9a6615c9290be13d","recovery_target_nonce":22}"#,
-            ),
-        ));
-        match err {
-            PodSendError::AccountLocked {
-                recovery_target_nonce,
-                ..
-            } => assert_eq!(recovery_target_nonce, 22),
-            other => panic!("expected AccountLocked, got {other:?}"),
-        }
-        // Unreadable `data` degrades to `Transport`, i.e. not terminal, so the
-        // caller resends rather than replaces. The node always sends `data`.
-        let no_data = PodSendError::from(rpc_error(ACCOUNT_LOCKED_CODE, "Account locked", None));
-        assert!(matches!(no_data, PodSendError::Transport(_)));
-        assert!(!no_data.is_terminal());
     }
 
     #[test]
@@ -981,7 +930,6 @@ mod send_tests {
                 "transaction validation failed",
                 Some(r#""Insufficient balance""#),
             ),
-            rpc_error(ACCOUNT_LOCKED_CODE, "Account locked", None),
         ] {
             let script = Script::new(vec![Err(err)], None);
             assert!(script.run().await.is_err());
