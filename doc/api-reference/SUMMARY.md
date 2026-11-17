@@ -7,6 +7,7 @@
 * [Place a spot order](guides/place-a-spot-order.md)
 * [Place a perpetual order](guides/place-a-perpetual-order.md)
 * [Submit a batch order](guides/submit-a-batch-order.md)
+* [Send transactions in parallel](guides/send-transactions-in-parallel.md)
 * [Delegate a trading key](guides/delegate-a-trading-key.md)
 * [Read market data](guides/read-market-data.md)
 * [Bridge to Pod](guides/bridge-to-pod.md)

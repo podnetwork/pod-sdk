@@ -25,8 +25,8 @@ tags:
       &nbsp; &nbsp; &nbsp;
   - name: Account
     description: |
-      One account's orders, fills, positions, balances, triggers, backstop transfers and
-      unified activity feed. `{account}` is a 20-byte `0x` address.
+      One account's orders, fills, positions, balances, triggers, backstop transfers,
+      unified activity feed and nonce window. `{account}` is a 20-byte `0x` address.
 
       &nbsp; &nbsp; &nbsp;
   - name: Explorer
@@ -693,6 +693,37 @@ paths:
   # ==========================================
   # EXPLORER
   # ==========================================
+  /accounts/{account}/nonce-slots:
+    get:
+      tags: [Account]
+      summary: Get Nonce Window
+      operationId: getNonceSlots
+      description: |
+        The account's nonce window: the lowest nonce not yet executed (`watermark`) and a
+        bitmap of which of the next 128 nonces have executed. Any nonce in
+        `[watermark, watermark + 128)` whose bit is not set can be used. An account the node
+        has never seen returns `watermark: 0` and an empty bitmap. Served by every node. The
+        same data as the JSON-RPC method `pod_getNonceSlots`.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+        - name: since
+          in: query
+          description: |
+            The lowest solution time accepted, in microseconds. The node answers once it has
+            executed up to it, otherwise `503` after its wait (default 2s). Omitted means
+            answer now.
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Nonce window
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NonceSlotsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500':
+          description: The account read failed. Empty body.
+        '503': { $ref: '#/components/responses/NodeBehind' }
+
   /tx/{hash}:
     get:
       tags: [Explorer]
@@ -1059,6 +1090,22 @@ components:
       description: The ledger read failed. Empty body.
 
   schemas:
+    NonceSlotsResponse:
+      type: object
+      required: [watermark, finalized, solution_now]
+      properties:
+        watermark:
+          type: integer
+          format: int64
+          description: The lowest nonce that has not executed. Every nonce below it has.
+        finalized:
+          type: string
+          description: 128-bit bitmap as `0x` hex. Bit `i` is set when nonce `watermark + i` has executed.
+          example: "0x5"
+        solution_now:
+          type: integer
+          format: int64
+          description: The time of the last batch the node executed, in microseconds.
     NodeBehindBody:
       type: object
       required: [timestamp]

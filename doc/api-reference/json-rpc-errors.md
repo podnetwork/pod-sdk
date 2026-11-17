@@ -37,7 +37,7 @@ Every error is returned as a JSON-RPC 2.0 error object:
 | `997`    | `Empty transaction required to make progress` | From `pod_sendRawTransaction`: the account's head nonce will not finalize on its own. `data` carries the nonce to unblock. |
 | `-32002` | `Chain has no block yet`      | `eth_blockNumber` before the first block exists.                                          |
 | `-32025` | `not available in your region` | `eth_sendRawTransaction` / `pod_sendRawTransaction` from a geo-restricted source. |
-| `-32020` … `-32023` | (see below)        | A websocket subscription was closed by the server. Delivered as a notification, not a response — see [Subscription close notifications](#subscription-close-notifications). |
+| `-32020` … `-32023`, `-32026` | (see below)        | A websocket subscription was closed by the server. Delivered as a notification, not a response — see [Subscription close notifications](#subscription-close-notifications). |
 
 ### `3` — execution reverted
 
@@ -205,6 +205,7 @@ The subscription is over once this arrives; nothing further is sent for it. The 
 | `-32021` | `node is shutting down`                              | The node is going away. Reconnect (to another node, if you have one) and resubscribe with `since` = `resume_since`.                               |
 | `-32022` | `subscriber did not accept a notification in time`   | The connection would not take a notification within the server's send timeout. Resubscribe with `since` = `resume_since` once you can keep up.     |
 | `-32023` | `failed to serialize a subscription notification`    | A server-side bug. **Do not** retry in a loop — an immediate resubscribe will likely reproduce it. Please report it.                              |
+| `-32026` | `since catch-up truncated; resubscribe from resume_since` | `pod_receipts` only: the `since` catch-up hit its cap of 10,000 receipts. What fit was delivered. Resubscribe with `since` = `resume_since`. |
 
 | `data` field   | Type    | Description                                                                                                                                                        |
 | -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
