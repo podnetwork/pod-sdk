@@ -8,13 +8,14 @@ import {TimelockController} from "@openzeppelin/contracts/governance/TimelockCon
 contract TimelockDeploy is Script {
     // Check manually:
     // - at least two executors
-    // - no executor is address(0), the admin multisig, or one of its signers
-    function run(Bridge bridge, address adminSafe, address[] memory executors)
+    // - no executor is address(0), a multisig, or one of their signers
+    // - the proposer multisig is not the fast admin multisig
+    function run(Bridge bridge, address proposer, address[] memory executors)
         public
         returns (TimelockController timelock, Bridge implementation)
     {
         address[] memory proposers = new address[](1);
-        proposers[0] = adminSafe;
+        proposers[0] = proposer;
 
         address podBridge = bridge.BRIDGE_CONTRACT();
         uint256 podChainId = bridge.CHAIN_ID();

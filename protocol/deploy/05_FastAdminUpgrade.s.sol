@@ -9,7 +9,8 @@ import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.s
 
 contract FastAdminUpgrade is Script {
     // Sent by the current admin. Reversible: it keeps all its roles.
-    function run(Bridge bridge, address timelock, address newImplementation, address adminSafe, address[] memory pausers)
+    // Check manually: fastAdmin is not the timelock proposer.
+    function run(Bridge bridge, address timelock, address newImplementation, address fastAdmin, address[] memory pausers)
         public
     {
         ProxyAdmin proxyAdmin = ProxyAdmin(address(uint160(uint256(vm.load(address(bridge), ERC1967Utils.ADMIN_SLOT)))));
@@ -20,7 +21,7 @@ contract FastAdminUpgrade is Script {
         vm.startBroadcast(proxyAdmin.owner());
 
         // Grant roles before the upgrade so there is no gap
-        bridge.grantRole(fastAdminRole, adminSafe);
+        bridge.grantRole(fastAdminRole, fastAdmin);
         for (uint256 i = 0; i < pausers.length; i++) {
             bridge.grantRole(pauserRole, pausers[i]);
         }

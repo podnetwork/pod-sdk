@@ -28,6 +28,9 @@ abstract contract BridgeAdminMigrationForkBase is BridgeClaimProofHelper {
     uint256 constant DELAY = 72 hours;
     uint256 constant NUM_TEST_VALIDATORS = 4;
 
+    // New multisigs: one proposes to the timelock, the other is the fast admin.
+    address proposerSafe = makeAddr("proposerSafe");
+    address fastAdminSafe = makeAddr("fastAdminSafe");
     address executor1 = makeAddr("executor1");
     address executor2 = makeAddr("executor2");
     address pauser1 = makeAddr("pauser1");
@@ -92,7 +95,7 @@ abstract contract BridgeAdminMigrationForkBase is BridgeClaimProofHelper {
     }
 
     function _runStep1() internal {
-        (timelock, newImplementation) = new TimelockDeploy().run(BRIDGE, ADMIN_SAFE, _executors());
+        (timelock, newImplementation) = new TimelockDeploy().run(BRIDGE, proposerSafe, _executors());
         proposerRole = timelock.PROPOSER_ROLE();
         executorRole = timelock.EXECUTOR_ROLE();
         cancellerRole = timelock.CANCELLER_ROLE();
@@ -100,7 +103,7 @@ abstract contract BridgeAdminMigrationForkBase is BridgeClaimProofHelper {
     }
 
     function _runStep2() internal {
-        new FastAdminUpgrade().run(BRIDGE, address(timelock), address(newImplementation), ADMIN_SAFE, _pausers());
+        new FastAdminUpgrade().run(BRIDGE, address(timelock), address(newImplementation), fastAdminSafe, _pausers());
     }
 
     function _runStep3() internal {
@@ -115,7 +118,7 @@ abstract contract BridgeAdminMigrationForkBase is BridgeClaimProofHelper {
 
     function _schedule(address target, bytes memory data) internal returns (bytes32 id) {
         id = timelock.hashOperation(target, 0, data, bytes32(0), bytes32(0));
-        vm.prank(ADMIN_SAFE);
+        vm.prank(proposerSafe);
         timelock.schedule(target, 0, data, bytes32(0), bytes32(0), DELAY);
     }
 
@@ -124,7 +127,7 @@ abstract contract BridgeAdminMigrationForkBase is BridgeClaimProofHelper {
         timelock.execute(target, 0, data, bytes32(0), bytes32(0));
     }
 
-    /// @dev The full path of a timelocked operation: the Safe schedules, 72h pass, an executor runs it.
+    /// @dev The full path of a timelocked operation: the proposer schedules, 72h pass, an executor runs it.
     function _viaTimelock(address target, bytes memory data) internal {
         _schedule(target, data);
         skip(DELAY);
@@ -144,7 +147,7 @@ abstract contract BridgeAdminMigrationForkBase is BridgeClaimProofHelper {
         uint64 resilience = BRIDGE.validatorCount();
         uint256 version = BRIDGE.version();
         bytes32 merkleRoot = BRIDGE.merkleRoot();
-        vm.prank(ADMIN_SAFE);
+        vm.prank(fastAdminSafe);
         BRIDGE.updateValidatorConfig(resilience, version, merkleRoot, add, new address[](0));
     }
 
@@ -181,9 +184,9 @@ contract BridgeAdminMigrationStepsForkTest is BridgeAdminMigrationForkBase {
         _runStep1();
 
         assertEq(timelock.getMinDelay(), DELAY);
-        assertTrue(timelock.hasRole(proposerRole, ADMIN_SAFE));
-        assertTrue(timelock.hasRole(cancellerRole, ADMIN_SAFE));
-        assertFalse(timelock.hasRole(executorRole, ADMIN_SAFE));
+        assertTrue(timelock.hasRole(proposerRole, proposerSafe));
+        assertTrue(timelock.hasRole(cancellerRole, proposerSafe));
+        assertFalse(timelock.hasRole(executorRole, proposerSafe));
         assertTrue(timelock.hasRole(executorRole, executor1));
         assertTrue(timelock.hasRole(executorRole, executor2));
         assertFalse(timelock.hasRole(executorRole, address(0)));
@@ -192,7 +195,7 @@ contract BridgeAdminMigrationStepsForkTest is BridgeAdminMigrationForkBase {
 
         // Only the timelock can change its own roles.
         assertTrue(timelock.hasRole(timelockAdminRole, address(timelock)));
-        assertFalse(timelock.hasRole(timelockAdminRole, ADMIN_SAFE));
+        assertFalse(timelock.hasRole(timelockAdminRole, proposerSafe));
         assertFalse(timelock.hasRole(timelockAdminRole, address(this)));
         assertFalse(timelock.hasRole(timelockAdminRole, msg.sender));
         assertFalse(timelock.hasRole(timelockAdminRole, tx.origin));
@@ -214,7 +217,7 @@ contract BridgeAdminMigrationStepsForkTest is BridgeAdminMigrationForkBase {
 
         assertEq(_implementationOf(BRIDGE), address(newImplementation));
         assertEq(BRIDGE.FAST_ADMIN_ROLE(), fastAdminRole);
-        assertTrue(BRIDGE.hasRole(fastAdminRole, ADMIN_SAFE));
+        assertTrue(BRIDGE.hasRole(fastAdminRole, fastAdminSafe));
         assertTrue(BRIDGE.hasRole(defaultAdminRole, address(timelock)));
         assertTrue(BRIDGE.hasRole(pauserRole, pauser1));
         assertTrue(BRIDGE.hasRole(pauserRole, pauser2));
@@ -269,7 +272,7 @@ contract BridgeAdminMigrationStepsForkTest is BridgeAdminMigrationForkBase {
 
         vm.startPrank(ADMIN_SAFE);
         BRIDGE.revokeRole(defaultAdminRole, address(timelock));
-        BRIDGE.revokeRole(fastAdminRole, ADMIN_SAFE);
+        BRIDGE.revokeRole(fastAdminRole, fastAdminSafe);
         BRIDGE.revokeRole(pauserRole, pauser1);
         BRIDGE.revokeRole(pauserRole, pauser2);
         proxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(address(BRIDGE)), oldImplementation, "");
@@ -305,7 +308,7 @@ contract BridgeAdminMigrationStepsForkTest is BridgeAdminMigrationForkBase {
         assertTrue(BRIDGE.hasRole(defaultAdminRole, address(timelock)));
         assertFalse(BRIDGE.hasRole(defaultAdminRole, ADMIN_SAFE));
         assertFalse(BRIDGE.hasRole(pauserRole, ADMIN_SAFE));
-        assertTrue(BRIDGE.hasRole(fastAdminRole, ADMIN_SAFE));
+        assertTrue(BRIDGE.hasRole(fastAdminRole, fastAdminSafe));
     }
 
     function test_Fork_Step3_RevertIfRunTwice() public {
@@ -337,8 +340,10 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         assertFalse(BRIDGE.hasRole(fastAdminRole, address(timelock)));
         assertFalse(BRIDGE.hasRole(pauserRole, address(timelock)));
 
-        assertTrue(BRIDGE.hasRole(fastAdminRole, ADMIN_SAFE));
+        assertTrue(BRIDGE.hasRole(fastAdminRole, fastAdminSafe));
+        // The old admin multisig is left with nothing.
         assertFalse(BRIDGE.hasRole(defaultAdminRole, ADMIN_SAFE));
+        assertFalse(BRIDGE.hasRole(fastAdminRole, ADMIN_SAFE));
         assertFalse(BRIDGE.hasRole(pauserRole, ADMIN_SAFE));
 
         address[2] memory pausers = [pauser1, pauser2];
@@ -358,7 +363,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         assertTrue(BRIDGE.hasRole(relayerRole, address(WAITLIST)));
     }
 
-    // ========== Fast admin (the Safe, no delay) ==========
+    // ========== Fast admin (its own multisig, no delay) ==========
 
     function test_Fork_FastAdmin_CanUpdateValidatorConfig() public {
         uint64 countBefore = BRIDGE.validatorCount();
@@ -367,10 +372,10 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
     }
 
     function test_Fork_FastAdmin_CannotWhitelistTokenOrCallContract() public {
-        vm.startPrank(ADMIN_SAFE);
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
+        vm.startPrank(fastAdminSafe);
+        vm.expectRevert(_unauthorized(fastAdminSafe, defaultAdminRole));
         BRIDGE.whiteListToken(makeAddr("newToken"), makeAddr("newTokenOnPod"), 1e6, 100e6, 100e6);
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
+        vm.expectRevert(_unauthorized(fastAdminSafe, defaultAdminRole));
         BRIDGE.setCallContractWhitelist(address(0xCA11), true);
         vm.stopPrank();
     }
@@ -379,7 +384,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         vm.prank(pauser1);
         BRIDGE.pause();
 
-        vm.startPrank(ADMIN_SAFE);
+        vm.startPrank(fastAdminSafe);
         BRIDGE.unpause(Bridge.ContractState.Private);
         assertEq(uint8(BRIDGE.contractState()), uint8(Bridge.ContractState.Private));
         BRIDGE.makePublic();
@@ -391,28 +396,28 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
     }
 
     function test_Fork_FastAdmin_CannotUseTimelockedOperations() public {
-        vm.startPrank(ADMIN_SAFE);
+        vm.startPrank(fastAdminSafe);
 
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
+        vm.expectRevert(_unauthorized(fastAdminSafe, defaultAdminRole));
         BRIDGE.configureToken(USDC, 1, type(uint256).max, type(uint256).max);
 
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, pauserRole));
+        vm.expectRevert(_unauthorized(fastAdminSafe, pauserRole));
         BRIDGE.pause();
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
+        vm.expectRevert(_unauthorized(fastAdminSafe, defaultAdminRole));
         BRIDGE.migrate(attacker);
 
         bytes32[4] memory roles = [defaultAdminRole, fastAdminRole, pauserRole, relayerRole];
         for (uint256 i = 0; i < roles.length; i++) {
-            vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
-            BRIDGE.grantRole(roles[i], ADMIN_SAFE);
+            vm.expectRevert(_unauthorized(fastAdminSafe, defaultAdminRole));
+            BRIDGE.grantRole(roles[i], fastAdminSafe);
         }
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
+        vm.expectRevert(_unauthorized(fastAdminSafe, defaultAdminRole));
         BRIDGE.revokeRole(pauserRole, pauser1);
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, ADMIN_SAFE));
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, fastAdminSafe));
         proxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(address(BRIDGE)), oldImplementation, "");
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, ADMIN_SAFE));
-        proxyAdmin.transferOwnership(ADMIN_SAFE);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, fastAdminSafe));
+        proxyAdmin.transferOwnership(fastAdminSafe);
 
         vm.stopPrank();
     }
@@ -458,7 +463,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         vm.expectRevert(Bridge.ContractPaused.selector);
         BRIDGE.claim(USDC, minAmount, user, proof, aux);
 
-        vm.prank(ADMIN_SAFE);
+        vm.prank(fastAdminSafe);
         BRIDGE.unpause(Bridge.ContractState.Private);
         BRIDGE.claim(USDC, minAmount, user, proof, aux);
         assertEq(IERC20(USDC).balanceOf(user), minAmount);
@@ -482,7 +487,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
 
     function test_Fork_Timelock_CannotScheduleWithShorterDelay() public {
         bytes memory data = abi.encodeCall(BRIDGE.grantRole, (pauserRole, attacker));
-        vm.prank(ADMIN_SAFE);
+        vm.prank(proposerSafe);
         vm.expectRevert(abi.encodeWithSelector(TimelockController.TimelockInsufficientDelay.selector, DELAY - 1, DELAY));
         timelock.schedule(address(BRIDGE), 0, data, bytes32(0), bytes32(0), DELAY - 1);
     }
@@ -510,7 +515,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         skip(DELAY);
         assertTrue(timelock.isOperationReady(id));
 
-        address[3] memory others = [ADMIN_SAFE, pauser1, attacker];
+        address[3] memory others = [proposerSafe, pauser1, attacker];
         for (uint256 i = 0; i < others.length; i++) {
             vm.prank(others[i]);
             vm.expectRevert(_unauthorized(others[i], executorRole));
@@ -559,7 +564,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         bytes memory data = abi.encodeCall(BRIDGE.grantRole, (pauserRole, attacker));
         bytes32 id = _schedule(address(BRIDGE), data);
 
-        vm.prank(ADMIN_SAFE);
+        vm.prank(proposerSafe);
         timelock.cancel(id);
         assertFalse(timelock.isOperation(id));
 
@@ -596,7 +601,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         _viaTimelock(address(BRIDGE), abi.encodeCall(BRIDGE.grantRole, (pauserRole, newPauser)));
         _viaTimelock(address(BRIDGE), abi.encodeCall(BRIDGE.revokeRole, (pauserRole, pauser1)));
         _viaTimelock(address(BRIDGE), abi.encodeCall(BRIDGE.grantRole, (fastAdminRole, newFastAdmin)));
-        _viaTimelock(address(BRIDGE), abi.encodeCall(BRIDGE.revokeRole, (fastAdminRole, ADMIN_SAFE)));
+        _viaTimelock(address(BRIDGE), abi.encodeCall(BRIDGE.revokeRole, (fastAdminRole, fastAdminSafe)));
 
         assertTrue(BRIDGE.hasRole(pauserRole, newPauser));
         assertFalse(BRIDGE.hasRole(pauserRole, pauser1));
@@ -608,8 +613,8 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         vm.prank(newPauser);
         BRIDGE.pause();
 
-        vm.prank(ADMIN_SAFE);
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, fastAdminRole));
+        vm.prank(fastAdminSafe);
+        vm.expectRevert(_unauthorized(fastAdminSafe, fastAdminRole));
         BRIDGE.unpause(Bridge.ContractState.Private);
         vm.prank(newFastAdmin);
         BRIDGE.unpause(Bridge.ContractState.Private);
@@ -643,7 +648,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
 
         assertEq(_implementationOf(BRIDGE), address(nextImplementation));
         assertEq(BRIDGE.depositIndex(), depositIndex);
-        assertTrue(BRIDGE.hasRole(fastAdminRole, ADMIN_SAFE));
+        assertTrue(BRIDGE.hasRole(fastAdminRole, fastAdminSafe));
     }
 
     /// @dev The planned migration still works end to end: pause, timelocked migrate, then the
@@ -656,7 +661,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         vm.prank(pauser1);
         BRIDGE.pause();
 
-        vm.prank(ADMIN_SAFE);
+        vm.prank(fastAdminSafe);
         vm.expectRevert(Bridge.ContractNotMigrated.selector);
         BRIDGE.transferTokensToMigrated(_usdcOnly());
 
@@ -668,7 +673,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         vm.expectRevert(_unauthorized(attacker, fastAdminRole));
         BRIDGE.transferTokensToMigrated(_usdcOnly());
 
-        vm.prank(ADMIN_SAFE);
+        vm.prank(fastAdminSafe);
         BRIDGE.transferTokensToMigrated(_usdcOnly());
         assertEq(IERC20(USDC).balanceOf(nextBridge), balance);
         assertEq(IERC20(USDC).balanceOf(address(BRIDGE)), 0);
@@ -683,7 +688,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
     // ========== Timelock: its own configuration ==========
 
     function test_Fork_Timelock_RolesChangeOnlyThroughItself() public {
-        address[3] memory others = [ADMIN_SAFE, executor1, attacker];
+        address[3] memory others = [proposerSafe, executor1, attacker];
         for (uint256 i = 0; i < others.length; i++) {
             vm.startPrank(others[i]);
             vm.expectRevert(_unauthorized(others[i], timelockAdminRole));
@@ -698,28 +703,28 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         bytes memory data = abi.encodeCall(timelock.grantRole, (executorRole, executor3));
         _schedule(address(timelock), data);
         skip(DELAY);
-        vm.prank(ADMIN_SAFE);
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, executorRole));
+        vm.prank(proposerSafe);
+        vm.expectRevert(_unauthorized(proposerSafe, executorRole));
         timelock.execute(address(timelock), 0, data, bytes32(0), bytes32(0));
 
         _execute(executor1, address(timelock), data);
         assertTrue(timelock.hasRole(executorRole, executor3));
     }
 
-    function test_Fork_Timelock_AdminSafeCannotMakeItselfExecutorAlone() public {
-        bytes memory data = abi.encodeCall(timelock.grantRole, (executorRole, ADMIN_SAFE));
+    function test_Fork_Timelock_ProposerCannotMakeItselfExecutorAlone() public {
+        bytes memory data = abi.encodeCall(timelock.grantRole, (executorRole, proposerSafe));
         bytes32 id = _schedule(address(timelock), data);
 
         skip(365 days);
         assertTrue(timelock.isOperationReady(id));
-        vm.prank(ADMIN_SAFE);
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, executorRole));
+        vm.prank(proposerSafe);
+        vm.expectRevert(_unauthorized(proposerSafe, executorRole));
         timelock.execute(address(timelock), 0, data, bytes32(0), bytes32(0));
-        assertFalse(timelock.hasRole(executorRole, ADMIN_SAFE));
+        assertFalse(timelock.hasRole(executorRole, proposerSafe));
     }
 
     function test_Fork_Timelock_DelayChangesOnlyThroughItself() public {
-        address[3] memory others = [ADMIN_SAFE, executor1, attacker];
+        address[3] memory others = [proposerSafe, executor1, attacker];
         for (uint256 i = 0; i < others.length; i++) {
             vm.prank(others[i]);
             vm.expectRevert(abi.encodeWithSelector(TimelockController.TimelockUnauthorizedCaller.selector, others[i]));
@@ -733,32 +738,32 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
     // ========== What a stolen key can reach ==========
 
     /// @dev Before the migration the admin could pause, migrate and transfer in one transaction.
-    function test_Fork_AdminSafeCompromised_OneBlockDrainIsBlocked() public {
+    function test_Fork_FastAdminCompromised_OneBlockDrainIsBlocked() public {
         uint256 balance = IERC20(USDC).balanceOf(address(BRIDGE));
 
-        vm.startPrank(ADMIN_SAFE);
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, pauserRole));
+        vm.startPrank(fastAdminSafe);
+        vm.expectRevert(_unauthorized(fastAdminSafe, pauserRole));
         BRIDGE.pause();
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
+        vm.expectRevert(_unauthorized(fastAdminSafe, defaultAdminRole));
         BRIDGE.migrate(attacker);
         vm.expectRevert(Bridge.ContractNotMigrated.selector);
         BRIDGE.transferTokensToMigrated(_usdcOnly());
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, ADMIN_SAFE));
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, fastAdminSafe));
         proxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(address(BRIDGE)), attacker, "");
         vm.stopPrank();
 
         assertEq(IERC20(USDC).balanceOf(address(BRIDGE)), balance);
     }
 
-    /// @dev The Safe alone can queue a drain but never run it, however long it waits.
-    function test_Fork_AdminSafeCompromised_QueuedDrainNeedsAnExecutor() public {
+    /// @dev The proposer alone can queue a drain but never run it, however long it waits.
+    function test_Fork_ProposerCompromised_QueuedDrainNeedsAnExecutor() public {
         bytes memory data = abi.encodeCall(BRIDGE.grantRole, (defaultAdminRole, attacker));
         bytes32 id = _schedule(address(BRIDGE), data);
 
         skip(365 days);
         assertTrue(timelock.isOperationReady(id));
 
-        address[2] memory callers = [ADMIN_SAFE, attacker];
+        address[2] memory callers = [proposerSafe, attacker];
         for (uint256 i = 0; i < callers.length; i++) {
             vm.prank(callers[i]);
             vm.expectRevert(_unauthorized(callers[i], executorRole));
@@ -767,9 +772,9 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         assertFalse(BRIDGE.hasRole(defaultAdminRole, attacker));
     }
 
-    /// @dev Accepted gap: a compromised Safe installs its own validators and forges claims. It is
+    /// @dev Accepted gap: a compromised fast admin installs its own validators and forges claims. It is
     ///      held to the daily claim limit (at most twice the configured value in one burst).
-    function test_Fork_AdminSafeCompromised_ForgedClaimsAreCappedByClaimLimit() public {
+    function test_Fork_FastAdminCompromised_ForgedClaimsAreCappedByClaimLimit() public {
         (uint256 minAmount,, uint256 claimLimit,,,) = BRIDGE.tokenData(USDC);
         uint256 funded = claimLimit * 10;
         deal(USDC, address(BRIDGE), funded);
@@ -795,10 +800,10 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         assertEq(IERC20(USDC).balanceOf(address(BRIDGE)), funded - drained);
 
         // It cannot lift the cap.
-        vm.startPrank(ADMIN_SAFE);
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
+        vm.startPrank(fastAdminSafe);
+        vm.expectRevert(_unauthorized(fastAdminSafe, defaultAdminRole));
         BRIDGE.configureToken(USDC, minAmount, claimLimit, type(uint256).max);
-        vm.expectRevert(_unauthorized(ADMIN_SAFE, defaultAdminRole));
+        vm.expectRevert(_unauthorized(fastAdminSafe, defaultAdminRole));
         BRIDGE.whiteListToken(USDC, USDC_ON_POD, minAmount, claimLimit, type(uint256).max);
         vm.stopPrank();
 
@@ -835,14 +840,16 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         assertEq(IERC20(USDC).balanceOf(address(BRIDGE)), balance);
     }
 
-    /// @dev Known and accepted: the Safe plus one executor is full control after 72 hours.
-    function test_Fork_AdminSafeAndOneExecutorCompromised_DrainAfterDelay() public {
+    /// @dev Known and accepted: the proposer plus one executor is full control after 72 hours.
+    function test_Fork_ProposerAndOneExecutorCompromised_DrainAfterDelay() public {
         uint256 balance = IERC20(USDC).balanceOf(address(BRIDGE));
 
-        // The Safe cannot pause, and migrate needs a paused bridge, so it also takes PAUSER_ROLE.
-        bytes memory grant = abi.encodeCall(BRIDGE.grantRole, (pauserRole, ADMIN_SAFE));
+        // The proposer holds no bridge role, so it grants the attacker the ones migration needs.
+        bytes memory grantPauser = abi.encodeCall(BRIDGE.grantRole, (pauserRole, attacker));
+        bytes memory grantFastAdmin = abi.encodeCall(BRIDGE.grantRole, (fastAdminRole, attacker));
         bytes memory data = abi.encodeCall(BRIDGE.migrate, (attacker));
-        _schedule(address(BRIDGE), grant);
+        _schedule(address(BRIDGE), grantPauser);
+        _schedule(address(BRIDGE), grantFastAdmin);
         _schedule(address(BRIDGE), data);
 
         // Nothing moves during the delay.
@@ -853,13 +860,38 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         assertEq(IERC20(USDC).balanceOf(address(BRIDGE)), balance);
 
         skip(1);
-        _execute(executor2, address(BRIDGE), grant);
-        vm.prank(ADMIN_SAFE);
+        _execute(executor2, address(BRIDGE), grantPauser);
+        _execute(executor2, address(BRIDGE), grantFastAdmin);
+        vm.prank(attacker);
         BRIDGE.pause();
         _execute(executor2, address(BRIDGE), data);
-        vm.prank(ADMIN_SAFE);
+        vm.prank(attacker);
         BRIDGE.transferTokensToMigrated(_usdcOnly());
         assertEq(IERC20(USDC).balanceOf(attacker), balance);
+    }
+
+    /// @dev The two multisigs do not overlap: neither can do the other's job.
+    function test_Fork_ProposerAndFastAdminAreSeparate() public {
+        assertFalse(timelock.hasRole(proposerRole, fastAdminSafe));
+        assertFalse(timelock.hasRole(cancellerRole, fastAdminSafe));
+        bytes32[4] memory roles = [defaultAdminRole, fastAdminRole, pauserRole, relayerRole];
+        for (uint256 i = 0; i < roles.length; i++) {
+            assertFalse(BRIDGE.hasRole(roles[i], proposerSafe));
+        }
+
+        bytes memory data = abi.encodeCall(BRIDGE.migrate, (attacker));
+        vm.prank(fastAdminSafe);
+        vm.expectRevert(_unauthorized(fastAdminSafe, proposerRole));
+        timelock.schedule(address(BRIDGE), 0, data, bytes32(0), bytes32(0), DELAY);
+
+        bytes32 id = _schedule(address(BRIDGE), data);
+        vm.prank(fastAdminSafe);
+        vm.expectRevert(_unauthorized(fastAdminSafe, cancellerRole));
+        timelock.cancel(id);
+
+        vm.prank(proposerSafe);
+        vm.expectRevert(_unauthorized(proposerSafe, fastAdminRole));
+        BRIDGE.makePublic();
     }
 
     // ========== Users are unaffected ==========
@@ -896,7 +928,7 @@ contract BridgeAdminMigrationForkTest is BridgeAdminMigrationForkBase {
         (uint256 minAmount,,,,,) = BRIDGE.tokenData(USDC);
         deal(USDC, user, minAmount);
 
-        vm.prank(ADMIN_SAFE);
+        vm.prank(fastAdminSafe);
         BRIDGE.makePublic();
 
         uint256 depositIndex = BRIDGE.depositIndex();

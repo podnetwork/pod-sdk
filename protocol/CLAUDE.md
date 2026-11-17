@@ -101,8 +101,8 @@ Scripts in `script/` use Foundry's Script framework. `DeployBridge.s.sol` loads 
 
 `deploy/` holds the numbered, run-once scripts for the Arbitrum One deployment. `01`–`03` deployed and set up the bridge and waiting list. `04`–`06` move the admin to a timelock:
 
-- `04_TimelockDeploy.s.sol` deploys a 72-hour `TimelockController` (admin multisig as the only proposer, separate executor wallets, no outside admin; the executor list is checked by hand) and the new Bridge implementation. Anyone can run it.
-- `05_FastAdminUpgrade.s.sol` grants `FAST_ADMIN_ROLE` to the admin multisig, `PAUSER_ROLE` to the pausers and `DEFAULT_ADMIN_ROLE` to the timelock, then upgrades the proxy. Reversible.
+- `04_TimelockDeploy.s.sol` deploys a 72-hour `TimelockController` (proposer multisig as the only proposer, separate executor wallets, no outside admin; the executor list is checked by hand) and the new Bridge implementation. Anyone can run it.
+- `05_FastAdminUpgrade.s.sol` grants `FAST_ADMIN_ROLE` to the fast admin multisig (a different multisig from the proposer), `PAUSER_ROLE` to the pausers and `DEFAULT_ADMIN_ROLE` to the timelock, then upgrades the proxy. Reversible.
 - `06_AdminHandover.s.sol` transfers the ProxyAdmin to the timelock and renounces the old admin's roles. Not reversible.
 
 `05` and `06` are sent by the current admin (the ProxyAdmin owner). To get the calls for a multisig, run them without `--broadcast` and take the transactions from the dry-run output. After `06`, `UpgradeBridge.s.sol` no longer works directly, because upgrades have to be scheduled on the timelock.

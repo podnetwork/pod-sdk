@@ -21,7 +21,8 @@ contract BridgeAdminMigrationTest is Test {
     Bridge newImplementation;
 
     address oldAdmin = makeAddr("oldAdmin");
-    address adminSafe = makeAddr("adminSafe");
+    address proposer = makeAddr("proposer");
+    address fastAdmin = makeAddr("fastAdmin");
     address executor1 = makeAddr("executor1");
     address executor2 = makeAddr("executor2");
     address pauser1 = makeAddr("pauser1");
@@ -53,14 +54,14 @@ contract BridgeAdminMigrationTest is Test {
         pausers[0] = pauser1;
     }
 
-    function _migrate(address safe) internal {
-        (timelock, newImplementation) = new TimelockDeploy().run(bridge, safe, _executors());
-        new FastAdminUpgrade().run(bridge, address(timelock), address(newImplementation), safe, _pausers());
+    function _migrate(address _fastAdmin) internal {
+        (timelock, newImplementation) = new TimelockDeploy().run(bridge, proposer, _executors());
+        new FastAdminUpgrade().run(bridge, address(timelock), address(newImplementation), _fastAdmin, _pausers());
         new AdminHandover().run(bridge, address(timelock));
     }
 
-    function test_Migration_OldAdminIsSeparateFromAdminSafe() public {
-        _migrate(adminSafe);
+    function test_Migration_OldAdminIsSeparateFromFastAdmin() public {
+        _migrate(fastAdmin);
 
         assertEq(proxyAdmin.owner(), address(timelock));
         assertEq(
@@ -68,7 +69,7 @@ contract BridgeAdminMigrationTest is Test {
             address(newImplementation)
         );
         assertTrue(bridge.hasRole(defaultAdminRole, address(timelock)));
-        assertTrue(bridge.hasRole(fastAdminRole, adminSafe));
+        assertTrue(bridge.hasRole(fastAdminRole, fastAdmin));
         assertTrue(bridge.hasRole(pauserRole, pauser1));
 
         // The old admin is left with nothing.
@@ -88,7 +89,7 @@ contract BridgeAdminMigrationTest is Test {
         vm.stopPrank();
     }
 
-    function test_Migration_OldAdminIsTheAdminSafe() public {
+    function test_Migration_OldAdminIsTheFastAdmin() public {
         _migrate(oldAdmin);
 
         assertEq(proxyAdmin.owner(), address(timelock));
@@ -102,10 +103,10 @@ contract BridgeAdminMigrationTest is Test {
     }
 
     function test_Migration_TimelockedOperationWorksAfterwards() public {
-        _migrate(adminSafe);
+        _migrate(fastAdmin);
 
         bytes memory data = abi.encodeCall(bridge.grantRole, (pauserRole, makeAddr("pauser2")));
-        vm.prank(adminSafe);
+        vm.prank(proposer);
         timelock.schedule(address(bridge), 0, data, bytes32(0), bytes32(0), 72 hours);
         skip(72 hours);
         vm.prank(executor1);
