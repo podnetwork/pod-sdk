@@ -142,7 +142,7 @@ println!("{config}"); // {"members":[...],"nonce":0,"threshold":2,"timestamp":..
 {% endtab %}
 {% endtabs %}
 
-If the `create` receipt failed, the address already holds a multisig. The address depends only on the members, the threshold and the salt. Thus the existing multisig has the configuration that you wanted. It is possible that a different account sent `create` with the same values.
+If the `create` receipt failed, the address already holds a multisig. Read `GET /v1/multisig/{address}` to see its current members and threshold.
 
 ## 2. Fund the multisig
 
