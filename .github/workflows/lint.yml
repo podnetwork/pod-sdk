@@ -33,10 +33,10 @@ jobs:
     steps:
     - uses: actions/checkout@v5
 
-    - name: Install cargo-binstall
-      uses: cargo-bins/cargo-binstall@main
-
     - name: Install cargo-shear
-      run: cargo binstall --no-confirm cargo-shear
+      # cargo-binstall hits the GitHub API rate limit and falls back to an unlocked source build that fails to compile.
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-shear
 
     - run: cargo shear
