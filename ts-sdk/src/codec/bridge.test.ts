@@ -176,6 +176,6 @@ describe("bridgeCapacity", () => {
 
   it("is nothing for a side switched off, or a token the bridge has no config for", () => {
     expect(bridgeCapacity({ limit: 0n, consumed: 0n, lastUpdated: at }, at + 2 * day, min)).toEqual({ available: 0n, limit: 0n });
-    expect(bridgeCapacity(usage(0n), at + 2 * day, 0n)).toEqual({ available: 0n, limit: 1_000_000_000n });
+    expect(bridgeCapacity(usage(0n), at + 2 * day, 0n)).toEqual({ available: 0n, limit: 0n });
   });
 });
