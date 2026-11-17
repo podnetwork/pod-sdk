@@ -11,7 +11,6 @@
 * [Read market data](guides/read-market-data.md)
 * [Bridge to Pod](guides/bridge-to-pod.md)
 * [Bridge from Pod](guides/bridge-from-pod.md)
-* [Recover a locked account](guides/recover-locked-account.md)
 
 ## References
 
@@ -44,4 +43,3 @@
 * [Precompiles](applications-precompiles/README.md)
   * [Orderbook](applications-precompiles/orderbook.md)
   * [Bridge](applications-precompiles/bridge.md)
-  * [Recovery](applications-precompiles/recovery.md)
