@@ -2006,7 +2006,7 @@ paths:
                   items:
                     oneOf:
                       - $ref: '#/components/schemas/Address'
-                      - type: string
+                      - $ref: '#/components/schemas/TimestampString'
                   example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", "1704153600000000"]
       responses:
         '200':
@@ -4449,8 +4449,7 @@ components:
           description: 128-bit bitmap as `0x` hex. Bit `i` is set when nonce `watermark + i` has executed.
           example: "0x5"
         solution_now:
-          type: integer
-          format: int64
+          $ref: '#/components/schemas/Timestamp'
           description: The time of the last batch the node executed, in microseconds.
 
     VoterResponse:

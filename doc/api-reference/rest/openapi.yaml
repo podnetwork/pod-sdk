@@ -712,7 +712,7 @@ paths:
             The lowest solution time accepted, in microseconds. The node answers once it has
             executed up to it, otherwise `503` after its wait (default 2s). Omitted means
             answer now.
-          schema: { type: integer, format: int64 }
+          schema: { $ref: '#/components/schemas/Timestamp' }
       responses:
         '200':
           description: Nonce window
@@ -1103,8 +1103,7 @@ components:
           description: 128-bit bitmap as `0x` hex. Bit `i` is set when nonce `watermark + i` has executed.
           example: "0x5"
         solution_now:
-          type: integer
-          format: int64
+          $ref: '#/components/schemas/Timestamp'
           description: The time of the last batch the node executed, in microseconds.
     NodeBehindBody:
       type: object
