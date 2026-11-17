@@ -128,6 +128,7 @@ const client = new PodTradeClient({ restUrl, wsUrl, claimRpcUrl }); // the claim
 const { claim, deposit } = await client.bridgeLimits();             // first bridged token by default
 // claim.available: what withdrawals can pay out now, in claim-chain decimals
 // claim.resetsAt:  unix seconds when the day's window ends (absent once it has)
+// deposit.limit:   the daily limit, and the most one waitlist deposit may be
 ```
 
 It reads the bridge's `tokenData` at one block and judges the window by that

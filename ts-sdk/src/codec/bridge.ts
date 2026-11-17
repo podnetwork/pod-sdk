@@ -147,10 +147,13 @@ export interface BridgeUsage {
 }
 
 /** What the bridge can take now on that side, exchange-wide, in claim-chain decimals, and
- * when that grows: `resetsAt` (unix seconds) while the current day's window is still running. */
+ * when that grows: `resetsAt` (unix seconds) while the current day's window is still running.
+ * `limit` is the side's daily limit as `tokenData` keeps it; on the deposit side it is also the
+ * most one waitlist deposit may be (`DepositWaitingList` refuses a larger one outright). */
 export interface BridgeCapacity {
   available: bigint;
   resetsAt?: number;
+  limit: bigint;
 }
 
 const DAY = 86_400;
@@ -166,10 +169,10 @@ const DAY = 86_400;
  */
 export function bridgeCapacity(usage: BridgeUsage, nowSec: number, minAmount: bigint): BridgeCapacity {
   const { limit, consumed, lastUpdated } = usage;
-  if (minAmount <= 0n || limit <= 0n) return { available: 0n };
+  if (minAmount <= 0n || limit <= 0n) return { available: 0n, limit };
   const usable = (n: bigint) => (n >= minAmount ? n : 0n);
   const left = limit > consumed ? limit - consumed : 0n;
-  if (nowSec < lastUpdated + DAY) return { available: usable(left), resetsAt: lastUpdated + DAY };
+  if (nowSec < lastUpdated + DAY) return { available: usable(left), resetsAt: lastUpdated + DAY, limit };
   const both = 2n * limit - consumed;
-  return { available: usable(both > 0n ? both : 0n) };
+  return { available: usable(both > 0n ? both : 0n), limit };
 }

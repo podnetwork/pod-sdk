@@ -56,7 +56,7 @@ describe("PodTradeClient.bridgeLimits", () => {
     const c = make();
     try {
       // Both windows began at t=1000s; the block says 172_800s, so each may also open the next.
-      expect(await c.bridgeLimits()).toEqual({ deposit: { available: 3_999_000_000n }, claim: { available: 1_215_007_182n } });
+      expect(await c.bridgeLimits()).toEqual({ deposit: { available: 3_999_000_000n, limit: 2_000_000_000n }, claim: { available: 1_215_007_182n, limit: 1_000_000_000n } });
       // The config is the client's cached resource: a second call asks the node once in all.
       await c.bridgeLimits();
       expect(fetchFn.mock.calls.filter(([u]) => String(u).endsWith("/bridge/config"))).toHaveLength(1);
