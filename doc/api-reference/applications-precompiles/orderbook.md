@@ -135,11 +135,11 @@ All three mean **nothing moved on either side**. The nonce is spent either way, 
 
 `delegated` lets a **delegate** key perform an orderbook call on behalf of a **master** account. The transaction is signed by the delegate; `signature` is the master's 65-byte `r ‖ s ‖ v` EIP-712 signature over `DelegationAuth { delegate, validUntil }` (domain `{ name: "pod delegation", version: "1", chainId }`), where `delegate` must equal the transaction's signer, and `inner` is the full ABI-encoded calldata of the wrapped call, including its 4-byte selector. The certificate is verified statelessly on every transaction — no registration, no on-chain state — and the intent is accepted only while `validUntil >= deadline` of the inner call (both in microseconds).
 
-The inner intent is **owned by the master** (balances, resting-order owner, cancel/update target) while its `order_id` keys on the delegate (the tx signer). Any deadline-bearing call can be wrapped — single intents or a whole `submitBatch` — but `submitSolutions`, the market-lifecycle calls (`createMarket`, `disableMarket`, `settleMarket`, `updateMarketOracle`), and nested `delegated` are rejected, and so is `transfer`, both directly and inside a wrapped `submitBatch` (see [Transfers between accounts](#transfers-between-accounts)). Delegated calls are gas-exempt. For the concept and security model see [Key Delegation](../../protocol/key-delegation.md) in the protocol reference; for a worked example see [Delegate a trading key](../guides/delegate-a-trading-key.md).
+The inner intent is **owned by the master** (balances, resting-order owner, cancel/update target) while its `order_id` keys on the delegate (the tx signer). Any deadline-bearing call can be wrapped — single intents or a whole `submitBatch` — but `submitSolutions`, the market-lifecycle calls (`createMarket`, `disableMarket`, `settleMarket`, `updateMarketOracle`, `transferMarket`), and nested `delegated` are rejected, and so is `transfer`, both directly and inside a wrapped `submitBatch` (see [Transfers between accounts](#transfers-between-accounts)). Delegated calls are gas-exempt. For the concept and security model see [Key Delegation](../../protocol/key-delegation.md) in the protocol reference; for a worked example see [Delegate a trading key](../guides/delegate-a-trading-key.md).
 
 ### Market lifecycle
 
-Markets are created, halted, settled and re-pointed at their price feeds with four **admin-only** calls on this precompile. `createMarket` may be sent by any address on the network's market-admin allowlist and makes the signer the market's **owner**; the other three are accepted only from that owner. All four carry a `deadline` like every other intent, ride the solver's solutions, and are applied inside a batch, so every node moves the market through the same states at the same tick.
+Markets are created, halted, settled, re-pointed at their price feeds and handed to a new owner with five **admin-only** calls on this precompile. `createMarket` may be sent by any address on the network's market-admin allowlist and makes the signer the market's **owner**; the other four are accepted only from that owner, and only while it is still on the allowlist. All five carry a `deadline` like every other intent, ride the solver's solutions, and are applied inside a batch, so every node moves the market through the same states at the same tick.
 
 | Call | Effect |
 | --- | --- |
@@ -147,8 +147,9 @@ Markets are created, halted, settled and re-pointed at their price feeds with fo
 | `disableMarket(orderbookId, deadline, disableAt)` | Schedules a halt. `disableAt` must be tick-aligned and at least the network's minimum notice past `deadline`. Until it, the book trades normally so users can exit; from that tick the market is `disabled` and **every** intent on it is refused. Resting orders and positions stay where they are, and the oracle price of the halt tick is captured as the settlement price. |
 | `settleMarket(orderbookId, deadline)` | Closes a `disabled` market: every resting order is refunded and every position closed at the captured settlement price. The market stays listed as `settled` for history. Disable to settle is one-way; a "revived" market is a new `createMarket`. |
 | `updateMarketOracle(orderbookId, deadline, oracleSpec, midSources)` | Rebinds the feeds of an `active` or `pending` market without touching orders or positions. `oracleSpec` is the comma-separated `<source>/<asset>` list with the first entry primary; empty is legal only for spot. A perp created against a feed that never served a price stays `pending` until this call points it at one. |
+| `transferMarket(orderbookId, deadline, newOwner)` | Makes `newOwner` the market's owner, keeping its id, orders and positions. `newOwner` must be a non-zero address on the market-admin allowlist, so a market cannot be handed to an address that could not manage it. There is no accept step: the new owner does not sign anything. Any status can be transferred, including `disabled` (the new owner then settles it). Networks enable this call separately; before that it is rejected with `transferMarket is not active yet`. |
 
-`GET /v1/clob/markets` reports every market with its lifecycle `status` (`pending`, `active`, `disabled`, `settled`) plus `live_at_us`, `disable_at_us` and `settlement_price` when they apply, so a client can hide a halted book or warn users during a notice window.
+`GET /v1/clob/markets` reports every market with its `owner`, its lifecycle `status` (`pending`, `active`, `disabled`, `settled`), plus `live_at_us`, `disable_at_us` and `settlement_price` when they apply, so a client can hide a halted book or warn users during a notice window.
 
 {% hint style="warning" %}
 **Intents due after a scheduled halt are refused up front.** Once `disable_at` is set, any order, cancel or update on that book whose `deadline` lies past the halt is rejected at submission with `market disables at …: an intent with deadline … could never execute`. Bots that stamp long deadlines should shorten them, or drop the book, as soon as `disable_at` appears, and a `submitBatch` that spans several books fails as a whole when one sub-intent trips this rule.
@@ -487,6 +488,13 @@ contract Orderbook {
         string[] calldata midSources
     ) public {}
 
+    /**
+     * @notice Makes `newOwner` the owner of `orderbookId`. Owner-only.
+     * @dev `newOwner` must be a non-zero market admin. Orders, positions and
+     *      the orderbook id are untouched.
+     */
+    function transferMarket(bytes32 orderbookId, uint128 deadline, address newOwner) public {}
+
     // --- Delegation envelope ---
 
     /**
@@ -501,7 +509,7 @@ contract Orderbook {
      *      - `inner` must be a deadline-bearing call — a single intent or a
      *        `submitBatch`. `submitSolutions`, the market-lifecycle calls
      *        (`createMarket`, `disableMarket`, `settleMarket`,
-     *        `updateMarketOracle`), and nested `delegated` are rejected; view
+     *        `updateMarketOracle`, `transferMarket`), and nested `delegated` are rejected; view
      *        functions cannot be wrapped.
      *      - `transfer` is rejected, both as `inner` and inside a wrapped
      *        `submitBatch`: a delegate must not be able to name the recipient.
