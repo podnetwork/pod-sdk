@@ -128,13 +128,15 @@ const client = new PodTradeClient({ restUrl, wsUrl, claimRpcUrl }); // the claim
 const { claim, deposit } = await client.bridgeLimits();             // first bridged token by default
 // claim.available: what withdrawals can pay out now, in claim-chain decimals
 // claim.resetsAt:  unix seconds when the day's window ends (absent once it has)
-// deposit.limit:   the most ONE waitlist deposit may be
+// deposit.windowLimit: the most ONE waitlist deposit may be
 ```
 
 Two different caps apply to deposits: `deposit.available` is what the bridge can still take
-across everyone in the current windows, and `deposit.limit` caps a single waitlist deposit
+across everyone in the current windows, and `deposit.windowLimit` caps a single waitlist deposit
 (`DepositWaitingList` refuses anything larger outright). Offer the smaller of the two as a
-maximum. `limit` is the window limit the bridge stores, half the intended daily figure
+maximum. `available` can exceed `windowLimit`: once a window has run its 24h, one transfer may
+use up the old window's remainder and open the next, so up to `2 × windowLimit − consumed`.
+`windowLimit` is the window limit the bridge stores, half the intended daily figure
 (`Bridge.sol`), so it is not a "daily limit" to show.
 
 It reads the bridge's `tokenData` at one block and judges the window by that

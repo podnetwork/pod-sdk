@@ -226,7 +226,7 @@ export class PodTradeClient {
   /**
    * What the bridge can take right now, exchange-wide, for a bridged token (the first one by
    * default): `deposit` for money coming in, `claim` for withdrawals paying out, each in the
-   * claim chain's decimals with `resetsAt` while the day's window still runs, and `limit`, the
+   * claim chain's decimals with `resetsAt` while the day's window still runs, and `windowLimit`, the
    * stored window limit (on `deposit`, the most one waitlist deposit may be). The config comes
    * from {@link bridgeConfig}; the usage is read fresh every call, since another account's
    * transfer changes it, and judged by the claim chain's clock. Needs `claimRpcUrl`.

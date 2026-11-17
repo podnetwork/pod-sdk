@@ -149,14 +149,14 @@ export interface BridgeUsage {
 /** What the bridge can take now on that side, exchange-wide, in claim-chain decimals, and
  * when that grows: `resetsAt` (unix seconds) while the current day's window is still running.
  *
- * `limit` is the window limit `tokenData` stores, not a daily figure to show: `Bridge.sol` sets
+ * `windowLimit` is the window limit `tokenData` stores, not a daily figure to show: `Bridge.sol` sets
  * it to half the intended daily allowance, and `available` can exceed it once a window lapses.
  * It matters on the deposit side, where it caps a single waitlist deposit: `DepositWaitingList`
- * refuses `amount > limit` outright, whatever `available` says. 0 when the side is off. */
+ * refuses `amount > windowLimit` outright, whatever `available` says. 0 when the side is off. */
 export interface BridgeCapacity {
   available: bigint;
   resetsAt?: number;
-  limit: bigint;
+  windowLimit: bigint;
 }
 
 const DAY = 86_400;
@@ -172,12 +172,12 @@ const DAY = 86_400;
  */
 export function bridgeCapacity(usage: BridgeUsage, nowSec: number, minAmount: bigint): BridgeCapacity {
   const { limit, consumed, lastUpdated } = usage;
-  if (minAmount <= 0n || limit <= 0n) return { available: 0n, limit: 0n };
+  if (minAmount <= 0n || limit <= 0n) return { available: 0n, windowLimit: 0n };
   const usable = (n: bigint) => (n >= minAmount ? n : 0n);
   const left = limit > consumed ? limit - consumed : 0n;
   const both = 2n * limit - consumed;
   const room = nowSec < lastUpdated + DAY
     ? { available: usable(left), resetsAt: lastUpdated + DAY }
     : { available: usable(both > 0n ? both : 0n) };
-  return { ...room, limit };
+  return { ...room, windowLimit: limit };
 }
