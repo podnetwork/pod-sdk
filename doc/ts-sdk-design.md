@@ -254,7 +254,7 @@ off after 5s, and the whole submit, from the nonce and gas-price requests to the
 poll, gives up after 10s. Transport errors, cut-off
 sends, non-JSON or non-2xx responses, and code `996` node rejections (past nonce,
 future nonce, pending account) are retried; any other rejection (execution
-reverted, deterministic rejection, account locked, empty tx required) is
+reverted, deterministic rejection, empty tx required) is
 returned at once. After a transport error the same signed bytes are resent. A
 nonce rejection re-signs with a fresh nonce only when no earlier attempt could
 have been delivered; otherwise the SDK polls the receipt of the last sent hash
