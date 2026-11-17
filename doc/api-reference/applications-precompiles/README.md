@@ -9,7 +9,6 @@ Pod uses precompiles for enshrined applications and internal protocol operations
 | [Orderbook](orderbook.md) | `0x50d0000000000000000000000000000000000002` | Central limit order book for spot and perpetual markets |
 | [Bridge](bridge.md) | `0x50d0000000000000000000000000000000000001` | Token bridging in and out of Pod — the only way value crosses the boundary |
 | [Multisig](multisig.md) | `0x50d0000000000000000000000000000000000004` | Accounts that act only with the signatures of several members |
-| [Recovery](recovery.md) | `0x50d0000000000000000000000000000000000003` | Recover a locked account by finalizing the target transaction chain |
 
 ## Interacting with Precompiles
 

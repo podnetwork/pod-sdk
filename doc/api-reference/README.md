@@ -42,7 +42,7 @@ View transactions in the app
 ## Next Steps
 
 {% hint style="info" %}
-**Transaction hashes as identifiers.** Pod often uses the **transaction hash** — the value returned by `eth_sendRawTransaction` when the transaction was submitted — as the identifier for the entity that transaction created. For example, a bridge withdrawal's claim proof is fetched by the withdrawal tx hash, and account recovery references its target transaction by tx hash.
+**Transaction hashes as identifiers.** Pod often uses the **transaction hash** — the value returned by `eth_sendRawTransaction` when the transaction was submitted — as the identifier for the entity that transaction created. For example, a bridge withdrawal's claim proof is fetched by the withdrawal tx hash.
 
 A bridge withdrawal follows this rule: it is always its own transaction, so that transaction's hash is its identity — what its outcome is reported under, and what its claim proof is fetched by at `GET /v1/bridge/withdrawals/by-id/{tx_hash}`. Withdrawals made before this design carry a computed id in the same field, served by the same lookups; only current ones are real transaction hashes, so do not feed a historical value to `eth_getTransactionByHash`.
 

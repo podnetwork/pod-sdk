@@ -160,7 +160,7 @@ const ERROR_SELECTOR = "0x08c379a0";
 /**
  * A rejected pod transaction. `data`'s shape follows `code`: −32000 validation (string),
  * 3 execution revert (`Error(string)`, decoded into `reason`), −32003 rejection quorum
- * (array), 999 account locked (object).
+ * (array).
  */
 export class PodTxRevertError extends Error {
   constructor(public reason: string, public data?: unknown, public code?: number) {
@@ -563,7 +563,7 @@ export interface TxReceipt {
   status: "success" | "reverted";
   transactionHash: Hash;
   /** The height the tx was sequenced at, or `null` when it is in no block —
-   * `submitSolutions`, recovery txs, and an intent whose auction tick has not
+   * `submitSolutions` and an intent whose auction tick has not
    * run yet. A null height is not a pending state: the receipt is still final. */
   blockNumber: bigint | null;
   gasUsed: bigint;

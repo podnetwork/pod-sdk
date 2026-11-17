@@ -247,7 +247,7 @@ describe("buildClosePosition", () => {
 
 describe("decodeRevertReason", () => {
   it("returns undefined for a non-string payload instead of throwing", () => {
-    // −32003 sends an array and 999 an object; both used to throw on `data.startsWith`.
+    // −32003 sends an array; non-string payloads used to throw on `data.startsWith`.
     expect(decodeRevertReason([{ error: "Insufficient balance" }])).toBeUndefined();
     expect(decodeRevertReason({ locked: true })).toBeUndefined();
     expect(decodeRevertReason(undefined)).toBeUndefined();

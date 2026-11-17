@@ -1238,6 +1238,9 @@ components:
           enum: [pending, active, disabled, settled]
           description: Lifecycle status.
         id: { $ref: '#/components/schemas/Bytes32' }
+        owner:
+          $ref: '#/components/schemas/Address'
+          description: The market's owner, the only address that may disable, settle, rebind the oracle of or transfer it (see `transferMarket`).
         name: { type: string, description: '`{base_symbol}/{quote_symbol}`' }
         base_token_address: { $ref: '#/components/schemas/Address' }
         quote_token_address: { $ref: '#/components/schemas/Address' }

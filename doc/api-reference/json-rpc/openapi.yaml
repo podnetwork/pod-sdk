@@ -1147,9 +1147,7 @@ paths:
         call returns immediately with `successes: 0`.
 
         **Errors** (beyond invalid params):
-        - `999` — account locked; `data` carries `recovery_target` and `recovery_target_nonce`.
         - `-32003` — rejected permanently by at least `f + 1` validators; `data` lists the rejections.
-        - `997` — an empty transaction is required at `data.nonce` to make progress.
         - `-32000` — the node is in read-only mode (see `pod_status`), or local validation failed
           on a non-contract rule (reason in `data`).
         - `3` — `execution reverted`: local validation failed on a contract rule; `data` is the
@@ -2251,43 +2249,6 @@ paths:
                     items: { type: object, description: A signed Pod transaction. }
                   id: { type: integer }
 
-  /pod_getRecoveryTargetTx:
-    post:
-      tags: [Network & Consensus (pod_)]
-      summary: Get Recovery Target Transaction
-      operationId: pod_getRecoveryTargetTx
-      description: Returns the transaction an account must recover past to make progress, or null if the account does not need recovery.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [jsonrpc, method, params, id]
-              properties:
-                jsonrpc: { type: string, default: "2.0" }
-                method: { type: string, default: "pod_getRecoveryTargetTx" }
-                id: { type: integer, default: 1 }
-                params:
-                  type: array
-                  description: |
-                    Parameters:
-                    1. `account` (address): The account to inspect.
-                  items: { $ref: '#/components/schemas/Address' }
-                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"]
-      responses:
-        '200':
-          description: The recovery target, or null if none
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  jsonrpc: { type: string }
-                  result:
-                    $ref: '#/components/schemas/TargetTx'
-                    nullable: true
-                  id: { type: integer }
-
   /pod_getProcessedDeposits:
     post:
       tags: [Network & Consensus (pod_)]
@@ -2504,7 +2465,7 @@ paths:
       operationId: pod_getAccountDiagnostics
       description: |
         Returns a full diagnostic snapshot of a single account across all committee validators:
-        per-validator vote state, recovery status, CLOB pending-solution presence, and equivocation
+        per-validator vote state, CLOB pending-solution presence, and equivocation
         detection — all in one call. Votes are read for at most the 256 oldest pending nonces; when more
         are pending, `current_vote` (the vote on the latest pending nonce) reports `not_seen`.
       requestBody:
@@ -2962,6 +2923,9 @@ components:
           type: string
           description: Market name in format `{base_token}/{quote_token}` (e.g. "NVDAx/USD")
           example: "NVDAx/USD"
+        owner:
+          $ref: '#/components/schemas/Address'
+          description: The market's owner, the only address that may disable, settle, rebind the oracle of or transfer it (see `transferMarket`).
         status:
           type: string
           enum: [pending, active, disabled, settled]
@@ -3245,8 +3209,8 @@ components:
           type: string
           nullable: true
           description: |
-            Block number (hex-encoded), or null when the transaction is in no block - `submitSolutions`,
-            recovery transactions, and an orderbook intent whose auction tick has not executed yet. A null
+            Block number (hex-encoded), or null when the transaction is in no block - `submitSolutions`
+            and an orderbook intent whose auction tick has not executed yet. A null
             block is not a pending state: the receipt is final either way.
         gasUsed:
           $ref: '#/components/schemas/HexUint256'
@@ -4432,17 +4396,6 @@ components:
           items: { $ref: '#/components/schemas/HexUint256' }
           description: Processed deposit ids `>= watermark`, sorted ascending.
 
-    TargetTx:
-      type: object
-      description: A transaction an account must recover past before it can make progress again.
-      required: [hash, nonce]
-      properties:
-        hash:
-          $ref: '#/components/schemas/Bytes32'
-        nonce:
-          type: integer
-          format: int64
-
     AccountInfoResponse:
       type: object
       description: An account's finalized/expected nonces and last finalized tx, as this node sees them.
@@ -4751,7 +4704,7 @@ components:
     AccountDiagnosticsResponse:
       type: object
       description: Full diagnostic snapshot of a single account across all committee validators, returned by `pod_getAccountDiagnostics`.
-      required: [account, next_finalized_nonce, expected_nonce, last_finalized_tx, is_locked, quorum, validators, needs_recovery, has_clob_order_pending_solution, equivocating]
+      required: [account, next_finalized_nonce, expected_nonce, last_finalized_tx, is_locked, quorum, validators, has_clob_order_pending_solution, equivocating]
       properties:
         account:
           $ref: '#/components/schemas/Address'
@@ -4773,12 +4726,6 @@ components:
           type: array
           items: { $ref: '#/components/schemas/ValidatorDiagnostics' }
           description: Per-validator vote state.
-        needs_recovery:
-          type: boolean
-        recovery_target:
-          $ref: '#/components/schemas/TargetTx'
-          nullable: true
-          description: The tx the account needs to recover past, if any.
         has_clob_order_pending_solution:
           type: boolean
           description: True if this account has at least one order in the CLOB's pending-solution window.
