@@ -1,26 +1,26 @@
 # Use a multisig
 
-This guide creates a 2-of-3 multisig, funds it, has two members sign a call that withdraws part of its balance to the bridged chain, rotates a member, and cancels a signed call. For the full rules (address derivation, signature format, inner calls, limits and refusal reasons), see the [Multisig precompile reference](../applications-precompiles/multisig.md).
+This guide shows how to use a 2-of-3 multisig. A 2-of-3 multisig has three members, and a call needs the signatures of two of them. The guide creates the multisig and funds it. Then two members sign a call that withdraws funds to the bridged chain. Last, the guide replaces a member and cancels a signed call. For all rules, see the [Multisig precompile reference](../applications-precompiles/multisig.md).
 
-Two kinds of keys take part:
+Two types of keys take part:
 
-* **Members** only sign. They never send a transaction and need no balance.
-* A **sender** sends the `create` and `execute` transactions. It can be any account, member or not.
+* A member only signs. A member does not send transactions and does not need a balance.
+* The sender sends the `create` and `execute` transactions. The sender can be any account. It does not have to be a member.
 
 ## Steps
 
-1. Compute the multisig's address and create it.
+1. Calculate the address of the multisig and create the multisig.
 2. Fund the multisig.
-3. Members sign a call.
-4. Anyone executes the call.
-5. Rotate a member with `setConfig`.
+3. Get the signatures of the members for a call.
+4. Send the call with `execute`.
+5. Replace a member with `setConfig`.
 6. Cancel a signed call.
 
-The examples run as one program: each step uses the values of the steps before it. Times are in **microseconds**.
+The examples are one program. Each step uses the values from the steps before it. All times are in microseconds.
 
 ## 1. Create the multisig
 
-The address is a CREATE2 address, so it is known before the multisig exists. Members must be passed strictly ascending.
+The address is a CREATE2 address. Thus you can calculate it before the multisig exists. You must give the members in strictly ascending order.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -142,11 +142,11 @@ println!("{config}"); // {"members":[...],"nonce":0,"threshold":2,"timestamp":..
 {% endtab %}
 {% endtabs %}
 
-A failed `create` receipt means the address already holds a multisig. Since the address depends only on the members, threshold and salt, that multisig is the one you meant to create, unless someone else chose the same values.
+If the `create` receipt failed, the address already holds a multisig. The address depends only on the members, the threshold and the salt. Thus the existing multisig has the configuration that you wanted. It is possible that a different account sent `create` with the same values.
 
 ## 2. Fund the multisig
 
-The multisig's balance is the balance of its address. Deposit to it through the bridge (see [Bridge to Pod](bridge-to-pod.md)), or move funds from another account with an orderbook `transfer`, as here. Either works before the multisig is created.
+The balance of the multisig is the balance of its address. You can deposit to it through the bridge (see [Bridge to Pod](bridge-to-pod.md)). You can also move funds from another account with an orderbook `transfer`. This example uses a `transfer`. Both methods work before you create the multisig.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -189,11 +189,17 @@ while orderbook.balanceOf(NATIVE, multisig).call().await?.into_raw() < one {
 
 ## 3. Sign a call
 
-A call is a nonce, a `validUntil` and a list of inner calls, each a target address and its ABI-encoded calldata. This one holds a single inner call: `Bridge.withdraw` of 0.5 of the native token to an address on the bridged chain. Any orderbook call, such as `submitOrder` or `cancel`, is an inner call the same way, with the orderbook as target.
+A call has a nonce, a `validUntil` time, and a list of inner calls. An inner call is one call that the multisig makes. It has a target address and ABI-encoded calldata.
 
-`nonce` is the multisig's next nonce, `nonce` in `GET /v1/multisig/{address}`. `validUntil` is the last batch the call may run in, at most 7 days ahead; the inner calls' own `deadline` fields do not bound when they run, so set them to `validUntil`.
+This call has one inner call: a `Bridge.withdraw` of 0.5 of the native token to an address on the bridged chain. Orderbook calls, for example `submitOrder` or `cancel`, are inner calls in the same way. Their target is the orderbook.
 
-Each member signs the `Call` as EIP-712 typed data whose `verifyingContract` is the **multisig's** address. In practice each member signs on their own device, with `eth_signTypedData_v4` in their wallet, and sends the signature to whoever executes. The [precompile reference](../applications-precompiles/multisig.md#the-signed-call) shows the full typed-data payload.
+Set the fields of the call as follows:
+
+* `nonce` is the next nonce of the multisig. Read it from the `nonce` field of `GET /v1/multisig/{address}`.
+* `validUntil` is the last batch that can run the call. It must not be more than 7 days ahead.
+* The `deadline` fields of the inner calls do not limit when they run. Set them to `validUntil`.
+
+Each member signs the `Call` as EIP-712 typed data. The `verifyingContract` of the domain is the address of the multisig. Usually each member signs on a different device, with `eth_signTypedData_v4` in a wallet. Then the member sends the signature to the account that sends `execute`. The [precompile reference](../applications-precompiles/multisig.md#the-signed-call) shows the full typed-data payload.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -268,7 +274,9 @@ for member in &members[..2] {
 
 ## 4. Execute the call
 
-Anyone holding the signatures sends `execute`. A successful receipt means the call was authorized and ran: the multisig's nonce is now 1. It does not report what each inner call did. Follow those through the usual outcomes, here the multisig's withdrawal, whose id is the `execute` transaction's hash.
+Any account that has the signatures can send `execute`. If the receipt is a success, the call was authorized and ran. The nonce of the multisig is now 1.
+
+The receipt does not show the result of each inner call. Read the usual outcomes for these results. In this example, the outcome is the withdrawal of the multisig. Its id is the hash of the `execute` transaction.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -304,13 +312,13 @@ println!("{activity}");
 {% endtab %}
 {% endtabs %}
 
-The withdrawal is then claimed on the bridged chain as in [Bridge from Pod](bridge-from-pod.md), looked up by the `execute` hash: `GET /v1/bridge/withdrawals/by-id/{execute hash}`.
+To claim the withdrawal on the bridged chain, follow [Bridge from Pod](bridge-from-pod.md). Use the hash of the `execute` transaction for the lookup: `GET /v1/bridge/withdrawals/by-id/{execute hash}`.
 
-A failed `execute` receipt means the call was refused and none of its inner calls ran; the multisig's nonce stays. The reason is the `err` of the `multisig_call` entry in the **sender's** activity, for example `premature` when the call's nonce is ahead of the multisig's, or `below_threshold`. See [Outcomes](../applications-precompiles/multisig.md#outcomes) for every reason.
+If the `execute` receipt failed, Pod refused the call. No inner call ran, and the nonce of the multisig did not change. The reason is in the `err` field of the `multisig_call` entry in the activity of the sender. For example, `premature` means that the nonce of the call is higher than the nonce of the multisig. For all reasons, see [Outcomes](../applications-precompiles/multisig.md#outcomes).
 
 ## 5. Rotate a member
 
-`setConfig` is an inner call whose target is the multisig's own address. This call replaces the third member with a newcomer and keeps the threshold at 2. It applies as soon as the call runs, so the next call needs signatures from the new member set. The address does not change.
+`setConfig` is an inner call with the address of the multisig as its target. This call replaces the third member with a new member and keeps the threshold at 2. The change applies when the call runs. The next call needs signatures from the new members. The address does not change.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -363,7 +371,7 @@ precompile.execute(multisig, rotate, signatures).send().await?.get_receipt().awa
 
 ## 6. Cancel a signed call
 
-There is no cancel function. Suppose members have signed a call at nonce 2 that should not run. Executing any other call at nonce 2 consumes the nonce, and the signed call then fails as `stale_nonce`. The usual choice is a call with no inner calls:
+There is no cancel function. In this example, members signed a call with nonce 2, and that call must not run. To cancel it, run a different call with nonce 2. That call uses the nonce. After it runs, Pod refuses the signed call as `stale_nonce`. Usually the different call has no inner calls:
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -392,6 +400,6 @@ precompile.execute(multisig, cancel, signatures).send().await?.get_receipt().awa
 {% endtab %}
 {% endtabs %}
 
-A cancel needs the threshold of signatures from the current members, like any other call.
+The cancel call needs `threshold` signatures from the current members, as all calls do.
 
-For the limits and every refusal reason, see [Limits](../applications-precompiles/multisig.md#limits) and [Outcomes](../applications-precompiles/multisig.md#outcomes) in the precompile reference.
+For the limits, see [Limits](../applications-precompiles/multisig.md#limits). For all refusal reasons, see [Outcomes](../applications-precompiles/multisig.md#outcomes).

@@ -1,26 +1,34 @@
 # Multisig
 
-The **Multisig precompile** creates accounts that act only with the signatures of several keys. A multisig behaves like a Safe deployed by a factory: it has its own address, its own balances, positions and orders, and it acts only when enough of its members sign a call. No single key can move its funds, and members can be replaced without changing the address.
+The Multisig precompile creates multisig accounts. A multisig is an account that acts only when enough of its members sign. Each member is an ordinary account with its own key. The threshold is the number of member signatures that a call needs.
+
+A multisig has its own address, balances, positions and orders. No single key can move its funds. You can replace members, and the address stays the same. A multisig works like a Safe contract that a factory deploys.
 
 {% hint style="info" %}
-**Multisig precompile address:** `0x50d0000000000000000000000000000000000004`
+Multisig precompile address: `0x50d0000000000000000000000000000000000004`
 {% endhint %}
 
-Members sign a call off-chain with `eth_signTypedData_v4` and pass the signatures to each other; any account then sends one `execute` transaction carrying them. There is no on-chain approval transaction and no store of pending approvals. For a step-by-step walkthrough, see [Use a multisig](../guides/use-a-multisig.md).
+The members sign a call off-chain with `eth_signTypedData_v4` and send the signatures to each other. Then any account sends one `execute` transaction with the signatures. Pod has no on-chain approval transaction and no store of pending approvals. For a procedure with examples, see [Use a multisig](../guides/use-a-multisig.md).
 
 ## Functions
 
 | Function | Sent to | Sender |
 | --- | --- | --- |
-| `create(address[] members, uint16 threshold, bytes32 salt)` | the precompile | anyone |
-| `execute(address multisig, Call call, bytes[] signatures)` | the precompile | anyone holding enough member signatures |
-| `setConfig(address[] members, uint16 threshold)` | the multisig's own address | only the multisig, as an inner call of a call it executes |
+| `create(address[] members, uint16 threshold, bytes32 salt)` | the precompile | any account |
+| `execute(address multisig, Call call, bytes[] signatures)` | the precompile | any account that has enough member signatures |
+| `setConfig(address[] members, uint16 threshold)` | the address of the multisig | only the multisig, as an inner call of a call that it runs |
 
-`create` and `setConfig` follow the same rules: `members` strictly ascending (sorted by address, no duplicates), at most 16 of them, and `1 ≤ threshold ≤ members.length`. A transaction that breaks them is rejected and never lands.
+`create` and `setConfig` follow the same rules:
+
+* `members` is in strictly ascending order: sorted by address, with no duplicates.
+* `members` has 16 addresses or fewer.
+* `threshold` is 1 or more, and not more than the number of members.
+
+Pod rejects a transaction that does not follow these rules. The transaction does not land.
 
 ## Address
 
-A multisig's address is a CREATE2 address with the precompile as deployer:
+The address of a multisig is a CREATE2 address. The deployer is the precompile:
 
 ```text
 address = CREATE2(deployer      = 0x50d0000000000000000000000000000000000004,
@@ -28,35 +36,37 @@ address = CREATE2(deployer      = 0x50d0000000000000000000000000000000000004,
                   initCodeHash  = keccak256(abi.encode(members, threshold)))
 ```
 
-* Stock CREATE2 helpers (`ethers.getCreate2Address`, alloy's `Address::create2`) compute it before the multisig exists, so the address can be shared as a deposit address in advance.
-* It depends on the initial members, threshold and salt, not on who sends `create`. Anyone may create it; a front-runner can only create the same multisig.
-* A `create` for an address that already holds a multisig fails with `address_taken` and leaves the existing one unchanged.
+* You can calculate the address before the multisig exists, with a standard CREATE2 function (`ethers.getCreate2Address`, or `Address::create2` in alloy). Thus you can give the address to depositors in advance.
+* The address depends on the initial members, the threshold and the salt. It does not depend on the sender of `create`. Any account can create the multisig. An account that sends `create` first can only create the same multisig.
+* If the address already holds a multisig, `create` fails with `address_taken`. The existing multisig does not change.
 * `setConfig` does not change the address.
-* No private key exists for the address. It can receive funds like any other address, but it can only act through `execute`.
+* No private key exists for the address. The address can receive funds like any other address, but it can act only through `execute`.
 
 ## Funding
 
-The multisig's balances are the balances of its address. Fund it like any other account: a bridge deposit with the multisig as recipient (see [Bridge to Pod](../guides/bridge-to-pod.md)), or an orderbook `transfer` from another account (see [Transfers between accounts](orderbook.md#transfers-between-accounts)). Funds can be sent before the multisig is created.
+The balances of a multisig are the balances of its address. You fund it like any other account. You can make a bridge deposit to the multisig (see [Bridge to Pod](../guides/bridge-to-pod.md)). You can also send an orderbook `transfer` from another account (see [Transfers between accounts](orderbook.md#transfers-between-accounts)). You can send funds before you create the multisig.
 
 ## The signed call
+
+A call is the message that the members sign. It holds a nonce, an expiry time, and a list of inner calls. An inner call is one call that the multisig makes, for example an order or a withdrawal.
 
 ```solidity
 struct InnerCall { address target; bytes data; }
 struct Call      { uint64 nonce; uint64 validUntil; InnerCall[] calls; }
 ```
 
-Members sign the `Call` as EIP-712 typed data under this domain:
+The members sign the `Call` as EIP-712 typed data with this domain:
 
 | Domain field | Value |
 | --- | --- |
 | `name` | `"pod multisig"` |
 | `version` | `"1"` |
-| `chainId` | the network's chain id (`eth_chainId`) |
-| `verifyingContract` | the **multisig's** address, not the precompile's |
+| `chainId` | the chain id of the network (`eth_chainId`) |
+| `verifyingContract` | the address of the multisig, not the address of the precompile |
 
-The domain binds a signature to one multisig on one chain: a signature made for another multisig or chain recovers to an address that is not a member.
+The domain binds a signature to one multisig on one chain. A signature for a different multisig or chain recovers to an address that is not a member.
 
-The `eth_signTypedData_v4` payload for a call with one inner call:
+This is the `eth_signTypedData_v4` payload for a call with one inner call:
 
 ```json
 {
@@ -96,88 +106,102 @@ The `eth_signTypedData_v4` payload for a call with one inner call:
 
 | Field | Meaning |
 | --- | --- |
-| `nonce` | The multisig's next call nonce (see [Nonces](#nonces)). |
-| `validUntil` | The last batch the call may run in, in **microseconds**. It must not lie more than 7 days past the batch that runs the call. It is the only bound on when the inner calls run: their own `deadline` fields do not bound it, so set them to `validUntil`. |
-| `calls` | The inner calls, run in order as the multisig. Each is a `target` address and ABI-encoded calldata. Their `data` may total at most 4 KiB. |
+| `nonce` | The next call nonce of the multisig (see [Nonces](#nonces)). |
+| `validUntil` | The last batch that can run the call, in microseconds. It must not be more than 7 days after the batch that runs the call. Only `validUntil` limits when the inner calls run. Their own `deadline` fields do not, so set them to `validUntil`. |
+| `calls` | The inner calls. The multisig runs them in order. Each inner call is a `target` address and ABI-encoded calldata. The `data` of all inner calls together must not be more than 4 KiB. |
 
-**Signatures** are 65 bytes, `r || s || v` with `v` = 27 or 28, as `eth_signTypedData_v4` returns them. Pass one per signer, in any order. A call needs at least `threshold` of them and may carry more, up to 16, but every one must recover to a distinct current member: a single non-member or repeated signer refuses the whole call.
+A signature is 65 bytes: `r || s || v`, with `v` equal to 27 or 28. `eth_signTypedData_v4` returns signatures in this format. Send one signature for each signer, in any order. A call needs `threshold` signatures or more, up to 16. Each signature must recover to a different current member. If one signature comes from a non-member, or two come from the same member, Pod refuses the full call.
 
-A signature counts only while its signer is a member when the call runs. Once a `setConfig` removes a member, that member's signatures stop counting, including signatures made earlier.
+A signature counts only if its signer is a member when the call runs. When a `setConfig` removes a member, the signatures of that member stop counting. This includes signatures that the member made before the change.
 
 ## Nonces
 
-Each multisig has its own call nonce, starting at 0 and read from [`GET /v1/multisig/{address}`](#reading-a-multisig). A call runs only when `Call.nonce` equals it, and every call that runs raises it by one:
+Each multisig has its own call nonce. The nonce starts at 0. You can read it from [`GET /v1/multisig/{address}`](#reading-a-multisig). A call runs only if `Call.nonce` is equal to the nonce of the multisig. Each call that runs increases the nonce by one.
 
-* A lower nonce is refused as `stale_nonce`: an earlier call already used it.
-* A higher nonce is refused as `premature`. It is not queued. The same call with the same signatures can be sent again once the calls before it have run.
-* Calls run strictly in nonce order, so a stuck call blocks the ones after it until it runs, expires or is cancelled.
+* If `Call.nonce` is lower, Pod refuses the call as `stale_nonce`. An earlier call used that nonce.
+* If `Call.nonce` is higher, Pod refuses the call as `premature`. Pod does not keep the call for later. After the earlier calls run, you can send the same call with the same signatures again.
+* Calls run only in nonce order. Thus a call that does not run blocks the calls after it. The block stops when that call runs, expires or is cancelled.
 
-**Cancelling.** There is no cancel function. To cancel a call that members have signed but nobody has executed, execute a different call at the same nonce, usually one with an empty `calls` list. It only consumes the nonce, and every other call signed for that nonce becomes `stale_nonce`.
+There is no cancel function. To cancel a signed call that nobody sent, run a different call with the same nonce. Usually this call has an empty `calls` list. It only uses the nonce. After it runs, Pod refuses all other calls with that nonce as `stale_nonce`.
 
-A refused call keeps the multisig's nonce and runs none of its inner calls. The `execute` transaction's own nonce belongs to the account that sends it and is consumed either way.
+When Pod refuses a call, the nonce of the multisig does not change and no inner call runs. The `execute` transaction also has its own transaction nonce. That nonce belongs to the sender account, and the transaction uses it in both cases.
 
 ## Inner calls
 
-| Target | Calls | Runs as |
+| Target | Calls | Result |
 | --- | --- | --- |
-| Orderbook `0x50d0…0002` | `submitOrder` (both forms), `cancel`, `update`, `submitTrigger`, `cancelTrigger`, `updateTrigger`, `setMaxLeverage`, `transfer`, and `submitBatch` of these | the multisig's own intents, in the batch the call runs in |
-| Orderbook `0x50d0…0002` | `createMarket`, `createMarketV2`, `disableMarket`, `settleMarket`, `updateMarketOracle`, `transferMarket` | market actions signed by the multisig (see [Market admin](#market-admin)) |
-| Bridge `0x50d0…0001` | `withdraw`, at most one per call | a withdrawal from the multisig's balance (see [Withdrawals](#withdrawals)) |
-| The multisig's own address | `setConfig`, at most one per call | a change of members and threshold |
+| Orderbook `0x50d0…0002` | `submitOrder` (both forms), `cancel`, `update`, `submitTrigger`, `cancelTrigger`, `updateTrigger`, `setMaxLeverage`, `transfer`, and `submitBatch` of these | intents of the multisig, in the batch that runs the call |
+| Orderbook `0x50d0…0002` | `createMarket`, `createMarketV2`, `disableMarket`, `settleMarket`, `updateMarketOracle`, `transferMarket` | market actions that the multisig signs (see [Market admin](#market-admin)) |
+| Bridge `0x50d0…0001` | `withdraw`, one per call or fewer | a withdrawal from the balance of the multisig (see [Withdrawals](#withdrawals)) |
+| The address of the multisig | `setConfig`, one per call or fewer | a change of members and threshold |
 
-Any other target or call, such as `delegated`, the multisig precompile itself or an unknown address, makes the whole transaction invalid; it is rejected and never lands.
+All other targets and calls make the full transaction incorrect. Examples are `delegated`, a call to the multisig precompile, and a call to an unknown address. Pod rejects such a transaction, and it does not land.
 
-An inner call follows the rules the same call follows from an ordinary account, with the multisig as signer and owner. Its result is reported through the same outcomes (`pod_orders`, `pod_transfers`, `pod_withdrawals`, `pod_activity`). **A rejected inner call does not roll back its siblings**: the others still run and the multisig's nonce is still consumed.
+An inner call follows the rules for the same call from an ordinary account. The multisig is the signer and the owner. Pod reports the result through the same outcomes as for an ordinary account (`pod_orders`, `pod_transfers`, `pod_withdrawals`, `pod_activity`).
 
-**Orders.** An order placed by an inner call is owned by the multisig. Its id is derived as for any other order, with the call nonce as the nonce and the intent's position across the call's orderbook inner calls (market actions included, an inner `submitBatch` counted intent by intent) as the sequence:
+If Pod rejects one inner call, the other inner calls of the call still run. The call also still uses the nonce of the multisig.
+
+### Orders
+
+The multisig owns the orders that its inner calls place. The order id uses the same formula as for all other orders:
 
 ```text
 order_id = keccak256(abi.encode(address multisig, uint64 callNonce, uint32 sequence))
 ```
 
-Its `tx_hash` is the `execute` transaction's hash. `cancel` and `update` from the multisig pass the owner check for orders the multisig owns, as they would for an ordinary owner. Inner `transfer` ids are derived the same way.
+`callNonce` is the nonce of the call. `sequence` is the position of the intent among the orderbook inner calls of the call. Market actions count. Each intent in an inner `submitBatch` counts as one position. The `tx_hash` of the order is the hash of the `execute` transaction. The id of an inner `transfer` uses the same formula.
 
-**`setConfig`** replaces the members and threshold under the rules of `create`. It applies as soon as its call runs, so the next call needs signatures from the new members.
+The multisig can `cancel` and `update` the orders that it owns, as an ordinary owner can.
+
+### Member changes
+
+`setConfig` replaces the members and the threshold. It follows the rules of `create`. The change applies when its call runs. The next call needs signatures from the new members.
 
 ### Withdrawals
 
-An inner `Bridge.withdraw` withdraws from the multisig's balance to an address on the bridged chain, under the rules in the [Bridge precompile reference](bridge.md#withdrawing). Its withdrawal id is the **`execute` transaction's hash**: it is the key of `GET /v1/bridge/withdrawals/by-id/{tx_hash}`, `pod_getBridgeClaimProof` and the claim on the bridged chain. That is why a call carries at most one withdrawal. When the whole call is refused, no withdrawal exists and a by-id lookup of its hash returns not found.
+An inner `Bridge.withdraw` sends funds from the balance of the multisig to an address on the bridged chain. It follows the rules in the [Bridge precompile reference](bridge.md#withdrawing).
+
+The withdrawal id is the hash of the `execute` transaction. You use this hash with `GET /v1/bridge/withdrawals/by-id/{tx_hash}`, with `pod_getBridgeClaimProof`, and for the claim on the bridged chain. For this reason, a call can have one withdrawal or none. If Pod refuses the full call, no withdrawal exists, and a lookup by its hash returns not found.
 
 ### Market admin
 
-A multisig address can be listed in the network's market-admin allowlist. Like any market admin, it must be on the list to send any of the market calls. It creates markets with an inner `createMarket` or `createMarketV2`, owns them, and manages them with inner `disableMarket`, `settleMarket`, `updateMarketOracle` and `transferMarket` calls. Another owner can hand it a market with `transferMarket`, which requires the new owner to be on the allowlist. See [Market lifecycle](orderbook.md#market-lifecycle).
+The network keeps an allowlist of market admins. A multisig address can be on this allowlist. A market admin must be on the allowlist to send any market call, and a multisig is no exception.
+
+A multisig on the allowlist creates markets with an inner `createMarket` or `createMarketV2`, and owns them. It manages them with inner `disableMarket`, `settleMarket`, `updateMarketOracle` and `transferMarket` calls. Another owner can give a market to the multisig with `transferMarket`. `transferMarket` requires that the new owner is on the allowlist. See [Market lifecycle](orderbook.md#market-lifecycle).
 
 ## Outcomes
 
 | Transaction | Receipt |
 | --- | --- |
-| `create` | success; failed when the address already holds a multisig |
-| `execute`, call authorized | success, even when some or all inner calls are rejected |
+| `create` | success, or failed if the address already holds a multisig |
+| `execute`, call authorized | success, also if Pod rejects some or all inner calls |
 | `execute`, call refused | failed |
 
-The receipt of an `execute` reports whether the call was authorized and run, not what each inner call did. Inner calls get no receipts of their own; follow them through the multisig's outcomes and activity.
+The receipt of an `execute` shows only whether the call was authorized and ran. It does not show the result of each inner call. Inner calls do not have their own receipts. To follow them, read the outcomes and the activity of the multisig.
 
-The reason for a failed receipt is in the [`pod_activity`](../json-rpc/README.md) entry of the account that sent it, and in `GET /v1/clob/activity/{account}`. A `multisig_created` or `multisig_call` entry carries `err`:
+To find why a receipt failed, read the activity of the sender account. The activity is in the [`pod_activity`](../json-rpc/README.md) stream and in `GET /v1/clob/activity/{account}`. A `multisig_created` or `multisig_call` entry has an `err` field:
 
 | `err` | Meaning |
 | --- | --- |
 | `address_taken` | `create`: the address already holds a multisig. |
 | `no_multisig` | No multisig exists at the address. |
-| `stale_nonce` | `Call.nonce` is below the multisig's nonce. |
-| `premature` | `Call.nonce` is above the multisig's nonce. Send it again once the earlier calls have run. |
-| `expired` | `validUntil` is before the batch that would run the call. |
-| `too_far_ahead` | `validUntil` is more than 7 days past the batch that would run the call. |
-| `below_threshold` | Fewer signatures than the threshold. |
-| `invalid_signature` | A signature does not recover to an address, for example because `v` is 0 or 1 instead of 27 or 28. |
+| `stale_nonce` | `Call.nonce` is lower than the nonce of the multisig. |
+| `premature` | `Call.nonce` is higher than the nonce of the multisig. Send the call again after the earlier calls run. |
+| `expired` | `validUntil` is before the batch that runs the call. |
+| `too_far_ahead` | `validUntil` is more than 7 days after the batch that runs the call. |
+| `below_threshold` | The call has fewer signatures than the threshold. |
+| `invalid_signature` | A signature does not recover to an address. For example, `v` is 0 or 1, not 27 or 28. |
 | `non_member` | A signature recovers to an address that is not a member. |
 | `duplicate_signer` | Two signatures recover to the same member. |
-| `unsupported_inner_call` | An inner call is not supported. |
+| `unsupported_inner_call` | Pod does not support an inner call. |
 
-The sender sees its entries, refusals included. The multisig's own feed shows a `create` only when it succeeded and a call only when it ran, so nobody can add entries to it by sending refused calls. A call that ran a `setConfig` carries the new `members` and `threshold`. Inner calls appear in the multisig's feed through the entries an ordinary account's intents produce (`order`, `transfer`, `bridge_transfer`, …).
+The sender sees all of its entries, refused ones included. The activity of the multisig shows a `create` only if it succeeded, and a call only if it ran. Thus other accounts cannot add entries to it with refused calls.
+
+If a call ran a `setConfig`, its entry has the new `members` and `threshold`. Inner calls show in the activity of the multisig as the usual entries for intents: `order`, `transfer`, `bridge_transfer`, and the other kinds.
 
 ## Reading a multisig
 
-`GET /v1/multisig/{address}`, served by every node, returns the current configuration:
+Each node serves `GET /v1/multisig/{address}`. It returns the current configuration:
 
 ```json
 {
@@ -188,19 +212,23 @@ The sender sees its entries, refusals included. The multisig's own feed shows a 
 }
 ```
 
-`nonce` is the nonce the next call must carry. `timestamp` is the last batch the node has executed, in microseconds. An address that holds no multisig returns `404` with `{"timestamp": …}`. Pass `?timestamp=<µs>` to wait until the node has executed that batch, for example the batch of a receipt you just received; it is a lower bound, not a read of past state, and the node answers `503` if it does not get there within its wait.
+* `nonce` is the nonce for the next call.
+* `timestamp` is the last batch that the node ran, in microseconds.
+* If the address holds no multisig, the node returns `404` with `{"timestamp": …}`.
+
+You can add `?timestamp=<µs>`. The node then waits until it has run that batch, for example the batch of a receipt that you received. The value is a lower limit. It does not read an earlier state. If the node does not get to that batch during its wait time, it returns `503`.
 
 ## Limits
 
 | Limit | Value |
 | --- | --- |
-| Members, and signatures per call | 16 |
-| Inner call `data`, summed over a call | 4 KiB |
-| `validUntil` past the batch that runs the call | 7 days |
-| `setConfig` per call | 1 |
-| `Bridge.withdraw` per call | 1 |
+| Members, and signatures for each call | 16 |
+| `data` of all inner calls in one call | 4 KiB |
+| `validUntil` after the batch that runs the call | 7 days |
+| `setConfig` calls in one call | 1 |
+| `Bridge.withdraw` calls in one call | 1 |
 
-A transaction over the first two limits is rejected and never lands. The `validUntil` limit is checked when the call runs and refuses it as `too_far_ahead`.
+Pod rejects a transaction above the first two limits, and the transaction does not land. Pod applies the `validUntil` limit when the call runs, and refuses the call as `too_far_ahead`.
 
 ## Interface
 
