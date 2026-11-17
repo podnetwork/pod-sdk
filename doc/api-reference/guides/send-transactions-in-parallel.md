@@ -9,12 +9,9 @@ This guide shows how to send many transactions without waiting for each one to e
 1. **Read the window.** Fetch the account's nonce window. Any nonce in `[watermark, watermark + 128)` whose bit is not set is free.
 2. **Send.** Sign each transaction with the next free nonce and submit it with `pod_sendRawTransaction`. The call returns `successes`, the number of validators that attested the transaction. Once `successes >= n_minus_3f` (from `pod_getCommittee`), you can assume the nonce will be used and move on to the next one.
 3. **Wait for receipts.** In parallel, subscribe to `pod_receipts` for your account. A receipt arrives when the transaction's batch executes. Any receipt, `status: true` or `false`, means the nonce has been used.
-4. **Reconcile.** After you have sent a range of nonces, read the window again. A nonce you sent that is still not set and has had no receipt for a while is a gap. Fill it by sending a transaction at that nonce again.
+4. **Reconcile.** After you have filled the window from step 1, read the window again. A nonce you sent that is still not set and has had no receipt for a while is a gap. Fill it by sending a transaction at that nonce again.
 
-Two rules:
-
-* Only use nonces below `watermark + 128`. A transaction further ahead is dropped.
-* To fill a gap, sign a new transaction, for example by changing the fee by 1 wei. Sending the same signed bytes again has no effect. If the original turns out to be only slow, only one of the two executes.
+Only use nonces in the window that haven't been used before, otherwise the transaction is dropped.
 
 ## Endpoints
 
