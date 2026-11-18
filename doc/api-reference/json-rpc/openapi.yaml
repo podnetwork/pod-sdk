@@ -1448,6 +1448,12 @@ paths:
           `orderbook_ids` does not apply; `account` matches **either** side, so a recipient hears the
           credit as readily as a sender hears the debit. A tick with no matching outcomes sends
           nothing at all rather than an empty array.
+        - `pod_receipts` — one frame per batch with the receipts that batch produced for the
+          subscribed account or transactions: `{ "timestamp_us": <batch deadline µs>,
+          "receipts": [{ "tx_hash": "0x…", "status": true }] }`. Sent once the receipts are
+          stored, so `eth_getTransactionReceipt` returns them from then on. `status: false` means
+          the transaction executed and failed; its nonce is still used. Requires `account` (alias
+          `bidder`) or `tx_hashes`. A batch with no matching receipts sends nothing.
 
         `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_activity`, `pod_candles`,
         `pod_withdrawals`, and `pod_transfers` are **delta** channels
@@ -1555,6 +1561,8 @@ paths:
         `withdrawer`, the debited account; it ignores `orderbook_ids` too. `pod_transfers` takes
         `account` optionally on the same terms, but matches it against **either** `from` or `to`.
         `pod_activity` requires `account`, rejects `bidders`, and ignores `orderbook_ids`.
+        `pod_receipts` takes `account`, `tx_hashes` (up to 256), or both, and delivers a receipt
+        that matches either; it ignores `orderbook_ids`.
         `depth` applies to `pod_orderbook` snapshots only and is at least 1.
 
         **Catch-up (`since`).** Optionally pass `since` (a solution time in **microseconds**) to
@@ -1581,6 +1589,13 @@ paths:
         remaining 3 without a gap or a duplicate. Track one pair, not a per-book map. Omitting
         `since_book` means "the whole of `since` arrived", which is correct if you subscribe to a
         single orderbook, because a batch is then one frame.
+
+        **Catch-up on `pod_receipts`.** With `since`, the stored receipts of batches after `since`
+        are sent first, then live ones. If `since` is older than the stored receipts, the
+        subscription is rejected with `-32602` and `data: { resume_since }`. A catch-up is capped
+        at 10,000 receipts; past that the stream is closed with `-32026` and `resume_since`, so
+        resubscribe from it. Without `since`, receipts already stored for the listed `tx_hashes`
+        are still sent first, since a receipt can land before you subscribe.
       requestBody:
         content:
           application/json:
@@ -1597,7 +1612,7 @@ paths:
                     Parameters:
                     1. `subscription_type` (string): one of `pod_orderbook`, `pod_orders`,
                        `pod_orders_v2`, `pod_activity`, `pod_candles`, `pod_markets`, `pod_positions`,
-                       `pod_triggers`, `pod_withdrawals`, `pod_transfers`, `newHeads`.
+                       `pod_triggers`, `pod_withdrawals`, `pod_transfers`, `pod_receipts`, `newHeads`.
                     2. `options` (SubscriptionParams): filter/format options; all fields optional
                        except where a channel requires `account`. Which fields take effect depends on
                        the subscription type:
@@ -1621,10 +1636,12 @@ paths:
                        - `since_book` (bytes32) — **`pod_orders_v2` only**: the `book` of the last
                          frame accepted at `since`, completing the resume cursor (see the method
                          description). Omit if the whole of `since` arrived.
+                       - `tx_hashes` (array of hashes, up to 256) — **`pod_receipts` only**:
+                         also deliver these transactions' receipts, whoever signed them.
                   items:
                     oneOf:
                       - type: string
-                        enum: [pod_orderbook, pod_orders, pod_orders_v2, pod_activity, pod_candles, pod_markets, pod_positions, pod_triggers, pod_withdrawals, pod_transfers, newHeads]
+                        enum: [pod_orderbook, pod_orders, pod_orders_v2, pod_activity, pod_candles, pod_markets, pod_positions, pod_triggers, pod_withdrawals, pod_transfers, pod_receipts, newHeads]
                       - $ref: '#/components/schemas/SubscriptionParams'
             examples:
               pod_orderbook:
@@ -1704,6 +1721,13 @@ paths:
                   method: "eth_subscribe"
                   id: 1
                   params: ["pod_transfers", { account: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28" }]
+              pod_receipts:
+                summary: pod_receipts for one account, replaying batches since a watermark
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_receipts", { account: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", since: 1704153600000000 }]
               newHeads:
                 summary: newHeads, which takes no options
                 value:
@@ -1948,6 +1972,50 @@ paths:
                 properties:
                   jsonrpc: { type: string }
                   result: { $ref: '#/components/schemas/CommitteeResponse' }
+                  id: { type: integer }
+
+  /pod_getNonceSlots:
+    post:
+      tags: [Network & Consensus (pod_)]
+      summary: Get Nonce Window
+      operationId: pod_getNonceSlots
+      description: |
+        Returns an account's nonce window: the lowest nonce not yet executed (`watermark`) and a
+        bitmap of which of the next 128 nonces have executed. Any nonce in
+        `[watermark, watermark + 128)` whose bit is not set can be used. An account the node has
+        never seen returns `watermark: 0` and an empty bitmap. Also served as
+        `GET /v1/accounts/{address}/nonce-slots`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "pod_getNonceSlots" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Parameters:
+                    1. `account` (Address): the account to read.
+                    2. `since` (string, optional): the lowest solution time accepted, in microseconds, as a **decimal string**. The node answers once it has executed up to it; otherwise error `995` with its current value as `data`.
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/Address'
+                      - $ref: '#/components/schemas/TimestampString'
+                  example: ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", "1704153600000000"]
+      responses:
+        '200':
+          description: Nonce window
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result: { $ref: '#/components/schemas/NonceSlotsResponse' }
                   id: { type: integer }
 
 
@@ -3674,6 +3742,7 @@ components:
           Mutually exclusive with `bidder`.
         - `since` — every channel but `newHeads` (catch-up watermark, microseconds).
         - `since_book` — `pod_orders_v2` only, completing its `(batch, book)` resume cursor.
+        - `tx_hashes` — `pod_receipts` only. `pod_receipts` requires `account` or `tx_hashes`.
       properties:
         depth:
           type: integer
@@ -3718,6 +3787,11 @@ components:
         since_book:
           $ref: '#/components/schemas/Bytes32'
           description: '`pod_orders_v2` only: the `book` of the last frame accepted at `since`, which together with it forms the resume cursor. A batch is delivered as one frame per orderbook, so a client can hold part of a batch; replay skips every book at or below this one within `since`, then delivers later batches whole. Omit when the whole of `since` arrived (always true when subscribed to a single orderbook).'
+        tx_hashes:
+          type: array
+          maxItems: 256
+          items: { $ref: '#/components/schemas/Bytes32' }
+          description: '`pod_receipts` only: also deliver these transactions'' receipts, whoever signed them. Rejected on other channels.'
 
     EthSubscriptionMessage:
       type: object
@@ -4325,6 +4399,22 @@ components:
         n_minus_f:
           type: integer
           description: Quorum.
+    NonceSlotsResponse:
+      type: object
+      description: An account's nonce window, returned by `pod_getNonceSlots` and `GET /v1/accounts/{address}/nonce-slots`.
+      required: [watermark, finalized, solution_now]
+      properties:
+        watermark:
+          type: integer
+          format: int64
+          description: The lowest nonce that has not executed. Every nonce below it has.
+        finalized:
+          type: string
+          description: 128-bit bitmap as `0x` hex. Bit `i` is set when nonce `watermark + i` has executed.
+          example: "0x5"
+        solution_now:
+          $ref: '#/components/schemas/Timestamp'
+          description: The time of the last batch the node executed, in microseconds.
 
     VoterResponse:
       type: object
