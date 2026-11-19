@@ -7,7 +7,7 @@ export type Address = Hex;
 export type Hash = Hex;
 
 export type Resolution =
-  | "1m" | "5m" | "15m" | "30m" | "1h" | "4h" | "1d" | "1W" | "1M";
+  | "1m" | "5m" | "15m" | "30m" | "1h" | "4h" | "1d" | "1w" | "1M";
 
 /** Inclusive-from, exclusive-to time window in milliseconds. `to` defaults to now. */
 export interface TimeRange {

@@ -203,7 +203,7 @@ one divides evenly (readability), but correctness only needs epoch-anchoring:
 | `1h`  | 168 (1 week) |
 | `4h`  | 180 (~30 days) |
 | `1d`  | 365 (1 year) |
-| `1W`  | 260 (~5 years) |
+| `1w`  | 260 (~5 years) |
 | `1M`  | 120 (decade, calendar-anchored — months are variable-width) |
 
 Reading `[from,to]`: expand to enclosing page boundaries, enumerate pages;
