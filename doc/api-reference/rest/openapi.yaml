@@ -1006,11 +1006,11 @@ paths:
       summary: Get Multisig
       operationId: getMultisig
       description: |
-        The multisig at `address`: its members, threshold and the nonce its next call must
-        carry, as of the last batch the node has executed (`timestamp`).
+        The multisig at `address`: its members, threshold and the nonce that the members sign
+        its next call at, as of the last batch the node has executed (`timestamp`).
 
         `timestamp` in the query waits until the node has executed that batch, for example the
-        batch of an `execute` receipt just received. It is a lower bound, not a read of past
+        batch of an `execTransaction` receipt just received. It is a lower bound, not a read of past
         state.
 
         `Cache-Control: no-store`.
@@ -1778,33 +1778,33 @@ components:
         threshold: { type: integer, description: The initial threshold. }
         err:
           type: string
-          description: '`address_taken` when the address already held a multisig, which is left unchanged. Absent when it succeeded.'
+          description: '`address_taken` when the address already held a multisig, which is left unchanged. `member_cannot_sign` when a member is the zero address, `0x…0001` or the multisig itself. Absent when it succeeded.'
 
     ActivityMultisigCall:
       type: object
       description: |
-        A multisig `execute`. Reported to the sender, refused or not, and to the multisig's
+        A multisig `execTransaction`. Reported to the sender, refused or not, and to the multisig's
         address when the call ran. The call's inner orders, transfers and withdrawals appear as
         their own entries.
       required: [k, tx, addr, sender, nonce]
       properties:
         k: { type: string, enum: [multisig_call] }
-        tx: { $ref: '#/components/schemas/Bytes32', description: The `execute` transaction. }
+        tx: { $ref: '#/components/schemas/Bytes32', description: The `execTransaction` transaction. }
         addr: { $ref: '#/components/schemas/Address', description: The multisig's address. }
-        sender: { $ref: '#/components/schemas/Address', description: The account that sent `execute`. }
-        nonce: { type: integer, format: int64, description: The call's nonce. }
+        sender: { $ref: '#/components/schemas/Address', description: The account that sent `execTransaction`. }
+        nonce: { type: integer, format: int64, description: "The multisig's nonce that the call ran at, or that it was tried at when refused." }
         members:
           type: array
           items: { $ref: '#/components/schemas/Address' }
-          description: The members set by the call's `setConfig`; omitted when it ran none.
-        threshold: { type: integer, description: The threshold set by the call's `setConfig`; omitted when it ran none. }
+          description: The members after the call's member change; omitted when it changed none.
+        threshold: { type: integer, description: The threshold after the call's member change; omitted when it changed none. }
         err:
           type: string
           description: |
-            Why the call was refused; none of its inner calls ran and the multisig's nonce
-            stays. One of `no_multisig`, `stale_nonce`, `premature`, `expired`, `too_far_ahead`,
-            `below_threshold`, `invalid_signature`, `non_member`, `duplicate_signer`,
-            `unsupported_inner_call`. Absent when the call ran.
+            Why the call was refused; its inner call did not run and the multisig's nonce
+            stays. One of `no_multisig`, `below_threshold`, `invalid_signature`, `non_member`,
+            `unordered_signers`, `invalid_owner_change`, `unsupported_inner_call`. Absent when
+            the call ran.
 
     ActivityMarketActionReject:
       type: object
@@ -1829,7 +1829,7 @@ components:
           description: The members, ascending.
           items: { $ref: '#/components/schemas/Address' }
         threshold: { type: integer, description: Signatures a call needs. }
-        nonce: { type: integer, format: int64, description: The nonce the next call must carry. }
+        nonce: { type: integer, format: int64, description: The nonce that the members sign the next call at. }
         timestamp: { $ref: '#/components/schemas/Timestamp' }
 
     # ==========================================

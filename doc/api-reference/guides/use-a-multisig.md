@@ -2,18 +2,20 @@
 
 This guide shows how to use a 2-of-3 multisig. A 2-of-3 multisig has three members, and a call needs the signatures of two of them. The guide creates the multisig and funds it. Then two members sign a call that withdraws funds to the bridged chain. Last, the guide replaces a member and cancels a signed call. For all rules, see the [Multisig precompile reference](../applications-precompiles/multisig.md).
 
+A multisig call is a Safe transaction (`SafeTx`). Members can sign it with a tool that signs Safe transactions, if the tool does not read the Safe first (see [Safe tools](../applications-precompiles/multisig.md#safe-tools)). This guide signs the typed data directly.
+
 Two types of keys take part:
 
 * A member only signs. A member does not send transactions and does not need a balance.
-* The sender sends the `create` and `execute` transactions. The sender can be any account. It does not have to be a member.
+* The sender sends the `create` and `execTransaction` transactions. The sender can be any account. It does not have to be a member.
 
 ## Steps
 
 1. Calculate the address of the multisig and create the multisig.
 2. Fund the multisig.
 3. Get the signatures of the members for a call.
-4. Send the call with `execute`.
-5. Replace a member with `setConfig`.
+4. Send the call with `execTransaction`.
+5. Replace a member with `swapOwner`.
 6. Cancel a signed call.
 
 The examples are one program. Each step uses the values from the steps before it. All times are in microseconds.
@@ -37,19 +39,18 @@ const MULTISIG = "0x50d0000000000000000000000000000000000004";
 const ORDERBOOK = "0x50d0000000000000000000000000000000000002";
 const BRIDGE = "0x50d0000000000000000000000000000000000001";
 const NATIVE = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+const SENTINEL = "0x0000000000000000000000000000000000000001";
 
 const multisigPrecompile = new ethers.Contract(MULTISIG, [
   "function create(address[] members, uint16 threshold, bytes32 salt)",
-  "function execute(address multisig, (uint64 nonce, uint64 validUntil, (address target, bytes data)[] calls) call, bytes[] signatures)",
 ], sender);
 
 const nowMicros = () => BigInt(Date.now()) * 1000n;
+const byAddress = (a: string, b: string) => (BigInt(a) < BigInt(b) ? -1 : 1);
 
 const threshold = 2;
 const salt = ethers.id("treasury"); // any bytes32
-const memberAddresses = members
-  .map((m) => m.address)
-  .sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
+const memberAddresses = members.map((m) => m.address).sort(byAddress);
 
 const initCodeHash = ethers.keccak256(
   ethers.AbiCoder.defaultAbiCoder().encode(["address[]", "uint16"], [memberAddresses, threshold]),
@@ -70,21 +71,29 @@ use alloy::primitives::{Address, Bytes, U256, address, keccak256};
 use alloy::providers::{Provider, ProviderBuilder};
 use alloy::signers::{Signer, local::PrivateKeySigner};
 use alloy::sol;
-use alloy::sol_types::{SolCall, SolStruct, SolValue, eip712_domain};
+use alloy::sol_types::{Eip712Domain, SolCall, SolStruct, SolValue, eip712_domain};
 
 sol! {
     #[sol(rpc)]
     contract Multisig {
-        struct InnerCall { address target; bytes data; }
-        struct Call { uint64 nonce; uint64 validUntil; InnerCall[] calls; }
-
         function create(address[] members, uint16 threshold, bytes32 salt) external;
-        function execute(address multisig, Call call, bytes[] signatures) external;
     }
 
-    /// Called on the multisig's own address, as an inner call.
-    interface MultisigAccount {
-        function setConfig(address[] members, uint16 threshold) external;
+    /// Functions at the address of the multisig.
+    #[sol(rpc)]
+    contract MultisigAccount {
+        function execTransaction(
+            address to, uint256 value, bytes data, uint8 operation,
+            uint256 safeTxGas, uint256 baseGas, uint256 gasPrice,
+            address gasToken, address refundReceiver, bytes signatures
+        ) external payable returns (bool success);
+        function swapOwner(address prevOwner, address oldOwner, address newOwner) external;
+    }
+
+    struct SafeTx {
+        address to; uint256 value; bytes data; uint8 operation;
+        uint256 safeTxGas; uint256 baseGas; uint256 gasPrice;
+        address gasToken; address refundReceiver; uint256 nonce;
     }
 
     #[sol(rpc)]
@@ -103,6 +112,7 @@ const MULTISIG: Address = address!("0x50d0000000000000000000000000000000000004")
 const ORDERBOOK: Address = address!("0x50d0000000000000000000000000000000000002");
 const BRIDGE: Address = address!("0x50d0000000000000000000000000000000000001");
 const NATIVE: Address = address!("0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
+const SENTINEL: Address = address!("0x0000000000000000000000000000000000000001");
 
 let sender: PrivateKeySigner = SENDER_PRIVATE_KEY.parse()?;
 let members: Vec<PrivateKeySigner> = [MEMBER_1_PRIVATE_KEY, MEMBER_2_PRIVATE_KEY, MEMBER_3_PRIVATE_KEY]
@@ -189,117 +199,161 @@ while orderbook.balanceOf(NATIVE, multisig).call().await?.into_raw() < one {
 
 ## 3. Sign a call
 
-A call has a nonce, a `validUntil` time, and a list of inner calls. An inner call is one call that the multisig makes. It has a target address and ABI-encoded calldata.
+A call is a `SafeTx`. It has one inner call: a target address `to`, a `value` and ABI-encoded calldata `data`. The inner call is the call that the multisig makes.
 
-This call has one inner call: a `Bridge.withdraw` of 0.5 of the native token to an address on the bridged chain. Orderbook calls, for example `submitOrder` or `cancel`, are inner calls in the same way. Their target is the orderbook.
+This call withdraws 0.5 of the native token to an address on the bridged chain, with `Bridge.withdraw`. Orderbook calls, for example `submitOrder` or `cancel`, are inner calls in the same way. Their target is the orderbook.
 
-Set the fields of the call as follows:
+Set the fields of the `SafeTx` as follows:
 
 * `nonce` is the next nonce of the multisig. Read it from the `nonce` field of `GET /v1/multisig/{address}`.
-* `validUntil` is the last batch that can run the call. It must not be more than 7 days ahead.
-* The `deadline` fields of the inner calls do not limit when they run. Set them to `validUntil`.
+* `operation`, `safeTxGas`, `baseGas` and `gasPrice` are 0.
+* `gasToken` and `refundReceiver` are the zero address.
+* `value` is 0, except for a transfer of the native token.
 
-Each member signs the `Call` as EIP-712 typed data. The `verifyingContract` of the domain is the address of the multisig. Usually each member signs on a different device, with `eth_signTypedData_v4` in a wallet. Then the member sends the signature to the account that sends `execute`. The [precompile reference](../applications-precompiles/multisig.md#the-signed-call) shows the full typed-data payload.
+Each member signs the `SafeTx` as EIP-712 typed data. The domain has only `chainId` and `verifyingContract`, and `verifyingContract` is the address of the multisig. Usually each member signs on a different device, with `eth_signTypedData_v4` in a wallet. Then the member sends the signature to the account that sends the call.
+
+The sender joins the signatures into one byte string, in ascending order of signer address. The [precompile reference](../applications-precompiles/multisig.md#the-signed-call) shows the full typed-data payload.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
 ```typescript
-const domain = { name: "pod multisig", version: "1", chainId, verifyingContract: multisig };
+const domain = { chainId, verifyingContract: multisig };
 const types = {
-  Call: [
-    { name: "nonce", type: "uint64" },
-    { name: "validUntil", type: "uint64" },
-    { name: "calls", type: "InnerCall[]" },
-  ],
-  InnerCall: [
-    { name: "target", type: "address" },
+  SafeTx: [
+    { name: "to", type: "address" },
+    { name: "value", type: "uint256" },
     { name: "data", type: "bytes" },
+    { name: "operation", type: "uint8" },
+    { name: "safeTxGas", type: "uint256" },
+    { name: "baseGas", type: "uint256" },
+    { name: "gasPrice", type: "uint256" },
+    { name: "gasToken", type: "address" },
+    { name: "refundReceiver", type: "address" },
+    { name: "nonce", type: "uint256" },
   ],
 };
+
+const safeTx = (to: string, data: string, nonce: bigint) => ({
+  to, value: 0n, data, operation: 0,
+  safeTxGas: 0n, baseGas: 0n, gasPrice: 0n,
+  gasToken: ethers.ZeroAddress, refundReceiver: ethers.ZeroAddress,
+  nonce,
+});
+type SafeTx = ReturnType<typeof safeTx>;
+
+const sign = async (tx: SafeTx, signers: ethers.Wallet[]) =>
+  ethers.concat(await Promise.all(
+    [...signers]
+      .sort((a, b) => byAddress(a.address, b.address))
+      .map((signer) => signer.signTypedData(domain, types, tx)),
+  ));
 
 const bridge = new ethers.Interface([
   "function withdraw(address token, address to, uint256 amount, uint128 deadline)",
 ]);
-const validUntil = nowMicros() + 3600n * 1_000_000n; // one hour
-const call = {
-  nonce: 0n,
-  validUntil,
-  calls: [{
-    target: BRIDGE,
-    data: bridge.encodeFunctionData("withdraw", [NATIVE, BRIDGED_CHAIN_RECIPIENT, ethers.parseEther("0.5"), validUntil]),
-  }],
-};
-
-const signatures = [
-  await members[0].signTypedData(domain, types, call),
-  await members[1].signTypedData(domain, types, call),
-];
+const withdraw = safeTx(
+  BRIDGE,
+  bridge.encodeFunctionData("withdraw", [NATIVE, BRIDGED_CHAIN_RECIPIENT, ethers.parseEther("0.5"), nextDeadline()]),
+  0n,
+);
+const signatures = await sign(withdraw, [members[0], members[1]]);
 ```
 {% endtab %}
 
 {% tab title="Rust (alloy)" %}
 ```rust
 let domain = eip712_domain! {
-    name: "pod multisig",
-    version: "1",
     chain_id: chain_id,
     verifying_contract: multisig,
 };
 
-let valid_until = now_micros() + 3600 * 1_000_000; // one hour
-let call = Multisig::Call {
-    nonce: 0,
-    validUntil: valid_until,
-    calls: vec![Multisig::InnerCall {
-        target: BRIDGE,
-        data: Bridge::withdrawCall {
-            token: NATIVE,
-            to: BRIDGED_CHAIN_RECIPIENT,
-            amount: one / U256::from(2u64),
-            deadline: valid_until.into(),
-        }
-        .abi_encode()
-        .into(),
-    }],
+let safe_tx = |to: Address, data: Bytes, nonce: u64| SafeTx {
+    to,
+    value: U256::ZERO,
+    data,
+    operation: 0,
+    safeTxGas: U256::ZERO,
+    baseGas: U256::ZERO,
+    gasPrice: U256::ZERO,
+    gasToken: Address::ZERO,
+    refundReceiver: Address::ZERO,
+    nonce: U256::from(nonce),
 };
 
-let mut signatures: Vec<Bytes> = Vec::new();
-for member in &members[..2] {
-    let signature = member.sign_hash(&call.eip712_signing_hash(&domain)).await?;
-    signatures.push(signature.as_bytes().into());
+async fn sign(
+    tx: &SafeTx,
+    domain: &Eip712Domain,
+    signers: &[&PrivateKeySigner],
+) -> alloy::signers::Result<Bytes> {
+    let mut signers = signers.to_vec();
+    signers.sort_by_key(|signer| signer.address());
+    let hash = tx.eip712_signing_hash(domain);
+    let mut packed = Vec::new();
+    for signer in signers {
+        packed.extend_from_slice(&signer.sign_hash(&hash).await?.as_bytes());
+    }
+    Ok(packed.into())
 }
+
+let withdraw = safe_tx(
+    BRIDGE,
+    Bridge::withdrawCall {
+        token: NATIVE,
+        to: BRIDGED_CHAIN_RECIPIENT,
+        amount: one / U256::from(2u64),
+        deadline: next_deadline().into(),
+    }
+    .abi_encode()
+    .into(),
+    0,
+);
+let signatures = sign(&withdraw, &domain, &[&members[0], &members[1]]).await?;
 ```
 {% endtab %}
 {% endtabs %}
 
 ## 4. Execute the call
 
-Any account that has the signatures can send `execute`. If the receipt is a success, the call was authorized and ran. The nonce of the multisig is now 1.
+Any account that has the signatures can send `execTransaction`. Send it to the address of the multisig, not to the precompile. If the receipt is a success, the call was authorized and ran. The nonce of the multisig is now 1.
 
-The receipt does not show the result of each inner call. Read the usual outcomes for these results. In this example, the outcome is the withdrawal of the multisig. Its id is the hash of the `execute` transaction.
+The receipt does not show the result of the inner call. Read the usual outcomes for this result. In this example, the outcome is the withdrawal of the multisig. Its id is the hash of the `execTransaction` transaction.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
 ```typescript
-const receipt = await (await multisigPrecompile.execute(multisig, call, signatures)).wait();
-console.log("Execute tx:", receipt!.hash);
+const account = new ethers.Contract(multisig, [
+  "function execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures) payable returns (bool)",
+], sender);
+const exec = async (tx: SafeTx, signatures: string) =>
+  (await account.execTransaction(
+    tx.to, tx.value, tx.data, tx.operation, tx.safeTxGas, tx.baseGas, tx.gasPrice,
+    tx.gasToken, tx.refundReceiver, signatures,
+  )).wait();
+
+const receipt = await exec(withdraw, signatures);
+console.log("execTransaction tx:", receipt!.hash);
 
 const activity = await (
   await fetch(`${RPC}/v1/clob/activity/${multisig}?activity_types=multisig_call,bridge_transfer`)
 ).json();
 console.log(JSON.stringify(activity.activity));
-// { "<batch>": [ { "k": "bridge_transfer", "tx": "<execute hash>", "amt": "-500000000000000000", ... },
-//                { "k": "multisig_call", "tx": "<execute hash>", "nonce": 0, ... } ] }
+// { "<batch>": [ { "k": "bridge_transfer", "tx": "<execTransaction hash>", "amt": "-500000000000000000", ... },
+//                { "k": "multisig_call", "tx": "<execTransaction hash>", "nonce": 0, ... } ] }
 ```
 {% endtab %}
 
 {% tab title="Rust (alloy)" %}
 ```rust
-let receipt = precompile
-    .execute(multisig, call, signatures)
-    .send().await?
-    .get_receipt().await?;
-println!("Execute tx: {}", receipt.transaction_hash);
+let account = MultisigAccount::new(multisig, &provider);
+let exec = |tx: SafeTx, signatures: Bytes| {
+    account.execTransaction(
+        tx.to, tx.value, tx.data, tx.operation, tx.safeTxGas, tx.baseGas, tx.gasPrice,
+        tx.gasToken, tx.refundReceiver, signatures,
+    )
+};
+
+let receipt = exec(withdraw, signatures).send().await?.get_receipt().await?;
+println!("execTransaction tx: {}", receipt.transaction_hash);
 
 let activity: serde_json::Value = reqwest::get(format!(
     "{RPC}/v1/clob/activity/{multisig}?activity_types=multisig_call,bridge_transfer"
@@ -312,90 +366,83 @@ println!("{activity}");
 {% endtab %}
 {% endtabs %}
 
-To claim the withdrawal on the bridged chain, follow [Bridge from Pod](bridge-from-pod.md). Use the hash of the `execute` transaction for the lookup: `GET /v1/bridge/withdrawals/by-id/{execute hash}`.
+To claim the withdrawal on the bridged chain, follow [Bridge from Pod](bridge-from-pod.md). Use the hash of the `execTransaction` transaction for the lookup: `GET /v1/bridge/withdrawals/by-id/{execTransaction hash}`.
 
-If the `execute` receipt failed, Pod refused the call. No inner call ran, and the nonce of the multisig did not change. The reason is in the `err` field of the `multisig_call` entry in the activity of the sender. For example, `premature` means that the nonce of the call is higher than the nonce of the multisig. For all reasons, see [Outcomes](../applications-precompiles/multisig.md#outcomes).
+If the `execTransaction` receipt failed, Pod refused the call. The inner call did not run, and the nonce of the multisig did not change. The reason is in the `err` field of the `multisig_call` entry in the activity of the sender. For example, `non_member` means that a signature does not come from a member. A signature for a different nonce also gives `non_member`. For all reasons, see [Outcomes](../applications-precompiles/multisig.md#outcomes).
 
-## 5. Rotate a member
+## 5. Replace a member
 
-`setConfig` is an inner call with the address of the multisig as its target. This call replaces the third member with a new member and keeps the threshold at 2. The change applies when the call runs. The next call needs signatures from the new members. The address does not change.
+`swapOwner(prevOwner, oldOwner, newOwner)` is an inner call with the address of the multisig as its target. This call replaces the third member with a new member. The threshold stays at 2.
+
+`prevOwner` is the member just below `oldOwner` in address order. If `oldOwner` is the lowest member, `prevOwner` is `0x0000000000000000000000000000000000000001`. The `members` list of `GET /v1/multisig/{address}` is in address order.
+
+The change applies when the call runs. The next call needs signatures from the new members. The address does not change.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
 ```typescript
-const account = new ethers.Interface(["function setConfig(address[] members, uint16 threshold)"]);
+const owners = new ethers.Interface([
+  "function swapOwner(address prevOwner, address oldOwner, address newOwner)",
+]);
 const newcomer = new ethers.Wallet(NEWCOMER_PRIVATE_KEY);
-const rotated = [members[0].address, members[1].address, newcomer.address]
-  .sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
+const oldOwner = members[2].address;
+const index = memberAddresses.indexOf(oldOwner);
+const prevOwner = index === 0 ? SENTINEL : memberAddresses[index - 1];
 
-const rotate = {
-  nonce: 1n,
-  validUntil: nowMicros() + 3600n * 1_000_000n,
-  calls: [{ target: multisig, data: account.encodeFunctionData("setConfig", [rotated, 2]) }],
-};
-await (await multisigPrecompile.execute(
+const rotate = safeTx(
   multisig,
-  rotate,
-  [
-    await members[0].signTypedData(domain, types, rotate),
-    await members[1].signTypedData(domain, types, rotate),
-  ],
-)).wait();
+  owners.encodeFunctionData("swapOwner", [prevOwner, oldOwner, newcomer.address]),
+  1n,
+);
+await exec(rotate, await sign(rotate, [members[0], members[1]]));
 ```
 {% endtab %}
 
 {% tab title="Rust (alloy)" %}
 ```rust
 let newcomer: PrivateKeySigner = NEWCOMER_PRIVATE_KEY.parse()?;
-let mut rotated = vec![members[0].address(), members[1].address(), newcomer.address()];
-rotated.sort();
+let old_owner = members[2].address();
+let index = member_addresses.iter().position(|member| *member == old_owner).unwrap();
+let prev_owner = if index == 0 { SENTINEL } else { member_addresses[index - 1] };
 
-let rotate = Multisig::Call {
-    nonce: 1,
-    validUntil: now_micros() + 3600 * 1_000_000,
-    calls: vec![Multisig::InnerCall {
-        target: multisig,
-        data: MultisigAccount::setConfigCall { members: rotated, threshold: 2 }
-            .abi_encode()
-            .into(),
-    }],
-};
-let mut signatures: Vec<Bytes> = Vec::new();
-for member in &members[..2] {
-    signatures.push(member.sign_hash(&rotate.eip712_signing_hash(&domain)).await?.as_bytes().into());
-}
-precompile.execute(multisig, rotate, signatures).send().await?.get_receipt().await?;
+let rotate = safe_tx(
+    multisig,
+    MultisigAccount::swapOwnerCall {
+        prevOwner: prev_owner,
+        oldOwner: old_owner,
+        newOwner: newcomer.address(),
+    }
+    .abi_encode()
+    .into(),
+    1,
+);
+let signatures = sign(&rotate, &domain, &[&members[0], &members[1]]).await?;
+exec(rotate, signatures).send().await?.get_receipt().await?;
 ```
 {% endtab %}
 {% endtabs %}
 
+To add a member, use `addOwnerWithThreshold`. To remove a member, use `removeOwner`. To change only the threshold, use `changeThreshold`. See [Member changes](../applications-precompiles/multisig.md#member-changes).
+
 ## 6. Cancel a signed call
 
-There is no cancel function. In this example, members signed a call with nonce 2, and that call must not run. To cancel it, run a different call with nonce 2. That call uses the nonce. After it runs, Pod refuses the signed call as `stale_nonce`. Usually the different call has no inner calls:
+A signed call does not expire, and there is no cancel function. In this example, members signed a call with nonce 2, and that call must not run. To cancel it, run a different call with nonce 2. That call uses the nonce. After it runs, the signed call cannot run.
+
+The cancel call has empty `data` and a `value` of 0. It runs nothing. Its target can be any address. This example uses the address of the multisig, as the Safe SDK does.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
 ```typescript
-const cancel = { nonce: 2n, validUntil: nowMicros() + 3600n * 1_000_000n, calls: [] };
-await (await multisigPrecompile.execute(
-  multisig,
-  cancel,
-  [
-    await members[0].signTypedData(domain, types, cancel),
-    await newcomer.signTypedData(domain, types, cancel),
-  ],
-)).wait();
+const cancel = safeTx(multisig, "0x", 2n);
+await exec(cancel, await sign(cancel, [members[0], newcomer]));
 ```
 {% endtab %}
 
 {% tab title="Rust (alloy)" %}
 ```rust
-let cancel = Multisig::Call { nonce: 2, validUntil: now_micros() + 3600 * 1_000_000, calls: vec![] };
-let mut signatures: Vec<Bytes> = Vec::new();
-for member in [&members[0], &newcomer] {
-    signatures.push(member.sign_hash(&cancel.eip712_signing_hash(&domain)).await?.as_bytes().into());
-}
-precompile.execute(multisig, cancel, signatures).send().await?.get_receipt().await?;
+let cancel = safe_tx(multisig, Bytes::new(), 2);
+let signatures = sign(&cancel, &domain, &[&members[0], &newcomer]).await?;
+exec(cancel, signatures).send().await?.get_receipt().await?;
 ```
 {% endtab %}
 {% endtabs %}
