@@ -20,7 +20,9 @@ export type OrderSide = "buy" | "sell";
 export type OrderType = "limit" | "market";
 export type OrderStatus =
   | "pending" | "active" | "filled" | "expired"
-  | "canceled" | "margin_canceled" | "self_trade_canceled" | "invalid" | "post_only_refused";
+  | "canceled" | "margin_canceled" | "self_trade_canceled" | "invalid" | "post_only_refused"
+  /** Left the book because its market was settled. */
+  | "settled";
 export type OrderKind =
   | "user_signed" | "liquidation" | "triggered" | "adl" | "adl_counterparty"
   /** A backstop transfer merged into the order feed as a synthetic terminal row. */
@@ -89,7 +91,7 @@ export type OrderEventKind =
  * exhaustive.
  */
 export type TerminalStatus = Extract<
-  OrderStatus, "filled" | "canceled" | "margin_canceled" | "self_trade_canceled" | "expired" | "post_only_refused"
+  OrderStatus, "filled" | "canceled" | "margin_canceled" | "self_trade_canceled" | "expired" | "post_only_refused" | "settled"
 >;
 
 /** One fill, plus the status it closed the order with when it did. */
@@ -473,7 +475,7 @@ export interface CandleQuery {
 }
 
 export type ActivityType =
-  | "order" | "fill" | "modify" | "termination" | "backstop" | "bridge_transfer" | "transfer"
+  | "order" | "fill" | "modify" | "termination" | "backstop" | "settlement" | "bridge_transfer" | "transfer"
   | "modify_reject" | "cancel_reject";
 
 /**
@@ -522,6 +524,16 @@ export type ActivityEntry =
       status: TerminalStatus;
     }
   | (BackstopTransfer & { activityType: "backstop"; timeMs: number })
+  /** A position its market's settlement closed at the frozen price. */
+  | {
+      activityType: "settlement";
+      timeMs: number;
+      orderbookId: MarketId;
+      /** The position before the close; signed. */
+      size: bigint;
+      price: bigint;
+      realizedPnl: bigint;
+    }
   | {
       activityType: "bridge_transfer";
       timeMs: number;
