@@ -4093,6 +4093,10 @@ components:
             An order repriced onto a crossing level and refused for it emits `modify` and then `cancel`:
             apply them in the order given and the order ends the frame removed, rather than resurrected
             at the refused price.
+        expr:
+          type: string
+          enum: [ttl, ioc]
+          description: '`expire` only. `ttl`: the order reached its end time. `ioc`: the unfilled rest of an immediate-or-cancel order. Omitted on expiries indexed before nodes stored the reason.'
         pa:
           type: string
           description: |
@@ -5049,7 +5053,7 @@ components:
           followed by their `fill`s.
         - `fill` — `id, book, b, q, tb, tq, tf, f?, st?, pa?, pnl?`.
         - `modify` — a resting order changed in place: `id, book, px, sz, old_px, old_sz`.
-        - `termination` — an order left the book other than by filling: `id, book, st`.
+        - `termination` — an order left the book other than by filling: `id, book, st, expr?`.
         - `backstop` — a perp position swept to the backstop (`book` set), or the terminal cash
           sweep (`book` omitted): `book?, sz, cash, mark, eq, pnl`.
         - `bridge_transfer` — a bridge deposit (positive `amt`) or withdrawal (negative):
@@ -5109,6 +5113,10 @@ components:
           type: string
           enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused]
           description: '`fill`: present only on the fill that closed the order. `termination`: how the order left the book (never `filled`).'
+        expr:
+          type: string
+          enum: [ttl, ioc]
+          description: '`termination` with `st: expired` only. `ttl`: the order reached its end time. `ioc`: the unfilled rest of an immediate-or-cancel order. Omitted on expiries indexed before nodes stored the reason.'
         pa:
           type: string
           description: "`fill`: the owner's position after this fill on a perp book, signed. Omitted when no position moved."
