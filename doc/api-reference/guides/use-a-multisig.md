@@ -2,7 +2,7 @@
 
 This guide shows how to use a 2-of-3 multisig. A 2-of-3 multisig has three members, and a call needs the signatures of two of them. The guide creates the multisig and funds it. Then two members sign a call that withdraws funds to the bridged chain. Last, the guide replaces a member and cancels a signed call. For all rules, see the [Multisig precompile reference](../applications-precompiles/multisig.md).
 
-A multisig call is a Safe transaction (`SafeTx`). Members can sign it with a tool that signs Safe transactions, if the tool does not read the Safe first (see [Safe tools](../applications-precompiles/multisig.md#safe-tools)). This guide signs the typed data directly.
+A multisig call is a Safe transaction (`SafeTx`). Members can sign it with a tool that signs Safe transactions. The tool must not need to read the Safe first (see [Safe tools](../applications-precompiles/multisig.md#safe-tools)). This guide signs the typed data directly.
 
 Two types of keys take part:
 

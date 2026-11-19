@@ -4,11 +4,24 @@ The Multisig precompile creates multisig accounts. A multisig is an account that
 
 A multisig has its own address, balances, positions and orders. No single key can move its funds. You can replace members, and the address stays the same.
 
-A multisig uses the call format of Safe v1.3.0 and later. Safe calls the members of a Safe its owners. The members sign a Safe transaction (`SafeTx`) off-chain and send the signatures to each other. Then any account sends one `execTransaction` transaction to the address of the multisig. Pod has no on-chain approval transaction and no store of pending approvals. For a procedure with examples, see [Use a multisig](../guides/use-a-multisig.md).
-
 {% hint style="info" %}
 Multisig precompile address: `0x50d0000000000000000000000000000000000004`
 {% endhint %}
+
+## How a call works
+
+A multisig uses the call format of Safe v1.3.0 and later. Safe calls the members of a Safe its owners. A multisig call goes through these steps:
+
+1. The members sign a Safe transaction (`SafeTx`) off-chain. A `SafeTx` holds one inner call, which is the call that the multisig makes.
+2. The members send their signatures to one account. This account does not have to be a member.
+3. That account sends one `execTransaction` transaction with the signatures to the address of the multisig.
+4. When the transaction runs, Pod examines the signatures. If they are correct, the call is authorized, and Pod runs the inner call as the multisig.
+
+Pod has no on-chain approval transaction and no store of pending approvals. For a procedure with examples, see [Use a multisig](../guides/use-a-multisig.md).
+
+Pod runs transactions in batches. A batch is the group of transactions that Pod runs at one time.
+
+Pod stops an incorrect transaction in one of two ways. Pod rejects a transaction that breaks a rule that Pod can see in the transaction alone. A rejected transaction does not land: it gets no receipt. Pod refuses a call that fails a test when it runs, for example a signature from a non-member. A refused call lands with a failed receipt, and its inner call does not run.
 
 ## Functions
 
@@ -25,7 +38,7 @@ Multisig precompile address: `0x50d0000000000000000000000000000000000004`
 * No member is the zero address, the address `0x0000000000000000000000000000000000000001` or the address of the new multisig. These addresses can never sign.
 * `threshold` is 1 or more, and not more than the number of members.
 
-Pod rejects a transaction that does not follow these rules. The transaction does not land.
+Pod rejects a `create` that does not follow these rules.
 
 ## Address
 
@@ -130,7 +143,7 @@ Pod supports a part of what the fields allow:
 | `gasToken`, `refundReceiver` | The zero address. |
 | `nonce` | The nonce of the multisig when the call runs (see [Nonces](#nonces)). |
 
-The `execTransaction` transaction has the same fields except `nonce`, and adds `signatures`. Its own `value` must be 0. Pod rejects a transaction that breaks one of these rules. The transaction does not land.
+The `execTransaction` transaction has the same fields except `nonce`, and adds `signatures`. Its own `value` must be 0. Pod rejects a transaction that breaks one of these rules.
 
 ### Signatures
 
@@ -142,7 +155,7 @@ The `execTransaction` transaction has the same fields except `nonce`, and adds `
 | 31, 32 | `eth_sign` of the hash, with 4 added to `v`. Use this kind for a signer that cannot sign typed data. |
 | 1 | Approval by the sender of the transaction. `r` holds the address of the sender, padded on the left to 32 bytes. The sender must be a member. |
 
-Pod refuses an entry with any other `v`. Pod has no `approveHash` and no contract signatures (EIP-1271).
+If an entry has any other `v`, Pod refuses the call as `invalid_signature`. Pod has no `approveHash` and no contract signatures (EIP-1271).
 
 A signature counts only if its signer is a member when the call runs. When a member change removes a member, the signatures of that member stop counting. This includes signatures that the member made before the change.
 
@@ -156,9 +169,9 @@ The multisig address has no code and no Safe views, for example `getOwners()` an
 
 Each multisig has its own nonce. The nonce starts at 0. You can read it from [`GET /v1/multisig/{address}`](#reading-a-multisig). Each call that runs increases the nonce by one.
 
-`execTransaction` has no nonce argument. Pod uses the nonce of the multisig when the call runs to calculate the `SafeTx` hash. Thus a call that members signed for a different nonce recovers to different addresses, and Pod refuses it as `non_member`.
+`execTransaction` has no nonce argument. When the call runs, Pod calculates the `SafeTx` hash with the current nonce of the multisig. If the members signed the call for a different nonce, the signatures recover to different addresses. Pod then refuses the call as `non_member`.
 
-Pod runs the calls for one multisig in a batch in the order of their transaction hashes. Each call uses the nonce that the call before it left. If the call for nonce N + 1 comes before the call for nonce N, Pod refuses it. Send it again in a new transaction with the same signatures. The same thing happens on Ethereum when a block puts a Safe transaction before the transaction for the previous nonce.
+In a batch, Pod runs the calls for one multisig in the order of their transaction hashes. Each call uses the nonce that the call before it left. If the call for nonce N + 1 comes before the call for nonce N, Pod refuses it. In this case, send the call again in a new transaction with the same signatures. The same thing happens on Ethereum when a block puts a Safe transaction before the transaction for the previous nonce.
 
 A signed call does not expire. It stays valid until the nonce of the multisig moves past it. To cancel a signed call that nobody sent, run a different call with the same nonce. Usually this call has empty `data` and a `value` of 0. It runs nothing and only uses the nonce.
 
@@ -175,13 +188,13 @@ When Pod refuses a call, the nonce of the multisig does not change and the inner
 | Any address except a precompile | empty, with `value` more than 0 | a transfer of the native token (see [Native transfers](#native-transfers)) |
 | Any address | empty, with `value` 0 | nothing. The call only uses the nonce. |
 
-All other targets and calls make the full transaction incorrect. Examples are `delegated`, a call to the multisig precompile, and calldata to an unknown address. Pod rejects such a transaction, and it does not land.
+Pod rejects a transaction with any other inner call. Examples are `delegated`, a call to the multisig precompile, and calldata to an unknown address.
 
 Each transaction has one inner call. An inner `submitBatch` can still place several orders. To withdraw and trade, send two calls with consecutive nonces.
 
-An inner call follows the rules for the same call from an ordinary account. The multisig is the signer and the owner. Pod reports the result through the same outcomes as for an ordinary account (`pod_orders`, `pod_transfers`, `pod_withdrawals`, `pod_activity`). The `deadline` fields of inner calls do not limit when the call runs.
+An intent is one instruction to the orderbook, for example an order or a cancel. An inner call follows the rules for the same call from an ordinary account. The multisig is the signer and the owner. Pod reports the result through the same outcomes as for an ordinary account (`pod_orders`, `pod_transfers`, `pod_withdrawals`, `pod_activity`). The `deadline` fields of inner calls do not limit when the call runs.
 
-If Pod rejects the intents of an authorized call, the call still uses the nonce of the multisig.
+If the orderbook does not accept the intents of an authorized call, the call still uses the nonce of the multisig. An example is an order that is larger than the balance.
 
 ### Orders
 
@@ -216,7 +229,7 @@ Pod refuses the full call as `invalid_owner_change` in these cases:
 * After the change, the threshold is 0 or more than the number of members.
 * After the change, the multisig has more than 16 members.
 
-Pod rejects a member change with the zero address, `0x…0001` or the multisig itself as a member, and a threshold of 0. That transaction does not land.
+Pod rejects a member change that names the zero address, `0x…0001` or the multisig itself as a member. Pod also rejects a member change with a threshold of 0.
 
 The change applies when its call runs. The next call needs signatures from the new members.
 
@@ -228,11 +241,11 @@ A call with empty `data` and a `value` more than 0 sends `value` of the native t
 
 An inner `Bridge.withdraw` sends funds from the balance of the multisig to an address on the bridged chain. It follows the rules in the [Bridge precompile reference](bridge.md#withdrawing).
 
-The withdrawal id is the hash of the `execTransaction` transaction. You use this hash with `GET /v1/bridge/withdrawals/by-id/{tx_hash}`, with `pod_getBridgeClaimProof`, and for the claim on the bridged chain. If Pod refuses the call, no withdrawal exists, and a lookup by its hash returns not found.
+The withdrawal id is the hash of the `execTransaction` transaction. Use this hash with `GET /v1/bridge/withdrawals/by-id/{tx_hash}`, with `pod_getBridgeClaimProof`, and for the claim on the bridged chain. If Pod refuses the call, no withdrawal exists, and a lookup by its hash returns not found.
 
 ### Market admin
 
-The network keeps an allowlist of market admins. A multisig address can be on this allowlist. A market admin must be on the allowlist to send any market call, and a multisig is no exception.
+The network keeps an allowlist of market admins. A multisig address can be on this allowlist. A market admin must be on the allowlist to send any market call. This rule also applies to a multisig.
 
 A multisig on the allowlist creates markets with an inner `createMarket` or `createMarketV2`, and owns them. It manages them with inner `disableMarket`, `settleMarket`, `updateMarketOracle` and `transferMarket` calls. Another owner can give a market to the multisig with `transferMarket`. `transferMarket` requires that the new owner is on the allowlist. See [Market lifecycle](orderbook.md#market-lifecycle).
 
@@ -241,7 +254,7 @@ A multisig on the allowlist creates markets with an inner `createMarket` or `cre
 | Transaction | Receipt |
 | --- | --- |
 | `create` | success, or failed if the address already holds a multisig |
-| `execTransaction`, call authorized | success, also if Pod rejects the intents of the inner call |
+| `execTransaction`, call authorized | success, also if the orderbook does not accept the intents of the inner call |
 | `execTransaction`, call refused | failed |
 
 The receipt of an `execTransaction` shows only whether the call was authorized and ran. It does not show the result of the inner call. To follow the inner call, read the outcomes and the activity of the multisig.
@@ -293,7 +306,7 @@ You can add `?timestamp=<µs>`. The node then waits until it has run that batch,
 | `data` of the inner call | 4 KiB |
 | Inner calls in one call | 1 |
 
-Pod rejects a transaction above these limits, and the transaction does not land. A member change that makes more than 16 members is refused when it runs, as `invalid_owner_change`.
+Pod rejects a transaction above these limits. A member change that makes more than 16 members is refused when it runs, as `invalid_owner_change`.
 
 ## Interface
 
