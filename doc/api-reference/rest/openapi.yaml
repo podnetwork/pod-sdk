@@ -5,7 +5,7 @@ info:
   description: |
     Read-only `GET` routes served on the JSON-RPC port under `/v1`. The `/v1/clob/*`
     and explorer routes exist only on nodes running the CLOB indexer; `/v1/bridge/*`
-    is served by every node. All routes allow any origin (CORS).
+    and `/v1/multisig/*` are served by every node. All routes allow any origin (CORS).
 
     Errors are plain-text bodies. A malformed path or query parameter (bad hex, wrong
     length, unknown enum value, non-numeric integer) is a `400`.
@@ -38,6 +38,12 @@ tags:
     description: |
       Bridge configuration and withdrawal outcomes, with the claim proof for a single
       withdrawal. Served by every node.
+
+      &nbsp; &nbsp; &nbsp;
+  - name: Multisig
+    description: |
+      A multisig's members, threshold and next call nonce. Served by every node. See the
+      Multisig precompile reference for creating and using one.
 
       &nbsp; &nbsp; &nbsp;
 
@@ -577,7 +583,8 @@ paths:
         Everything that happened to the account, as an `ActivityFrame`: a map from batch
         deadline to that batch's entries. Entries are tagged by `k` (`ActivityEntry`). Within a batch, entries are ordered by kind
         (`order`, `fill`, `modify`, `termination`, `backstop`, `bridge_transfer`,
-        `transfer`, `modify_reject`, `cancel_reject`), then by book ascending, then in engine order.
+        `transfer`, `modify_reject`, `cancel_reject`, `multisig_created`, `multisig_call`,
+        `market_action_reject`), then by book ascending, then in engine order.
 
         Pages are newest first and hold whole batches. Batches are added while the entry
         count stays within `limit`; the newest batch in the window is always served, even
@@ -613,7 +620,8 @@ paths:
           in: query
           description: |
             Comma-separated kinds to include: `order`, `fill`, `modify`, `termination`,
-            `backstop`, `bridge_transfer`, `transfer`, `modify_reject`, `cancel_reject`. Defaults to all. An unknown or empty
+            `backstop`, `bridge_transfer`, `transfer`, `modify_reject`, `cancel_reject`,
+            `multisig_created`, `multisig_call`, `market_action_reject`. Defaults to all. An unknown or empty
             name is a `400` (`invalid activity_types`).
           schema: { type: string, example: "order,fill" }
       responses:
@@ -990,7 +998,7 @@ paths:
         - name: tx_hash
           in: path
           required: true
-          description: Hash of the withdraw transaction.
+          description: Hash of the transaction that carried the withdrawal.
           schema: { $ref: '#/components/schemas/Bytes32' }
       responses:
         '200':
@@ -1019,6 +1027,59 @@ paths:
         '404':
           description: No withdrawal with this id has executed on this node. Empty body.
         '500': { $ref: '#/components/responses/InternalError' }
+
+  # ==========================================
+  # MULTISIG
+  # ==========================================
+  /multisig/{address}:
+    get:
+      tags: [Multisig]
+      summary: Get Multisig
+      operationId: getMultisig
+      description: |
+        The multisig at `address`: its members, threshold and the nonce that the members sign
+        its next call at, as of the last batch the node has executed (`timestamp`).
+
+        `timestamp` in the query waits until the node has executed that batch, for example the
+        batch of an `execTransaction` receipt just received. It is a lower bound, not a read of past
+        state.
+
+        `Cache-Control: no-store`.
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The multisig's address.
+          schema: { $ref: '#/components/schemas/Address' }
+        - $ref: '#/components/parameters/MinTimestamp'
+      responses:
+        '200':
+          description: Multisig configuration
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Multisig' }
+              example:
+                members:
+                  - "0x4e5ad59e96d02f68b49f44e4eb615d1bd6a7278e"
+                  - "0xccb802f19029c375e54dab66c68dd1a77d9bce05"
+                  - "0xf7f2a742047af5f78885acb81c548bc1927e5bec"
+                threshold: 2
+                nonce: 3
+                timestamp: 1794914886000000
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404':
+          description: The address holds no multisig. The body carries the last batch the node has executed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp]
+                properties:
+                  timestamp: { $ref: '#/components/schemas/Timestamp' }
+              example:
+                timestamp: 1794915014000000
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/NodeBehind' }
 
 components:
   parameters:
@@ -1600,6 +1661,9 @@ components:
         - $ref: '#/components/schemas/ActivityTransfer'
         - $ref: '#/components/schemas/ActivityModifyReject'
         - $ref: '#/components/schemas/ActivityCancelReject'
+        - $ref: '#/components/schemas/ActivityMultisigCreated'
+        - $ref: '#/components/schemas/ActivityMultisigCall'
+        - $ref: '#/components/schemas/ActivityMarketActionReject'
       discriminator:
         propertyName: k
         mapping:
@@ -1612,6 +1676,9 @@ components:
           transfer: '#/components/schemas/ActivityTransfer'
           modify_reject: '#/components/schemas/ActivityModifyReject'
           cancel_reject: '#/components/schemas/ActivityCancelReject'
+          multisig_created: '#/components/schemas/ActivityMultisigCreated'
+          multisig_call: '#/components/schemas/ActivityMultisigCall'
+          market_action_reject: '#/components/schemas/ActivityMarketActionReject'
 
     ActivityOrder:
       description: |
@@ -1738,6 +1805,78 @@ components:
         id: { $ref: '#/components/schemas/Bytes32', description: Order id. }
         book: { $ref: '#/components/schemas/Bytes32' }
         why: { type: string, description: The engine's reason. }
+
+    ActivityMultisigCreated:
+      type: object
+      description: |
+        A multisig `create`. Reported to the creator, refused or not, and to the multisig's
+        address when it succeeded.
+      required: [k, tx, addr, creator, members, threshold]
+      properties:
+        k: { type: string, enum: [multisig_created] }
+        tx: { $ref: '#/components/schemas/Bytes32', description: The `create` transaction. }
+        addr: { $ref: '#/components/schemas/Address', description: The multisig's address. }
+        creator: { $ref: '#/components/schemas/Address', description: The account that sent `create`. }
+        members:
+          type: array
+          description: The initial members, ascending.
+          items: { $ref: '#/components/schemas/Address' }
+        threshold: { type: integer, description: The initial threshold. }
+        err:
+          type: string
+          description: '`address_taken` when the address already held a multisig, which is left unchanged. `member_cannot_sign` when a member is the zero address, `0x…0001` or the multisig itself. Absent when it succeeded.'
+
+    ActivityMultisigCall:
+      type: object
+      description: |
+        A multisig `execTransaction`. Reported to the sender, refused or not, and to the multisig's
+        address when the call ran. The call's inner orders, transfers and withdrawals appear as
+        their own entries.
+      required: [k, tx, addr, sender, nonce]
+      properties:
+        k: { type: string, enum: [multisig_call] }
+        tx: { $ref: '#/components/schemas/Bytes32', description: The `execTransaction` transaction. }
+        addr: { $ref: '#/components/schemas/Address', description: The multisig's address. }
+        sender: { $ref: '#/components/schemas/Address', description: The account that sent `execTransaction`. }
+        nonce: { type: integer, format: int64, description: "The multisig's nonce that the call ran at, or that it was tried at when refused. 0 for `no_multisig`." }
+        members:
+          type: array
+          items: { $ref: '#/components/schemas/Address' }
+          description: The members after the call's member change; omitted when it changed none.
+        threshold: { type: integer, description: The threshold after the call's member change; omitted when it changed none. }
+        err:
+          type: string
+          description: |
+            Why the call was refused; its inner call did not run and the multisig's nonce
+            stays. One of `no_multisig`, `below_threshold`, `invalid_signature`, `non_member`,
+            `unordered_signers`, `invalid_owner_change`, `unsupported_inner_call`. Absent when
+            the call ran.
+
+    ActivityMarketActionReject:
+      type: object
+      description: A market action the batch refused, reported to its signer.
+      required: [k, tx, kind, why]
+      properties:
+        k: { type: string, enum: [market_action_reject] }
+        tx: { $ref: '#/components/schemas/Bytes32', description: The transaction carrying the action. }
+        kind: { type: string, enum: [create, disable, settle, update_oracle, transfer_ownership], description: The refused action. }
+        book: { $ref: '#/components/schemas/Bytes32', description: The orderbook; omitted for a create. }
+        why: { type: string, description: The engine's reason. }
+
+    # ==========================================
+    # MULTISIG
+    # ==========================================
+    Multisig:
+      type: object
+      required: [members, threshold, nonce, timestamp]
+      properties:
+        members:
+          type: array
+          description: The members, ascending.
+          items: { $ref: '#/components/schemas/Address' }
+        threshold: { type: integer, description: Signatures a call needs. }
+        nonce: { type: integer, format: int64, description: The nonce that the members sign the next call at. }
+        timestamp: { $ref: '#/components/schemas/Timestamp' }
 
     # ==========================================
     # EXPLORER
