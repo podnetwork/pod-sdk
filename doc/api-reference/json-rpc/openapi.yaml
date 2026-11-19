@@ -5093,7 +5093,7 @@ components:
         nonce:
           type: integer
           format: int64
-          description: '`multisig_call`: the multisig''s nonce that the call ran at, or that it was tried at when refused.'
+          description: '`multisig_call`: the multisig''s nonce that the call ran at, or that it was tried at when refused; 0 for `no_multisig`.'
         kind:
           type: string
           enum: [create, disable, settle, update_oracle, transfer_ownership]

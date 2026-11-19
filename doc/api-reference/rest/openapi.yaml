@@ -1792,7 +1792,7 @@ components:
         tx: { $ref: '#/components/schemas/Bytes32', description: The `execTransaction` transaction. }
         addr: { $ref: '#/components/schemas/Address', description: The multisig's address. }
         sender: { $ref: '#/components/schemas/Address', description: The account that sent `execTransaction`. }
-        nonce: { type: integer, format: int64, description: "The multisig's nonce that the call ran at, or that it was tried at when refused." }
+        nonce: { type: integer, format: int64, description: "The multisig's nonce that the call ran at, or that it was tried at when refused. 0 for `no_multisig`." }
         members:
           type: array
           items: { $ref: '#/components/schemas/Address' }

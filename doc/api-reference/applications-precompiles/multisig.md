@@ -260,7 +260,7 @@ To find why a receipt failed, read the activity of the sender account. The activ
 | `invalid_owner_change` | A member change does not apply to the current members (see [Member changes](#member-changes)). |
 | `unsupported_inner_call` | Pod does not support the inner call or a field value. |
 
-The sender sees all of its entries, refused ones included. The `nonce` of a refused call is the nonce of the multisig when Pod tried the call. The activity of the multisig shows a `create` only if it succeeded, and a call only if it ran. Thus other accounts cannot add entries to it with refused calls.
+The sender sees all of its entries, refused ones included. The `nonce` of a refused call is the nonce of the multisig when Pod tried the call, or 0 for `no_multisig`. The activity of the multisig shows a `create` only if it succeeded, and a call only if it ran. Thus other accounts cannot add entries to it with refused calls.
 
 If a call changed the members, its entry has the new `members` and `threshold`. Inner calls show in the activity of the multisig as the usual entries for intents: `order`, `transfer`, `bridge_transfer`, and the other kinds.
 
