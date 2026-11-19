@@ -324,6 +324,7 @@ export interface PerpPosition {
   side: "long" | "short";
   size: bigint; // signed
   notional: bigint;
+  /** Average price paid for the open size. */
   entryPrice: bigint;
   markPrice: bigint;
   margin: bigint;
@@ -331,13 +332,17 @@ export interface PerpPosition {
   fundingAccrued: bigint;
   /** `Σ settlingIndex × Δsize`; absent on older nodes. */
   fundingBasis?: bigint;
-  /** `Σ clearing × Δsize`; absent on older nodes. */
+  /** `Σ clearing × Δsize` over opens and closes alike; absent on older nodes.
+   * `costBasis + realizedPnl` is what the open size cost. */
   costBasis?: bigint;
   /** Funding accumulator at entry, on `fundingIndex`'s base. Truncating, so
    * estimates from it are within a grid step × size. */
   entryFunding: bigint;
   liquidationPrice: bigint;
+  /** Price PnL of the open size. */
   unrealizedPnl: bigint;
+  /** Price PnL of the slices closed since the position was last flat. Part of
+   * the position's value, and of equity, until it reaches flat. */
   realizedPnl: bigint;
 }
 
