@@ -155,6 +155,42 @@ describe("enrichPositions funding", () => {
     expect((got.positions[0] as PerpPosition).unrealizedPnl).toBe(mul(moved, SIZE) - mul(PRICE, SIZE));
   });
 
+  // Bought 10 at 100, sold 5 at 150: net basis 250 on 5, of which the open 5
+  // cost 500, and the node reports 250 realized for the 5 sold.
+  describe("after a partial close", () => {
+    const UNIT = 1_000_000n * LOT;
+    const held = (mark: bigint) =>
+      perp(5n * UNIT, {
+        entryPrice: PRICE,
+        markPrice: mark,
+        costBasis: 250n * WAD,
+        unrealizedPnl: mul(mark, 5n * UNIT) - 500n * WAD,
+        realizedPnl: 250n * WAD,
+      });
+    const account = (mark: bigint, cash = 1_000n * WAD): PositionsSnapshot => ({
+      ...snap([held(mark)], cash),
+      totalUnrealizedPnl: mul(mark, 5n * UNIT) - 500n * WAD,
+      perpsEquity: cash + mul(mark, 5n * UNIT) - 250n * WAD,
+    });
+
+    it("leaves the closed slices out of unrealized PnL", () => {
+      const snapMark = 150n * WAD;
+      const still = enrichPositions(account(snapMark), [market({ markPrice: snapMark })]);
+      expect((still.positions[0] as PerpPosition).unrealizedPnl).toBe(250n * WAD);
+      expect(still.totalUnrealizedPnl).toBe(250n * WAD);
+
+      const moved = enrichPositions(account(snapMark), [market({ markPrice: 160n * WAD })]);
+      expect((moved.positions[0] as PerpPosition).unrealizedPnl).toBe(300n * WAD);
+      expect(moved.totalUnrealizedPnl).toBe(300n * WAD);
+    });
+
+    it("keeps them in equity", () => {
+      const got = enrichPositions(account(150n * WAD), [market({ markPrice: 160n * WAD })]);
+      // Cash 1,000 + (160 × 5 − 250): the open 300 and the closed 250.
+      expect(got.perpsEquity).toBe(1_550n * WAD);
+    });
+  });
+
   it("prefers the engine's margin rate over re-deriving it from maxLeverage", () => {
     const rate = 10n ** 18n / 7n; // a leverage the integer field cannot express
     const got = enrichPositions(snap([open()]), [live({ initialMargin: rate })]);
