@@ -6,7 +6,7 @@ import { createDelegatedWallet } from "./delegation.js";
 import {
   alignSize, BRIDGE_ADDRESS, buildClosePosition, CLOB_ADDRESS, buildOrderWithTriggers, buildSubmitBatch,
   buildSubmitOrder, buildSubmitTrigger, buildUpdateOrder, buildUpdateTrigger, buildWithdraw,
-  decodeRevertReason, MINT_ADDRESS, mint, NATIVE_USD_ADDRESS, PodDeliveryUnknownError, PodTxRevertError, sendRawTransaction,
+  decodeRevertReason, MINT_ADDRESS, mint, NATIVE_USD_ADDRESS, PodDeliveryUnknownError, PodTxRevertError, protectivePrice, sendRawTransaction,
   waitForReceipt, type PodTxRequest,
 } from "./index.js";
 import type { Hash } from "../types/public.js";
@@ -190,12 +190,62 @@ describe("buildSubmitTrigger / buildUpdateTrigger", () => {
       triggerOrderId: TX,
       side: "sell",
       size: OFF_LOT,
+      triggerType: "take_profit",
       triggerPrice: 10n ** 18n,
       lotSize: LOT,
       deadline: 1_700_000_000_000,
     });
     expect(encodedSize(submit)).toBe(-3n * LOT);
     expect(encodedSize(update)).toBe(-3n * LOT);
+  });
+
+  /** The fired order's limit and ioc a submitTrigger encodes; updateTrigger carries no ioc. */
+  const fired = (tx: { data: `0x${string}` }) => {
+    const { functionName, args } = decodeFunctionData({ abi: CLOB_TEST_ABI, data: tx.data });
+    return functionName === "updateTrigger"
+      ? { limit: args![3] as bigint }
+      : { limit: args![2] as bigint, ioc: args![9] as boolean };
+  };
+  const trigger = (over: Partial<Parameters<typeof buildSubmitTrigger>[0]> = {}) => buildSubmitTrigger({
+    orderbookId: ORDERBOOK,
+    side: "sell",
+    size: 3n * LOT,
+    triggerType: "stop_loss",
+    triggerPrice: 143n * 10n ** 18n,
+    tickPrecision: 10n ** 16n,
+    deadline: 1_700_000_000_000,
+    ...over,
+  });
+
+  it("bounds a stop loss past its trigger and makes it ioc, as a market order", () => {
+    // A limit at the trigger rests on the wrong side of a mark that has already passed it.
+    expect(fired(trigger())).toEqual({ limit: 13585n * 10n ** 16n, ioc: true }); // $143 − 5%
+    expect(fired(trigger({ side: "buy" }))).toEqual({ limit: 15015n * 10n ** 16n, ioc: true }); // $143 + 5%
+    expect(fired(trigger({ slippageBps: 200 })).limit).toBe(14014n * 10n ** 16n);
+  });
+
+  it("keeps a take profit's limit at its trigger, resting", () => {
+    expect(fired(trigger({ triggerType: "take_profit" }))).toEqual({ limit: 143n * 10n ** 18n, ioc: false });
+  });
+
+  it("takes an explicit limit and ioc as given, and leaves a stop with its own limit resting", () => {
+    expect(fired(trigger({ limitPrice: 142n * 10n ** 18n, ioc: true }))).toEqual({ limit: 142n * 10n ** 18n, ioc: true });
+    // Only the default path changed: a caller's own limit keeps the old resting default.
+    expect(fired(trigger({ limitPrice: 142n * 10n ** 18n }))).toEqual({ limit: 142n * 10n ** 18n, ioc: false });
+  });
+
+  it("pads the tick-aligned trigger, not the raw one", () => {
+    // $143.009 floors to $143.00 first; padding the raw price would bound past a trigger it never armed.
+    expect(fired(trigger({ triggerPrice: 143009n * 10n ** 15n })).limit).toBe(13585n * 10n ** 16n);
+  });
+
+  it("keeps a stop loss's bound past the trigger it is moved to", () => {
+    const update = (triggerType: "take_profit" | "stop_loss") => buildUpdateTrigger({
+      orderbookId: ORDERBOOK, triggerOrderId: TX, side: "sell", size: 3n * LOT,
+      triggerPrice: 143n * 10n ** 18n, tickPrecision: 10n ** 16n, deadline: 1_700_000_000_000, triggerType,
+    });
+    expect(fired(update("stop_loss")).limit).toBe(13585n * 10n ** 16n);
+    expect(fired(update("take_profit")).limit).toBe(143n * 10n ** 18n);
   });
 });
 
@@ -227,6 +277,28 @@ describe("buildOrderWithTriggers", () => {
   it("floors a fractional TP leg to the lot", () => {
     // A fraction of an aligned size is not aligned: half of 3 lots is 1.5.
     expect(legSizes(withTp({ sizeFraction: 0.5 }))[1]).toBe(-1n * LOT);
+  });
+
+  it("arms its stop loss bounded and ioc, and its take profit at the trigger", () => {
+    const tx = buildOrderWithTriggers({
+      orderbookId: ORDERBOOK, side: "buy", orderType: "limit", price: 10n ** 18n, size: 3n * LOT, lotSize: LOT,
+      takeProfit: { triggerPrice: 2n * 10n ** 18n }, stopLoss: { triggerPrice: 10n ** 18n },
+      deadline: 1_700_000_000_000,
+    });
+    const { args } = decodeFunctionData({ abi: CLOB_TEST_ABI, data: tx.data });
+    const [, tp, sl] = (args![0] as `0x${string}`[]).map((data) => decodeFunctionData({ abi: CLOB_TEST_ABI, data }).args!);
+    expect([tp![2], tp![9]]).toEqual([2n * 10n ** 18n, false]);
+    expect([sl![2], sl![9]]).toEqual([95n * 10n ** 16n, true]);
+  });
+});
+
+describe("protectivePrice", () => {
+  it("refuses a bound outside 0–100%", () => {
+    // 10,000 bps or more would put a sell's bound at or below zero.
+    expect(() => protectivePrice(10n ** 18n, "sell", 10_000)).toThrow(RangeError);
+    expect(() => protectivePrice(10n ** 18n, "sell", -1)).toThrow(RangeError);
+    expect(() => protectivePrice(10n ** 18n, "sell", Number.NaN)).toThrow(RangeError);
+    expect(protectivePrice(10n ** 18n, "sell", 0)).toBe(10n ** 18n);
   });
 });
 
