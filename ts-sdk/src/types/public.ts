@@ -310,6 +310,12 @@ export interface Order {
   includedMs?: number;
   /** Why the engine rejected the order; set only on `status: "invalid"`. */
   rejectReason?: string;
+  /**
+   * Why the order has its status: the engine's reason on `invalid`, `"ttl"` or `"ioc"`
+   * on `expired`. Absent otherwise, and on an expiry from a node older than the v2
+   * order routes.
+   */
+  details?: string;
   // perpetual-only
   reduceOnly?: boolean;
   ioc?: boolean;

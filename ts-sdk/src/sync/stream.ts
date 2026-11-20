@@ -64,7 +64,8 @@ const permanent = (err: unknown): boolean =>
 
 export interface ResumableStreamOptions {
   ws: PodWsClient;
-  channel: Channel;
+  /** Read at each subscribe, after the seed, so a seed can decide it. */
+  channel: Channel | (() => Channel);
   /** Everything that identifies the subscription except the cursor. */
   params: SubParams;
   /**
@@ -153,8 +154,9 @@ export class ResumableStream {
   }
 
   private subscribe(): void {
+    const { channel } = this.opts;
     this.sub = this.opts.ws.subscribe(
-      this.opts.channel,
+      typeof channel === "function" ? channel() : channel,
       { ...this.opts.params, ...this.cursor },
       (r) => this.onFrame(r),
       (e) => this.onSubError(e),
