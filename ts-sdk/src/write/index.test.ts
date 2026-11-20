@@ -6,7 +6,7 @@ import { createDelegatedWallet } from "./delegation.js";
 import {
   alignSize, BRIDGE_ADDRESS, buildClosePosition, CLOB_ADDRESS, buildOrderWithTriggers, buildSubmitBatch,
   buildSubmitOrder, buildSubmitTrigger, buildUpdateOrder, buildUpdateTrigger, buildWithdraw,
-  decodeRevertReason, MINT_ADDRESS, mint, NATIVE_USD_ADDRESS, PodDeliveryUnknownError, PodTxRevertError, sendRawTransaction,
+  decodeRevertReason, MINT_ADDRESS, mint, NATIVE_USD_ADDRESS, PodDeliveryUnknownError, PodTxRevertError, protectivePrice, sendRawTransaction,
   waitForReceipt, type PodTxRequest,
 } from "./index.js";
 import type { Hash } from "../types/public.js";
@@ -190,6 +190,7 @@ describe("buildSubmitTrigger / buildUpdateTrigger", () => {
       triggerOrderId: TX,
       side: "sell",
       size: OFF_LOT,
+      triggerType: "take_profit",
       triggerPrice: 10n ** 18n,
       lotSize: LOT,
       deadline: 1_700_000_000_000,
@@ -227,17 +228,24 @@ describe("buildSubmitTrigger / buildUpdateTrigger", () => {
     expect(fired(trigger({ triggerType: "take_profit" }))).toEqual({ limit: 143n * 10n ** 18n, ioc: false });
   });
 
-  it("takes an explicit limit and ioc as given", () => {
-    expect(fired(trigger({ limitPrice: 142n * 10n ** 18n, ioc: false }))).toEqual({ limit: 142n * 10n ** 18n, ioc: false });
+  it("takes an explicit limit and ioc as given, and leaves a stop with its own limit resting", () => {
+    expect(fired(trigger({ limitPrice: 142n * 10n ** 18n, ioc: true }))).toEqual({ limit: 142n * 10n ** 18n, ioc: true });
+    // Only the default path changed: a caller's own limit keeps the old resting default.
+    expect(fired(trigger({ limitPrice: 142n * 10n ** 18n }))).toEqual({ limit: 142n * 10n ** 18n, ioc: false });
+  });
+
+  it("pads the tick-aligned trigger, not the raw one", () => {
+    // $143.009 floors to $143.00 first; padding the raw price would bound past a trigger it never armed.
+    expect(fired(trigger({ triggerPrice: 143009n * 10n ** 15n })).limit).toBe(13585n * 10n ** 16n);
   });
 
   it("keeps a stop loss's bound past the trigger it is moved to", () => {
-    const update = (triggerType?: "take_profit" | "stop_loss") => buildUpdateTrigger({
+    const update = (triggerType: "take_profit" | "stop_loss") => buildUpdateTrigger({
       orderbookId: ORDERBOOK, triggerOrderId: TX, side: "sell", size: 3n * LOT,
       triggerPrice: 143n * 10n ** 18n, tickPrecision: 10n ** 16n, deadline: 1_700_000_000_000, triggerType,
     });
     expect(fired(update("stop_loss")).limit).toBe(13585n * 10n ** 16n);
-    expect(fired(update()).limit).toBe(143n * 10n ** 18n);
+    expect(fired(update("take_profit")).limit).toBe(143n * 10n ** 18n);
   });
 });
 
@@ -281,6 +289,16 @@ describe("buildOrderWithTriggers", () => {
     const [, tp, sl] = (args![0] as `0x${string}`[]).map((data) => decodeFunctionData({ abi: CLOB_TEST_ABI, data }).args!);
     expect([tp![2], tp![9]]).toEqual([2n * 10n ** 18n, false]);
     expect([sl![2], sl![9]]).toEqual([95n * 10n ** 16n, true]);
+  });
+});
+
+describe("protectivePrice", () => {
+  it("refuses a bound outside 0–100%", () => {
+    // 10,000 bps or more would put a sell's bound at or below zero.
+    expect(() => protectivePrice(10n ** 18n, "sell", 10_000)).toThrow(RangeError);
+    expect(() => protectivePrice(10n ** 18n, "sell", -1)).toThrow(RangeError);
+    expect(() => protectivePrice(10n ** 18n, "sell", Number.NaN)).toThrow(RangeError);
+    expect(protectivePrice(10n ** 18n, "sell", 0)).toBe(10n ** 18n);
   });
 });
 
