@@ -1,0 +1,80 @@
+{
+  "transactions": [
+    {
+      "hash": null,
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0x595d39fd0ef41500803a049dc1ec30946cff6221",
+      "function": "transferOwnership(address)",
+      "functionAbi": "function transferOwnership(address newOwner)",
+      "arguments": [
+        "0x43404243EA56035E951e29AF99bb76834f36AC6E"
+      ],
+      "transaction": {
+        "from": "0x34b16959f6bccee214b370de66674a0563f36107",
+        "to": "0x595d39fd0ef41500803a049dc1ec30946cff6221",
+        "gas": "0x1611e",
+        "value": "0x0",
+        "input": "0xf2fde38b00000000000000000000000043404243ea56035e951e29af99bb76834f36ac6e",
+        "nonce": "0x1",
+        "chainId": "0xa4b1"
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    },
+    {
+      "hash": null,
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0xb77e6fb078918f255fc71e8b11a798124b7f0fa0",
+      "function": "renounceRole(bytes32,address)",
+      "functionAbi": "function renounceRole(bytes32 role, address callerConfirmation)",
+      "arguments": [
+        "0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a",
+        "0x34B16959F6BccEe214B370dE66674A0563F36107"
+      ],
+      "transaction": {
+        "from": "0x34b16959f6bccee214b370de66674a0563f36107",
+        "to": "0xb77e6fb078918f255fc71e8b11a798124b7f0fa0",
+        "gas": "0x1a637",
+        "value": "0x0",
+        "input": "0x36568abe65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a00000000000000000000000034b16959f6bccee214b370de66674a0563f36107",
+        "nonce": "0x2",
+        "chainId": "0xa4b1"
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    },
+    {
+      "hash": null,
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0xb77e6fb078918f255fc71e8b11a798124b7f0fa0",
+      "function": "renounceRole(bytes32,address)",
+      "functionAbi": "function renounceRole(bytes32 role, address callerConfirmation)",
+      "arguments": [
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x34B16959F6BccEe214B370dE66674A0563F36107"
+      ],
+      "transaction": {
+        "from": "0x34b16959f6bccee214b370de66674a0563f36107",
+        "to": "0xb77e6fb078918f255fc71e8b11a798124b7f0fa0",
+        "gas": "0x1a43e",
+        "value": "0x0",
+        "input": "0x36568abe000000000000000000000000000000000000000000000000000000000000000000000000000000000000000034b16959f6bccee214b370de66674a0563f36107",
+        "nonce": "0x3",
+        "chainId": "0xa4b1"
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    }
+  ],
+  "receipts": [],
+  "libraries": [],
+  "pending": [],
+  "returns": {},
+  "timestamp": 1795192541643,
+  "chain": 42161,
+  "commit": "9b3f832",
+  "recovery_generation": "0x7878e21eb719e27ead8048cc088c49ec347490b359bafddf25fcbdc430b5593c"
+}
