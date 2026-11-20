@@ -5,8 +5,9 @@ import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {Bridge} from "../src/Bridge.sol";
 import {DepositWaitingList} from "../src/DepositWaitingList.sol";
 import {TimelockDeploy} from "../deploy/04_TimelockDeploy.s.sol";
-import {FastAdminUpgrade} from "../deploy/05_FastAdminUpgrade.s.sol";
-import {AdminHandover} from "../deploy/06_AdminHandover.s.sol";
+import {BridgeImplementationDeploy} from "../deploy/05_BridgeImplementationDeploy.s.sol";
+import {FastAdminUpgrade} from "../deploy/06_FastAdminUpgrade.s.sol";
+import {AdminHandover} from "../deploy/07_AdminHandover.s.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -15,7 +16,7 @@ import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transp
 import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 
-/// @dev Runs the admin migration scripts (deploy/04, 05, 06) against the live bridge on an
+/// @dev Runs the admin migration scripts (deploy/04 to 07) against the live bridge on an
 ///      Arbitrum One fork. Skipped unless ARBITRUM_RPC_URL is set.
 abstract contract BridgeAdminMigrationForkBase is BridgeClaimProofHelper {
     // Live Arbitrum One deployment (deploy/01 and deploy/02).
@@ -95,7 +96,8 @@ abstract contract BridgeAdminMigrationForkBase is BridgeClaimProofHelper {
     }
 
     function _runStep1() internal {
-        (timelock, newImplementation) = new TimelockDeploy().run(BRIDGE, proposerSafe, _executors());
+        timelock = new TimelockDeploy().run(proposerSafe, _executors());
+        newImplementation = new BridgeImplementationDeploy().run(BRIDGE);
         proposerRole = timelock.PROPOSER_ROLE();
         executorRole = timelock.EXECUTOR_ROLE();
         cancellerRole = timelock.CANCELLER_ROLE();

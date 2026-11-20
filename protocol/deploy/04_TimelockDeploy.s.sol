@@ -2,33 +2,26 @@
 pragma solidity ^0.8.20;
 
 import {console, Script} from "forge-std/Script.sol";
-import {Bridge} from "pod-protocol/Bridge.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 
+// Does not import the Bridge, so it can be built with other compiler settings than the rest of
+// the project. The Arbitrum One timelock was (see CLAUDE.md for the command).
 contract TimelockDeploy is Script {
     // Check manually:
     // - at least two executors
     // - no executor is address(0), a multisig, or one of their signers
     // - the proposer multisig is not the fast admin multisig
-    function run(Bridge bridge, address proposer, address[] memory executors)
-        public
-        returns (TimelockController timelock, Bridge implementation)
-    {
+    function run(address proposer, address[] memory executors) public returns (TimelockController timelock) {
         address[] memory proposers = new address[](1);
         proposers[0] = proposer;
-
-        address podBridge = bridge.BRIDGE_CONTRACT();
-        uint256 podChainId = bridge.CHAIN_ID();
 
         vm.startBroadcast();
 
         // No external admin: the timelock administers its own roles
         timelock = new TimelockController(72 hours, proposers, executors, address(0));
-        implementation = new Bridge(podBridge, podChainId);
 
         vm.stopBroadcast();
 
         console.log("TimelockController deployed at:", address(timelock));
-        console.log("Bridge implementation deployed at:", address(implementation));
     }
 }

@@ -5,8 +5,9 @@ import {Test} from "forge-std/Test.sol";
 import {Bridge} from "../src/Bridge.sol";
 import {BridgeDeployer} from "../script/DeployBridge.s.sol";
 import {TimelockDeploy} from "../deploy/04_TimelockDeploy.s.sol";
-import {FastAdminUpgrade} from "../deploy/05_FastAdminUpgrade.s.sol";
-import {AdminHandover} from "../deploy/06_AdminHandover.s.sol";
+import {BridgeImplementationDeploy} from "../deploy/05_BridgeImplementationDeploy.s.sol";
+import {FastAdminUpgrade} from "../deploy/06_FastAdminUpgrade.s.sol";
+import {AdminHandover} from "../deploy/07_AdminHandover.s.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
@@ -55,7 +56,8 @@ contract BridgeAdminMigrationTest is Test {
     }
 
     function _migrate(address _fastAdmin) internal {
-        (timelock, newImplementation) = new TimelockDeploy().run(bridge, proposer, _executors());
+        timelock = new TimelockDeploy().run(proposer, _executors());
+        newImplementation = new BridgeImplementationDeploy().run(bridge);
         new FastAdminUpgrade().run(bridge, address(timelock), address(newImplementation), _fastAdmin, _pausers());
         new AdminHandover().run(bridge, address(timelock));
     }

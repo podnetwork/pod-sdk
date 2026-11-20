@@ -91,7 +91,7 @@ Claims reconstruct the deposit tx hash: `keccak256(domainSeparator || bridgeCont
 - **Bridge.benchmark.sol**: Gas benchmarks scaling across validator set sizes (4–100)
 - **DepositWaitingList.t.sol**: Unit and fuzz tests for the DepositWaitingList contract
 - **test/abstract/BridgeClaimProofHelper.sol**: Shared test base providing signature aggregation, claim proof generation, and domain separator computation
-- **BridgeAdminMigration.t.sol**: Runs the admin migration scripts (`deploy/04`–`06`) on a local bridge with an EOA admin
+- **BridgeAdminMigration.t.sol**: Runs the admin migration scripts (`deploy/04`–`07`) on a local bridge with an EOA admin
 - **BridgeAdminMigration.fork.sol**: Runs the same scripts against the live Arbitrum One bridge and tests the resulting roles, the timelock, and what each compromised key can reach
 - **test/mocks/MockERC20Permit.sol**: Mock ERC20 with permit support
 
@@ -99,13 +99,24 @@ Claims reconstruct the deposit tx hash: `keccak256(domainSeparator || bridgeCont
 
 Scripts in `script/` use Foundry's Script framework. `DeployBridge.s.sol` loads validator addresses from `POD_COMMITTEE_KEYS` env var.
 
-`deploy/` holds the numbered, run-once scripts for the Arbitrum One deployment. `01`–`03` deployed and set up the bridge and waiting list. `04`–`06` move the admin to a timelock:
+`deploy/` holds the numbered, run-once scripts for the Arbitrum One deployment. `01`–`03` deployed and set up the bridge and waiting list. `04`–`07` move the admin to a timelock:
 
-- `04_TimelockDeploy.s.sol` deploys a 72-hour `TimelockController` (proposer multisig as the only proposer, separate executor wallets, no outside admin; the executor list is checked by hand) and the new Bridge implementation. Anyone can run it.
-- `05_FastAdminUpgrade.s.sol` grants `FAST_ADMIN_ROLE` to the fast admin multisig (a different multisig from the proposer), `PAUSER_ROLE` to the pausers and `DEFAULT_ADMIN_ROLE` to the timelock, then upgrades the proxy. Reversible.
-- `06_AdminHandover.s.sol` transfers the ProxyAdmin to the timelock and renounces the old admin's roles. Not reversible.
+- `04_TimelockDeploy.s.sol` deploys a 72-hour `TimelockController` (proposer multisig as the only proposer, separate executor wallets, no outside admin; the executor list is checked by hand). Anyone can run it. It is separate from `05` and does not import the Bridge, so that it can be built with its own compiler settings (see below).
+- `05_BridgeImplementationDeploy.s.sol` deploys the new Bridge implementation with the default compiler settings. Anyone can run it.
+- `06_FastAdminUpgrade.s.sol` grants `FAST_ADMIN_ROLE` to the fast admin multisig (a different multisig from the proposer), `PAUSER_ROLE` to the pausers and `DEFAULT_ADMIN_ROLE` to the timelock, then upgrades the proxy. Reversible.
+- `07_AdminHandover.s.sol` transfers the ProxyAdmin to the timelock and renounces the old admin's roles. Not reversible.
 
-`05` and `06` are sent by the current admin (the ProxyAdmin owner). To get the calls for a multisig, run them without `--broadcast` and take the transactions from the dry-run output. After `06`, `UpgradeBridge.s.sol` no longer works directly, because upgrades have to be scheduled on the timelock.
+The Arbitrum One timelock was built with solc 0.8.26, no IR pipeline, 10000 optimizer runs and the cancun EVM version, not with the settings in `foundry.toml`. The settings were passed for that one run only, and everything except `04` was skipped because the Bridge does not compile without the IR pipeline. A plain `forge build` therefore does not reproduce the timelock's bytecode; this does:
+
+```bash
+FOUNDRY_SOLC=0.8.26 FOUNDRY_VIA_IR=false FOUNDRY_OPTIMIZER_RUNS=10000 FOUNDRY_EVM_VERSION=cancun \
+FOUNDRY_OUT=out-timelock FOUNDRY_CACHE_PATH=cache-timelock \
+forge script deploy/04_TimelockDeploy.s.sol:TimelockDeploy \
+  --skip 'src/**' --skip 'test/**' --skip 'script/**' --skip 'deploy/0[1-35-7]*' \
+  --sig "run(address,address[])" <proposer> "[<executor>,...]"
+```
+
+`06` and `07` are sent by the current admin (the ProxyAdmin owner). To get the calls for a multisig, run them without `--broadcast` and take the transactions from the dry-run output. After `07`, `UpgradeBridge.s.sol` no longer works directly, because upgrades have to be scheduled on the timelock.
 
 ### Rust Bindings
 

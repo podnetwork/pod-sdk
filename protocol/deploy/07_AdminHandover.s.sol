@@ -8,7 +8,7 @@ import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.s
 
 contract AdminHandover is Script {
     // Sent by the current admin. Irreversible.
-    // Check manually: roles from 05 are in place and the timelock config is correct.
+    // Check manually: roles from 06 are in place and the timelock config is correct.
     function run(Bridge bridge, address timelock) public {
         ProxyAdmin proxyAdmin = ProxyAdmin(address(uint160(uint256(vm.load(address(bridge), ERC1967Utils.ADMIN_SLOT)))));
         address admin = proxyAdmin.owner();
