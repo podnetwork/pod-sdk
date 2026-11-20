@@ -42,6 +42,10 @@ contract BridgeAdminMigrationTest is Test {
         defaultAdminRole = bridge.DEFAULT_ADMIN_ROLE();
         fastAdminRole = bridge.FAST_ADMIN_ROLE();
         pauserRole = bridge.PAUSER_ROLE();
+
+        // The scripts do not grant PAUSER_ROLE: the pausers hold it before the migration
+        vm.prank(oldAdmin);
+        bridge.grantRole(pauserRole, pauser1);
     }
 
     function _executors() internal view returns (address[] memory executors) {
@@ -50,15 +54,10 @@ contract BridgeAdminMigrationTest is Test {
         executors[1] = executor2;
     }
 
-    function _pausers() internal view returns (address[] memory pausers) {
-        pausers = new address[](1);
-        pausers[0] = pauser1;
-    }
-
     function _migrate(address _fastAdmin) internal {
         timelock = new TimelockDeploy().run(proposer, _executors());
         newImplementation = new BridgeImplementationDeploy().run(bridge);
-        new FastAdminUpgrade().run(bridge, address(timelock), address(newImplementation), _fastAdmin, _pausers());
+        new FastAdminUpgrade().run(bridge, address(timelock), address(newImplementation), _fastAdmin);
         new AdminHandover().run(bridge, address(timelock));
     }
 

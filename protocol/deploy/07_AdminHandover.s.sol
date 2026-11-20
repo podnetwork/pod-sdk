@@ -7,6 +7,14 @@ import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.s
 import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 contract AdminHandover is Script {
+    // Arbitrum One
+    Bridge constant BRIDGE = Bridge(0xB77E6fB078918f255FC71E8b11A798124b7f0Fa0);
+    address constant TIMELOCK = 0x43404243EA56035E951e29AF99bb76834f36AC6E;
+
+    function run() public {
+        run(BRIDGE, TIMELOCK);
+    }
+
     // Sent by the current admin. Irreversible.
     // Check manually: roles from 06 are in place and the timelock config is correct.
     function run(Bridge bridge, address timelock) public {

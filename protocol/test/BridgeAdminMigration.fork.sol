@@ -34,8 +34,9 @@ abstract contract BridgeAdminMigrationForkBase is BridgeClaimProofHelper {
     address fastAdminSafe = makeAddr("fastAdminSafe");
     address executor1 = makeAddr("executor1");
     address executor2 = makeAddr("executor2");
-    address pauser1 = makeAddr("pauser1");
-    address pauser2 = makeAddr("pauser2");
+    // Two of the pausers the bridge already has. The scripts do not grant PAUSER_ROLE.
+    address pauser1 = 0x526F17fbfc379A5944B458866E8f54C8888387f3;
+    address pauser2 = 0x1dA415B7b82C833Bb5406ca567D567e56B174627;
     address user = makeAddr("user");
     address attacker = makeAddr("attacker");
 
@@ -84,12 +85,6 @@ abstract contract BridgeAdminMigrationForkBase is BridgeClaimProofHelper {
         executors[1] = executor2;
     }
 
-    function _pausers() internal view returns (address[] memory pausers) {
-        pausers = new address[](2);
-        pausers[0] = pauser1;
-        pausers[1] = pauser2;
-    }
-
     function _usdcOnly() internal pure returns (address[] memory tokens) {
         tokens = new address[](1);
         tokens[0] = USDC;
@@ -105,7 +100,7 @@ abstract contract BridgeAdminMigrationForkBase is BridgeClaimProofHelper {
     }
 
     function _runStep2() internal {
-        new FastAdminUpgrade().run(BRIDGE, address(timelock), address(newImplementation), fastAdminSafe, _pausers());
+        new FastAdminUpgrade().run(BRIDGE, address(timelock), address(newImplementation), fastAdminSafe);
     }
 
     function _runStep3() internal {
@@ -275,8 +270,6 @@ contract BridgeAdminMigrationStepsForkTest is BridgeAdminMigrationForkBase {
         vm.startPrank(ADMIN_SAFE);
         BRIDGE.revokeRole(defaultAdminRole, address(timelock));
         BRIDGE.revokeRole(fastAdminRole, fastAdminSafe);
-        BRIDGE.revokeRole(pauserRole, pauser1);
-        BRIDGE.revokeRole(pauserRole, pauser2);
         proxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(address(BRIDGE)), oldImplementation, "");
         vm.stopPrank();
 
