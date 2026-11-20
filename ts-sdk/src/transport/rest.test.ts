@@ -147,3 +147,65 @@ describe("PodRestClient minimum timestamp", () => {
     expect(err).toMatchObject({ name: "PodBehindError", currentUs: 1_500, retryAfterMs: 2_000 });
   });
 });
+
+describe("PodRestClient v2 order routes", () => {
+  const ACCOUNT = "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1";
+  const ID = `0x${"11".repeat(32)}`;
+  const v1Order = {
+    kind: "user_signed", order_id: ID, tx_hash: `0x${"00".repeat(32)}`, bidder: ACCOUNT, nonce: 1,
+    order_type: "limit", status: "expired", price: "100", initial_size: "-5", filled_base_amount: "2",
+    filled_quote_amount: "200", fee: "0", deadline: 1_000_000, end: 9_000_000, included_batch: 1_000_000,
+    effective_price: "100", fills: [],
+  };
+  const { price, initial_size, effective_price, end, fills, ...shared } = v1Order;
+  const v2Order = {
+    ...shared, deadline: "1000000", included_batch: "1000000", limit_price: price, size: initial_size,
+    avg_fill_price: effective_price, expires_at: String(end), details: "ttl",
+  };
+  const page = (orders: unknown[]) => ({ orders, next_cursor: null, total_count: orders.length, solution_now: 1 });
+  const node = (hasV2: boolean) => {
+    const paths: string[] = [];
+    const rest = new PodRestClient({
+      restUrl: "http://node.test/v1",
+      fetch: ((u: string) => {
+        const url = new URL(u);
+        paths.push(url.pathname + url.search);
+        if (url.pathname.startsWith("/v2/") && !hasV2) return Promise.resolve(new Response("", { status: 404 }));
+        const body = url.pathname.startsWith("/v2/") ? page([v2Order]) : page([v1Order]);
+        return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+      }) as unknown as typeof fetch,
+    });
+    return { rest, paths };
+  };
+
+  it("decodes a v2 order into the order a v1 row gives, plus details", async () => {
+    const [v2] = (await node(true).rest.orders(ACCOUNT as never)).orders;
+    const [v1] = (await node(false).rest.orders(ACCOUNT as never)).orders;
+    expect(v2).toEqual({ ...v1, details: "ttl" });
+    expect(v2!.initialSize).toBe(-5n);
+    expect(v2!.endMs).toBe(9_000);
+  });
+
+  it("asks v2 first and remembers a node that has only v1", async () => {
+    const { rest, paths } = node(false);
+    await rest.orders(ACCOUNT as never);
+    await rest.activity(ACCOUNT as never).catch(() => undefined);
+    expect(paths.map((p) => p.split("?")[0])).toEqual([
+      `/v2/clob/orders/${ACCOUNT}`, `/v1/clob/orders/${ACCOUNT}`, `/v1/clob/activity/${ACCOUNT}`,
+    ]);
+    expect(rest.ordersV1Only).toBe(true);
+  });
+
+  it("fetches one order by id", async () => {
+    const { rest, paths } = node(true);
+    expect((await rest.order(ACCOUNT as never, ID as never))?.details).toBe("ttl");
+    expect(paths).toEqual([`/v2/clob/orders/${ACCOUNT}?order_id=${ID}`]);
+    expect(await node(true).rest.order(ACCOUNT as never, `0x${"22".repeat(32)}` as never)).toBeUndefined();
+  });
+
+  it("maps details to rejectReason only on an invalid order", async () => {
+    const { rest } = node(true);
+    const [expired] = (await rest.orders(ACCOUNT as never)).orders;
+    expect(expired!.rejectReason).toBeUndefined();
+  });
+});

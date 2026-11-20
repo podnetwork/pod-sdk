@@ -431,6 +431,95 @@ paths:
                   next_cursor: "1704153600000000:42:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                 id: 1
 
+  /ob_getOrdersV2:
+    post:
+      tags: [Orderbook Data (ob_)]
+      summary: Get Account Orders (v2)
+      operationId: ob_getOrdersV2
+      description: |
+        As `ob_getOrders`, with `OrderResponseV2` rows: no fills, and `details` in place of
+        `invalid_reason`. Same params; `with_fills` is ignored. The REST form is
+        `GET /v2/clob/orders/{account}`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method, params, id]
+              properties:
+                jsonrpc: { type: string, default: "2.0" }
+                method: { type: string, default: "ob_getOrdersV2" }
+                id: { type: integer, default: 1 }
+                params:
+                  type: array
+                  description: |
+                    Positional parameters, as `ob_getOrders`:
+                    1. `address` (Address): The address to get orders for
+                    2. `query` (OrdersQuery): Query parameters with optional orderbook_id, order_id, limit, cursor, and status filter. `with_fills` is ignored.
+                    3. `timestamp` (integer, optional): The lowest indexer round accepted, in microseconds. As `ob_getOrders`.
+                  items:
+                    oneOf:
+                      - $ref: '#/components/schemas/Address'
+                      - $ref: '#/components/schemas/OrdersQuery'
+                      - type: integer
+                        format: int64
+                  example:
+                    - "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                    - order_id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
+      responses:
+        '200':
+          description: Object containing orders array and pagination cursor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc: { type: string }
+                  result:
+                    type: object
+                    properties:
+                      orders:
+                        type: array
+                        items: { $ref: '#/components/schemas/OrderResponseV2' }
+                      total_count:
+                        type: integer
+                        description: As `ob_getOrders`. Present only when the request set `with_total`.
+                      next_cursor:
+                        type: string
+                        nullable: true
+                        description: 'Cursor for fetching the next page (wire format `"{deadline}:{nonce}:{order_id_hex}"`). Null if no more results.'
+                      timestamp:
+                        type: integer
+                        format: int64
+                        description: The indexer round the rows were read at, in microseconds.
+                  id: { type: integer }
+              example:
+                jsonrpc: "2.0"
+                result:
+                  orders:
+                    - orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                      market_type: "spot"
+                      kind: "user_signed"
+                      order_id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
+                      tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                      bidder: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28"
+                      nonce: 42
+                      order_type: "limit"
+                      status: "active"
+                      side: "buy"
+                      limit_price: "0x4563918244f40000"
+                      size: "1000000000000000000"
+                      filled_base_amount: "0x6f05b59d3b20000"
+                      filled_quote_amount: "0x22b1c8c1227a0000"
+                      avg_fill_price: "0x4563918244f40000"
+                      fee: "0x0"
+                      deadline: "1704153600000000"
+                      included_batch: "1704153600000000"
+                      expires_at: "1704240000000000"
+                      direction: "buy"
+                  next_cursor: null
+                id: 1
+
   /ob_getPositions:
     post:
       tags: [Orderbook Data (ob_)]
@@ -1421,6 +1510,8 @@ paths:
           terminations, refused modifications and cancels on every orderbook, and the money it moved
           (backstop sweeps, bridge deposits and withdrawals, transfers). The same shape as
           `GET /v1/clob/activity/{account}`. Requires `account` (alias `bidder`).
+        - `pod_activity_v2` — as `pod_activity`, with `order` entries as `OrderResponseV2`
+          (`ActivityFrameV2`). The same shape as `GET /v2/clob/activity/{account}`.
         - `pod_markets` — a `MarketDynamicEntry` per orderbook carrying live market statistics
           (last clearing price, 24h volume/high/low, perp mark/oracle/funding/open-interest) and its
           lifecycle (`status`, `live_at_us`, `disable_at_us`, `settlement_price`). Sent each tick
@@ -1455,7 +1546,7 @@ paths:
           the transaction executed and failed; its nonce is still used. Requires `account` (alias
           `bidder`) or `tx_hashes`. A batch with no matching receipts sends nothing.
 
-        `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_activity`, `pod_candles`,
+        `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_activity`, `pod_activity_v2`, `pod_candles`,
         `pod_withdrawals`, and `pod_transfers` are **delta** channels
         (they stream what changed each tick). `pod_markets`, `pod_positions`, and `pod_triggers` are **state** channels
         (each pushes a current snapshot). `newHeads` is served from the block feed. See `since` below for how each behaves on catch-up.
@@ -1514,7 +1605,8 @@ paths:
         with exactly one key. Each entry is tagged by `k` and carries its own book and order id,
         so it stands alone; there are no entities or indexes as in `pod_orders_v2`. Entries are the
         ones `GET /v1/clob/activity/{account}` serves for that batch, in the same order. A tick with no entries for the
-        account sends nothing.
+        account sends nothing. A `pod_activity_v2` frame is read the same way, with `order` entries
+        as `OrderResponseV2`.
 
         **Forward compatibility.** Clients MUST ignore event kinds (`k`) and fields they do not
         recognise: new event kinds will be added without a new channel version. Existing keys are
@@ -1560,14 +1652,14 @@ paths:
         **optionally** — omitted streams every account's outcomes — and matches it against
         `withdrawer`, the debited account; it ignores `orderbook_ids` too. `pod_transfers` takes
         `account` optionally on the same terms, but matches it against **either** `from` or `to`.
-        `pod_activity` requires `account`, rejects `bidders`, and ignores `orderbook_ids`.
+        `pod_activity` and `pod_activity_v2` require `account`, reject `bidders`, and ignore `orderbook_ids`.
         `pod_receipts` takes `account`, `tx_hashes` (up to 256), or both, and delivers a receipt
         that matches either; it ignores `orderbook_ids`.
         `depth` applies to `pod_orderbook` snapshots only and is at least 1.
 
         **Catch-up (`since`).** Optionally pass `since` (a solution time in **microseconds**) to
         catch up with no gap or duplicate. Delta channels (`pod_orderbook`, `pod_orders`,
-        `pod_activity`, `pod_candles`, `pod_withdrawals`, `pod_transfers`) replay buffered ticks
+        `pod_activity`, `pod_activity_v2`, `pod_candles`, `pod_withdrawals`, `pod_transfers`) replay buffered ticks
         with deadline strictly greater than `since` (`pod_orders_v2` differs, see below). If
         `since` predates the retained buffer — or the buffer is empty, as right after a node start
         — the subscription is rejected with `-32602` "since too old; backfill via REST then
@@ -1611,20 +1703,22 @@ paths:
                   description: |
                     Parameters:
                     1. `subscription_type` (string): one of `pod_orderbook`, `pod_orders`,
-                       `pod_orders_v2`, `pod_activity`, `pod_candles`, `pod_markets`, `pod_positions`,
-                       `pod_triggers`, `pod_withdrawals`, `pod_transfers`, `pod_receipts`, `newHeads`.
+                       `pod_orders_v2`, `pod_activity`, `pod_activity_v2`, `pod_candles`, `pod_markets`,
+                       `pod_positions`, `pod_triggers`, `pod_withdrawals`, `pod_transfers`, `pod_receipts`,
+                       `newHeads`.
                     2. `options` (SubscriptionParams): filter/format options; all fields optional
                        except where a channel requires `account`. Which fields take effect depends on
                        the subscription type:
                        - `orderbook_ids` (alias `clob_ids`, array of bytes32) — `pod_orderbook`,
                          `pod_orders`, `pod_orders_v2`, `pod_candles`, `pod_markets`: restrict to
                          those orderbooks (empty/omitted = all). Ignored by `pod_positions` /
-                         `pod_triggers` / `pod_activity` / `pod_withdrawals` / `pod_transfers`.
+                         `pod_triggers` / `pod_activity` / `pod_activity_v2` / `pod_withdrawals` /
+                         `pod_transfers`.
                        - `depth` (integer, at least 1) — **`pod_orderbook` only**: cap the price
                          levels per side in each snapshot (omit for all levels).
                        - `bidder` (alias `account`, address) — `pod_orders`, `pod_orders_v2`:
                          stream only that bidder's updates (omit for all). **Required** for
-                         `pod_positions`, `pod_triggers` and `pod_activity` (the account to stream). Optional on
+                         `pod_positions`, `pod_triggers`, `pod_activity` and `pod_activity_v2` (the account to stream). Optional on
                          `pod_withdrawals`, where it matches `withdrawer` (the debited account), and
                          on `pod_transfers`, where it matches either `from` or `to`.
                        - `bidders` (array of addresses) — **`pod_orders_v2` only**: follow several
@@ -1641,7 +1735,7 @@ paths:
                   items:
                     oneOf:
                       - type: string
-                        enum: [pod_orderbook, pod_orders, pod_orders_v2, pod_activity, pod_candles, pod_markets, pod_positions, pod_triggers, pod_withdrawals, pod_transfers, pod_receipts, newHeads]
+                        enum: [pod_orderbook, pod_orders, pod_orders_v2, pod_activity, pod_activity_v2, pod_candles, pod_markets, pod_positions, pod_triggers, pod_withdrawals, pod_transfers, pod_receipts, newHeads]
                       - $ref: '#/components/schemas/SubscriptionParams'
             examples:
               pod_orderbook:
@@ -1679,6 +1773,13 @@ paths:
                   method: "eth_subscribe"
                   id: 1
                   params: ["pod_activity", { account: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", since: 1704153600000000 }]
+              pod_activity_v2:
+                summary: pod_activity_v2 for one account, replaying ticks since a watermark
+                value:
+                  jsonrpc: "2.0"
+                  method: "eth_subscribe"
+                  id: 1
+                  params: ["pod_activity_v2", { account: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28", since: 1704153600000000 }]
               pod_candles:
                 summary: pod_candles for one orderbook, replaying ticks since a watermark
                 value:
@@ -2946,6 +3047,73 @@ components:
           description: Trigger type (`take_profit` / `stop_loss`) inherited from the parent `TriggerOrder` when this order is the synthetic produced by a fired trigger (`kind = triggered`). Omitted for every other order.
           nullable: true
 
+    OrderResponseV2:
+      type: object
+      description: |
+        An order returned by `ob_getOrdersV2`, `GET /v2/clob/orders/{account}`, and as the `order`
+        entry of `pod_activity_v2`. Perp-only fields are omitted on spot orders.
+
+        Differs from `Order`: no `fills` (use the activity feed's `fill` entries), `details`
+        replaces `invalid_reason`, `price` is `limit_price`, `initial_size` is `size`,
+        `effective_price` is `avg_fill_price`, `end` is `expires_at`, and `deadline`,
+        `included_batch` and `expires_at` are all microsecond strings.
+      properties:
+        orderbook_id: { $ref: '#/components/schemas/Bytes32' }
+        market_type: { $ref: '#/components/schemas/MarketType' }
+        kind: { $ref: '#/components/schemas/OrderKind' }
+        order_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: '`keccak256(abi.encode(signer, nonce, sequence))`, as `Order.order_id`.'
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+          description: Creating transaction. Zero for engine-generated orders.
+        bidder: { $ref: '#/components/schemas/Address' }
+        nonce: { type: integer, format: int64 }
+        order_type: { type: string, enum: [limit, market] }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        details:
+          type: string
+          description: |
+            On `status` `invalid`, the engine's reason (free text). On `status` `expired`, `ttl`
+            (the time limit ran out) or `ioc` (the unfilled rest of an immediate-or-cancel
+            order). Absent on every other status, and on expiries indexed before the reason was
+            stored.
+        side: { type: string, enum: [buy, sell] }
+        limit_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Limit price, 1e18.
+        size:
+          type: string
+          description: Current signed size, 1e18 decimal (positive buy/long, negative sell/short). An amend replaces it.
+        filled_base_amount: { $ref: '#/components/schemas/HexUint256' }
+        filled_quote_amount: { $ref: '#/components/schemas/HexUint256' }
+        avg_fill_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Volume-weighted average fill price, 1e18. `0x0` while nothing filled.
+        fee: { $ref: '#/components/schemas/HexUint256' }
+        deadline:
+          $ref: '#/components/schemas/TimestampString'
+          description: The batch the order was signed for.
+        included_batch:
+          $ref: '#/components/schemas/TimestampString'
+          description: The batch the order entered the book. `"0"` for engine-generated orders and older rows.
+        expires_at:
+          $ref: '#/components/schemas/TimestampString'
+          description: TTL expiry. `"18446744073709551615"` means never.
+        reduce_only: { type: boolean, description: Perp only. }
+        ioc: { type: boolean, description: Perp only. }
+        post_only: { type: boolean, description: Omitted when false. }
+        direction: { $ref: '#/components/schemas/OrderDirection' }
+        realized_pnl:
+          type: string
+          description: Perp only, signed 1e18 decimal. Present once a fill closed exposure.
+        grouping:
+          $ref: '#/components/schemas/TriggerGrouping'
+          description: Inherited from the parent trigger. Omitted when `none`.
+        trigger_type:
+          $ref: '#/components/schemas/TriggerType'
+          description: Set only on orders a fired trigger produced (`kind` `triggered`).
+
     Candle:
       type: object
       description: OHLCV candle representing price/volume data for a time period
@@ -3395,6 +3563,9 @@ components:
         with_total:
           type: boolean
           description: When true, compute and return `total_count`. Defaults to false — the count walks every order the account ever placed (expensive for high-churn accounts), and cursor pagination does not need it. Nodes running builds predating this flag ignore it and always return `total_count`.
+        order_id:
+          $ref: '#/components/schemas/Bytes32'
+          description: Return only this order.
 
     FillsQuery:
       type: object
@@ -3729,15 +3900,15 @@ components:
       type: object
       description: |
         Options object (second `eth_subscribe` param). All fields are optional except that
-        `pod_positions` / `pod_triggers` / `pod_activity` require `account` (alias `bidder`).
+        `pod_positions` / `pod_triggers` / `pod_activity` / `pod_activity_v2` require `account` (alias `bidder`).
         `newHeads` reads none of them. Which fields take effect depends on the subscription type:
         - `orderbook_ids` (alias `clob_ids`) — `pod_orderbook`, `pod_orders`, `pod_orders_v2`,
           `pod_candles`, `pod_markets`; ignored by `pod_positions` / `pod_triggers` /
-          `pod_activity` / `pod_withdrawals` / `pod_transfers`.
+          `pod_activity` / `pod_activity_v2` / `pod_withdrawals` / `pod_transfers`.
         - `depth` — `pod_orderbook` only; at least 1.
         - `bidder` (alias `account`) — optional for `pod_orders` / `pod_orders_v2` /
-          `pod_withdrawals` / `pod_transfers`; **required** for `pod_positions`, `pod_triggers` and
-          `pod_activity`.
+          `pod_withdrawals` / `pod_transfers`; **required** for `pod_positions`, `pod_triggers`,
+          `pod_activity` and `pod_activity_v2`.
         - `bidders` — `pod_orders_v2` only, to follow several accounts on one subscription.
           Mutually exclusive with `bidder`.
         - `since` — every channel but `newHeads` (catch-up watermark, microseconds).
@@ -3750,14 +3921,14 @@ components:
         orderbook_ids:
           type: array
           items: { $ref: '#/components/schemas/Bytes32' }
-          description: 'Orderbook (clob) IDs to restrict the subscription to (accepted alias: `clob_ids`). Empty or omitted = all orderbooks. Honored by `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_candles`, `pod_markets`; ignored by the account-scoped and tick-level channels (`pod_positions`, `pod_triggers`, `pod_activity`, `pod_withdrawals`, `pod_transfers`).'
+          description: 'Orderbook (clob) IDs to restrict the subscription to (accepted alias: `clob_ids`). Empty or omitted = all orderbooks. Honored by `pod_orderbook`, `pod_orders`, `pod_orders_v2`, `pod_candles`, `pod_markets`; ignored by the account-scoped and tick-level channels (`pod_positions`, `pod_triggers`, `pod_activity`, `pod_activity_v2`, `pod_withdrawals`, `pod_transfers`).'
         clob_ids:
           type: array
           items: { $ref: '#/components/schemas/Bytes32' }
           description: 'Accepted alias for `orderbook_ids`.'
         bidder:
           $ref: '#/components/schemas/Address'
-          description: 'Account filter (accepted alias: `account`). For `pod_orders`, when set, streams only this bidder''s updates (omit for all bidders). For `pod_positions` / `pod_triggers` / `pod_activity` this is required: the account whose positions / triggers / activity to stream. On `pod_orders_v2` it is the single-account form of `bidders`, and sending both is an error. On `pod_withdrawals` it is optional and matches `withdrawer` — the debited account. On `pod_transfers` it is optional and matches either side of the transfer, `from` or `to`.'
+          description: 'Account filter (accepted alias: `account`). For `pod_orders`, when set, streams only this bidder''s updates (omit for all bidders). For `pod_positions` / `pod_triggers` / `pod_activity` / `pod_activity_v2` this is required: the account whose positions / triggers / activity to stream. On `pod_orders_v2` it is the single-account form of `bidders`, and sending both is an error. On `pod_withdrawals` it is optional and matches `withdrawer` — the debited account. On `pod_transfers` it is optional and matches either side of the transfer, `from` or `to`.'
         bidders:
           type: array
           items: { $ref: '#/components/schemas/Address' }
@@ -3802,6 +3973,7 @@ components:
         - `pod_orders` → an array of `OrderUpdate`.
         - `pod_orders_v2` → an `OrdersFrameV2`.
         - `pod_activity` → an `ActivityFrame`.
+        - `pod_activity_v2` → an `ActivityFrameV2`.
         - `pod_candles` → a `CandleTick`.
         - `pod_markets` → a `MarketDynamicEntry`.
         - `pod_positions` → a `PositionsUpdate`.
@@ -3830,6 +4002,7 @@ components:
                   items: { $ref: '#/components/schemas/OrderUpdate' }
                 - $ref: '#/components/schemas/OrdersFrameV2'
                 - $ref: '#/components/schemas/ActivityFrame'
+                - $ref: '#/components/schemas/ActivityFrameV2'
                 - $ref: '#/components/schemas/CandleTick'
                 - $ref: '#/components/schemas/MarketDynamicEntry'
                 - $ref: '#/components/schemas/PositionsUpdate'
@@ -5036,6 +5209,25 @@ components:
       additionalProperties:
         type: array
         items: { $ref: '#/components/schemas/ActivityEntry' }
+
+    ActivityFrameV2:
+      type: object
+      description: |
+        One `pod_activity_v2` notification: as `ActivityFrame`, with `order` entries as
+        `OrderResponseV2` plus `k`, in their admission state (`status` `active`, or `invalid`
+        with `details`, and zero totals). Every other entry kind is unchanged.
+        `GET /v2/clob/activity/{account}` serves the same shape with many keys.
+      additionalProperties:
+        type: array
+        items:
+          oneOf:
+            - allOf:
+                - type: object
+                  required: [k]
+                  properties:
+                    k: { type: string, enum: [order] }
+                - $ref: '#/components/schemas/OrderResponseV2'
+            - $ref: '#/components/schemas/ActivityEntry'
 
     ActivityEntry:
       type: object

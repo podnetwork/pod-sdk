@@ -12,7 +12,8 @@ export type Channel =
    * debited account. ADR 0033 §6. */
   | "pod_withdrawals"
   /** One `{ "<batch>": [entries] }` message per tick, so `since` alone resumes it. ADR 0057 §6. */
-  | "pod_activity";
+  | "pod_activity"
+  | "pod_activity_v2";
 
 export interface SubParams {
   clobIds?: MarketId[];

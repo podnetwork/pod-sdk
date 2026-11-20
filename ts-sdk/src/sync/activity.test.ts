@@ -49,24 +49,26 @@ function page(
 
 const SEED = page({ [SEED_TICK]: [order(1), transfer(3)] });
 
-function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuery; defer?: boolean; resyncMs?: number }) {
+function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuery; defer?: boolean; resyncMs?: number; v1Only?: boolean }) {
   const pages = [...(opts?.pages ?? [SEED])];
   const pending: ((p: ActivityPage) => void)[] = [];
   let onOpen: (() => void) | undefined;
   let deliver: ((r: unknown) => void) | undefined;
   let refuse: ((e: unknown) => void) | undefined;
   const subscribed: SubParams[] = [];
+  const channels: string[] = [];
   const updates: SubParams[] = [];
   let resubscribes = 0;
   const ws = {
     state: "open",
     on: (_event: string, handler: () => void) => { onOpen = handler; return () => { onOpen = undefined; }; },
     subscribe: (
-      _channel: string,
+      channel: string,
       params: SubParams,
       onMessage: (r: unknown) => void,
       onError: (e: unknown) => void,
     ) => {
+      channels.push(channel);
       subscribed.push(params);
       deliver = onMessage;
       refuse = onError;
@@ -79,6 +81,7 @@ function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuer
   };
   const queries: unknown[] = [];
   const rest = {
+    ordersV1Only: opts?.v1Only ?? false,
     activity: vi.fn((_account: Address, q?: unknown, _minTimestampUs?: number) => {
       queries.push(q);
       if (opts?.defer) return new Promise<ActivityPage>((resolve) => { pending.push(resolve); });
@@ -95,6 +98,7 @@ function harness(opts?: { pages?: (ActivityPage | Error)[]; query?: ActivityQuer
     history: opts?.query ? feed.view(opts.query) : feed,
     queries,
     subscribed,
+    channels,
     updates,
     frame: (f: unknown) => deliver?.(f),
     close: (e: unknown) => refuse?.(e),
@@ -120,6 +124,15 @@ describe("ActivityHistory seed", () => {
     expect(rows.map((e) => e.activityType)).toEqual(["order", "transfer", "transfer"]);
     expect(history.hasMore()).toBe(true);
     expect(subscribed).toEqual([{ account: ACCOUNT, since: SEED_TICK }]);
+  });
+
+  it("streams pod_activity_v2, or pod_activity from a node the seed found has no v2 routes", async () => {
+    for (const [v1Only, channel] of [[false, "pod_activity_v2"], [true, "pod_activity"]] as const) {
+      const { history, channels } = harness({ v1Only });
+      await history.ready();
+      await flush();
+      expect(channels).toEqual([channel]);
+    }
   });
 
   it("seeds with no types or window, whatever a view asks for", async () => {
