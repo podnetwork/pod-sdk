@@ -1672,6 +1672,10 @@ components:
         id: { $ref: '#/components/schemas/Bytes32', description: Order id. }
         book: { $ref: '#/components/schemas/Bytes32' }
         st: { type: string, enum: [canceled, margin_canceled, self_trade_canceled, expired, post_only_refused] }
+        expr:
+          type: string
+          enum: [ttl, ioc]
+          description: '`ttl`: the order reached its end time. `ioc`: the unfilled rest of an immediate-or-cancel order. Omitted on expiries indexed before nodes stored the reason.'
 
     ActivityBackstop:
       type: object

@@ -83,6 +83,9 @@ export interface AmendRejection {
 export type OrderEventKind =
   | "new" | "reject" | "fill" | "cancel" | "expire" | "modify" | "modify_reject" | "cancel_reject";
 
+/** `ttl`: the order reached its end time. `ioc`: the unfilled rest of an immediate-or-cancel order. */
+export type ExpiryReason = "ttl" | "ioc";
+
 /**
  * The statuses an order can *close* with. Narrower than `OrderStatus`, which also
  * covers the states a live order passes through — so a `switch` over this one can be
@@ -159,6 +162,14 @@ export interface OrderEvent {
   amendRejection?: AmendRejection;
   /** `cancel_reject` only. */
   cancelRejection?: CancelRejection;
+  /** `expire` only; absent on expiries indexed before nodes stored the reason. */
+  expiry?: Expiry;
+}
+
+export interface Expiry {
+  code: ExpiryReason;
+  /** The batch the order expired in (ms). */
+  batchMs: number;
 }
 
 /** A cancel the engine refused; the order is untouched. */
@@ -520,6 +531,7 @@ export type ActivityEntry =
       orderId: Hash;
       orderbookId: MarketId;
       status: TerminalStatus;
+      expiryReason?: ExpiryReason;
     }
   | (BackstopTransfer & { activityType: "backstop"; timeMs: number })
   | {
