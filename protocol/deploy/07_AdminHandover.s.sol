@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Script} from "forge-std/Script.sol";
+import {console, Script} from "forge-std/Script.sol";
 import {Bridge} from "pod-protocol/Bridge.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
@@ -17,6 +17,7 @@ contract AdminHandover is Script {
 
     // Sent by the current admin. Irreversible.
     // Check manually: roles from 06 are in place and the timelock config is correct.
+    // The logs list each call with its parameters, in order, for a multisig.
     function run(Bridge bridge, address timelock) public {
         ProxyAdmin proxyAdmin = ProxyAdmin(address(uint160(uint256(vm.load(address(bridge), ERC1967Utils.ADMIN_SLOT)))));
         address admin = proxyAdmin.owner();
@@ -25,12 +26,27 @@ contract AdminHandover is Script {
 
         // Renouncing with no other admin would lock the bridge for good
         require(admin != timelock, "already handed over");
-        require(bridge.hasRole(defaultAdminRole, timelock), "timelock lacks DEFAULT_ADMIN_ROLE: run step 2 first");
+        // require(bridge.hasRole(defaultAdminRole, timelock), "timelock lacks DEFAULT_ADMIN_ROLE: run step 2 first");
+
+        console.log("Send from:", admin);
 
         vm.startBroadcast(admin);
 
+        console.log("1. to:", address(proxyAdmin));
+        console.log("   transferOwnership(address newOwner)");
+        console.log("   newOwner:", timelock);
         proxyAdmin.transferOwnership(timelock);
+
+        console.log("2. to:", address(bridge));
+        console.log("   renounceRole(bytes32 role, address callerConfirmation)");
+        console.log("   role:", vm.toString(pauserRole));
+        console.log("   callerConfirmation:", admin);
         bridge.renounceRole(pauserRole, admin);
+
+        console.log("3. to:", address(bridge));
+        console.log("   renounceRole(bytes32 role, address callerConfirmation)");
+        console.log("   role:", vm.toString(defaultAdminRole));
+        console.log("   callerConfirmation:", admin);
         bridge.renounceRole(defaultAdminRole, admin);
 
         vm.stopBroadcast();

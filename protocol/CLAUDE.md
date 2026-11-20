@@ -116,7 +116,7 @@ forge script deploy/04_TimelockDeploy.s.sol:TimelockDeploy \
   --sig "run()"
 ```
 
-`06` and `07` are sent by the current admin (the ProxyAdmin owner). To get the calls for a multisig, run them without `--broadcast`: `06` logs each call with its parameters, and the dry-run output has the raw transactions. After `07`, `UpgradeBridge.s.sol` no longer works directly, because upgrades have to be scheduled on the timelock.
+`06` and `07` are sent by the current admin (the ProxyAdmin owner). To get the calls for a multisig, run them without `--broadcast`: they log each call with its parameters, and the dry-run output has the raw transactions. After `07`, `UpgradeBridge.s.sol` no longer works directly, because upgrades have to be scheduled on the timelock.
 
 ### Rust Bindings
 
