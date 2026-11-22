@@ -9,6 +9,7 @@
 * [Submit a batch order](guides/submit-a-batch-order.md)
 * [Send transactions in parallel](guides/send-transactions-in-parallel.md)
 * [Delegate a trading key](guides/delegate-a-trading-key.md)
+* [Use a multisig](guides/use-a-multisig.md)
 * [Read market data](guides/read-market-data.md)
 * [Bridge to Pod](guides/bridge-to-pod.md)
 * [Bridge from Pod](guides/bridge-from-pod.md)
@@ -44,3 +45,4 @@
 * [Precompiles](applications-precompiles/README.md)
   * [Orderbook](applications-precompiles/orderbook.md)
   * [Bridge](applications-precompiles/bridge.md)
+  * [Multisig](applications-precompiles/multisig.md)
