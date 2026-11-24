@@ -43,6 +43,7 @@ export function decodeActivityEntry(e: WireActivityEntry, timeMs: number): Activ
         orderId: e.id,
         orderbookId: e.book,
         status: e.st,
+        ...(e.expr && { expiryReason: e.expr }),
       };
     case "backstop":
       return {
@@ -116,7 +117,7 @@ export function asOrderEvent(e: WireActivityEntry): WireOrderEvent | undefined {
     case "modify":
       return { k: "modify", id: e.id, px: e.px, sz: e.sz };
     case "termination":
-      return { k: e.st === "expired" ? "expire" : "cancel", id: e.id, st: e.st };
+      return { k: e.st === "expired" ? "expire" : "cancel", id: e.id, st: e.st, expr: e.expr };
     default:
       return undefined;
   }
@@ -164,7 +165,7 @@ export function foldActivityBatch(
     }
     const event = asOrderEvent(e);
     const outcome = event && applyEvent(event, order, { batchMs });
-    if (event && outcome) events.push({ kind: event.k as OrderEventKind, order, batchMs, fill: outcome.fill });
+    if (event && outcome) events.push({ kind: event.k as OrderEventKind, order, batchMs, fill: outcome.fill, expiry: outcome.expiry });
   }
   return { rows, events };
 }

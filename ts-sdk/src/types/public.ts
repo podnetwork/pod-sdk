@@ -7,7 +7,7 @@ export type Address = Hex;
 export type Hash = Hex;
 
 export type Resolution =
-  | "1m" | "5m" | "15m" | "30m" | "1h" | "4h" | "1d" | "1W" | "1M";
+  | "1m" | "5m" | "15m" | "30m" | "1h" | "4h" | "1d" | "1w" | "1M";
 
 /** Inclusive-from, exclusive-to time window in milliseconds. `to` defaults to now. */
 export interface TimeRange {
@@ -85,6 +85,9 @@ export interface AmendRejection {
 export type OrderEventKind =
   | "new" | "reject" | "fill" | "cancel" | "expire" | "modify" | "modify_reject" | "cancel_reject";
 
+/** `ttl`: the order reached its end time. `ioc`: the unfilled rest of an immediate-or-cancel order. */
+export type ExpiryReason = "ttl" | "ioc";
+
 /**
  * The statuses an order can *close* with. Narrower than `OrderStatus`, which also
  * covers the states a live order passes through — so a `switch` over this one can be
@@ -161,6 +164,14 @@ export interface OrderEvent {
   amendRejection?: AmendRejection;
   /** `cancel_reject` only. */
   cancelRejection?: CancelRejection;
+  /** `expire` only; absent on expiries indexed before nodes stored the reason. */
+  expiry?: Expiry;
+}
+
+export interface Expiry {
+  code: ExpiryReason;
+  /** The batch the order expired in (ms). */
+  batchMs: number;
 }
 
 /** A cancel the engine refused; the order is untouched. */
@@ -522,6 +533,7 @@ export type ActivityEntry =
       orderId: Hash;
       orderbookId: MarketId;
       status: TerminalStatus;
+      expiryReason?: ExpiryReason;
     }
   | (BackstopTransfer & { activityType: "backstop"; timeMs: number })
   /** A position its market's settlement closed at the frozen price. */

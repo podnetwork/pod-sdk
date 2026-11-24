@@ -7,7 +7,7 @@
 // lets the server add transition kinds without changing the entity.
 
 import type {
-  Address, AmendRejection, Order, OrderEvent, OrderEventFill, OrderEventKind, OrderStatus,
+  Address, AmendRejection, Expiry, Order, OrderEvent, OrderEventFill, OrderEventKind, OrderStatus,
   PartialFill, RejectCode, TerminalStatus,
 } from "../types/public.js";
 import type { WireOrderEntity, WireOrderEvent, WireOrdersFrame } from "../types/wire.js";
@@ -68,6 +68,7 @@ export function applyOrdersFrame(
         batchMs,
         fill: outcome.fill,
         amendRejection: outcome.amendRejection,
+        expiry: outcome.expiry,
       });
     }
   }
@@ -146,7 +147,7 @@ export function applyEvent(
   event: WireOrderEvent,
   order: Order,
   facts: FrameFacts,
-): { fill?: OrderEventFill; amendRejection?: AmendRejection } | undefined {
+): { fill?: OrderEventFill; amendRejection?: AmendRejection; expiry?: Expiry } | undefined {
   switch (event.k) {
     case "new":
       order.status = "active";
@@ -163,7 +164,7 @@ export function applyEvent(
     case "expire":
       order.status = "expired";
       applyTotals(event, order);
-      return {};
+      return event.expr ? { expiry: { code: event.expr, batchMs: facts.batchMs } } : {};
     case "modify": {
       order.price = dec(event.px);
       // `sz` is an unsigned magnitude, so the side comes from the order we hold.

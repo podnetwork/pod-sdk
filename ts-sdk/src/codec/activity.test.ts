@@ -192,6 +192,19 @@ describe("foldActivityBatch", () => {
     expect(orders.get(id(1))?.status).toBe("expired");
   });
 
+  it("carries why an order expired, on the row and on the expire event", () => {
+    const row = decodeActivityEntry({ k: "termination", id: id(1), book: BOOK, st: "expired", expr: "ioc" }, MS);
+    expect(row).toMatchObject({ activityType: "termination", status: "expired", expiryReason: "ioc" });
+    const { events, orders } = fold([order(1), { k: "termination", id: id(1), book: BOOK, st: "expired", expr: "ttl" }]);
+    expect(events[1]).toMatchObject({ kind: "expire", expiry: { code: "ttl", batchMs: MS } });
+    expect(orders.get(id(1))).not.toHaveProperty("expiryReason");
+  });
+
+  it("leaves the expiry reason out when the node sends none", () => {
+    const row = decodeActivityEntry({ k: "termination", id: id(1), book: BOOK, st: "expired" }, MS);
+    expect(row).not.toHaveProperty("expiryReason");
+  });
+
   it("closes an order on a cap-to-filled zero-base fill", () => {
     const { orders } = fold([
       order(1),

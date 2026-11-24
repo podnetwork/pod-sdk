@@ -12,7 +12,7 @@ export const RESOLUTION_SECONDS: Record<Resolution, number> = {
   "1h": 3_600,
   "4h": 14_400,
   "1d": 86_400,
-  "1W": 604_800,
+  "1w": 604_800,
   "1M": 2_592_000, // a nominal 30d month: what the indexer buckets by, not calendar months
 };
 
@@ -31,7 +31,7 @@ export const RESOLUTION_PAGE_BUCKETS: Record<Resolution, number> = {
   "1h": 168, // 1 week
   "4h": 180, // ~30 days
   "1d": 365, // ~1 year
-  "1W": 260, // ~5 years
+  "1w": 260, // ~5 years
   "1M": 120, // ~decade (nominal 30-day buckets, epoch-anchored — see above)
 };
 

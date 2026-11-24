@@ -9,7 +9,7 @@ import { RESOLUTION_SECONDS } from "./codec/resolution.js";
 
 const TV_TO_RESOLUTION: Record<string, Resolution> = {
   "1": "1m", "5": "5m", "15": "15m", "30": "30m",
-  "60": "1h", "240": "4h", "1D": "1d", "1W": "1W", "1M": "1M",
+  "60": "1h", "240": "4h", "1D": "1d", "1W": "1w", "1M": "1M",
 };
 
 interface TvBar { time: number; open: number; high: number; low: number; close: number; volume: number }

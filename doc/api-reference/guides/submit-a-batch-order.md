@@ -11,7 +11,9 @@ Each entry in `inner` is the full ABI-encoded calldata of a single-intent call (
 1. ABI-encode each single-intent call (entry order, take-profit trigger, stop-loss trigger).
 2. Pass them as the `inner` array to `submitBatch`.
 
-The example opens a 5 NVDA long at $140 and arms two asset-grouped (position-bound), reduce-only triggers — a take-profit that sells at $160 and a stop-loss that sells at $120.
+The example opens a 5 NVDA long at $140 and arms two asset-grouped (position-bound), reduce-only triggers — a take-profit that sells at $160 and a stop-loss that fires at $120.
+
+A stop fires once the mark is already past its trigger, so a limit at the trigger would rest on the wrong side of the book and not fill. The stop-loss below takes a limit 5% past its trigger ($114) and `ioc`: it fills within that bound like a market order, and cancels whatever a gap leaves unfilled. The take-profit keeps its limit at the trigger, which the mark has reached when it fires.
 
 {% tabs %}
 {% tab title="TypeScript (ethers.js)" %}
@@ -60,10 +62,10 @@ const takeProfit = orderbook.interface.encodeFunctionData("submitTrigger", [
   0 /* TakeProfit */, 1 /* Asset */, deadline, ttl, true, false,
 ]);
 
-// 3. Stop-loss: sell 5 NVDA when price drops to $120 (reduceOnly, tied to the position)
+// 3. Stop-loss: when price drops to $120, sell 5 NVDA down to $114 (5% bound), ioc (reduceOnly, tied to the position)
 const stopLoss = orderbook.interface.encodeFunctionData("submitTrigger", [
-  nvdaPerpId, -size, ethers.parseEther("120"), ethers.parseEther("120"),
-  1 /* StopLoss */, 1 /* Asset */, deadline, ttl, true, false,
+  nvdaPerpId, -size, ethers.parseEther("114"), ethers.parseEther("120"),
+  1 /* StopLoss */, 1 /* Asset */, deadline, ttl, true, true,
 ]);
 
 // Submit all three as one atomic envelope
@@ -146,15 +148,15 @@ let take_profit = Orderbook::submitTriggerCall {
     deadline, ttl, reduceOnly: true, ioc: false,
 }.abi_encode();
 
-// 3. Stop-loss: sell 5 NVDA when price drops to $120 (reduceOnly, tied to the position)
+// 3. Stop-loss: when price drops to $120, sell 5 NVDA down to $114 (5% bound), ioc (reduceOnly, tied to the position)
 let stop_loss = Orderbook::submitTriggerCall {
     orderbookId: nvda_perp_id,
     size: -size,
-    limitPrice: U256::from(120) * one_e18,
+    limitPrice: U256::from(114) * one_e18,
     triggerPrice: U256::from(120) * one_e18,
     triggerType: Orderbook::TriggerType::StopLoss,
     grouping: Orderbook::TriggerGrouping::Asset,
-    deadline, ttl, reduceOnly: true, ioc: false,
+    deadline, ttl, reduceOnly: true, ioc: true,
 }.abi_encode();
 
 // Submit all three as one atomic envelope

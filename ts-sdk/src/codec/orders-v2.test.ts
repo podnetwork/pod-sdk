@@ -221,6 +221,13 @@ describe("applyOrdersFrame — events", () => {
     expect(o.filledBase).toBe(0n);
   });
 
+  it("records why an order expired", () => {
+    const frame: WireOrdersFrame = {
+      ...MODIFY_FRAME, events: [{ k: "expire", id: "0xa9a5", tb: "0", tq: "0", tf: "0", expr: "ioc" }],
+    };
+    expect(events(frame, [resting()])).toMatchObject([{ kind: "expire", expiry: { code: "ioc" } }]);
+  });
+
   it("applies a partial fill from the per-fill amounts and the running totals", () => {
     const frame: WireOrdersFrame = {
       ...MODIFY_FRAME,

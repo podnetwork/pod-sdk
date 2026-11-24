@@ -317,6 +317,8 @@ export interface WireOrderEvent {
   a?: number;
   /** `reject`: why the engine dropped the order. `modify_reject`: detail the `code` cannot carry. */
   why?: string;
+  /** `expire`: why the order expired. */
+  expr?: "ttl" | "ioc";
   /**
    * `modify_reject`: index into `accts` for the account that *asked*, which is not
    * necessarily the order's owner — hence not `a`. On `not_order_owner` the requester
@@ -496,6 +498,7 @@ export type WireActivityEntry =
       id: Hex;
       book: Hex;
       st: Exclude<WireTerminalStatus, "filled">;
+      expr?: "ttl" | "ioc";
     }
   | ({ k: "backstop" } & WireBackstopMoney)
   /** `sz` is the position before the close (signed); `px` the frozen settlement price. */

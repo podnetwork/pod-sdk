@@ -274,6 +274,26 @@ export function buildUpdateOrder(p: UpdateOrderParams): PodTxRequest {
 /** Triggers expire at most this long after their deadline (CLOB TRIGGER_MAX_TTL). */
 const TRIGGER_TTL_US = 29n * 24n * 3600n * 1_000_000n; // 29d, just under the 30d cap
 
+/** Default slippage bound for an order that closes a position at market: `buildClosePosition`'s,
+ * and a fired stop loss's. */
+export const CLOSE_SLIPPAGE_BPS = 500;
+
+/**
+ * The limit a fired trigger takes when none is given. A take profit fires once the mark
+ * has reached it, so a limit at the trigger already crosses. A stop loss fires once the
+ * mark is past it, where a limit at the trigger rests on the wrong side of the book and
+ * never fills — so it gets a protective bound past the trigger, like a market order. With the
+ * default ioc, a gap past the bound fills what it can and cancels the rest: the stop is spent.
+ */
+function firedLimit(
+  triggerType: "take_profit" | "stop_loss" | undefined,
+  side: "buy" | "sell",
+  triggerPrice: bigint,
+  slippageBps = CLOSE_SLIPPAGE_BPS,
+): bigint {
+  return triggerType === "stop_loss" ? protectivePrice(triggerPrice, side, slippageBps) : triggerPrice;
+}
+
 export interface SubmitTriggerParams {
   orderbookId: MarketId;
   /** Side of the order that fires: buy → +size, sell → −size. */
@@ -282,11 +302,16 @@ export interface SubmitTriggerParams {
   triggerType: "take_profit" | "stop_loss";
   /** Mark-price level that arms the fire, 1e18-scaled. Floored to the tick. */
   triggerPrice: bigint;
-  /** Limit price of the fired order; defaults to `triggerPrice`. Floored to the tick. */
+  /** Limit price of the fired order. Defaults to `triggerPrice` for a take profit, and for a
+   * stop loss to `triggerPrice` padded by `slippageBps` against the side. Floored to the tick. */
   limitPrice?: bigint;
+  /** A stop loss's slippage bound when `limitPrice` is not given. Default {@link CLOSE_SLIPPAGE_BPS}. */
+  slippageBps?: number;
   /** "position" (default) auto-cancels with the position; "none" is standalone. */
   grouping?: "none" | "position";
   reduceOnly?: boolean; // default true
+  /** Default true for a stop loss on its default limit (fills within its bound or cancels, as a
+   * market order); false otherwise, including a stop given its own `limitPrice`. */
   ioc?: boolean;
   tickPrecision?: bigint;
   lotSize?: bigint;
@@ -302,7 +327,7 @@ export function buildSubmitTrigger(p: SubmitTriggerParams): PodTxRequest {
   const signedSize = p.side === "sell" ? -size : size;
   const align = (v: bigint) => (p.tickPrecision ? alignPrice(v, p.tickPrecision) : v);
   const triggerPrice = align(p.triggerPrice);
-  const limitPrice = align(p.limitPrice ?? p.triggerPrice);
+  const limitPrice = align(p.limitPrice ?? firedLimit(p.triggerType, p.side, triggerPrice, p.slippageBps));
   const interval = p.auctionIntervalUs ? BigInt(p.auctionIntervalUs) : 0n;
   const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), interval);
   // ttl as a RELATIVE duration (< deadline ⇒ the CLOB reads it relative to the deadline).
@@ -320,7 +345,7 @@ export function buildSubmitTrigger(p: SubmitTriggerParams): PodTxRequest {
       deadline,
       ttl,
       p.reduceOnly ?? true,
-      p.ioc ?? false,
+      p.ioc ?? (p.triggerType === "stop_loss" && p.limitPrice === undefined),
     ],
   }) as Hex;
   return { to: CLOB_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
@@ -348,7 +373,12 @@ export interface UpdateTriggerParams {
   side: "buy" | "sell"; // sign of newSize; grouping can't change via update
   size: bigint; // magnitude
   triggerPrice: bigint;
+  /** Defaults as {@link SubmitTriggerParams.limitPrice}. */
   limitPrice?: bigint;
+  /** The trigger's type, which `update` cannot change. Required: a stop keeps the `ioc` it was armed
+   * with, so moving it with a limit back at the trigger would fire an ioc that cannot fill. */
+  triggerType: "take_profit" | "stop_loss";
+  slippageBps?: number;
   tickPrecision?: bigint;
   lotSize?: bigint;
   auctionIntervalUs?: number;
@@ -360,12 +390,14 @@ export function buildUpdateTrigger(p: UpdateTriggerParams): PodTxRequest {
   const size = p.lotSize ? alignSize(p.size, p.lotSize) : p.size;
   const signedSize = p.side === "sell" ? -size : size;
   const align = (v: bigint) => (p.tickPrecision ? alignPrice(v, p.tickPrecision) : v);
+  const triggerPrice = align(p.triggerPrice);
+  const limitPrice = align(p.limitPrice ?? firedLimit(p.triggerType, p.side, triggerPrice, p.slippageBps));
   const interval = p.auctionIntervalUs ? BigInt(p.auctionIntervalUs) : 0n;
   const deadline = alignDeadline(us(p.deadline, nowUs + FAR_US), interval);
   const data = encodeFunctionData({
     abi: CLOB_ABI,
     functionName: "updateTrigger",
-    args: [p.orderbookId, p.triggerOrderId, signedSize, align(p.limitPrice ?? p.triggerPrice), align(p.triggerPrice), deadline],
+    args: [p.orderbookId, p.triggerOrderId, signedSize, limitPrice, triggerPrice, deadline],
   }) as Hex;
   return { to: CLOB_ADDRESS, data, value: 0n, type: "eip1559", maxPriorityFeePerGas: 0n, gas: 1_000_000n };
 }
@@ -425,8 +457,10 @@ export function buildSubmitBatch(
 export interface OrderTrigger {
   /** Mark-price level that arms the fire (1e18). Floored to the tick. */
   triggerPrice: bigint;
-  /** Fired limit price; defaults to `triggerPrice`. Floored to the tick. */
+  /** Fired limit price; defaults as {@link SubmitTriggerParams.limitPrice}. Floored to the tick. */
   limitPrice?: bigint;
+  /** A stop loss's slippage bound when `limitPrice` is not given. Default {@link CLOSE_SLIPPAGE_BPS}. */
+  slippageBps?: number;
   /** Fraction of the entry size to close, 0..1 (default 1 = whole position). */
   sizeFraction?: number;
 }
@@ -487,6 +521,7 @@ export function buildOrderWithTriggers(p: OrderWithTriggersParams): PodTxRequest
       triggerType,
       triggerPrice: t.triggerPrice,
       limitPrice: t.limitPrice,
+      slippageBps: t.slippageBps,
       grouping: "position",
       reduceOnly: true,
       tickPrecision: p.tickPrecision,
@@ -508,6 +543,8 @@ export function buildOrderWithTriggers(p: OrderWithTriggersParams): PodTxRequest
  * −bps) — tight enough to protect, loose enough to actually cross.
  */
 export function protectivePrice(price: bigint, side: "buy" | "sell", slippageBps: number): bigint {
+  // 10,000 or more would put a sell's bound at or below zero.
+  if (!(slippageBps >= 0 && slippageBps < 10_000)) throw new RangeError(`slippageBps must be in [0, 10000), got ${slippageBps}`);
   const bps = BigInt(Math.trunc(slippageBps));
   const SCALE = 10_000n;
   return (price * (side === "buy" ? SCALE + bps : SCALE - bps)) / SCALE;
@@ -521,7 +558,7 @@ export interface ClosePositionParams {
   size: bigint;
   /** Current mark price (1e18) — the protective price is derived from it. */
   price: bigint;
-  /** Slippage bound in basis points for the market close. Default 500 (5%). */
+  /** Slippage bound in basis points for the market close. Default {@link CLOSE_SLIPPAGE_BPS} (5%). */
   slippageBps?: number;
   tickPrecision?: bigint;
   /** Market `lot_size`. A partial close is a fraction of the position and lands off the
@@ -542,7 +579,7 @@ export interface ClosePositionParams {
  */
 export function buildClosePosition(p: ClosePositionParams): PodTxRequest {
   const closeSide = p.side === "long" ? "sell" : "buy";
-  const price = protectivePrice(p.price, closeSide, p.slippageBps ?? 500); // tick-aligned in build
+  const price = protectivePrice(p.price, closeSide, p.slippageBps ?? CLOSE_SLIPPAGE_BPS); // tick-aligned in build
   return buildSubmitOrder({
     orderbookId: p.orderbookId,
     side: closeSide,
