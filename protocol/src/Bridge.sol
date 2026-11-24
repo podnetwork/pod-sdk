@@ -29,6 +29,9 @@ contract Bridge is Initializable, AccessControlUpgradeable {
     error InvalidPermitLength();
     error ContractPaused();
     error ContractNotPaused();
+    error ContractNotPublic();
+    error ContractNotPrivate();
+    error InvalidContractState();
     error ValidatorIsZeroAddress();
     error ValidatorDoesNotExist();
     error DuplicateValidator();
@@ -97,6 +100,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 public constant FAST_ADMIN_ROLE = keccak256("FAST_ADMIN_ROLE");
     bytes4 internal constant WITHDRAW_SELECTOR = bytes4(keccak256("withdraw(address,uint256,address,uint256)"));
     uint256 internal constant PERMIT_LENGTH = 97; // deadline(32) + v(1) + r(32) + s(32)
 
@@ -192,7 +196,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
         validatorCount = uint64(uint256(validatorCount) + addValidators.length - removeValidators.length);
 
-        if (_adversarialResilience > validatorCount) {
+        if (_adversarialResilience >= validatorCount) {
             revert InvalidAdverserialResilience();
         }
         adversarialResilience = _adversarialResilience;
@@ -250,7 +254,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         bytes32 newMerkleRoot,
         address[] memory addValidators,
         address[] memory removeValidators
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(FAST_ADMIN_ROLE) {
         uint256 oldVersion = version;
         _updateValidatorSet(addValidators, removeValidators, newResilience);
         _updateVersion(newVersion);
@@ -260,13 +264,26 @@ contract Bridge is Initializable, AccessControlUpgradeable {
 
     // forge-lint: disable-next-line(unwrapped-modifier-logic)
     modifier whenPublic() {
-        if (contractState != ContractState.Public) revert ContractPaused();
+        if (contractState != ContractState.Public) revert ContractNotPublic();
         _;
     }
 
     // forge-lint: disable-next-line(unwrapped-modifier-logic)
+    modifier whenPrivate() {
+        if (contractState != ContractState.Private) revert ContractNotPrivate();
+        _;
+    }
+
+    /// @dev Public or Private: neither paused nor migrated.
+    // forge-lint: disable-next-line(unwrapped-modifier-logic)
     modifier whenOperational() {
         if (contractState >= ContractState.Paused) revert ContractPaused();
+        _;
+    }
+
+    // forge-lint: disable-next-line(unwrapped-modifier-logic)
+    modifier whenPaused() {
+        if (contractState != ContractState.Paused) revert ContractNotPaused();
         _;
     }
 
@@ -447,33 +464,54 @@ contract Bridge is Initializable, AccessControlUpgradeable {
         _configureTokenData(token, minAmount, depositLimit, claimLimit);
     }
 
-    function setState(ContractState newState) external {
-        ContractState currentState = contractState;
-
-        // Cannot change state once migrated
-        if (currentState == ContractState.Migrated) revert ContractMigrated();
-
-        // Cannot set to Migrated via setState (use migrate function)
-        if (newState == ContractState.Migrated) revert ContractMigrated();
-
-        // Only admin can change to any state, pauser can only change to Paused
-        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
-            if (!hasRole(PAUSER_ROLE, msg.sender) || newState != ContractState.Paused) {
-                revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
-            }
-        }
+    function _setState(ContractState newState) internal {
+        emit ContractStateChanged(contractState, newState);
         contractState = newState;
-        emit ContractStateChanged(currentState, newState);
     }
 
-    function migrate(address _newContract) public notMigrated onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (contractState != ContractState.Paused) revert ContractNotPaused();
+    /**
+     * @notice Pause the bridge, stopping all deposits and claims.
+     * @dev Only PAUSER_ROLE. The bridge must be Public or Private.
+     */
+    function pause() external onlyRole(PAUSER_ROLE) whenOperational {
+        _setState(ContractState.Paused);
+    }
 
-        ContractState oldState = contractState;
-        contractState = ContractState.Migrated;
+    /**
+     * @notice Resume a paused bridge.
+     * @dev Only FAST_ADMIN_ROLE. This is the only way out of Paused other than migrate.
+     * @param newState The state to resume in: Public or Private.
+     */
+    function unpause(ContractState newState) external onlyRole(FAST_ADMIN_ROLE) whenPaused {
+        if (newState >= ContractState.Paused) revert InvalidContractState();
+        _setState(newState);
+    }
+
+    /**
+     * @notice Restrict deposits to the relayer. Claims stay open.
+     * @dev Only FAST_ADMIN_ROLE. The bridge must be Public.
+     */
+    function makePrivate() external onlyRole(FAST_ADMIN_ROLE) whenPublic {
+        _setState(ContractState.Private);
+    }
+
+    /**
+     * @notice Open deposits to everyone.
+     * @dev Only FAST_ADMIN_ROLE. The bridge must be Private.
+     */
+    function makePublic() external onlyRole(FAST_ADMIN_ROLE) whenPrivate {
+        _setState(ContractState.Public);
+    }
+
+    /**
+     * @notice Permanently retire this bridge in favour of a new contract.
+     * @dev Only DEFAULT_ADMIN_ROLE. The bridge must be Paused. Cannot be undone; the tokens are
+     *      moved afterwards with transferTokensToMigrated.
+     * @param _newContract The contract that will receive this bridge's tokens.
+     */
+    function migrate(address _newContract) public onlyRole(DEFAULT_ADMIN_ROLE) whenPaused {
         migratedContract = _newContract;
-
-        emit ContractStateChanged(oldState, ContractState.Migrated);
+        _setState(ContractState.Migrated);
     }
 
     /**
@@ -481,7 +519,7 @@ contract Bridge is Initializable, AccessControlUpgradeable {
      * @dev Can only be called after migration. Can be called multiple times.
      * @param tokens Array of token addresses to transfer.
      */
-    function transferTokensToMigrated(address[] calldata tokens) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function transferTokensToMigrated(address[] calldata tokens) external onlyRole(FAST_ADMIN_ROLE) {
         if (contractState != ContractState.Migrated) revert ContractNotMigrated();
 
         address destination = migratedContract;

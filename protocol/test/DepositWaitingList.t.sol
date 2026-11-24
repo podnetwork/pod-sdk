@@ -865,8 +865,7 @@ contract DepositWaitingListTest is Test {
     }
 
     function test_Apply_WorksInPublicMode() public {
-        vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Public);
+        assertEq(uint256(_bridge.contractState()), uint256(Bridge.ContractState.Public));
 
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, user, callContract, 0, "");
@@ -879,7 +878,7 @@ contract DepositWaitingListTest is Test {
 
     function test_Apply_RevertIfBridgePaused() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
 
         vm.prank(user);
         _waitingList.deposit(address(_token), DEPOSIT_AMOUNT, user, user, callContract, 0, "");

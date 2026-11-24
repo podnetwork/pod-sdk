@@ -1,0 +1,82 @@
+{
+  "transactions": [
+    {
+      "hash": null,
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0xb77e6fb078918f255fc71e8b11a798124b7f0fa0",
+      "function": "grantRole(bytes32,address)",
+      "functionAbi": "function grantRole(bytes32 role, address account)",
+      "arguments": [
+        "0xbe80ea786842e287a3dc73118d4b9b799a455d9697b31fef1f5f9b6c68cc854b",
+        "0x9449BC3ec69aF4AfA2C59B9f48c646e39E57CB8b"
+      ],
+      "transaction": {
+        "from": "0x34b16959f6bccee214b370de66674a0563f36107",
+        "to": "0xb77e6fb078918f255fc71e8b11a798124b7f0fa0",
+        "gas": "0x2b2ba",
+        "value": "0x0",
+        "input": "0x2f2ff15dbe80ea786842e287a3dc73118d4b9b799a455d9697b31fef1f5f9b6c68cc854b0000000000000000000000009449bc3ec69af4afa2c59b9f48c646e39e57cb8b",
+        "nonce": "0x1",
+        "chainId": "0xa4b1"
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    },
+    {
+      "hash": null,
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0xb77e6fb078918f255fc71e8b11a798124b7f0fa0",
+      "function": "grantRole(bytes32,address)",
+      "functionAbi": "function grantRole(bytes32 role, address account)",
+      "arguments": [
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x43404243EA56035E951e29AF99bb76834f36AC6E"
+      ],
+      "transaction": {
+        "from": "0x34b16959f6bccee214b370de66674a0563f36107",
+        "to": "0xb77e6fb078918f255fc71e8b11a798124b7f0fa0",
+        "gas": "0x2b0c5",
+        "value": "0x0",
+        "input": "0x2f2ff15d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000043404243ea56035e951e29af99bb76834f36ac6e",
+        "nonce": "0x2",
+        "chainId": "0xa4b1"
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    },
+    {
+      "hash": null,
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0x595d39fd0ef41500803a049dc1ec30946cff6221",
+      "function": "upgradeAndCall(address,address,bytes)",
+      "functionAbi": "function upgradeAndCall(address proxy, address implementation, bytes data) payable",
+      "arguments": [
+        "0xB77E6fB078918f255FC71E8b11A798124b7f0Fa0",
+        "0x468F3414C29b03D304496b3bB99eE66983DCAC5F",
+        "0x"
+      ],
+      "transaction": {
+        "from": "0x34b16959f6bccee214b370de66674a0563f36107",
+        "to": "0x595d39fd0ef41500803a049dc1ec30946cff6221",
+        "gas": "0x2d123",
+        "value": "0x0",
+        "input": "0x9623609d000000000000000000000000b77e6fb078918f255fc71e8b11a798124b7f0fa0000000000000000000000000468f3414c29b03d304496b3bb99ee66983dcac5f00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000",
+        "nonce": "0x3",
+        "chainId": "0xa4b1"
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    }
+  ],
+  "receipts": [],
+  "libraries": [],
+  "pending": [],
+  "returns": {},
+  "timestamp": 1795190419891,
+  "chain": 42161,
+  "commit": "758c134",
+  "recovery_generation": "0xad4a42433f0e0cc2383c85519dbf4d73a8b7d34c932998008e565184ad39632b"
+}

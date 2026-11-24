@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {BridgeClaimProofHelper} from "./abstract/BridgeClaimProofHelper.sol";
 import {Bridge} from "../src/Bridge.sol";
 import {ProofLib} from "../src/lib/ProofLib.sol";
@@ -14,6 +15,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
     WrappedToken internal _token;
 
     address public admin = makeAddr("admin");
+    address public fastAdmin = makeAddr("fastAdmin");
     address public user = makeAddr("user");
     address public newBridge = makeAddr("newBridge");
 
@@ -47,6 +49,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         (_bridge,) =
             BridgeDeployer.deploy(otherBridgeContract, SRC_CHAIN_ID, admin, initialValidators, f, 1, bytes32(0));
+        _bridge.grantRole(_bridge.FAST_ADMIN_ROLE(), fastAdmin);
 
         _token = new WrappedToken("InitialToken", "ITKN", 18);
         _token.mint(user, INITIAL_BALANCE);
@@ -71,8 +74,8 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Deposit_RevertIfPaused() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
-        vm.expectRevert(Bridge.ContractPaused.selector);
+        _bridge.pause();
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
     }
@@ -224,11 +227,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Deposit_RevertAfterMigrated() public {
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
         vm.stopPrank();
         vm.prank(user);
-        vm.expectRevert(Bridge.ContractPaused.selector);
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
         _bridge.deposit(address(_token), 1, user, address(0), 0, "");
     }
 
@@ -316,7 +319,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Claim_RevertIfPaused() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
 
         (, bytes memory proof, bytes memory auxTxSuffix) =
             createTokenClaimProof(MIRROR_TOKEN, DEPOSIT_AMOUNT, user, 3, _bridge.domainSeparator());
@@ -390,7 +393,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_BatchClaim_RevertIfPaused() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
 
         Bridge.ClaimParams[] memory claims = new Bridge.ClaimParams[](1);
         claims[0] = Bridge.ClaimParams({amount: DEPOSIT_AMOUNT, to: user, proof: "", auxTxSuffix: ""});
@@ -416,6 +419,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_ConfigureToken_RevertIfNotAdmin() public {
         vm.prank(user);
+        vm.expectRevert();
+        _bridge.configureToken(address(_token), 2e18, 2000e18, 2000e18);
+        vm.prank(fastAdmin);
         vm.expectRevert();
         _bridge.configureToken(address(_token), 2e18, 2000e18, 2000e18);
     }
@@ -460,7 +466,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_WhiteListToken_RevertAfterMigrated() public {
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
         vm.expectRevert(abi.encodeWithSelector(Bridge.ContractMigrated.selector));
         _bridge.whiteListToken(address(0x1234), address(0x5678), 1, 100, 100);
@@ -484,42 +490,252 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     // ========== Pause/State Tests ==========
 
+    function _assertState(Bridge.ContractState expected) internal view {
+        assertEq(uint256(_bridge.contractState()), uint256(expected));
+    }
+
+    function _unauthorized(address account, bytes32 role) internal pure returns (bytes memory) {
+        return abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, account, role);
+    }
+
     function test_Pause_Unpause() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
-        assertEq(uint256(_bridge.contractState()), uint256(Bridge.ContractState.Paused));
+        vm.expectEmit(true, true, true, true);
+        emit Bridge.ContractStateChanged(Bridge.ContractState.Public, Bridge.ContractState.Paused);
+        _bridge.pause();
+        _assertState(Bridge.ContractState.Paused);
+
+        vm.prank(fastAdmin);
+        vm.expectEmit(true, true, true, true);
+        emit Bridge.ContractStateChanged(Bridge.ContractState.Paused, Bridge.ContractState.Private);
+        _bridge.unpause(Bridge.ContractState.Private);
+        _assertState(Bridge.ContractState.Private);
+    }
+
+    function test_Unpause_ToPublic() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Public);
-        assertEq(uint256(_bridge.contractState()), uint256(Bridge.ContractState.Public));
+        _bridge.pause();
+        vm.prank(fastAdmin);
+        _bridge.unpause(Bridge.ContractState.Public);
+        _assertState(Bridge.ContractState.Public);
+    }
+
+    function test_Unpause_RevertIfTargetNotOperational() public {
+        vm.prank(admin);
+        _bridge.pause();
+        vm.startPrank(fastAdmin);
+        vm.expectRevert(Bridge.InvalidContractState.selector);
+        _bridge.unpause(Bridge.ContractState.Paused);
+        vm.expectRevert(Bridge.InvalidContractState.selector);
+        _bridge.unpause(Bridge.ContractState.Migrated);
+        vm.stopPrank();
+        _assertState(Bridge.ContractState.Paused);
+    }
+
+    function test_Pause_FromPrivate() public {
+        vm.prank(fastAdmin);
+        _bridge.makePrivate();
+        vm.prank(admin);
+        _bridge.pause();
+        _assertState(Bridge.ContractState.Paused);
     }
 
     function test_Pause_RevertIfNotPauseRole() public {
+        bytes32 pauserRole = _bridge.PAUSER_ROLE();
         vm.prank(user);
-        vm.expectRevert();
-        _bridge.setState(Bridge.ContractState.Paused);
+        vm.expectRevert(_unauthorized(user, pauserRole));
+        _bridge.pause();
+
+        // The fast admin does not pause unless it also holds PAUSER_ROLE.
+        vm.prank(fastAdmin);
+        vm.expectRevert(_unauthorized(fastAdmin, pauserRole));
+        _bridge.pause();
     }
 
-    function test_Pause_RoleRequired_Unpause_AdminRequired() public {
-        vm.prank(user);
-        vm.expectRevert();
-        _bridge.setState(Bridge.ContractState.Paused);
+    function test_Pause_RevertIfAlreadyPaused() public {
+        vm.startPrank(admin);
+        _bridge.pause();
+        vm.expectRevert(Bridge.ContractPaused.selector);
+        _bridge.pause();
+        vm.stopPrank();
+    }
+
+    function test_Pause_RevertIfMigrated() public {
+        vm.startPrank(admin);
+        _bridge.pause();
+        _bridge.migrate(newBridge);
+        vm.expectRevert(Bridge.ContractPaused.selector);
+        _bridge.pause();
+        vm.stopPrank();
+    }
+
+    function test_Unpause_RevertIfNotFastAdmin() public {
+        bytes32 fastAdminRole = _bridge.FAST_ADMIN_ROLE();
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
+
+        // admin holds DEFAULT_ADMIN_ROLE and PAUSER_ROLE, neither of which unpauses.
+        vm.prank(admin);
+        vm.expectRevert(_unauthorized(admin, fastAdminRole));
+        _bridge.unpause(Bridge.ContractState.Public);
         vm.prank(user);
-        vm.expectRevert();
-        _bridge.setState(Bridge.ContractState.Public);
+        vm.expectRevert(_unauthorized(user, fastAdminRole));
+        _bridge.unpause(Bridge.ContractState.Public);
+    }
+
+    function test_Unpause_RevertIfNotPaused() public {
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPaused.selector);
+        _bridge.unpause(Bridge.ContractState.Public);
+    }
+
+    function test_Unpause_RevertIfMigrated() public {
+        vm.startPrank(admin);
+        _bridge.pause();
+        _bridge.migrate(newBridge);
+        vm.stopPrank();
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPaused.selector);
+        _bridge.unpause(Bridge.ContractState.Public);
+    }
+
+    function test_MakePrivate_MakePublic() public {
+        vm.startPrank(fastAdmin);
+        _bridge.makePrivate();
+        _assertState(Bridge.ContractState.Private);
+        _bridge.makePublic();
+        _assertState(Bridge.ContractState.Public);
+        vm.stopPrank();
+    }
+
+    function test_MakePrivate_BlocksPublicDepositsOnly() public {
+        vm.prank(fastAdmin);
+        _bridge.makePrivate();
+        vm.prank(user);
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
+        _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
+    }
+
+    function test_MakePrivate_MakePublic_RevertIfNotFastAdmin() public {
+        bytes32 fastAdminRole = _bridge.FAST_ADMIN_ROLE();
+        vm.startPrank(admin);
+        vm.expectRevert(_unauthorized(admin, fastAdminRole));
+        _bridge.makePrivate();
+        vm.expectRevert(_unauthorized(admin, fastAdminRole));
+        _bridge.makePublic();
+        vm.stopPrank();
+    }
+
+    function test_MakePrivate_RevertIfNotPublic() public {
+        vm.startPrank(fastAdmin);
+        _bridge.makePrivate();
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
+        _bridge.makePrivate();
+        vm.stopPrank();
+
+        vm.prank(admin);
+        _bridge.pause();
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
+        _bridge.makePrivate();
+
+        vm.prank(admin);
+        _bridge.migrate(newBridge);
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPublic.selector);
+        _bridge.makePrivate();
+    }
+
+    function test_MakePublic_RevertIfNotPrivate() public {
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPrivate.selector);
+        _bridge.makePublic();
+
+        vm.prank(admin);
+        _bridge.pause();
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPrivate.selector);
+        _bridge.makePublic();
+
+        vm.prank(admin);
+        _bridge.migrate(newBridge);
+        vm.prank(fastAdmin);
+        vm.expectRevert(Bridge.ContractNotPrivate.selector);
+        _bridge.makePublic();
     }
 
     function test_RoleGrants_FromConstructor() public view {
         assertTrue(_bridge.hasRole(_bridge.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(_bridge.hasRole(_bridge.PAUSER_ROLE(), admin));
+        assertFalse(_bridge.hasRole(_bridge.FAST_ADMIN_ROLE(), admin));
+    }
+
+    // ========== Fast Admin Tests ==========
+
+    function test_FastAdmin_CannotMigrate() public {
+        bytes32 defaultAdminRole = _bridge.DEFAULT_ADMIN_ROLE();
+        vm.prank(admin);
+        _bridge.pause();
+        vm.prank(fastAdmin);
+        vm.expectRevert(_unauthorized(fastAdmin, defaultAdminRole));
+        _bridge.migrate(newBridge);
+    }
+
+    function test_FastAdmin_CannotWhitelist() public {
+        vm.startPrank(fastAdmin);
+        vm.expectRevert();
+        _bridge.whiteListToken(address(0x7777), address(0x1234), minAmount, depositLimit, claimLimit);
+        vm.expectRevert();
+        _bridge.setCallContractWhitelist(address(0xCA11), true);
+        vm.stopPrank();
+    }
+
+    function test_FastAdmin_CannotGrantRoles() public {
+        bytes32 defaultAdminRole = _bridge.DEFAULT_ADMIN_ROLE();
+        bytes32 relayerRole = _bridge.RELAYER_ROLE();
+        vm.startPrank(fastAdmin);
+        vm.expectRevert();
+        _bridge.grantRole(defaultAdminRole, fastAdmin);
+        vm.expectRevert();
+        _bridge.grantRole(relayerRole, fastAdmin);
+        vm.stopPrank();
+    }
+
+    /// @dev A compromised fast admin can forge claims with its own validators, but only up to the
+    ///      claim limit: it cannot raise the limit or reset the usage counters.
+    function test_FastAdmin_ForgedClaimsStopAtClaimLimit() public {
+        vm.prank(admin);
+        _token.mint(address(_bridge), claimLimit * 5);
+
+        address[] memory add = new address[](1);
+        add[0] = vm.addr(0xA77AC);
+        address[] memory remove = new address[](NUMBER_OF_VALIDATORS);
+        for (uint256 i = 0; i < NUMBER_OF_VALIDATORS; i++) {
+            remove[i] = vm.addr(validatorPrivateKeys[i]);
+        }
+        vm.prank(fastAdmin);
+        _bridge.updateValidatorConfig(0, 2, bytes32(0), add, remove);
+
+        validatorPrivateKeys = new uint256[](1);
+        validatorPrivateKeys[0] = 0xA77AC;
+        bytes32 domainSeparator = _bridge.domainSeparator();
+
+        (, bytes memory proof, bytes memory aux) =
+            createTokenClaimProof(MIRROR_TOKEN, claimLimit, user, 1, domainSeparator);
+        _bridge.claim(address(_token), claimLimit, user, proof, aux);
+
+        (, proof, aux) = createTokenClaimProof(MIRROR_TOKEN, minAmount, user, 1, domainSeparator);
+        vm.expectRevert(abi.encodeWithSelector(Bridge.DailyLimitExhausted.selector));
+        _bridge.claim(address(_token), minAmount, user, proof, aux);
+
+        assertEq(_token.balanceOf(address(_bridge)), claimLimit * 4);
     }
 
     // ========== Migration Tests ==========
 
     function test_Migrate_SetsMigratedContract() public {
         vm.prank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         vm.prank(admin);
         _bridge.migrate(newBridge);
         assertEq(_bridge.migratedContract(), newBridge);
@@ -527,9 +743,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
     function test_Migrate_RevertIfAlreadyMigrated() public {
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
-        vm.expectRevert(abi.encodeWithSelector(Bridge.ContractMigrated.selector));
+        vm.expectRevert(Bridge.ContractNotPaused.selector);
         _bridge.migrate(address(0x1234));
         vm.stopPrank();
     }
@@ -538,17 +754,19 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         uint256 beforeAmt = _token.balanceOf(address(_bridge));
         _bridge.migrate(newBridge);
 
         assertEq(_token.balanceOf(newBridge), 0);
         assertEq(_token.balanceOf(address(_bridge)), beforeAmt);
 
+        vm.stopPrank();
+
         address[] memory tokens = new address[](1);
         tokens[0] = address(_token);
+        vm.prank(fastAdmin);
         _bridge.transferTokensToMigrated(tokens);
-        vm.stopPrank();
 
         assertEq(_token.balanceOf(newBridge), beforeAmt);
         assertEq(_token.balanceOf(address(_bridge)), 0);
@@ -561,7 +779,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         }
         (Bridge fresh,) = BridgeDeployer.deploy(otherBridgeContract, SRC_CHAIN_ID, admin, validators, 1, 1, bytes32(0));
         vm.prank(admin);
-        fresh.setState(Bridge.ContractState.Paused);
+        fresh.pause();
         vm.prank(admin);
         fresh.migrate(newBridge);
         assertEq(fresh.migratedContract(), newBridge);
@@ -577,14 +795,15 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         vm.prank(user);
         _bridge.deposit(address(_token), DEPOSIT_AMOUNT, user, address(0), 0, "");
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
 
         address[] memory tokens = new address[](2);
         tokens[0] = address(_token);
         tokens[1] = address(t2);
-        _bridge.transferTokensToMigrated(tokens);
         vm.stopPrank();
+        vm.prank(fastAdmin);
+        _bridge.transferTokensToMigrated(tokens);
 
         assertEq(_token.balanceOf(newBridge), DEPOSIT_AMOUNT);
         assertEq(t2.balanceOf(newBridge), 0);
@@ -602,9 +821,11 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         t2.mint(address(_bridge), DEPOSIT_AMOUNT);
 
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
+        vm.stopPrank();
 
+        vm.startPrank(fastAdmin);
         address[] memory tokens1 = new address[](1);
         tokens1[0] = address(_token);
         _bridge.transferTokensToMigrated(tokens1);
@@ -625,14 +846,14 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory tokens = new address[](1);
         tokens[0] = address(_token);
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.ContractNotMigrated.selector));
         _bridge.transferTokensToMigrated(tokens);
     }
 
-    function test_TransferTokensToMigrated_RevertIfNotAdmin() public {
+    function test_TransferTokensToMigrated_RevertIfNotFastAdmin() public {
         vm.startPrank(admin);
-        _bridge.setState(Bridge.ContractState.Paused);
+        _bridge.pause();
         _bridge.migrate(newBridge);
         vm.stopPrank();
 
@@ -640,6 +861,9 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         tokens[0] = address(_token);
 
         vm.prank(user);
+        vm.expectRevert();
+        _bridge.transferTokensToMigrated(tokens);
+        vm.prank(admin);
         vm.expectRevert();
         _bridge.transferTokensToMigrated(tokens);
     }
@@ -971,7 +1195,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         addValidators[0] = newValidator;
         address[] memory removeValidators = new address[](0);
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectEmit(true, false, false, true);
         emit Bridge.ValidatorAdded(newValidator);
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
@@ -986,7 +1210,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory removeValidators = new address[](1);
         removeValidators[0] = validatorToRemove;
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectEmit(true, false, false, true);
         emit Bridge.ValidatorRemoved(validatorToRemove);
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
@@ -1004,7 +1228,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory removeValidators = new address[](1);
         removeValidators[0] = validatorToRemove;
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
 
         assertFalse(_bridge.activeValidators(validatorToRemove));
@@ -1012,13 +1236,16 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         assertEq(_bridge.validatorCount(), NUMBER_OF_VALIDATORS);
     }
 
-    function test_UpdateValidatorConfig_RevertIfNotAdmin() public {
+    function test_UpdateValidatorConfig_RevertIfNotFastAdmin() public {
         address newValidator = makeAddr("newValidator");
         address[] memory addValidators = new address[](1);
         addValidators[0] = newValidator;
         address[] memory removeValidators = new address[](0);
 
         vm.prank(user);
+        vm.expectRevert();
+        _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
+        vm.prank(admin);
         vm.expectRevert();
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
@@ -1028,7 +1255,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         addValidators[0] = address(0);
         address[] memory removeValidators = new address[](0);
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.ValidatorIsZeroAddress.selector));
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
@@ -1039,7 +1266,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         addValidators[0] = existingValidator;
         address[] memory removeValidators = new address[](0);
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.DuplicateValidator.selector));
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
@@ -1050,7 +1277,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory removeValidators = new address[](1);
         removeValidators[0] = nonExistentValidator;
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.ValidatorDoesNotExist.selector));
         _bridge.updateValidatorConfig(1, 1, bytes32(0), addValidators, removeValidators);
     }
@@ -1059,7 +1286,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         address[] memory addValidators = new address[](0);
         address[] memory removeValidators = new address[](0);
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         vm.expectRevert(abi.encodeWithSelector(Bridge.InvalidAdverserialResilience.selector));
         // forge-lint: disable-next-line(unsafe-typecast)
         _bridge.updateValidatorConfig(uint64(NUMBER_OF_VALIDATORS + 1), 1, bytes32(0), addValidators, removeValidators);
@@ -1256,7 +1483,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update bridge with merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         assertEq(_bridge.merkleRoot(), merkleRoot);
@@ -1289,7 +1516,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update bridge with merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Build proof bytes with wrong proof (version 1)
@@ -1321,7 +1548,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update version to 2 and set merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, newMerkleRoot, empty, empty);
 
         // Certificate proof should now fail (version changed, domain separator changed)
@@ -1368,7 +1595,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update bridge with merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Proof format: type (1 byte) + version (4 bytes) + merkle proof
@@ -1413,7 +1640,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update to version 2 and set merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
 
         // Claim with version 1 proof
@@ -1455,7 +1682,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update to version 2
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
 
         // Create proofs
@@ -1493,7 +1720,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Create certificate proof for user2
@@ -1532,7 +1759,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Create proof
@@ -1566,7 +1793,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update merkle root (still version 1)
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Create proof with version 1
@@ -1579,7 +1806,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         assertEq(_token.balanceOf(user), balanceBefore + DEPOSIT_AMOUNT);
 
         // Update to version 2, keep same merkle root
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
 
         // Try to claim again with same version 1 proof - should fail
@@ -1608,7 +1835,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update to version 2
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, bytes32(0), empty, empty);
 
         // Certificate created with version 1 should fail after version update
@@ -1628,7 +1855,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         assertEq(_bridge.merkleRoot(), bytes32(0));
 
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, newRoot, empty, empty);
 
         assertEq(_bridge.merkleRoot(), newRoot);
@@ -1721,7 +1948,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
 
         // Update bridge with merkle root
         address[] memory empty = new address[](0);
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 1, merkleRoot, empty, empty);
 
         // Create versioned merkle proof
@@ -1732,7 +1959,7 @@ contract BridgeTest is Test, BridgeClaimProofHelper {
         uint256 balanceAfterFirstClaim = _token.balanceOf(recipient);
 
         // Upgrade version to 2 (keep same merkle root so proof is still valid structurally)
-        vm.prank(admin);
+        vm.prank(fastAdmin);
         _bridge.updateValidatorConfig(1, 2, merkleRoot, empty, empty);
 
         // Second claim with same proof still reverts (txHash already processed)
@@ -1810,7 +2037,7 @@ contract BridgeUpdateValidatorSetTest is Test {
         // Then remove one
         address[] memory remove = new address[](1);
         remove[0] = validator1;
-        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+        harness.exposed_updateValidatorSet(new address[](0), remove, 0);
 
         assertFalse(harness.activeValidators(validator1));
         assertTrue(harness.activeValidators(validator2));
@@ -1849,7 +2076,7 @@ contract BridgeUpdateValidatorSetTest is Test {
         // First add a validator
         address[] memory add = new address[](1);
         add[0] = validator1;
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
 
         // Try to add the same validator again
         vm.expectRevert(Bridge.DuplicateValidator.selector);
@@ -1872,29 +2099,42 @@ contract BridgeUpdateValidatorSetTest is Test {
         harness.exposed_updateValidatorSet(add, new address[](0), 2);
     }
 
+    function test_UpdateValidatorSet_RevertIfZeroSignaturesRequired() public {
+        // Empty validator set
+        vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
+        harness.exposed_updateValidatorSet(new address[](0), new address[](0), 0);
+
+        // Resilience equal to the validator count
+        address[] memory add = new address[](2);
+        add[0] = validator1;
+        add[1] = validator2;
+        vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
+        harness.exposed_updateValidatorSet(add, new address[](0), 2);
+    }
+
     function test_UpdateValidatorSet_ResilienceCheckedAfterCountUpdate() public {
-        // Add 3 validators with resilience 3
+        // Add 3 validators with resilience 2
         address[] memory add = new address[](3);
         add[0] = validator1;
         add[1] = validator2;
         add[2] = validator3;
-        harness.exposed_updateValidatorSet(add, new address[](0), 3);
+        harness.exposed_updateValidatorSet(add, new address[](0), 2);
 
         assertEq(harness.validatorCount(), 3);
-        assertEq(harness.adversarialResilience(), 3);
+        assertEq(harness.adversarialResilience(), 2);
 
         // Remove one validator - resilience must be reduced too
         address[] memory remove = new address[](1);
         remove[0] = validator1;
 
-        // This should fail because new count would be 2 but resilience 3
+        // This should fail because new count would be 2 but resilience 2
         vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
-        harness.exposed_updateValidatorSet(new address[](0), remove, 3);
+        harness.exposed_updateValidatorSet(new address[](0), remove, 2);
 
         // This should succeed with reduced resilience
-        harness.exposed_updateValidatorSet(new address[](0), remove, 2);
+        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
         assertEq(harness.validatorCount(), 2);
-        assertEq(harness.adversarialResilience(), 2);
+        assertEq(harness.adversarialResilience(), 1);
     }
 
     function test_UpdateValidatorSet_EmitsEvents() public {
@@ -1903,7 +2143,7 @@ contract BridgeUpdateValidatorSetTest is Test {
 
         vm.expectEmit(true, false, false, false);
         emit Bridge.ValidatorAdded(validator1);
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
 
         address[] memory remove = new address[](1);
         remove[0] = validator1;
@@ -1914,7 +2154,7 @@ contract BridgeUpdateValidatorSetTest is Test {
         emit Bridge.ValidatorRemoved(validator1);
         vm.expectEmit(true, false, false, false);
         emit Bridge.ValidatorAdded(validator2);
-        harness.exposed_updateValidatorSet(addNew, remove, 1);
+        harness.exposed_updateValidatorSet(addNew, remove, 0);
     }
 
     // ========== Property Tests (Fuzz) ==========
@@ -1931,7 +2171,7 @@ contract BridgeUpdateValidatorSetTest is Test {
         }
 
         // Add validators
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
         assertEq(harness.validatorCount(), numAdd);
 
         // Remove some validators
@@ -1941,13 +2181,12 @@ contract BridgeUpdateValidatorSetTest is Test {
         }
 
         uint64 expectedCount = uint64(numAdd - numRemove);
-        uint64 newResilience = expectedCount > 0 ? 1 : 0;
 
         if (expectedCount == 0) {
             vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
-            harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+            harness.exposed_updateValidatorSet(new address[](0), remove, 0);
         } else {
-            harness.exposed_updateValidatorSet(new address[](0), remove, newResilience);
+            harness.exposed_updateValidatorSet(new address[](0), remove, 0);
             assertEq(harness.validatorCount(), expectedCount);
         }
     }
@@ -1961,13 +2200,13 @@ contract BridgeUpdateValidatorSetTest is Test {
         }
 
         // Test invalid resilience values
-        if (resilience > numValidators) {
+        if (resilience >= numValidators) {
             vm.expectRevert(Bridge.InvalidAdverserialResilience.selector);
             harness.exposed_updateValidatorSet(add, new address[](0), resilience);
         } else {
             harness.exposed_updateValidatorSet(add, new address[](0), resilience);
-            // Invariant: resilience <= validatorCount
-            assertLe(harness.adversarialResilience(), harness.validatorCount());
+            // Invariant: resilience < validatorCount
+            assertLt(harness.adversarialResilience(), harness.validatorCount());
         }
     }
 
@@ -1979,7 +2218,7 @@ contract BridgeUpdateValidatorSetTest is Test {
             add[i] = address(uint160(i + 1));
         }
 
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
 
         // All added validators should be active
         for (uint256 i = 0; i < numValidators; i++) {
@@ -2003,7 +2242,7 @@ contract BridgeUpdateValidatorSetTest is Test {
             remove[i] = add[i];
         }
 
-        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+        harness.exposed_updateValidatorSet(new address[](0), remove, 0);
 
         // All removed validators should be inactive
         for (uint256 i = 0; i < numRemove; i++) {
@@ -2021,7 +2260,7 @@ contract BridgeUpdateValidatorSetTest is Test {
         // Add validator
         address[] memory add = new address[](1);
         add[0] = validator;
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
 
         assertTrue(harness.activeValidators(validator));
         assertEq(harness.validatorCount(), 1);
@@ -2035,7 +2274,7 @@ contract BridgeUpdateValidatorSetTest is Test {
         // Remove original validator
         address[] memory remove = new address[](1);
         remove[0] = validator;
-        harness.exposed_updateValidatorSet(new address[](0), remove, 1);
+        harness.exposed_updateValidatorSet(new address[](0), remove, 0);
 
         assertFalse(harness.activeValidators(validator));
         assertTrue(harness.activeValidators(other));
@@ -2057,7 +2296,7 @@ contract BridgeUpdateValidatorSetTest is Test {
         for (uint256 i = 0; i < numInitial; i++) {
             initial[i] = address(uint160(i + 1));
         }
-        harness.exposed_updateValidatorSet(initial, new address[](0), 1);
+        harness.exposed_updateValidatorSet(initial, new address[](0), 0);
 
         // Prepare adds and removes
         address[] memory toRemove = new address[](numRemove);
@@ -2071,7 +2310,7 @@ contract BridgeUpdateValidatorSetTest is Test {
         }
 
         uint64 expectedCount = uint64(numInitial - numRemove + numAdd);
-        harness.exposed_updateValidatorSet(toAdd, toRemove, 1);
+        harness.exposed_updateValidatorSet(toAdd, toRemove, 0);
 
         assertEq(harness.validatorCount(), expectedCount);
 
@@ -2109,7 +2348,7 @@ contract BridgeUpdateValidatorSetTest is Test {
 
         address[] memory add = new address[](1);
         add[0] = validator;
-        harness.exposed_updateValidatorSet(add, new address[](0), 1);
+        harness.exposed_updateValidatorSet(add, new address[](0), 0);
 
         // Try to add same validator in same array
         address[] memory addDuplicate = new address[](2);
