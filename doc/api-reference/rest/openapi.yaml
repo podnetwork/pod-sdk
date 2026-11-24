@@ -576,7 +576,7 @@ paths:
       description: |
         Everything that happened to the account, as an `ActivityFrame`: a map from batch
         deadline to that batch's entries. Entries are tagged by `k` (`ActivityEntry`). Within a batch, entries are ordered by kind
-        (`order`, `fill`, `modify`, `termination`, `backstop`, `bridge_transfer`,
+        (`order`, `fill`, `modify`, `termination`, `backstop`, `settlement`, `bridge_transfer`,
         `transfer`, `modify_reject`, `cancel_reject`), then by book ascending, then in engine order.
 
         Pages are newest first and hold whole batches. Batches are added while the entry
@@ -613,7 +613,7 @@ paths:
           in: query
           description: |
             Comma-separated kinds to include: `order`, `fill`, `modify`, `termination`,
-            `backstop`, `bridge_transfer`, `transfer`, `modify_reject`, `cancel_reject`. Defaults to all. An unknown or empty
+            `backstop`, `settlement`, `bridge_transfer`, `transfer`, `modify_reject`, `cancel_reject`. Defaults to all. An unknown or empty
             name is a `400` (`invalid activity_types`).
           schema: { type: string, example: "order,fill" }
       responses:
@@ -1170,7 +1170,7 @@ components:
 
     OrderStatus:
       type: string
-      enum: [pending, active, filled, expired, canceled, margin_canceled, self_trade_canceled, post_only_refused, invalid]
+      enum: [pending, active, filled, expired, canceled, margin_canceled, self_trade_canceled, post_only_refused, settled, invalid]
       description: |
         - `pending`: submitted, not yet in the book
         - `active`: resting in the book
@@ -1180,6 +1180,7 @@ components:
         - `margin_canceled`: removed by the engine because the owner's margin was exhausted
         - `self_trade_canceled`: removed by the engine because it was about to fill against an order of the same owner
         - `post_only_refused`: a `post_only` order refused because its price crossed the book left by the previous batch
+        - `settled`: removed and refunded because its market was settled
         - `invalid`: rejected at execution and never entered the book; see `invalid_reason`
 
         Everything except `pending` and `active` is terminal.
@@ -1596,6 +1597,7 @@ components:
         - $ref: '#/components/schemas/ActivityModify'
         - $ref: '#/components/schemas/ActivityTermination'
         - $ref: '#/components/schemas/ActivityBackstop'
+        - $ref: '#/components/schemas/ActivitySettlement'
         - $ref: '#/components/schemas/ActivityBridgeTransfer'
         - $ref: '#/components/schemas/ActivityTransfer'
         - $ref: '#/components/schemas/ActivityModifyReject'
@@ -1608,6 +1610,7 @@ components:
           modify: '#/components/schemas/ActivityModify'
           termination: '#/components/schemas/ActivityTermination'
           backstop: '#/components/schemas/ActivityBackstop'
+          settlement: '#/components/schemas/ActivitySettlement'
           bridge_transfer: '#/components/schemas/ActivityBridgeTransfer'
           transfer: '#/components/schemas/ActivityTransfer'
           modify_reject: '#/components/schemas/ActivityModifyReject'
@@ -1645,7 +1648,7 @@ components:
         f: { $ref: '#/components/schemas/DecimalUint256', description: Fee charged by this fill. }
         st:
           type: string
-          enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused]
+          enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused, settled]
           description: Terminal status, present only on the fill that closed the order.
         pa: { $ref: '#/components/schemas/DecimalInt256', description: The position after this fill on a perp book. Omitted when no position moved. }
         pnl: { $ref: '#/components/schemas/DecimalInt256', description: "PnL realized by this fill alone. Omitted when it closed no exposure; an order's realized_pnl is the sum of its fills' pnl." }
@@ -1671,7 +1674,7 @@ components:
         k: { type: string, enum: [termination] }
         id: { $ref: '#/components/schemas/Bytes32', description: Order id. }
         book: { $ref: '#/components/schemas/Bytes32' }
-        st: { type: string, enum: [canceled, margin_canceled, self_trade_canceled, expired, post_only_refused] }
+        st: { type: string, enum: [canceled, margin_canceled, self_trade_canceled, expired, post_only_refused, settled] }
         expr:
           type: string
           enum: [ttl, ioc]
@@ -1689,6 +1692,17 @@ components:
         mark: { $ref: '#/components/schemas/DecimalUint256', description: Mark price at the sweep. }
         eq: { $ref: '#/components/schemas/DecimalInt256', description: Account equity at the sweep. }
         pnl: { $ref: '#/components/schemas/DecimalInt256', description: 'Realized PnL; `"0"` on the cash sweep.' }
+
+    ActivitySettlement:
+      type: object
+      description: A perp position closed by its market's settlement, at the price the market froze at.
+      required: [k, book, sz, px, pnl]
+      properties:
+        k: { type: string, enum: [settlement] }
+        book: { $ref: '#/components/schemas/Bytes32' }
+        sz: { $ref: '#/components/schemas/DecimalInt256', description: The position before the close. }
+        px: { $ref: '#/components/schemas/DecimalUint256', description: Settlement price. }
+        pnl: { $ref: '#/components/schemas/DecimalInt256', description: PnL the close realized. }
 
     ActivityBridgeTransfer:
       type: object

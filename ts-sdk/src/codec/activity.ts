@@ -57,6 +57,15 @@ export function decodeActivityEntry(e: WireActivityEntry, timeMs: number): Activ
         equity: dec(e.eq),
         realizedPnl: dec(e.pnl),
       };
+    case "settlement":
+      return {
+        activityType: "settlement",
+        timeMs,
+        orderbookId: e.book,
+        size: dec(e.sz),
+        price: dec(e.px),
+        realizedPnl: dec(e.pnl),
+      };
     case "bridge_transfer":
       return {
         activityType: "bridge_transfer",
@@ -136,6 +145,7 @@ export function foldActivityBatch(
       events.push(row);
       continue;
     }
+    if (row.activityType === "settlement") continue;
     const order = orders.get(row.orderId);
     if (!order) continue;
     if (row.activityType === "modify_reject") {

@@ -2751,7 +2751,7 @@ components:
 
     OrderStatus:
       type: string
-      enum: ["pending", "active", "filled", "expired", "canceled", "margin_canceled", "self_trade_canceled", "post_only_refused", "invalid"]
+      enum: ["pending", "active", "filled", "expired", "canceled", "margin_canceled", "self_trade_canceled", "post_only_refused", "settled", "invalid"]
       description: |
         Current status of an order:
         - `pending`: Order submitted but not yet included in orderbook
@@ -2762,6 +2762,7 @@ components:
         - `margin_canceled`: The engine removed the order because the owner's margin capacity was exhausted
         - `self_trade_canceled`: The engine removed a resting order that was about to fill against another order of the same owner
         - `post_only_refused`: The engine refused a `post_only` order because its price crossed the book left by the previous batch. Distinct from `canceled` so an engine refusal can be told apart from a cancel the trader sent — see [Post-only orders](https://docs.v2.pod.network/api-reference/applications-precompiles/orderbook)
+        - `settled`: Removed and refunded because its market was settled
         - `invalid`: Rejected at execution and never entered the book; the reject reason travels with the status
 
     MarketType:
@@ -4075,7 +4076,7 @@ components:
           description: '`fill` only. The fee charged by this fill, 1e18-scaled decimal.'
         st:
           type: string
-          enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused]
+          enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused, settled]
           description: |
             The terminal status an event closed the order with.
 
@@ -4085,7 +4086,8 @@ components:
             On `cancel`: present only when the **engine** removed the order rather than the owner
             cancelling it — `post_only_refused` (a `post_only` order whose price crossed the book left by the
             previous batch), `self_trade_canceled` (a resting order that was
-            about to fill against the same owner), or `margin_canceled`. An ordinary cancel
+            about to fill against the same owner), `margin_canceled`, or `settled` (its market was
+            settled). An ordinary cancel
             omits `st`, so a client that ignores the field reads every `cancel` exactly as it did
             before.
 
@@ -5056,6 +5058,8 @@ components:
         - `termination` — an order left the book other than by filling: `id, book, st, expr?`.
         - `backstop` — a perp position swept to the backstop (`book` set), or the terminal cash
           sweep (`book` omitted): `book?, sz, cash, mark, eq, pnl`.
+        - `settlement` — a perp position its market's settlement closed at the price the market
+          froze at: `book, sz, px, pnl`. `sz` is the position before the close, signed.
         - `bridge_transfer` — a bridge deposit (positive `amt`) or withdrawal (negative):
           `tx, idx, tok, amt, err?`.
         - `transfer` — an account-to-account transfer, debit negative, credit positive: `id, cp,
@@ -5072,7 +5076,7 @@ components:
       properties:
         k:
           type: string
-          enum: [order, fill, modify, termination, backstop, bridge_transfer, transfer, modify_reject, cancel_reject]
+          enum: [order, fill, modify, termination, backstop, settlement, bridge_transfer, transfer, modify_reject, cancel_reject]
         id:
           $ref: '#/components/schemas/Bytes32'
           description: The order id; on `transfer`, the transfer id, as `TransferUpdate.transfer_id`.
@@ -5084,10 +5088,10 @@ components:
           description: The orderbook. Omitted on the terminal backstop cash sweep.
         px:
           type: string
-          description: '`modify`: the price after the change. `modify_reject`: the price asked for.'
+          description: '`modify`: the price after the change. `modify_reject`: the price asked for. `settlement`: the settlement price.'
         sz:
           type: string
-          description: '`modify`: the size after the change, unsigned. `modify_reject`: the size asked for, unsigned. `backstop`: signed position size moved to the backstop.'
+          description: '`modify`: the size after the change, unsigned. `modify_reject`: the size asked for, unsigned. `backstop`: signed position size moved to the backstop. `settlement`: the position closed, signed.'
         why:
           type: string
           description: "`modify_reject`, `cancel_reject`: the engine's reason, always present."
@@ -5111,7 +5115,7 @@ components:
           description: '`fill`: the fee charged by this fill. Omitted on rows stored before it was recorded.'
         st:
           type: string
-          enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused]
+          enum: [filled, canceled, margin_canceled, self_trade_canceled, expired, post_only_refused, settled]
           description: '`fill`: present only on the fill that closed the order. `termination`: how the order left the book (never `filled`).'
         expr:
           type: string
@@ -5140,7 +5144,7 @@ components:
           description: '`backstop`: account equity at the sweep (signed).'
         pnl:
           type: string
-          description: '`backstop`: PnL the forced close realized (signed); `0` on the cash sweep.'
+          description: '`backstop`: PnL the forced close realized (signed); `0` on the cash sweep. `settlement`: PnL the close realized (signed).'
         idx:
           type: integer
           description: '`bridge_transfer`: position among the tick''s deposit outcomes; `0` for a withdrawal.'

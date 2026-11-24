@@ -109,6 +109,11 @@ describe("decodeActivityEntry", () => {
     expect(row.order.realizedPnl).toBe(-WAD);
   });
 
+  it("decodes a position its market's settlement closed", () => {
+    expect(decodeActivityEntry({ k: "settlement", book: BOOK, sz: `-${units(2n)}`, px: units(30n), pnl: units(7n) }, MS))
+      .toEqual({ activityType: "settlement", timeMs: MS, orderbookId: BOOK, size: -2n * WAD, price: 30n * WAD, realizedPnl: 7n * WAD });
+  });
+
   it("returns undefined for a kind it does not know", () => {
     expect(decodeActivityEntry({ k: "airdrop" } as never, MS)).toBeUndefined();
   });
@@ -168,6 +173,17 @@ describe("foldActivityBatch", () => {
     expect(reject.amendRejection).toEqual({
       requestedPrice: WAD, requestedSize: 9n * WAD, code: "unspecified", message: "tick", batchMs: MS,
     });
+  });
+
+  it("closes an order its market's settlement removed as settled, and keeps the closed position a row only", () => {
+    const { rows, events, orders } = fold([
+      order(1),
+      { k: "termination", id: id(1), book: BOOK, st: "settled" },
+      { k: "settlement", book: BOOK, sz: units(2n), px: units(30n), pnl: units(7n) },
+    ]);
+    expect(rows.map(kindOf)).toEqual(["order", "termination", "settlement"]);
+    expect(events.map(kindOf)).toEqual(["new", "cancel"]);
+    expect(orders.get(id(1))?.status).toBe("settled");
   });
 
   it("maps an expiry termination to an `expire` event", () => {

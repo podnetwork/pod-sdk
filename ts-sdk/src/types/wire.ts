@@ -470,7 +470,7 @@ export interface WireTransferMoney {
 }
 
 type WireTerminalStatus =
-  | "filled" | "canceled" | "margin_canceled" | "self_trade_canceled" | "expired" | "post_only_refused";
+  | "filled" | "canceled" | "margin_canceled" | "self_trade_canceled" | "expired" | "post_only_refused" | "settled";
 
 /**
  * An unknown `k` from a newer node is dropped by the decoder; it is not in this union
@@ -501,6 +501,8 @@ export type WireActivityEntry =
       expr?: "ttl" | "ioc";
     }
   | ({ k: "backstop" } & WireBackstopMoney)
+  /** `sz` is the position before the close (signed); `px` the frozen settlement price. */
+  | { k: "settlement"; book: Hex; sz: WireDecimal; px: WireDecimal; pnl: WireDecimal }
   | ({ k: "bridge_transfer" } & WireBridgeMoney)
   | ({ k: "transfer" } & WireTransferMoney)
   | { k: "modify_reject"; id: Hex; book: Hex; px: WireDecimal; sz: WireDecimal; why: string }
