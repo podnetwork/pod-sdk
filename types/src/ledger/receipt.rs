@@ -62,11 +62,14 @@ impl Receipt {
     }
 
     // Generates a multi proof for the children of the receipt log at the given index.
+    // Returns `None` if `log_index` is out of range: the index can come from
+    // RPC data (`VerifiableLog::generate_multi_proof`), so it is not trusted.
     pub fn generate_multi_proof_for_log(
         &self,
         log_index: usize,
     ) -> Option<(Vec<Hash>, MerkleMultiProof)> {
-        self.generate_multi_proof(&index_prefix("logs", log_index), &self.logs[log_index])
+        let log = self.logs.get(log_index)?;
+        self.generate_multi_proof(&index_prefix("logs", log_index), log)
     }
 
     // Generates a multi proof for all log children of all receipt logs.
@@ -142,7 +145,7 @@ mod test {
 
     use crate::{
         AttestedTx, Hashable, Merkleizable, Transaction, TxSigner,
-        cryptography::merkle_tree::StandardMerkleTree,
+        cryptography::{Hash, merkle_tree::StandardMerkleTree},
     };
 
     use super::Receipt;
@@ -230,5 +233,31 @@ mod test {
             &leaves,
             proof
         ));
+    }
+
+    // The log index can come from RPC data (`VerifiableLog::generate_multi_proof`),
+    // so an index past the receipt's logs must yield `None`, not a panic.
+    // Regression: this used to panic on `logs[log_index]`.
+    #[test]
+    fn generate_multi_proof_for_log_is_none_out_of_range() {
+        let receipt = Receipt {
+            status: true,
+            actual_gas_used: 0,
+            max_fee_per_gas: 0,
+            logs: vec![Log {
+                address: Address::default(),
+                data: LogData::new_unchecked(vec![], vec![1].into()),
+            }],
+            logs_root: Hash::default(),
+            tx_hash: Hash::default(),
+            attested_tx: AttestedTx::new(Hash::default(), 0),
+            signer: Address::default(),
+            to: None,
+            contract_address: None,
+        };
+
+        assert!(receipt.generate_multi_proof_for_log(0).is_some());
+        assert!(receipt.generate_multi_proof_for_log(1).is_none());
+        assert!(receipt.generate_multi_proof_for_log(usize::MAX).is_none());
     }
 }
