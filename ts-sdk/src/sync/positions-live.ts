@@ -14,7 +14,8 @@
 //   mul(a,b)            = (a*b)/1e18 truncated toward zero          (Decimal `*`)
 //   mulFloor(a,b)       = (a*b)/1e18 rounded toward -infinity       (`mul_floor`)
 //   funding_accrued = mul(funding_settling_index, size) - funding_basis
-//   unrealized_pnl  = mul(mark, size) - cost_basis
+//   leg price PnL   = mul(mark, size) - cost_basis
+//   unrealized_pnl  = leg price PnL - realized_pnl   (the open size only)
 //   cash_with_funding = native_cash - Σ funding_accrued
 //
 // Nothing is reconstructed here. `funding_index` is a different base — the
@@ -30,8 +31,9 @@ const maxB = (a: bigint, b: bigint) => (a > b ? a : b);
 export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): PositionsSnapshot {
   const byId = new Map<MarketId, Market>(markets.map((m) => [m.id, m]));
 
-  let priceUpnl = 0n; // Σ perp price PnL at live mark (excludes funding)
-  let priceUpnlSnap = 0n; // Σ perp price PnL recorded in the snapshot
+  let pricePnl = 0n; // Σ perp price PnL at live mark, closed slices included (excludes funding)
+  let priceUpnl = 0n; // Σ perp unrealized PnL at live mark: the open size only
+  let priceUpnlSnap = 0n; // Σ perp unrealized PnL recorded in the snapshot
   let fundingLiveTotal = 0n; // Σ funding accrued at the live funding_index
   let fundingSnapTotal = 0n; // Σ funding accrued in the snapshot
   let im = 0n; // Σ initial-margin requirement at live notional
@@ -58,11 +60,16 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
       const pnlAt = (m: bigint) => p.costBasis !== undefined
         ? mul(m, p.size) - p.costBasis
         : mulFloor(m - p.entryPrice, p.size); // pure price drift (signed)
-      const upnl = pnlAt(mark);
+      // Slices closed since the position was last flat stay in its value until
+      // it reaches flat: they count toward equity and not toward unrealized PnL.
+      // A node that does not split them reports 0 realized.
+      const legPnl = pnlAt(mark);
+      const upnl = legPnl - p.realizedPnl;
       const sizeQuote = mul(absB(p.size), mark); // = notional
       const imr = market?.initialMargin ?? imRate(market?.maxLeverage ?? 0);
       im += mul(sizeQuote, imr);
       mm += mul(sizeQuote, imr / 2n);
+      pricePnl += legPnl;
       priceUpnl += upnl;
       priceUpnlSnap += p.unrealizedPnl;
 
@@ -78,7 +85,7 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
         || (market?.dynamicsUs !== undefined && market.dynamicsUs >= snap.timestampUs);
       const snapMark = p.markPrice > 0n ? p.markPrice : p.entryPrice;
       const movedMark = marketFresh ? mark : snapMark;
-      if (marketFresh) dEquity += upnl - pnlAt(snapMark) - (funding - p.fundingAccrued);
+      if (marketFresh) dEquity += legPnl - pnlAt(snapMark) - (funding - p.fundingAccrued);
       const movedNotional = mul(absB(p.size), movedMark);
       imMoved += mul(movedNotional, imr);
       notionalMoved += movedNotional;
@@ -98,7 +105,7 @@ export function enrichPositions(snap: PositionsSnapshot, markets: Market[]): Pos
   const cashWithFunding = nativeCash - fundingLiveTotal;
 
   // EXACT (perp-only, integer-faithful): equity = cash_with_funding + Σ price PnL.
-  const perpsEquity = cashWithFunding + priceUpnl;
+  const perpsEquity = cashWithFunding + pricePnl;
   // The node reserves max(IM, ratio × notional) plus frozen profit; the ratio is not
   // served, so the snapshot's reserve is scaled with notional, floored at live IM.
   // A zero base hides the reserve, so it moves with equity alone.
