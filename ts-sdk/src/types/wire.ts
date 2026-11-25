@@ -122,8 +122,18 @@ export interface WireOrder {
   invalid_reason?: string;
 }
 
+/** `/v2/clob/orders` and `pod_activity_v2` rows: v1 renamed, without fills, with `details`. */
+export interface WireOrderV2 extends Omit<WireOrder, "price" | "initial_size" | "effective_price" | "end" | "invalid_reason"> {
+  limit_price: WireDecimal;
+  size: WireDecimal; // signed
+  avg_fill_price: WireDecimal;
+  expires_at: string; // micros
+  /** The engine's reason on `invalid`, `ttl`/`ioc` on `expired`. */
+  details?: string;
+}
+
 export interface WireOrdersPage {
-  orders: WireOrder[];
+  orders: (WireOrder | WireOrderV2)[];
   next_cursor: string | null;
   total_count: number;
   solution_now: number;
@@ -477,7 +487,7 @@ type WireTerminalStatus =
  * because an open member would defeat narrowing on the known ones.
  */
 export type WireActivityEntry =
-  | ({ k: "order" } & WireOrder)
+  | ({ k: "order" } & (WireOrder | WireOrderV2))
   | {
       k: "fill";
       id: Hex;

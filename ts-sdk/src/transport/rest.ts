@@ -4,7 +4,7 @@
 
 import type { WireFillRow, WireSolutionRow } from "../types/wire.js";
 import type {
-  ActivityType, Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery,
+  ActivityType, Address, BackstopTransfer, Balances, Bar, BridgeConfig, CandleQuery, Hex,
   Market, MarketId, Order, Orderbook, PositionsSnapshot, Resolution, Status,
   Trigger, TxExplorer, Withdrawal, WithdrawalsQuery,
 } from "../types/public.js";
@@ -116,6 +116,8 @@ export class PodRestClient {
   private readonly fetchFn: FetchFn;
   private readonly timeoutMs: number;
   private readonly inflight = new Map<string, Promise<unknown>>();
+  /** Set by the first 404 from a v2 order route: this node predates them. */
+  ordersV1Only = false;
 
   constructor(opts: RestClientOptions) {
     this.base = opts.restUrl.replace(/\/$/, "");
@@ -203,8 +205,22 @@ export class PodRestClient {
     };
   }
 
+  /** Asks the v2 route of a node that has one, and v1 again on one that does not. */
+  private async v2OrV1<T>(path: string, query: Record<string, string | number | undefined>): Promise<T> {
+    if (!this.ordersV1Only) {
+      try {
+        // `restUrl` ends in the API version, so this resolves to its v2 sibling.
+        return await this.get<T>(`/../v2${path}`, query);
+      } catch (e) {
+        if (!(e instanceof PodHttpError && e.status === 404)) throw e;
+        this.ordersV1Only = true;
+      }
+    }
+    return this.get<T>(path, query);
+  }
+
   async orders(account: Address, q?: OrdersQueryRest, minTimestampUs?: number): Promise<OrdersPage> {
-    const w = await this.get<WireOrdersPage>(`/clob/orders/${account}`, {
+    const w = await this.v2OrV1<WireOrdersPage>(`/clob/orders/${account}`, {
       until: q?.until !== undefined ? msToSecs(q.until) : undefined,
       limit: q?.limit,
       cursor: q?.cursor,
@@ -219,9 +235,19 @@ export class PodRestClient {
     };
   }
 
+  /**
+   * One of the account's orders, by id. A node older than the v2 order routes cannot
+   * filter by id, so there it is found only among the newest page of orders.
+   */
+  async order(account: Address, orderId: Hex, minTimestampUs?: number): Promise<Order | undefined> {
+    const w = await this.v2OrV1<WireOrdersPage>(`/clob/orders/${account}`, { order_id: orderId, timestamp: minTimestampUs });
+    const found = w.orders.find((o) => o.order_id.toLowerCase() === orderId.toLowerCase());
+    return found && decodeOrder(found);
+  }
+
   /** One page of an account's activity by batch, newest batches first (ADR 0057 §5); page with `nextUs`. */
   async activity(account: Address, q?: ActivityQueryRest, minTimestampUs?: number): Promise<ActivityPage> {
-    const w = await this.get<WireActivityPage>(`/clob/activity/${account}`, {
+    const w = await this.v2OrV1<WireActivityPage>(`/clob/activity/${account}`, {
       activity_types: q?.types?.length ? q.types.join(",") : undefined,
       from: q?.fromUs !== undefined ? String(q.fromUs) : undefined,
       to: q?.toUs !== undefined ? String(q.toUs) : undefined,

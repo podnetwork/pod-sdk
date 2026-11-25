@@ -690,6 +690,164 @@ paths:
               example: from must not exceed to
         '503': { $ref: '#/components/responses/Unavailable' }
 
+  /v2/clob/orders/{account}:
+    servers:
+      - url: https://staging-rpc.podtestnet.dev
+    get:
+      tags: [Account]
+      summary: Get Orders (v2)
+      operationId: getOrdersV2
+      description: |
+        As `/v1/clob/orders/{account}`, with `OrderResponseV2` rows: no `fills` (read them from
+        the activity feed's `fill` entries), and `details` in place of `invalid_reason`. Same
+        paging, filters and `Cache-Control`.
+
+        `order_id` returns only that order.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+        - $ref: '#/components/parameters/MinTimestamp'
+        - name: until
+          in: query
+          description: Upper bound on order deadline, unix seconds. Ignored when `cursor` or `offset` is set.
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          description: Page size, capped at 500.
+          schema: { type: integer, minimum: 0, maximum: 500, default: 500 }
+        - name: cursor
+          in: query
+          description: '`next_cursor` from the previous page, `"{deadline_us}:{nonce}:{order_id_hex}"`. Malformed is a `400`.'
+          schema: { type: string }
+        - name: offset
+          in: query
+          description: Skip this many newest-first rows. Switches to offset mode.
+          schema: { type: integer, minimum: 0 }
+        - name: orderbook
+          in: query
+          description: Restrict to one orderbook. An id wider than the node's 32-bit form is a `400`.
+          schema: { $ref: '#/components/schemas/Bytes32' }
+        - name: status
+          in: query
+          description: Restrict to one status. Unknown values are a `400`.
+          schema: { $ref: '#/components/schemas/OrderStatus' }
+        - name: order_id
+          in: query
+          description: Return only this order.
+          schema: { $ref: '#/components/schemas/Bytes32' }
+      responses:
+        '200':
+          description: Order page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orders, next_cursor, total_count, solution_now]
+                properties:
+                  orders:
+                    type: array
+                    items: { $ref: '#/components/schemas/OrderResponseV2' }
+                  next_cursor:
+                    type: string
+                    nullable: true
+                    description: Cursor for the next page. `null` on the last page and in offset mode.
+                  total_count:
+                    type: integer
+                    description: Orders matching the filters, across all pages.
+                  solution_now:
+                    $ref: '#/components/schemas/Timestamp'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /v2/clob/activity/{account}:
+    servers:
+      - url: https://staging-rpc.podtestnet.dev
+    get:
+      tags: [Account]
+      summary: Get Account Activity (v2)
+      operationId: getActivityV2
+      description: |
+        As `/v1/clob/activity/{account}`, with `order` entries as `OrderResponseV2`
+        (`ActivityOrderV2`). Every other entry kind, the paging, the parameters and
+        `Cache-Control` are unchanged.
+
+        Seed from this route, then subscribe to the `pod_activity_v2` websocket channel with
+        `since` = `solution_now`.
+      parameters:
+        - $ref: '#/components/parameters/AccountPath'
+        - name: from
+          in: query
+          description: Lowest batch deadline, microseconds, inclusive. Defaults to `0`.
+          schema: { $ref: '#/components/schemas/TimestampString' }
+        - name: to
+          in: query
+          description: Highest batch deadline, microseconds, inclusive. Defaults to the whole history. `from > to` is a `422` (`from must not exceed to`).
+          schema: { $ref: '#/components/schemas/TimestampString' }
+        - $ref: '#/components/parameters/MinTimestamp'
+        - name: limit
+          in: query
+          description: Entries per page after the type filter, clamped to `[1, 2000]`. A page can exceed it by its newest batch.
+          schema: { type: integer, minimum: 1, maximum: 2000, default: 500 }
+        - name: activity_types
+          in: query
+          description: |
+            Comma-separated kinds to include: `order`, `fill`, `modify`, `termination`,
+            `backstop`, `bridge_transfer`, `transfer`, `modify_reject`, `cancel_reject`. Defaults to all. An unknown or empty
+            name is a `400` (`invalid activity_types`).
+          schema: { type: string, example: "order,fill" }
+      responses:
+        '200':
+          description: Activity page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [activity, next, solution_now]
+                properties:
+                  activity:
+                    $ref: '#/components/schemas/ActivityFrameV2'
+                  next:
+                    type: string
+                    pattern: "^[0-9]+$"
+                    nullable: true
+                    description: The oldest served batch minus 1µs when older history may exist, otherwise `null`. Pass it as `to`.
+                  solution_now:
+                    $ref: '#/components/schemas/Timestamp'
+              example:
+                activity:
+                  "1704153600000000":
+                    - k: order
+                      orderbook_id: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                      market_type: spot
+                      kind: user_signed
+                      order_id: "0x9a8b7c6d5e4f30211a2b3c4d5e6f70819a8b7c6d5e4f30211a2b3c4d5e6f7081"
+                      tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                      bidder: "0x1234567890abcdef1234567890abcdef12345678"
+                      nonce: 42
+                      order_type: limit
+                      status: expired
+                      details: ttl
+                      side: sell
+                      limit_price: "0x4563918244f40000"
+                      size: "-1000000000000000000"
+                      filled_base_amount: "0x0"
+                      filled_quote_amount: "0x0"
+                      avg_fill_price: "0x0"
+                      fee: "0x0"
+                      deadline: "1704153600000000"
+                      included_batch: "1704153600000000"
+                      expires_at: "1704157200000000"
+                      direction: sell
+                next: "1704153599999999"
+                solution_now: 1704153600100000
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422':
+          description: '`from > to`. Plain-text reason.'
+          content:
+            text/plain:
+              schema: { type: string }
+              example: from must not exceed to
+        '503': { $ref: '#/components/responses/Unavailable' }
+
   # ==========================================
   # EXPLORER
   # ==========================================
@@ -1426,6 +1584,69 @@ components:
           $ref: '#/components/schemas/TriggerType'
           description: Set only on orders a fired trigger produced (`kind` `triggered`).
 
+    OrderResponseV2:
+      type: object
+      description: |
+        An order, without its fills. Unsigned amounts and prices are 1e18-scaled `0x` hex,
+        signed ones decimal strings. Perp-only fields are omitted on spot orders.
+
+        Differs from v1 `Order`: no `fills` (use the activity feed's `fill` entries), `details`
+        replaces `invalid_reason`, `price` is `limit_price`, `initial_size` is `size`,
+        `effective_price` is `avg_fill_price`, `end` is `expires_at`, and `deadline`,
+        `included_batch` and `expires_at` are all microsecond strings.
+      properties:
+        orderbook_id: { $ref: '#/components/schemas/Bytes32' }
+        market_type: { $ref: '#/components/schemas/MarketType' }
+        kind: { $ref: '#/components/schemas/OrderKind' }
+        order_id: { $ref: '#/components/schemas/Bytes32' }
+        tx_hash:
+          $ref: '#/components/schemas/Bytes32'
+          description: Creating transaction. Zero for engine-generated orders.
+        bidder: { $ref: '#/components/schemas/Address' }
+        nonce: { type: integer, format: int64 }
+        order_type: { type: string, enum: [limit, market] }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        details:
+          type: string
+          description: |
+            On `status` `invalid`, the engine's reason (free text). On `status` `expired`, `ttl`
+            (the time limit ran out) or `ioc` (the unfilled rest of an immediate-or-cancel
+            order). Absent on every other status, and on expiries indexed before the reason was
+            stored.
+        side: { type: string, enum: [buy, sell] }
+        limit_price: { $ref: '#/components/schemas/HexUint256' }
+        size:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Current size, signed; positive buy/long, negative sell/short. An amend replaces it.
+        filled_base_amount: { $ref: '#/components/schemas/HexUint256' }
+        filled_quote_amount: { $ref: '#/components/schemas/HexUint256' }
+        avg_fill_price:
+          $ref: '#/components/schemas/HexUint256'
+          description: Volume-weighted average fill price. `0x0` while nothing filled.
+        fee: { $ref: '#/components/schemas/HexUint256' }
+        deadline:
+          $ref: '#/components/schemas/TimestampString'
+          description: The batch the order was signed for.
+        included_batch:
+          $ref: '#/components/schemas/TimestampString'
+          description: The batch the order entered the book. `"0"` for engine-generated orders and older rows.
+        expires_at:
+          $ref: '#/components/schemas/TimestampString'
+          description: TTL expiry. `"18446744073709551615"` means never.
+        reduce_only: { type: boolean, description: Perp only. }
+        ioc: { type: boolean, description: Perp only. }
+        post_only: { type: boolean, description: Omitted when false. }
+        direction: { $ref: '#/components/schemas/OrderDirection' }
+        realized_pnl:
+          $ref: '#/components/schemas/DecimalInt256'
+          description: Perp only, present once a fill closed exposure.
+        grouping:
+          $ref: '#/components/schemas/TriggerGrouping'
+          description: Inherited from the parent trigger. Omitted when `none`.
+        trigger_type:
+          $ref: '#/components/schemas/TriggerType'
+          description: Set only on orders a fired trigger produced (`kind` `triggered`).
+
     Fill:
       type: object
       properties:
@@ -1629,6 +1850,52 @@ components:
           properties:
             k: { type: string, enum: [order] }
         - $ref: '#/components/schemas/Order'
+
+    ActivityFrameV2:
+      type: object
+      description: |
+        As `ActivityFrame`, with `order` entries as `ActivityOrderV2`. Served by
+        `/v2/clob/activity/{account}` and the `pod_activity_v2` websocket channel.
+      additionalProperties:
+        type: array
+        items: { $ref: '#/components/schemas/ActivityEntryV2' }
+
+    ActivityEntryV2:
+      description: As `ActivityEntry`, except that `k` `order` is `ActivityOrderV2`.
+      oneOf:
+        - $ref: '#/components/schemas/ActivityOrderV2'
+        - $ref: '#/components/schemas/ActivityFill'
+        - $ref: '#/components/schemas/ActivityModify'
+        - $ref: '#/components/schemas/ActivityTermination'
+        - $ref: '#/components/schemas/ActivityBackstop'
+        - $ref: '#/components/schemas/ActivityBridgeTransfer'
+        - $ref: '#/components/schemas/ActivityTransfer'
+        - $ref: '#/components/schemas/ActivityModifyReject'
+        - $ref: '#/components/schemas/ActivityCancelReject'
+      discriminator:
+        propertyName: k
+        mapping:
+          order: '#/components/schemas/ActivityOrderV2'
+          fill: '#/components/schemas/ActivityFill'
+          modify: '#/components/schemas/ActivityModify'
+          termination: '#/components/schemas/ActivityTermination'
+          backstop: '#/components/schemas/ActivityBackstop'
+          bridge_transfer: '#/components/schemas/ActivityBridgeTransfer'
+          transfer: '#/components/schemas/ActivityTransfer'
+          modify_reject: '#/components/schemas/ActivityModifyReject'
+          cancel_reject: '#/components/schemas/ActivityCancelReject'
+
+    ActivityOrderV2:
+      description: |
+        The order as `/v2/clob/orders/{account}` serves it, at the batch that admitted it, in its
+        current state. On the `pod_activity_v2` channel it is the admission state instead:
+        `active`, or `invalid` with `details`, and zero totals.
+      allOf:
+        - type: object
+          required: [k]
+          properties:
+            k: { type: string, enum: [order] }
+        - $ref: '#/components/schemas/OrderResponseV2'
 
     ActivityFill:
       type: object

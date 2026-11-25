@@ -44,7 +44,8 @@ export class ActivityHistory implements ActivityView {
   ) {
     this.stream = new ResumableStream({
       ws: ctx.ws,
-      channel: "pod_activity",
+      // The REST seed runs first and learns whether this node has the v2 routes.
+      channel: () => (ctx.rest.ordersV1Only ? "pod_activity" : "pod_activity_v2"),
       params: { account },
       reseed: () => this.seed(),
       onFrame: (r) => this.onFrame(r),

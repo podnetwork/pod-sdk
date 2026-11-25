@@ -9,7 +9,7 @@ import type {
 } from "../types/public.js";
 import type {
   WireBackstopTransfer, WireBalances, WireBridgeConfig, WireCandle,
-  WireMarketDynamics, WireMarketStatic, WireOrder, WireOrderbook,
+  WireMarketDynamics, WireMarketStatic, WireOrder, WireOrderV2, WireOrderbook,
   WirePerpPosition, WirePosition, WirePositionsSnapshot, WireSpotHolding, WireSpotPosition,
   WireStatus, WireTrigger, WireWithdrawal,
 } from "../types/wire.js";
@@ -78,7 +78,20 @@ export function decodeCandle(w: WireCandle): Bar {
   };
 }
 
-export function decodeOrder(w: WireOrder): Order {
+function fromV2({ limit_price, size, avg_fill_price, expires_at, details, ...rest }: WireOrderV2): WireOrder & { details?: string } {
+  return {
+    ...rest,
+    price: limit_price,
+    initial_size: size,
+    effective_price: avg_fill_price,
+    end: expires_at,
+    invalid_reason: rest.status === "invalid" ? details : undefined,
+    details,
+  };
+}
+
+export function decodeOrder(wire: WireOrder | WireOrderV2): Order {
+  const w: WireOrder & { details?: string } = "limit_price" in wire ? fromV2(wire) : wire;
   const initialSize = dec(w.initial_size);
   return {
     id: w.order_id,
@@ -104,6 +117,7 @@ export function decodeOrder(w: WireOrder): Order {
     endMs: endMsFromUs(w.end),
     includedMs: usToMsOpt(w.included_batch),
     rejectReason: w.invalid_reason,
+    details: w.details ?? w.invalid_reason,
     reduceOnly: w.reduce_only,
     ioc: w.ioc,
     direction: w.direction as OrderDirection | undefined,
