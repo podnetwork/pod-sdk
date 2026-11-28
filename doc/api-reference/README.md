@@ -33,9 +33,15 @@ View transactions in the app
 {% endtab %}
 
 {% tab title="Mainnet" %}
-{% hint style="info" %}
-**Mainnet is not live yet.** Network details will be published here once mainnet launches.
-{% endhint %}
+| Property        | Value                                                        |
+| --------------- | ------------------------------------------------------------ |
+| Name            | `pod`                                                        |
+| RPC             | `https://brahma.pod.network`                                 |
+| WebSocket       | `wss://brahma.pod.network`                                   |
+| Chain ID        | `1293`                                                       |
+| Explorer        | `https://app.exotic.xyz/explorer`                            |
+| Currency Symbol | `USD`                                                        |
+| EVM Version     | `Prague` (Ethereum block 22,431,084, Released May 7th, 2025) |
 {% endtab %}
 {% endtabs %}
 
